@@ -1,0 +1,99 @@
+name: Collecte (réutilisable)
+
+# Workflow appelé par chaque cadence. Il fait toujours la même chose — préparer
+# l'environnement, lancer les collecteurs dus, publier ce qui a changé — et ne varie
+# que par le seau de cadence reçu en paramètre. Un seul endroit à corriger.
+
+on:
+  workflow_call:
+    inputs:
+      bucket:
+        required: true
+        type: string
+      minutes:
+        description: Plafond de temps du job, marge comprise
+        required: false
+        type: number
+        default: 90
+
+permissions:
+  contents: write        # nécessaire pour publier les données collectées
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.minutes }}
+
+    # Deux exécutions d'une même cadence ne doivent jamais se chevaucher : elles
+    # écriraient les mêmes fichiers. On laisse la nouvelle attendre plutôt que
+    # d'annuler — une collecte à moitié faite vaut moins qu'une collecte finie.
+    concurrency:
+      group: collecte-${{ inputs.bucket }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dépendances
+        run: pip install --quiet -r requirements.txt
+
+      # Les collecteurs lisent leurs clés dans l'environnement, avec repli sur un
+      # fichier du dossier personnel. On alimente les DEUX voies : un collecteur
+      # qui ne lirait que le fichier échouerait autrement sans raison visible.
+      - name: Clés d'accès
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+        run: |
+          [ -n "$EIA_API_KEY" ]    && printf '%s' "$EIA_API_KEY"    > "$HOME/.eia_api_key"
+          [ -n "$SERPAPI_KEY" ]    && printf '%s' "$SERPAPI_KEY"    > "$HOME/.serpapi_key"
+          [ -n "$GIE_API_KEY" ]    && printf '%s' "$GIE_API_KEY"    > "$HOME/.gie_api_key"
+          chmod 600 "$HOME"/.eia_api_key "$HOME"/.serpapi_key "$HOME"/.gie_api_key 2>/dev/null
+          echo "clés en place : $(ls -1 "$HOME"/.*_key "$HOME"/.serpapi_key 2>/dev/null | wc -l)"
+        continue-on-error: true
+
+      - name: Collecte
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+          # La SEC refuse (403) toute requête sans contact nominatif. La valeur vit
+          # dans un secret : l'adresse ne doit pas se retrouver dans un dépôt public,
+          # où elle serait récoltée dès l'indexation.
+          SCF_CONTACT_UA: ${{ secrets.SCF_CONTACT_UA }}
+        run: python tools/run_jobs.py --bucket ${{ inputs.bucket }}
+
+      - name: Publier les données modifiées
+        run: |
+          git config user.name  "collecte"
+          git config user.email "collecte@users.noreply.github.com"
+          git add cache/
+          if git diff --cached --quiet; then
+            echo "aucun changement — rien à publier"
+            exit 0
+          fi
+          N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+          git commit -q -m "données ${{ inputs.bucket }} : $N fichier(s)"
+
+          # Plusieurs cadences peuvent publier en même temps. Le perdant rejoue son
+          # commit au-dessus du gagnant au lieu d'échouer : les fichiers touchés sont
+          # disjoints, il n'y a rien à arbitrer, seulement à réessayer.
+          for essai in 1 2 3 4 5; do
+            if git push; then
+              echo "publié (essai $essai)"
+              exit 0
+            fi
+            echo "conflit de publication — reprise au-dessus de la version distante"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || exit 1
+            sleep $((essai * 5))
+          done
+          echo "échec de publication après 5 essais" >&2
+          exit 1

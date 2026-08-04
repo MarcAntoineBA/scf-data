@@ -1,7 +1,7 @@
 #!/bin/bash
 # Refresh complet du cache Radar v3 (Indicateur.html).
 # Pipeline : fetch signals -> consolidate -> build scores -> build cache JS.
-# Declenche par launchd scf.radarv3.refresh toutes les 24h.
+# Declenche par launchd com.l'auteur.radarv3.refresh toutes les 24h.
 set -u
 cd "$HOME/Library/Application Support/SiteCryptoFinance/radar_audit"
 

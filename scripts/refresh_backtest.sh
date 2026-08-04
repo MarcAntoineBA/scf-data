@@ -8,7 +8,7 @@
 # sont chargées DYNAMIQUEMENT au runtime (?t=Date.now()) → déjà fraîches sans re-knit.
 # Avant ce job, Backtest.html n'était jamais re-knit → Sentiment+F&G figés (bug 2026-06-15).
 #
-# Le radar_backtest_cache lui-même est rafraîchi par scf.backtestradar (backtest_radar.py).
+# Le radar_backtest_cache lui-même est rafraîchi par com.l'auteur.backtestradar (backtest_radar.py).
 set -euo pipefail
 export PATH="/opt/anaconda3/bin:/Library/Frameworks/Python.framework/Versions/3.12/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 

@@ -1,7 +1,7 @@
 {
  "jobs": [
   {
-   "label": "com.bassetti.cfdeploy",
+   "id": "cfdeploy",
    "script": "deploy_public_wrangler.sh",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
@@ -10,7 +10,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.cfwatchdog",
+   "id": "cfwatchdog",
    "script": "watchdog_public_deploy.sh",
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
@@ -22,7 +22,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.fastpublish",
+   "id": "fastpublish",
    "script": "fast_publish.sh",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -31,7 +31,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.freshness.watchdog",
+   "id": "freshness.watchdog",
    "script": "watchdog_freshness.py",
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
@@ -102,7 +102,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.savoir",
+   "id": "savoir",
    "script": "",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -111,7 +111,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.siteserver",
+   "id": "siteserver",
    "script": "",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -120,7 +120,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.snapshot",
+   "id": "snapshot",
    "script": "snapshot_site.sh",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
@@ -131,7 +131,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.souv_carte",
+   "id": "souv_carte",
    "script": "carte.sh",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -140,7 +140,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.souv_grind",
+   "id": "souv_grind",
    "script": "grind.sh",
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
@@ -149,7 +149,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.souv_links",
+   "id": "souv_links",
    "script": "links_runner.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -158,7 +158,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.syncprod",
+   "id": "syncprod",
    "script": "sync_prod_branch.sh",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -167,7 +167,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.syncthing",
+   "id": "syncthing",
    "script": "",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -176,7 +176,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.syncthing.watchdog",
+   "id": "syncthing.watchdog",
    "script": "syncthing_watchdog.sh",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
@@ -185,7 +185,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.wakekicker",
+   "id": "wakekicker",
    "script": "wake_kicker.py",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -194,7 +194,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.advisor",
+   "id": "advisor",
    "script": "trigger_advisor.sh",
    "schedule": "5 créneau(x)/jour",
    "per_day": 5.0,
@@ -203,7 +203,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.advisor.flows",
+   "id": "advisor.flows",
    "script": "refresh_flows.sh",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -212,7 +212,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.advisor.server",
+   "id": "advisor.server",
    "script": "advisor_server.py",
    "schedule": "permanent",
    "per_day": 0.0,
@@ -221,7 +221,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.portefeuille",
+   "id": "portefeuille",
    "script": "fetch_portefeuille_prices.py",
    "schedule": "toutes les 2 h",
    "per_day": 12.0,
@@ -235,7 +235,7 @@
    "witness": "portefeuille_cache.json"
   },
   {
-   "label": "com.bassetti.ai_adoption",
+   "id": "ai_adoption",
    "script": "fetch_ai_adoption.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -247,7 +247,7 @@
    "witness": "ai_adoption_cache.json"
   },
   {
-   "label": "com.bassetti.atlasbudget",
+   "id": "atlasbudget",
    "script": "fetch_atlas_budget.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -256,7 +256,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.atlasdebt",
+   "id": "atlasdebt",
    "script": "fetch_atlas_debt.py",
    "schedule": "toutes les 2 h",
    "per_day": 12.0,
@@ -267,7 +267,7 @@
    "witness": "atlas_debt_cache.json"
   },
   {
-   "label": "com.bassetti.atlasdetail",
+   "id": "atlasdetail",
    "script": "fetch_atlas_detail.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -279,7 +279,7 @@
    "witness": "atlas_detail_cache.json"
   },
   {
-   "label": "com.bassetti.atlaseco",
+   "id": "atlaseco",
    "script": "fetch_atlas_econ.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -291,7 +291,7 @@
    "witness": "atlas_econ_cache.json"
   },
   {
-   "label": "com.bassetti.atlasmaritime",
+   "id": "atlasmaritime",
    "script": "fetch_atlas_maritime.py",
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
@@ -303,7 +303,7 @@
    "witness": "atlas_maritime_cache.json"
   },
   {
-   "label": "com.bassetti.atlasquarterly",
+   "id": "atlasquarterly",
    "script": "fetch_atlas_quarterly.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -314,7 +314,7 @@
    "witness": "atlas_quarterly_cache.json"
   },
   {
-   "label": "com.bassetti.backtest.refresh",
+   "id": "backtest.refresh",
    "script": "refresh_backtest.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -323,7 +323,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.backtestradar",
+   "id": "backtestradar",
    "script": "backtest_radar.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -335,7 +335,7 @@
    "witness": "radar_backtest_cache.js"
   },
   {
-   "label": "com.bassetti.btccycle",
+   "id": "btccycle",
    "script": "fetch_btc_cycle.py",
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
@@ -349,7 +349,7 @@
    "witness": "btc_cycle_cache.json"
   },
   {
-   "label": "com.bassetti.btccycle.live",
+   "id": "btccycle.live",
    "script": "fetch_btc_cycle.py",
    "schedule": "4 créneau(x)/jour",
    "per_day": 4.0,
@@ -363,7 +363,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.buffettcash",
+   "id": "buffettcash",
    "script": "fetch_buffett_cash.py",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -375,7 +375,7 @@
    "witness": "buffett_cash_cache.json"
   },
   {
-   "label": "com.bassetti.bulleai.refresh",
+   "id": "bulleai.refresh",
    "script": "refresh_bulle_ia.sh",
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
@@ -394,7 +394,7 @@
    "witness": "bulle_ia_render/Bulle_IA.html"
   },
   {
-   "label": "com.bassetti.correlations.refresh",
+   "id": "correlations.refresh",
    "script": "refresh_correlations.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -403,7 +403,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.creditprive",
+   "id": "creditprive",
    "script": "fetch_credit_prive.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -415,7 +415,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.crypto-pe-hist",
+   "id": "crypto-pe-hist",
    "script": "fetch_crypto_pe_hist.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -426,7 +426,7 @@
    "witness": "crypto_pe_hist_cache.json"
   },
   {
-   "label": "com.bassetti.cryptoetf",
+   "id": "cryptoetf",
    "script": "fetch_crypto_etf_flows.py",
    "schedule": "12 créneau(x)/jour",
    "per_day": 12.0,
@@ -438,7 +438,7 @@
    "witness": "crypto_etf_cache.json"
   },
   {
-   "label": "com.bassetti.cryptoytd",
+   "id": "cryptoytd",
    "script": "fetch_crypto_ytd.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -450,7 +450,7 @@
    "witness": "crypto_ytd_cache.json"
   },
   {
-   "label": "com.bassetti.cyclecache",
+   "id": "cyclecache",
    "script": "fetch_cycle_cache.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -462,7 +462,7 @@
    "witness": "cycle_cache.json"
   },
   {
-   "label": "com.bassetti.defiengagement.refresh",
+   "id": "defiengagement.refresh",
    "script": "fetch_defi_engagement.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -471,7 +471,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.earningscal",
+   "id": "earningscal",
    "script": "fetch_earnings_calendar.py",
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
@@ -483,7 +483,7 @@
    "witness": "earnings_calendar_cache.json"
   },
   {
-   "label": "com.bassetti.ecophysique",
+   "id": "ecophysique",
    "script": "fetch_economie_physique.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -495,7 +495,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.ecosysteme.indicators",
+   "id": "ecosysteme.indicators",
    "script": "fetch_ecosysteme_indicators.py",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -507,7 +507,7 @@
    "witness": "ecosysteme_indicators_cache.json"
   },
   {
-   "label": "com.bassetti.ecosysteme.refresh",
+   "id": "ecosysteme.refresh",
    "script": "refresh_ecosysteme.sh",
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
@@ -516,7 +516,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.energymacro",
+   "id": "energymacro",
    "script": "fetch_energy_macro.py",
    "schedule": "toutes les 3 h",
    "per_day": 8.0,
@@ -525,7 +525,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.fedwatch.refresh",
+   "id": "fedwatch.refresh",
    "script": "fetch_fedwatch.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -537,7 +537,7 @@
    "witness": "fedwatch_cache.json"
   },
   {
-   "label": "com.bassetti.finance_americaine",
+   "id": "finance_americaine",
    "script": "fetch_finance_americaine.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -549,7 +549,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.financiarisation",
+   "id": "financiarisation",
    "script": "fetch_financiarisation.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -561,7 +561,7 @@
    "witness": "financiarisation_cache.json"
   },
   {
-   "label": "com.bassetti.fjnews",
+   "id": "fjnews",
    "script": "refresh_fj_news.sh",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
@@ -572,7 +572,7 @@
    "witness": "fj_news_cache.json"
   },
   {
-   "label": "com.bassetti.fluxphysiques",
+   "id": "fluxphysiques",
    "script": "fetch_flux_physiques.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -583,7 +583,7 @@
    "witness": "flux_physiques_cache.js"
   },
   {
-   "label": "com.bassetti.frbudget",
+   "id": "frbudget",
    "script": "fetch_atlas_france_budget.py",
    "schedule": "toutes les 1.7e+02 h",
    "per_day": 0.14,
@@ -592,7 +592,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.fredstress.refresh",
+   "id": "fredstress.refresh",
    "script": "fetch_fred_stress_indicators.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -603,7 +603,7 @@
    "witness": "fred_stress_indicators_cache.js"
   },
   {
-   "label": "com.bassetti.globalhist",
+   "id": "globalhist",
    "script": "fetch_global_hist.py",
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
@@ -615,7 +615,7 @@
    "witness": "global_hist_cache.json"
   },
   {
-   "label": "com.bassetti.globalmarkets",
+   "id": "globalmarkets",
    "script": "fetch_global_markets.py",
    "schedule": "6 créneau(x)/jour",
    "per_day": 6.0,
@@ -627,7 +627,7 @@
    "witness": "global_markets_cache.json"
   },
   {
-   "label": "com.bassetti.gtrends.refresh",
+   "id": "gtrends.refresh",
    "script": "refresh_gtrends.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -638,7 +638,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.gtrends.serpapi",
+   "id": "gtrends.serpapi",
    "script": "update_gtrends.py",
    "schedule": "7 créneau(x)/jour",
    "per_day": 7.0,
@@ -652,7 +652,7 @@
    "witness": "gtrends_cache.json"
   },
   {
-   "label": "com.bassetti.gtrendshype",
+   "id": "gtrendshype",
    "script": "fetch_gtrends_hype.py",
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
@@ -665,7 +665,7 @@
    "witness": "gtrends_hype_cache.json"
   },
   {
-   "label": "com.bassetti.hydrocarbures",
+   "id": "hydrocarbures",
    "script": "fetch_hydrocarbures.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -677,7 +677,7 @@
    "witness": "hydro_cache.json"
   },
   {
-   "label": "com.bassetti.ipocal",
+   "id": "ipocal",
    "script": "fetch_ipo_calendar.py",
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
@@ -689,7 +689,7 @@
    "witness": "ipo_calendar_cache.json"
   },
   {
-   "label": "com.bassetti.l1history",
+   "id": "l1history",
    "script": "fetch_l1_history.py",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -702,7 +702,7 @@
    "witness": "l1_history_cache.json"
   },
   {
-   "label": "com.bassetti.l1valuation",
+   "id": "l1valuation",
    "script": "refresh_l1_valuation.sh",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -713,7 +713,7 @@
    "witness": "l1_valuation_cache.json"
   },
   {
-   "label": "com.bassetti.leveredetf",
+   "id": "leveredetf",
    "script": "fetch_levered_etf_volume.py",
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
@@ -724,7 +724,7 @@
    "witness": "levered_etf_cache.js"
   },
   {
-   "label": "com.bassetti.macro-corr",
+   "id": "macro-corr",
    "script": "fetch_macro_corr.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -736,7 +736,7 @@
    "witness": "macro_corr_cache.json"
   },
   {
-   "label": "com.bassetti.macrocal",
+   "id": "macrocal",
    "script": "fetch_macro_calendar.py",
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
@@ -748,7 +748,7 @@
    "witness": "macro_calendar_cache.json"
   },
   {
-   "label": "com.bassetti.macrofred.refresh",
+   "id": "macrofred.refresh",
    "script": "fetch_macro_fred_data.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -762,7 +762,7 @@
    "witness": "macro_fred_cache.json"
   },
   {
-   "label": "com.bassetti.macrotrends.refresh",
+   "id": "macrotrends.refresh",
    "script": "refresh_macro_trends.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -771,7 +771,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.mag7hist",
+   "id": "mag7hist",
    "script": "fetch_mag7_hist.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -783,7 +783,7 @@
    "witness": "mag7_hist_cache.json"
   },
   {
-   "label": "com.bassetti.modelesvalo.refresh",
+   "id": "modelesvalo.refresh",
    "script": "refresh_modeles_valo.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -792,7 +792,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.moneyflow",
+   "id": "moneyflow",
    "script": "fetch_moneyflow.py",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
@@ -805,7 +805,7 @@
    "witness": "moneyflow_cache.json"
   },
   {
-   "label": "com.bassetti.narratives",
+   "id": "narratives",
    "script": "fetch_narratives.py",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -821,7 +821,7 @@
    "witness": "narratives_cache.json"
   },
   {
-   "label": "com.bassetti.narrfund",
+   "id": "narrfund",
    "script": "fetch_narratives_fundamentals.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -834,7 +834,7 @@
    "witness": "narratives_fundamentals_cache.json"
   },
   {
-   "label": "com.bassetti.newlistings",
+   "id": "newlistings",
    "script": "fetch_new_listings.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
@@ -847,7 +847,7 @@
    "witness": "new_listings_cache.json"
   },
   {
-   "label": "com.bassetti.news",
+   "id": "news",
    "script": "fetch_news_with_timeout.sh",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
@@ -856,7 +856,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.pehist",
+   "id": "pehist",
    "script": "fetch_pe_hist.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -868,7 +868,7 @@
    "witness": "pe_hist_cache.json"
   },
   {
-   "label": "com.bassetti.pehistglobal",
+   "id": "pehistglobal",
    "script": "fetch_pe_hist_global.py",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -880,7 +880,7 @@
    "witness": "pe_hist_global_cache.json"
   },
   {
-   "label": "com.bassetti.perdata",
+   "id": "perdata",
    "script": "fetch_per_data.py",
    "schedule": "6 créneau(x)/jour",
    "per_day": 6.0,
@@ -892,7 +892,7 @@
    "witness": "per_data_cache.json"
   },
   {
-   "label": "com.bassetti.predmarkets",
+   "id": "predmarkets",
    "script": "fetch_prediction_markets_with_timeout.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -903,7 +903,7 @@
    "witness": "prediction_markets_cache.json"
   },
   {
-   "label": "com.bassetti.radardata",
+   "id": "radardata",
    "script": "fetch_radar_data.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
@@ -915,7 +915,7 @@
    "witness": "radar_cache.json"
   },
   {
-   "label": "com.bassetti.radarv3.refresh",
+   "id": "radarv3.refresh",
    "script": "refresh_radar_v3_cache.sh",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -926,7 +926,7 @@
    "witness": "radar_v3_cache.js"
   },
   {
-   "label": "com.bassetti.sentiment.fng",
+   "id": "sentiment.fng",
    "script": "refresh_sentiment_fng.sh",
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
@@ -937,7 +937,7 @@
    "witness": "sentiment_index_live.js"
   },
   {
-   "label": "com.bassetti.stockbubble",
+   "id": "stockbubble",
    "script": "fetch_stock_bubble.py",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
@@ -951,7 +951,7 @@
    "witness": "stock_bubble_cache.json"
   },
   {
-   "label": "com.bassetti.these_bitcoin.refresh",
+   "id": "these_bitcoin.refresh",
    "script": "fetch_these_bitcoin.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -963,7 +963,7 @@
    "witness": "these_bitcoin_cache.json"
   },
   {
-   "label": "com.bassetti.these_bulleia.refresh",
+   "id": "these_bulleia.refresh",
    "script": "fetch_these_bulleia.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -975,7 +975,7 @@
    "witness": "these_bulleia_cache.json"
   },
   {
-   "label": "com.bassetti.these_dette.refresh",
+   "id": "these_dette.refresh",
    "script": "fetch_these_dette.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -987,7 +987,7 @@
    "witness": "these_dette_cache.json"
   },
   {
-   "label": "com.bassetti.these_dollar.refresh",
+   "id": "these_dollar.refresh",
    "script": "fetch_these_dollar.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -999,7 +999,7 @@
    "witness": "these_dollar_cache.json"
   },
   {
-   "label": "com.bassetti.these_effondrement.refresh",
+   "id": "these_effondrement.refresh",
    "script": "fetch_these_effondrement.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1011,7 +1011,7 @@
    "witness": "these_effondrement_cache.json"
   },
   {
-   "label": "com.bassetti.these_energie.refresh",
+   "id": "these_energie.refresh",
    "script": "fetch_these_energie.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1023,7 +1023,7 @@
    "witness": "these_energie_cache.json"
   },
   {
-   "label": "com.bassetti.these_stagnation.refresh",
+   "id": "these_stagnation.refresh",
    "script": "fetch_these_stagnation.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1035,7 +1035,7 @@
    "witness": "these_stagnation_cache.json"
   },
   {
-   "label": "com.bassetti.these_web3.refresh",
+   "id": "these_web3.refresh",
    "script": "fetch_these_web3.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1047,7 +1047,7 @@
    "witness": "these_web3_cache.json"
   },
   {
-   "label": "com.bassetti.tradfi",
+   "id": "tradfi",
    "script": "fetch_tradfi_with_timeout.sh",
    "schedule": "4 créneau(x)/jour",
    "per_day": 4.0,
@@ -1058,7 +1058,7 @@
    "witness": "tradfi_cache.json"
   },
   {
-   "label": "com.bassetti.tradfi-growth",
+   "id": "tradfi-growth",
    "script": "fetch_tradfi_growth.py",
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
@@ -1069,7 +1069,7 @@
    "witness": "tradfi_growth_cache.json"
   },
   {
-   "label": "com.bassetti.tradfiallocation.refresh",
+   "id": "tradfiallocation.refresh",
    "script": "fetch_tradfi_allocation.py",
    "schedule": "toutes les 1.7e+02 h",
    "per_day": 0.14,
@@ -1078,7 +1078,7 @@
    "witness": null
   },
   {
-   "label": "com.bassetti.tradficycle",
+   "id": "tradficycle",
    "script": "fetch_tradfi_cycle.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1090,7 +1090,7 @@
    "witness": "tradfi_cycle_cache.json"
   },
   {
-   "label": "com.bassetti.tradfifund",
+   "id": "tradfifund",
    "script": "fetch_tradfi_fundamentals.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1103,7 +1103,7 @@
    "witness": "tradfi_fundamentals_cache.json"
   },
   {
-   "label": "com.bassetti.tradfihist",
+   "id": "tradfihist",
    "script": "fetch_tradfi_hist.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
@@ -1116,7 +1116,7 @@
    "witness": "tradfi_hist_cache.json"
   },
   {
-   "label": "com.bassetti.treasury",
+   "id": "treasury",
    "script": "fetch_treasury_companies.py",
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,

@@ -106,7 +106,13 @@ def main():
                        if a.endswith((".py", ".sh"))), "")
         sched, per_day = schedule_of(d)
         cat = "perso" if label in PERSO else "locale" if label in LOCALE else "public"
-        jobs.append(dict(label=label, script=script, schedule=sched, per_day=per_day,
+        # `jobs.json` part dans un dépôt public : l'étiquette launchd complète
+        # (« com.<compte>.treasury ») y révélerait le compte de l'utilisateur pour
+        # rien. Seul l'identifiant court est publié — c'est la seule partie utile.
+        # On retire le PRÉFIXE seulement : couper au dernier point ferait entrer en
+        # collision « gtrends.refresh » et « gtrends.serpapi », deux jobs distincts.
+        jobs.append(dict(id=re.sub(r"^com\.[^.]+\.", "", label),
+                         script=script, schedule=sched, per_day=per_day,
                          category=cat, outputs=outputs_of(script, witness.get(label)),
                          witness=witness.get(label)))
 
@@ -123,11 +129,11 @@ def main():
     unknown = [j for j in jobs if j["category"] == "public" and not j["script"]]
     if unknown:
         print(f"\n  ! {len(unknown)} job(s) sans script identifié : "
-              + ", ".join(j["label"] for j in unknown))
+              + ", ".join(j["id"] for j in unknown))
 
     dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs.json")
     with open(dest, "w") as f:
-        json.dump(dict(jobs=sorted(jobs, key=lambda j: (j["category"], j["label"]))), f,
+        json.dump(dict(jobs=sorted(jobs, key=lambda j: (j["category"], j["id"]))), f,
                   indent=1, ensure_ascii=False)
     print(f"\n→ {os.path.normpath(dest)}")
     return 0

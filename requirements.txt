@@ -1,0 +1,11 @@
+# Dépendances des collecteurs, relevées par analyse des imports (tools/inventory).
+curl_cffi>=0.7          # usurpation TLS chrome120 : sans elle, Yahoo répond 403
+requests>=2.31
+urllib3>=2.0
+yfinance>=0.2.40
+yahooquery>=2.3
+beautifulsoup4>=4.12
+openpyxl>=3.1           # classeurs Excel (JODI, sources institutionnelles)
+pandas>=2.0
+numpy>=1.26
+scipy>=1.11

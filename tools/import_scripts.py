@@ -85,8 +85,38 @@ SECRET_HINT = re.compile(
     r"(?:api[_-]?key|token|secret|password|bearer)\s*[:=]\s*[\"'][A-Za-z0-9_\-]{16,}[\"']",
     re.I)
 
+# Le piège que la règle ci-dessus ne voyait PAS : une clé placée en valeur par défaut
+# d'une lecture d'environnement — `os.environ.get("FRED_API_KEY", "1410…")`. La forme
+# est rassurante (« ça vient de l'environnement »), mais le littéral est bien dans le
+# fichier, et une vraie clé FRED a failli partir en public à cause d'elle.
+# On vide la valeur par défaut : le script reste exécutable, et l'absence de clé se
+# manifeste par un refus franc de la source plutôt que par une fuite.
+ENV_DEFAULT_SECRET = re.compile(
+    r'(os\.environ\.get\(\s*["\'](?:[A-Z_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*)["\']\s*,\s*)'
+    r'["\'][A-Za-z0-9_\-]{16,}["\']')
+
+
+def scrub_prose(text):
+    """Retire le nom du compte des COMMENTAIRES (« enregistrée par <compte> le … »).
+
+    Volontairement limité à ce qui suit un `#` : remplacer le mot partout dans le
+    fichier risquerait de renommer un identifiant et de casser le script en silence.
+    Ce qui échapperait à cette règle reste attrapé par le contrôle final, qui refuse
+    le fichier — un import incomplet se voit, une fuite non.
+    """
+    out = []
+    for line in text.split("\n"):
+        i = line.find("#")
+        if i >= 0:
+            line = line[:i] + re.sub(rf"\b{re.escape(ACCOUNT)}\b", "l'auteur",
+                                     line[i:], flags=re.I)
+        out.append(line)
+    return "\n".join(out)
+
 
 def rewrite(text, is_shell):
+    text = ENV_DEFAULT_SECRET.sub(r'\1""', text)
+    text = scrub_prose(text)
     text = SCRATCH_ENTRY.sub("", text)
     text = EMAIL_IN_STRING.sub(CONTACT_ENV_SH if is_shell else CONTACT_ENV_PY, text)
     for pat, rep in (SH_RULES if is_shell else PY_RULES):
@@ -114,6 +144,31 @@ def add_os_import(text):
     return text[:m.start()] + "import os\n" + text[m.start():]
 
 
+def with_local_modules(names):
+    """Complète la liste avec les modules internes que les collecteurs s'importent
+    entre eux, en suivant la chaîne jusqu'au bout.
+
+    `jobs.json` ne connaît que les scripts LANCÉS par un job. Or 18 collecteurs
+    importent `_fred_helpers`, qui n'est lancé par personne : sans ce parcours, le
+    miroir serait syntaxiquement parfait et planterait à l'exécution sur un
+    ModuleNotFoundError. On boucle parce qu'un module importé peut lui-même en
+    importer un autre.
+    """
+    seen, queue = set(names), list(names)
+    imp = re.compile(r"^\s*(?:import|from)\s+([A-Za-z_]\w*)", re.M)
+    while queue:
+        cur = queue.pop()
+        path = os.path.join(SRC, cur)
+        if not cur.endswith(".py") or not os.path.exists(path):
+            continue
+        for mod in set(imp.findall(open(path, encoding="utf-8", errors="replace").read())):
+            cand = mod + ".py"
+            if cand not in seen and os.path.exists(os.path.join(SRC, cand)):
+                seen.add(cand)
+                queue.append(cand)
+    return sorted(seen)
+
+
 def main():
     argv = sys.argv[1:]
     dry = "--dry-run" in argv
@@ -128,6 +183,7 @@ def main():
     jobs = json.load(open(JOBS))["jobs"]
     wanted = sorted({j["script"] for j in jobs
                      if j["category"] == "public" and j["script"]})
+    wanted = with_local_modules(wanted)
 
     os.makedirs(DEST, exist_ok=True)
     copied, skipped, refused, missing, fixed_imports = [], [], [], [], []

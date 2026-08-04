@@ -65,7 +65,7 @@ from curl_cffi import requests as cr
 
 # launchd n'a pas le droit TCC d'écrire sur ~/Desktop : on écrit dans
 # Library/Caches et le repo pointe dessus via symlink (pattern standard du
-# site, cf scf.cryptoetf — snapshot_site.sh déréférence au deploy).
+# site, cf com.l'auteur.cryptoetf — snapshot_site.sh déréférence au deploy).
 CACHE_DIR = os.path.join(os.path.expanduser("~"), "Library", "Caches", "site_crypto_finance")
 os.makedirs(CACHE_DIR, exist_ok=True)
 OUT_JS = os.path.join(CACHE_DIR, "treasury_cache.js")

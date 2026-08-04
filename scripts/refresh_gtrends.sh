@@ -2,7 +2,7 @@
 # Refresh Google_Trends.html — re-knit depuis un emplacement TCC-safe.
 #
 # POURQUOI CE SCRIPT (2026-06-15) : update_gtrends.py rafraichit les caches JSON
-# (Library/Caches, via scf.gtrends.serpapi) mais RIEN ne re-genere le HTML.
+# (Library/Caches, via com.l'auteur.gtrends.serpapi) mais RIEN ne re-genere le HTML.
 # Le Rmd inline les donnees dans window.__GTRENDS__ AU KNIT → la page restait gelee
 # au dernier knit manuel (donnees vieilles de plusieurs jours/semaines).
 # Ce script re-knit la page a partir des caches canoniques. Pattern calque sur

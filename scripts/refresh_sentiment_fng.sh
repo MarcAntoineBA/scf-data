@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Refresh Sentiment Marche (CNN Fear & Greed reproduit, 6 composantes equal-weighted).
 # Refonte 2026-05-26 : remplace refresh_sentiment_index.sh (ancien indice GT+VIX).
-# Lance par launchd scf.sentiment.fng quotidiennement apres cloture US.
+# Lance par launchd com.l'auteur.sentiment.fng quotidiennement apres cloture US.
 # Sources : Twelve Data (SPY, TLT, 9 SPDR sectors) + FRED (VIXCLS, BAA10Y).
 # Cf. project_site_crypto_launchd_pattern.md pour le pattern dual-dir.
 set -euo pipefail

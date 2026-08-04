@@ -1,0 +1,19 @@
+name: Collecte daily
+
+# Cadence : une fois par jour. Le déclencheur manuel sert aux vérifications ponctuelles.
+# NB : GitHub exécute les tâches planifiées « au mieux » — quelques minutes de retard
+# aux heures de pointe sont normales. C'est sans commune mesure avec les 10 à 19 heures
+# de gel que produisait une machine endormie.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "35 4 * * *"
+
+jobs:
+  collecte:
+    uses: ./.github/workflows/_collect.yml
+    with:
+      bucket: daily
+      minutes: 90
+    secrets: inherit
