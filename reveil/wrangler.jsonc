@@ -1,0 +1,14 @@
+{
+  // Réveil des cadences de collecte. Un seul déclencheur toutes les 10 minutes ;
+  // le code décide de ce qui est dû. Aucun binding, aucune donnée stockée : ce Worker
+  // ne fait qu'appeler une API. Le jeton est un SECRET, jamais dans ce fichier.
+  "name": "reveil-collecte",
+  "main": "worker.js",
+  "compatibility_date": "2026-06-24",
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
