@@ -1,10 +1,10 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-04T14:25:22Z",
+  "ts": "2026-08-04T15:10:30Z",
   "total": 13,
   "ok": 12,
-  "secs": 787.1,
+  "secs": 402.2,
   "changed": 13,
   "versionnes": 11,
   "pieces_jointes": 2,
@@ -12,9 +12,9 @@
   "failed": [
    {
     "job": "sentiment.fng",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_sentiment_fng.sh: line 15: /opt/anaconda3/bin/python: No such file or directory"
+    "why": "python3: can't open file '~/work/scf-data/scf-data/scripts/fetch_sentiment_fng.py': [Errno 2] No such file or directory"
    }
   ]
  },
- "updated": "2026-08-04T14:25:22Z"
+ "updated": "2026-08-04T15:10:30Z"
 }
