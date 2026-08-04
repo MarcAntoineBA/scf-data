@@ -311,14 +311,29 @@ def collect(manifest):
     Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
     os.makedirs(RELEASE_OUT, exist_ok=True)
-    small, big, absent, retires = [], [], [], []
+    small, big, absent, retires, fondus = [], [], [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
             absent.append(name)
             continue
-        heavy = os.path.getsize(src) >= GIT_SIZE_LIMIT
+        taille = os.path.getsize(src)
+        heavy = taille >= GIT_SIZE_LIMIT
         dst = os.path.join(RELEASE_OUT if heavy else CACHE_OUT, name)
+
+        # Un fichier qui FOND est le signe qu'un collecteur a perdu sa base de fusion :
+        # il republie ce qu'il a réussi à récupérer aujourd'hui, sans ce qu'il avait
+        # accumulé avant. C'est passé inaperçu pendant des semaines sur l'historique
+        # fondamental TradFi — 2,17 Mo devenus 741 Ko, 781 valeurs devenues 138, et
+        # rien pour le dire : la publication réussissait, le collecteur sortait en
+        # succès, seule la profondeur des graphes du site avait disparu. Un tiers de
+        # perte n'arrive pas par le jeu normal de la donnée ; on le nomme.
+        ancien = next((p for p in (os.path.join(CACHE_OUT, name),
+                                   os.path.join(RELEASE_OUT, name)) if os.path.exists(p)), None)
+        if ancien:
+            avant = os.path.getsize(ancien)
+            if avant > 50_000 and taille < avant * 0.66:
+                fondus.append(f"{name} ({avant//1024} Ko → {taille//1024} Ko)")
 
         # Un fichier peut changer de camp (il grossit avec l'historique qu'il accumule) :
         # on nettoie l'ancienne place, sinon le site continuerait de lire une copie
@@ -333,7 +348,7 @@ def collect(manifest):
             continue
         shutil.copy2(src, dst)
         (big if heavy else small).append(name)
-    return small, big, absent, retires
+    return small, big, absent, retires, fondus
 
 
 def main():
@@ -388,7 +403,7 @@ def main():
             results += list(ex.map(lambda j: run_one(j, timeout), vague))
     elapsed = round(time.time() - t0, 1)
 
-    small, big, absent, retires = collect(manifest)
+    small, big, absent, retires, fondus = collect(manifest)
     changed = small + big
 
     ko = [r for r in results if not r["ok"]]
@@ -406,6 +421,10 @@ def main():
         # ni silence — la page servirait une donnée figée sans que rien ne l'indique.
         print(f"  {len(absent)} fichier(s) du manifeste jamais produit(s) : "
               + ", ".join(absent[:8]) + (" …" if len(absent) > 8 else ""))
+    if fondus:
+        print(f"  ! {len(fondus)} fichier(s) ont FONDU d'un tiers ou plus — base de "
+              f"fusion probablement perdue : " + ", ".join(fondus[:6])
+              + (" …" if len(fondus) > 6 else ""))
 
     # Bilan cumulatif : on garde l'état des cadences qui n'ont pas tourné cette fois-ci,
     # sinon chaque passage effacerait la vue d'ensemble du parc.
