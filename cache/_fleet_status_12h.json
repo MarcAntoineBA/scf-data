@@ -1,46 +1,18 @@
 {
  "bucket": "12h",
  "run": {
-  "ts": "2026-08-04T14:21:39Z",
-  "total": 25,
-  "ok": 16,
-  "secs": 622.1,
-  "changed": 24,
-  "versionnes": 24,
-  "pieces_jointes": 0,
-  "absents": 23,
+  "ts": "2026-08-04T15:25:43Z",
+  "total": 20,
+  "ok": 18,
+  "secs": 1337.3,
+  "changed": 34,
+  "versionnes": 28,
+  "pieces_jointes": 6,
+  "absents": 15,
   "failed": [
    {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
-   },
-   {
-    "job": "backtest.refresh",
-    "why": "[2026-08-04 14:11:17] ERROR: sentiment_index.json absent/vide dans le cache — render annulé"
-   },
-   {
-    "job": "correlations.refresh",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_correlations.sh: line 34: /usr/local/bin/Rscript: No such file or directory"
-   },
-   {
-    "job": "gtrends.refresh",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_gtrends.sh: line 58: /usr/local/bin/Rscript: No such file or directory"
-   },
-   {
-    "job": "macrotrends.refresh",
-    "why": "[2026-08-04 14:11:17] ERROR: sentiment_index.json missing or empty in cache — aborting render"
-   },
-   {
-    "job": "modelesvalo.refresh",
-    "why": "[2026-08-04 14:11:17] ERREUR : render n'a pas produit Modeles_Valorisation_Crypto.html — on garde l'ancienne version."
-   },
-   {
-    "job": "predmarkets",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_prediction_markets_with_timeout.sh: line 49: /usr/bin/caffeinate: No such file or directory"
-   },
-   {
     "job": "radarv3.refresh",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_radar_v3_cache.sh: line 6: cd: ~/Library/Application Support/SiteCryptoFinance/radar_audit: No such file or directory"
+    "why": ""
    },
    {
     "job": "tradfihist",
@@ -48,5 +20,5 @@
    }
   ]
  },
- "updated": "2026-08-04T14:21:39Z"
+ "updated": "2026-08-04T15:25:43Z"
 }
