@@ -111,26 +111,49 @@ def run_one(job, timeout):
                     code=None, why=f"{type(e).__name__}: {e}"[:200])
 
 
+# Seuil de séparation entre les deux régimes de publication. 12 fichiers pèsent
+# 93 des 114 Mo du parc : versionner ceux-là à chaque passage ferait grossir le dépôt
+# sans fin, pour une donnée dont personne ne relira jamais la version d'avant-hier.
+# En dessous, l'historique git est au contraire précieux — on voit quelle valeur a
+# changé, et quand.
+GIT_SIZE_LIMIT = 1_000_000
+RELEASE_OUT = os.path.join(ROOT, "release")
+
+
 def collect(manifest):
-    """Recopie vers `cache/` les fichiers du manifeste qui ont RÉELLEMENT changé.
+    """Range les fichiers du manifeste qui ont RÉELLEMENT changé, selon leur poids.
 
     La comparaison se fait par CONTENU, jamais par date : un collecteur réécrit
     souvent un fichier identique (données inchangées depuis la veille), et se fier
     à la date de modification produirait une publication à chaque passage — du bruit
     qui noie les vrais changements dans l'historique.
+
+    Petits fichiers → `cache/`, versionnés par git.
+    Gros fichiers   → `release/`, publiés en pièces jointes remplacées sur place.
+    Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
-    changed, absent = [], []
+    os.makedirs(RELEASE_OUT, exist_ok=True)
+    small, big, absent = [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
             absent.append(name)
             continue
-        dst = os.path.join(CACHE_OUT, name)
+        heavy = os.path.getsize(src) >= GIT_SIZE_LIMIT
+        dst = os.path.join(RELEASE_OUT if heavy else CACHE_OUT, name)
+
+        # Un fichier peut changer de camp (il grossit avec l'historique qu'il accumule) :
+        # on nettoie l'ancienne place, sinon le site continuerait de lire une copie
+        # figée pendant que la nouvelle est publiée ailleurs.
+        stale = os.path.join(CACHE_OUT if heavy else RELEASE_OUT, name)
+        if os.path.exists(stale):
+            os.remove(stale)
+
         if os.path.exists(dst) and filecmp.cmp(src, dst, shallow=False):
             continue
         shutil.copy2(src, dst)
-        changed.append(name)
-    return changed, absent
+        (big if heavy else small).append(name)
+    return small, big, absent
 
 
 def main():
@@ -169,7 +192,8 @@ def main():
         results = list(ex.map(lambda j: run_one(j, timeout), due))
     elapsed = round(time.time() - t0, 1)
 
-    changed, absent = collect(manifest)
+    small, big, absent = collect(manifest)
+    changed = small + big
 
     ko = [r for r in results if not r["ok"]]
     for r in sorted(results, key=lambda r: (r["ok"], -r["secs"])):
@@ -177,9 +201,15 @@ def main():
         print(f"{mark} {r['secs']:6.1f}s  {r['job']:28} {r['why']}")
 
     print(f"\n{len(results)-len(ko)}/{len(results)} collecteurs OK en {elapsed}s "
-          f"· {len(changed)} fichier(s) de données modifié(s)")
+          f"· {len(changed)} fichier(s) modifié(s) : {len(small)} versionné(s), "
+          f"{len(big)} en pièce jointe")
     if changed:
         print("  " + ", ".join(changed[:12]) + (" …" if len(changed) > 12 else ""))
+    if absent:
+        # Un fichier attendu par le site que personne ne produit : ni erreur bruyante
+        # ni silence — la page servirait une donnée figée sans que rien ne l'indique.
+        print(f"  {len(absent)} fichier(s) du manifeste jamais produit(s) : "
+              + ", ".join(absent[:8]) + (" …" if len(absent) > 8 else ""))
 
     # Bilan cumulatif : on garde l'état des cadences qui n'ont pas tourné cette fois-ci,
     # sinon chaque passage effacerait la vue d'ensemble du parc.
@@ -193,7 +223,8 @@ def main():
     status.setdefault("buckets", {})[args.bucket] = dict(
         ts=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         total=len(results), ok=len(results) - len(ko), secs=elapsed,
-        changed=len(changed), failed=[dict(job=r["job"], why=r["why"]) for r in ko])
+        changed=len(changed), versionnes=len(small), pieces_jointes=len(big),
+        absents=len(absent), failed=[dict(job=r["job"], why=r["why"]) for r in ko])
     status["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with open(status_path, "w") as f:
         json.dump(status, f, indent=1, ensure_ascii=False)

@@ -71,6 +71,25 @@ jobs:
           SCF_CONTACT_UA: ${{ secrets.SCF_CONTACT_UA }}
         run: python tools/run_jobs.py --bucket ${{ inputs.bucket }}
 
+      # Douze fichiers pèsent 93 des 114 Mo du parc (historiques de cours, atlas).
+      # Les versionner à chaque passage ferait enfler le dépôt indéfiniment : ils
+      # partent en pièces jointes d'une release, remplacées sur place, sans historique.
+      - name: Publier les gros fichiers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          FILES=(release/*)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "aucun gros fichier modifié"
+            exit 0
+          fi
+          gh release view data >/dev/null 2>&1 || \
+            gh release create data --title "Données" --notes \
+              "Pièces jointes remplacées à chaque collecte. Sans historique : seule la version courante compte."
+          gh release upload data "${FILES[@]}" --clobber
+          echo "${#FILES[@]} fichier(s) publié(s) en pièce jointe"
+
       - name: Publier les données modifiées
         run: |
           git config user.name  "collecte"
