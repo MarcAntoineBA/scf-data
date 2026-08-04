@@ -1,24 +1,20 @@
 {
  "bucket": "10min",
  "run": {
-  "ts": "2026-08-04T14:10:05Z",
+  "ts": "2026-08-04T15:01:40Z",
   "total": 4,
-  "ok": 2,
-  "secs": 0.1,
-  "changed": 0,
-  "versionnes": 0,
+  "ok": 3,
+  "secs": 14.7,
+  "changed": 2,
+  "versionnes": 2,
   "pieces_jointes": 0,
   "absents": 23,
   "failed": [
    {
-    "job": "fjnews",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_fj_news.sh: line 12: /usr/bin/caffeinate: No such file or directory"
-   },
-   {
     "job": "news",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_news_with_timeout.sh: line 14: /usr/bin/caffeinate: No such file or directory"
+    "why": "ModuleNotFoundError: No module named 'feedparser'"
    }
   ]
  },
- "updated": "2026-08-04T14:10:05Z"
+ "updated": "2026-08-04T15:01:40Z"
 }
