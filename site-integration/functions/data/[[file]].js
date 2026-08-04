@@ -92,10 +92,20 @@ export async function onRequestGet(context) {
 
   // Repli : la copie embarquée dans le déploiement. C'est le comportement d'avant
   // la migration — donc au pire, on n'a rien perdu.
+  //
+  // PIÈGE : un chemin absent ne renvoie PAS 404. Cloudflare sert la page d'accueil
+  // avec un code 200. Sans le contrôle ci-dessous, on renverrait du HTML étiqueté
+  // « application/javascript » : la page ne planterait pas franchement, elle
+  // afficherait un graphe vide sans la moindre erreur. Mesuré en local : 14 octets
+  // de HTML servis à la place d'un cache de 13 Mo.
   const asset = await env.ASSETS.fetch(new URL(`/data/${file}`, request.url));
-  if (asset.ok) {
+  const typeAsset = asset.headers.get("content-type") || "";
+  if (asset.ok && !typeAsset.includes("text/html")) {
     return new Response(asset.body, { headers: { ...headers, "x-scf-origin": "deploiement" } });
   }
+
+  // Aucune origine n'a la donnée. On le dit franchement : un 404 se voit dans la
+  // console du navigateur, un contenu vide déguisé en succès ne se voit nulle part.
 
   return new Response("Cache introuvable", {
     status: 404,
