@@ -51,14 +51,20 @@ CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 SITE_DIR = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
 
 # Cadences. Un job tombe dans le PREMIER seau dont le seuil est atteint.
-# Le plafond de temps est dimensionné sur le collecteur le plus lent du seau
-# (le lot tradfi met ~50 min) : trop court, on tue un collecteur sain en plein
-# travail — l'erreur exacte qui a fait perdre des heures de réparation au watchdog.
+# Le plafond est dimensionné sur le collecteur le PLUS LENT du seau, avec une marge.
+# Mesuré : tradfi met ~50 min, et le plafond valait exactement 50 — il l'aurait tué
+# pile à la limite, un jour sur deux, en laissant croire à une panne de source.
+# C'est la même erreur que celle qui avait fait perdre des heures de réparation au
+# gardien de fraîcheur : un plafond sans marge ne protège pas, il sabote.
+#
+# NB : ce plafond REMPLACE l'enveloppe anti-zombie qui entourait tradfi sur la machine
+# d'origine. Elle apportait deux choses — empêcher la veille (sans objet ici) et borner
+# la durée (assuré ici). Rien n'est perdu.
 BUCKETS = [
     ("10min", 96, 8),
     ("30min", 24, 20),
     ("2h", 8, 40),
-    ("6h", 3, 50),
+    ("6h", 3, 75),      # tradfi met ~50 min a lui seul : 50 tuait pile a la limite
     ("12h", 1.5, 60),
     ("daily", 0.9, 70),
     ("weekly", 0.0, 70),
