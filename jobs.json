@@ -1,0 +1,1134 @@
+{
+ "jobs": [
+  {
+   "label": "com.bassetti.cfdeploy",
+   "script": "deploy_public_wrangler.sh",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.cfwatchdog",
+   "script": "watchdog_public_deploy.sh",
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "category": "locale",
+   "outputs": [
+    "fj_news_cache.json",
+    "treasury_alert_live.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.fastpublish",
+   "script": "fast_publish.sh",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.freshness.watchdog",
+   "script": "watchdog_freshness.py",
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "category": "locale",
+   "outputs": [
+    "ai_adoption_cache.json",
+    "ai_models_cache.json",
+    "atlas_debt_cache.json",
+    "atlas_detail_cache.json",
+    "atlas_econ_cache.json",
+    "atlas_maritime_cache.json",
+    "atlas_quarterly_cache.json",
+    "btc_cycle_cache.json",
+    "buffett_cash_cache.json",
+    "crypto_etf_cache.json",
+    "crypto_pe_hist_cache.json",
+    "crypto_ytd_cache.json",
+    "cycle_cache.json",
+    "earnings_calendar_cache.json",
+    "ecosysteme_indicators_cache.json",
+    "fedwatch_cache.json",
+    "financiarisation_cache.json",
+    "fj_news_cache.json",
+    "flux_physiques_cache.js",
+    "fred_stress_indicators_cache.js",
+    "global_hist_cache.json",
+    "global_markets_cache.json",
+    "gtrends_cache.json",
+    "gtrends_hype_cache.json",
+    "hydro_cache.json",
+    "ipo_calendar_cache.json",
+    "l1_history_cache.json",
+    "l1_valuation_cache.json",
+    "levered_etf_cache.js",
+    "macro_calendar_cache.json",
+    "macro_corr_cache.json",
+    "macro_fred_cache.json",
+    "mag7_hist_cache.json",
+    "moneyflow_cache.json",
+    "narratives_cache.json",
+    "narratives_fundamentals_cache.json",
+    "new_listings_cache.json",
+    "pe_hist_cache.json",
+    "pe_hist_global_cache.json",
+    "per_data_cache.json",
+    "portefeuille_cache.json",
+    "prediction_markets_cache.json",
+    "radar_backtest_cache.js",
+    "radar_cache.json",
+    "radar_v3_cache.js",
+    "sentiment_index_live.js",
+    "stock_bubble_cache.json",
+    "these_bitcoin_cache.json",
+    "these_bulleia_cache.json",
+    "these_dette_cache.json",
+    "these_dollar_cache.json",
+    "these_effondrement_cache.json",
+    "these_energie_cache.json",
+    "these_stagnation_cache.json",
+    "these_web3_cache.json",
+    "tradfi_cache.json",
+    "tradfi_cycle_cache.json",
+    "tradfi_fundamentals_cache.json",
+    "tradfi_growth_cache.json",
+    "tradfi_hist_cache.json",
+    "treasury_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.savoir",
+   "script": "",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.siteserver",
+   "script": "",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.snapshot",
+   "script": "snapshot_site.sh",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "locale",
+   "outputs": [
+    "xxx_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.souv_carte",
+   "script": "carte.sh",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.souv_grind",
+   "script": "grind.sh",
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.souv_links",
+   "script": "links_runner.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.syncprod",
+   "script": "sync_prod_branch.sh",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.syncthing",
+   "script": "",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.syncthing.watchdog",
+   "script": "syncthing_watchdog.sh",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.wakekicker",
+   "script": "wake_kicker.py",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.advisor",
+   "script": "trigger_advisor.sh",
+   "schedule": "5 créneau(x)/jour",
+   "per_day": 5.0,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.advisor.flows",
+   "script": "refresh_flows.sh",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.advisor.server",
+   "script": "advisor_server.py",
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.portefeuille",
+   "script": "fetch_portefeuille_prices.py",
+   "schedule": "toutes les 2 h",
+   "per_day": 12.0,
+   "category": "perso",
+   "outputs": [
+    "history_cache.json",
+    "intraday_cache.json",
+    "portefeuille_cache.js",
+    "portefeuille_cache.json"
+   ],
+   "witness": "portefeuille_cache.json"
+  },
+  {
+   "label": "com.bassetti.ai_adoption",
+   "script": "fetch_ai_adoption.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "ai_adoption_cache.js",
+    "ai_adoption_cache.json"
+   ],
+   "witness": "ai_adoption_cache.json"
+  },
+  {
+   "label": "com.bassetti.atlasbudget",
+   "script": "fetch_atlas_budget.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.atlasdebt",
+   "script": "fetch_atlas_debt.py",
+   "schedule": "toutes les 2 h",
+   "per_day": 12.0,
+   "category": "public",
+   "outputs": [
+    "atlas_debt_cache.json"
+   ],
+   "witness": "atlas_debt_cache.json"
+  },
+  {
+   "label": "com.bassetti.atlasdetail",
+   "script": "fetch_atlas_detail.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "atlas_detail_cache.js",
+    "atlas_detail_cache.json"
+   ],
+   "witness": "atlas_detail_cache.json"
+  },
+  {
+   "label": "com.bassetti.atlaseco",
+   "script": "fetch_atlas_econ.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "atlas_econ_cache.js",
+    "atlas_econ_cache.json"
+   ],
+   "witness": "atlas_econ_cache.json"
+  },
+  {
+   "label": "com.bassetti.atlasmaritime",
+   "script": "fetch_atlas_maritime.py",
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "atlas_maritime_cache.js",
+    "atlas_maritime_cache.json"
+   ],
+   "witness": "atlas_maritime_cache.json"
+  },
+  {
+   "label": "com.bassetti.atlasquarterly",
+   "script": "fetch_atlas_quarterly.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "atlas_quarterly_cache.json"
+   ],
+   "witness": "atlas_quarterly_cache.json"
+  },
+  {
+   "label": "com.bassetti.backtest.refresh",
+   "script": "refresh_backtest.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.backtestradar",
+   "script": "backtest_radar.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "radar_backtest_cache.js"
+   ],
+   "witness": "radar_backtest_cache.js"
+  },
+  {
+   "label": "com.bassetti.btccycle",
+   "script": "fetch_btc_cycle.py",
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "category": "public",
+   "outputs": [
+    ".btc_cycle_light.tmp.js",
+    "btc_cycle_cache.js",
+    "btc_cycle_cache.json",
+    "btc_cycle_light.js"
+   ],
+   "witness": "btc_cycle_cache.json"
+  },
+  {
+   "label": "com.bassetti.btccycle.live",
+   "script": "fetch_btc_cycle.py",
+   "schedule": "4 créneau(x)/jour",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    ".btc_cycle_light.tmp.js",
+    "btc_cycle_cache.js",
+    "btc_cycle_cache.json",
+    "btc_cycle_light.js"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.buffettcash",
+   "script": "fetch_buffett_cash.py",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "buffett_cash_cache.js",
+    "buffett_cash_cache.json"
+   ],
+   "witness": "buffett_cash_cache.json"
+  },
+  {
+   "label": "com.bassetti.bulleai.refresh",
+   "script": "refresh_bulle_ia.sh",
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "category": "public",
+   "outputs": [
+    "ai_adoption_cache.js",
+    "ai_models_cache.js",
+    "ai_models_cache.json",
+    "ai_research_cache.json",
+    "bulle_ia_render/Bulle_IA.html",
+    "cycle_cache.js",
+    "mag7_hist_cache.js",
+    "nvda_hist_cache.js",
+    "pe_hist_cache.js"
+   ],
+   "witness": "bulle_ia_render/Bulle_IA.html"
+  },
+  {
+   "label": "com.bassetti.correlations.refresh",
+   "script": "refresh_correlations.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.creditprive",
+   "script": "fetch_credit_prive.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "credit_prive_cache.js",
+    "credit_prive_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.crypto-pe-hist",
+   "script": "fetch_crypto_pe_hist.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "crypto_pe_hist_cache.json"
+   ],
+   "witness": "crypto_pe_hist_cache.json"
+  },
+  {
+   "label": "com.bassetti.cryptoetf",
+   "script": "fetch_crypto_etf_flows.py",
+   "schedule": "12 créneau(x)/jour",
+   "per_day": 12.0,
+   "category": "public",
+   "outputs": [
+    "crypto_etf_cache.js",
+    "crypto_etf_cache.json"
+   ],
+   "witness": "crypto_etf_cache.json"
+  },
+  {
+   "label": "com.bassetti.cryptoytd",
+   "script": "fetch_crypto_ytd.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "crypto_ytd_cache.js",
+    "crypto_ytd_cache.json"
+   ],
+   "witness": "crypto_ytd_cache.json"
+  },
+  {
+   "label": "com.bassetti.cyclecache",
+   "script": "fetch_cycle_cache.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "cycle_cache.js",
+    "cycle_cache.json"
+   ],
+   "witness": "cycle_cache.json"
+  },
+  {
+   "label": "com.bassetti.defiengagement.refresh",
+   "script": "fetch_defi_engagement.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.earningscal",
+   "script": "fetch_earnings_calendar.py",
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "category": "public",
+   "outputs": [
+    "earnings_calendar_cache.json",
+    "earnings_live.js"
+   ],
+   "witness": "earnings_calendar_cache.json"
+  },
+  {
+   "label": "com.bassetti.ecophysique",
+   "script": "fetch_economie_physique.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "economie_physique_cache.js",
+    "economie_physique_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.ecosysteme.indicators",
+   "script": "fetch_ecosysteme_indicators.py",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "ecosysteme_indicators_cache.js",
+    "ecosysteme_indicators_cache.json"
+   ],
+   "witness": "ecosysteme_indicators_cache.json"
+  },
+  {
+   "label": "com.bassetti.ecosysteme.refresh",
+   "script": "refresh_ecosysteme.sh",
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.energymacro",
+   "script": "fetch_energy_macro.py",
+   "schedule": "toutes les 3 h",
+   "per_day": 8.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.fedwatch.refresh",
+   "script": "fetch_fedwatch.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "fedwatch_cache.js",
+    "fedwatch_cache.json"
+   ],
+   "witness": "fedwatch_cache.json"
+  },
+  {
+   "label": "com.bassetti.finance_americaine",
+   "script": "fetch_finance_americaine.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "finance_americaine_cache.js",
+    "finance_americaine_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.financiarisation",
+   "script": "fetch_financiarisation.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "financiarisation_cache.js",
+    "financiarisation_cache.json"
+   ],
+   "witness": "financiarisation_cache.json"
+  },
+  {
+   "label": "com.bassetti.fjnews",
+   "script": "refresh_fj_news.sh",
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "category": "public",
+   "outputs": [
+    "fj_news_cache.json"
+   ],
+   "witness": "fj_news_cache.json"
+  },
+  {
+   "label": "com.bassetti.fluxphysiques",
+   "script": "fetch_flux_physiques.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "flux_physiques_cache.js"
+   ],
+   "witness": "flux_physiques_cache.js"
+  },
+  {
+   "label": "com.bassetti.frbudget",
+   "script": "fetch_atlas_france_budget.py",
+   "schedule": "toutes les 1.7e+02 h",
+   "per_day": 0.14,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.fredstress.refresh",
+   "script": "fetch_fred_stress_indicators.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "fred_stress_indicators_cache.js"
+   ],
+   "witness": "fred_stress_indicators_cache.js"
+  },
+  {
+   "label": "com.bassetti.globalhist",
+   "script": "fetch_global_hist.py",
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "global_hist_cache.js",
+    "global_hist_cache.json"
+   ],
+   "witness": "global_hist_cache.json"
+  },
+  {
+   "label": "com.bassetti.globalmarkets",
+   "script": "fetch_global_markets.py",
+   "schedule": "6 créneau(x)/jour",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "global_markets_cache.js",
+    "global_markets_cache.json"
+   ],
+   "witness": "global_markets_cache.json"
+  },
+  {
+   "label": "com.bassetti.gtrends.refresh",
+   "script": "refresh_gtrends.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.gtrends.serpapi",
+   "script": "update_gtrends.py",
+   "schedule": "7 créneau(x)/jour",
+   "per_day": 7.0,
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "gtrends_cache_long.json",
+    "gtrends_cache_long_meta.json",
+    "gtrends_cache_meta.json"
+   ],
+   "witness": "gtrends_cache.json"
+  },
+  {
+   "label": "com.bassetti.gtrendshype",
+   "script": "fetch_gtrends_hype.py",
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "gtrends_hype_cache.js",
+    "gtrends_hype_cache.json"
+   ],
+   "witness": "gtrends_hype_cache.json"
+  },
+  {
+   "label": "com.bassetti.hydrocarbures",
+   "script": "fetch_hydrocarbures.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "atlas_econ_cache.json",
+    "hydro_cache.json"
+   ],
+   "witness": "hydro_cache.json"
+  },
+  {
+   "label": "com.bassetti.ipocal",
+   "script": "fetch_ipo_calendar.py",
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "ipo_calendar_cache.json",
+    "ipo_live.js"
+   ],
+   "witness": "ipo_calendar_cache.json"
+  },
+  {
+   "label": "com.bassetti.l1history",
+   "script": "fetch_l1_history.py",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "l1_history_cache.js",
+    "l1_history_cache.json",
+    "l1_valuation_cache.json"
+   ],
+   "witness": "l1_history_cache.json"
+  },
+  {
+   "label": "com.bassetti.l1valuation",
+   "script": "refresh_l1_valuation.sh",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "l1_valuation_cache.json"
+   ],
+   "witness": "l1_valuation_cache.json"
+  },
+  {
+   "label": "com.bassetti.leveredetf",
+   "script": "fetch_levered_etf_volume.py",
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "levered_etf_cache.js"
+   ],
+   "witness": "levered_etf_cache.js"
+  },
+  {
+   "label": "com.bassetti.macro-corr",
+   "script": "fetch_macro_corr.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "macro_corr_cache.json",
+    "macro_fred_cache.js"
+   ],
+   "witness": "macro_corr_cache.json"
+  },
+  {
+   "label": "com.bassetti.macrocal",
+   "script": "fetch_macro_calendar.py",
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "category": "public",
+   "outputs": [
+    "macro_cal_live.js",
+    "macro_calendar_cache.json"
+   ],
+   "witness": "macro_calendar_cache.json"
+  },
+  {
+   "label": "com.bassetti.macrofred.refresh",
+   "script": "fetch_macro_fred_data.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "macro_fred_cache.js",
+    "macro_fred_cache.json",
+    "macro_indicators_cache.js",
+    "macro_indicators_cache.json"
+   ],
+   "witness": "macro_fred_cache.json"
+  },
+  {
+   "label": "com.bassetti.macrotrends.refresh",
+   "script": "refresh_macro_trends.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.mag7hist",
+   "script": "fetch_mag7_hist.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "mag7_hist_cache.js",
+    "mag7_hist_cache.json"
+   ],
+   "witness": "mag7_hist_cache.json"
+  },
+  {
+   "label": "com.bassetti.modelesvalo.refresh",
+   "script": "refresh_modeles_valo.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.moneyflow",
+   "script": "fetch_moneyflow.py",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "public",
+   "outputs": [
+    "crypto_ytd_cache.json",
+    "moneyflow_cache.js",
+    "moneyflow_cache.json"
+   ],
+   "witness": "moneyflow_cache.json"
+  },
+  {
+   "label": "com.bassetti.narratives",
+   "script": "fetch_narratives.py",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "btc_longhist_cache.json",
+    "mode_crypto_live.js",
+    "narratives_cache.js",
+    "narratives_cache.json",
+    "narratives_history_cache.json",
+    "news_cache.json"
+   ],
+   "witness": "narratives_cache.json"
+  },
+  {
+   "label": "com.bassetti.narrfund",
+   "script": "fetch_narratives_fundamentals.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "narratives_cache.json",
+    "narratives_fundamentals_cache.js",
+    "narratives_fundamentals_cache.json"
+   ],
+   "witness": "narratives_fundamentals_cache.json"
+  },
+  {
+   "label": "com.bassetti.newlistings",
+   "script": "fetch_new_listings.py",
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "new_listings_cache.js",
+    "new_listings_cache.json",
+    "stock_bubble_cache.json"
+   ],
+   "witness": "new_listings_cache.json"
+  },
+  {
+   "label": "com.bassetti.news",
+   "script": "fetch_news_with_timeout.sh",
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.pehist",
+   "script": "fetch_pe_hist.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "pe_hist_cache.js",
+    "pe_hist_cache.json"
+   ],
+   "witness": "pe_hist_cache.json"
+  },
+  {
+   "label": "com.bassetti.pehistglobal",
+   "script": "fetch_pe_hist_global.py",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "pe_hist_global_cache.js",
+    "pe_hist_global_cache.json"
+   ],
+   "witness": "pe_hist_global_cache.json"
+  },
+  {
+   "label": "com.bassetti.perdata",
+   "script": "fetch_per_data.py",
+   "schedule": "6 créneau(x)/jour",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "per_data_cache.js",
+    "per_data_cache.json"
+   ],
+   "witness": "per_data_cache.json"
+  },
+  {
+   "label": "com.bassetti.predmarkets",
+   "script": "fetch_prediction_markets_with_timeout.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "prediction_markets_cache.json"
+   ],
+   "witness": "prediction_markets_cache.json"
+  },
+  {
+   "label": "com.bassetti.radardata",
+   "script": "fetch_radar_data.py",
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "category": "public",
+   "outputs": [
+    "radar_cache.js",
+    "radar_cache.json"
+   ],
+   "witness": "radar_cache.json"
+  },
+  {
+   "label": "com.bassetti.radarv3.refresh",
+   "script": "refresh_radar_v3_cache.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "radar_v3_cache.js"
+   ],
+   "witness": "radar_v3_cache.js"
+  },
+  {
+   "label": "com.bassetti.sentiment.fng",
+   "script": "refresh_sentiment_fng.sh",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "category": "public",
+   "outputs": [
+    "sentiment_index_live.js"
+   ],
+   "witness": "sentiment_index_live.js"
+  },
+  {
+   "label": "com.bassetti.stockbubble",
+   "script": "fetch_stock_bubble.py",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "public",
+   "outputs": [
+    "stock_bubble_cache.js",
+    "stock_bubble_cache.json",
+    "stock_history_cache.js",
+    "stock_history_cache.json"
+   ],
+   "witness": "stock_bubble_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_bitcoin.refresh",
+   "script": "fetch_these_bitcoin.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_bitcoin_cache.js",
+    "these_bitcoin_cache.json"
+   ],
+   "witness": "these_bitcoin_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_bulleia.refresh",
+   "script": "fetch_these_bulleia.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_bulleia_cache.js",
+    "these_bulleia_cache.json"
+   ],
+   "witness": "these_bulleia_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_dette.refresh",
+   "script": "fetch_these_dette.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_dette_cache.js",
+    "these_dette_cache.json"
+   ],
+   "witness": "these_dette_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_dollar.refresh",
+   "script": "fetch_these_dollar.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_dollar_cache.js",
+    "these_dollar_cache.json"
+   ],
+   "witness": "these_dollar_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_effondrement.refresh",
+   "script": "fetch_these_effondrement.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_effondrement_cache.js",
+    "these_effondrement_cache.json"
+   ],
+   "witness": "these_effondrement_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_energie.refresh",
+   "script": "fetch_these_energie.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_energie_cache.js",
+    "these_energie_cache.json"
+   ],
+   "witness": "these_energie_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_stagnation.refresh",
+   "script": "fetch_these_stagnation.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_stagnation_cache.js",
+    "these_stagnation_cache.json"
+   ],
+   "witness": "these_stagnation_cache.json"
+  },
+  {
+   "label": "com.bassetti.these_web3.refresh",
+   "script": "fetch_these_web3.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "these_web3_cache.js",
+    "these_web3_cache.json"
+   ],
+   "witness": "these_web3_cache.json"
+  },
+  {
+   "label": "com.bassetti.tradfi",
+   "script": "fetch_tradfi_with_timeout.sh",
+   "schedule": "4 créneau(x)/jour",
+   "per_day": 4.0,
+   "category": "public",
+   "outputs": [
+    "tradfi_cache.json"
+   ],
+   "witness": "tradfi_cache.json"
+  },
+  {
+   "label": "com.bassetti.tradfi-growth",
+   "script": "fetch_tradfi_growth.py",
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "tradfi_growth_cache.json"
+   ],
+   "witness": "tradfi_growth_cache.json"
+  },
+  {
+   "label": "com.bassetti.tradfiallocation.refresh",
+   "script": "fetch_tradfi_allocation.py",
+   "schedule": "toutes les 1.7e+02 h",
+   "per_day": 0.14,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "label": "com.bassetti.tradficycle",
+   "script": "fetch_tradfi_cycle.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "tradfi_cycle_cache.js",
+    "tradfi_cycle_cache.json"
+   ],
+   "witness": "tradfi_cycle_cache.json"
+  },
+  {
+   "label": "com.bassetti.tradfifund",
+   "script": "fetch_tradfi_fundamentals.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "tradfi_cache.json",
+    "tradfi_fundamentals_cache.js",
+    "tradfi_fundamentals_cache.json"
+   ],
+   "witness": "tradfi_fundamentals_cache.json"
+  },
+  {
+   "label": "com.bassetti.tradfihist",
+   "script": "fetch_tradfi_hist.py",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "public",
+   "outputs": [
+    "tradfi_fundamentals_cache.json",
+    "tradfi_hist_cache.js",
+    "tradfi_hist_cache.json"
+   ],
+   "witness": "tradfi_hist_cache.json"
+  },
+  {
+   "label": "com.bassetti.treasury",
+   "script": "fetch_treasury_companies.py",
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "category": "public",
+   "outputs": [
+    "treasury_alert_live.js",
+    "treasury_alert_live.json",
+    "treasury_cache.js",
+    "treasury_cache.json",
+    "treasury_edgar_cache.json"
+   ],
+   "witness": "treasury_cache.json"
+  }
+ ]
+}
