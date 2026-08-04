@@ -1,0 +1,104 @@
+name: Collecte complète (vérification)
+
+# Fait tourner les SEPT cadences d'un coup — les 76 collecteurs. Sert deux buts :
+#   1. prouver que chacun fonctionne sous Linux, avec ses vraies sources, plutôt que
+#      de le découvrir cadence par cadence au fil des jours ;
+#   2. remplir le dépôt d'une collecte entièrement faite dans le cloud, pour que le
+#      site puisse être branché sur des données qui ne doivent plus rien au Mac.
+#
+# Chaque cadence tourne dans son propre job : une cadence qui échoue n'empêche pas
+# les autres d'aboutir, et on voit d'un coup d'œil laquelle a un problème.
+#
+# À lancer à la demande. Le déclencheur sur fichier témoin existe parce que le
+# déclenchement manuel exige un jeton, et que la migration se fait sans.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.verification]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collecte-complete
+  cancel-in-progress: false
+
+jobs:
+  collecte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false          # une cadence en échec ne doit pas annuler les autres
+      max-parallel: 3           # au-delà, les sources voient trois fois le même client
+      matrix:
+        cadence: ["10min", "30min", "2h", "6h", "12h", "daily", "weekly"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dépendances
+        run: pip install --quiet -r requirements.txt
+
+      - name: Clés d'accès
+        continue-on-error: true
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+        run: |
+          [ -n "$EIA_API_KEY" ] && printf '%s' "$EIA_API_KEY" > "$HOME/.eia_api_key"
+          [ -n "$SERPAPI_KEY" ] && printf '%s' "$SERPAPI_KEY" > "$HOME/.serpapi_key"
+          [ -n "$GIE_API_KEY" ] && printf '%s' "$GIE_API_KEY" > "$HOME/.gie_api_key"
+          chmod 600 "$HOME"/.eia_api_key "$HOME"/.serpapi_key "$HOME"/.gie_api_key || true
+
+      - name: Collecte ${{ matrix.cadence }}
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+          SCF_CONTACT_UA: ${{ secrets.SCF_CONTACT_UA }}
+        run: python tools/run_jobs.py --bucket ${{ matrix.cadence }}
+
+      - name: Publier les gros fichiers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          FICHIERS=(release/*)
+          [ ${#FICHIERS[@]} -eq 0 ] && { echo "aucun gros fichier modifié"; exit 0; }
+          gh release view data >/dev/null 2>&1 || gh release create data \
+            --title "Données" \
+            --notes "Pièces jointes remplacées à chaque collecte, sans historique."
+          gh release upload data "${FICHIERS[@]}" --clobber
+          echo "${#FICHIERS[@]} fichier(s) publié(s) en pièce jointe"
+
+      - name: Publier les données modifiées
+        run: |
+          git config user.name  "collecte"
+          git config user.email "collecte@users.noreply.github.com"
+          git add cache/
+          if git diff --cached --quiet; then
+            echo "aucun changement — rien à publier"
+            exit 0
+          fi
+          N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+          git commit -q -m "données ${{ matrix.cadence }} : $N fichier(s)"
+          # Trois cadences publient en parallèle : le perdant rejoue son commit
+          # au-dessus du gagnant. Les fichiers touchés sont disjoints, il n'y a rien
+          # à arbitrer, seulement à réessayer.
+          for essai in 1 2 3 4 5 6 7 8; do
+            git push && { echo "publié (essai $essai)"; exit 0; }
+            git pull --rebase --autostash origin main || exit 1
+            sleep $((essai * 5))
+          done
+          echo "échec de publication après 8 essais" >&2
+          exit 1
