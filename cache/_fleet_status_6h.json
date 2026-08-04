@@ -1,24 +1,20 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-04T15:00:42Z",
+  "ts": "2026-08-04T15:52:29Z",
   "total": 24,
-  "ok": 22,
-  "secs": 3008.0,
-  "changed": 12,
-  "versionnes": 10,
-  "pieces_jointes": 2,
-  "absents": 21,
+  "ok": 23,
+  "secs": 3014.7,
+  "changed": 16,
+  "versionnes": 11,
+  "pieces_jointes": 5,
+  "absents": 18,
   "failed": [
    {
     "job": "hydrocarbures",
     "why": "dépassement du plafond (50 min)"
-   },
-   {
-    "job": "tradfi",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_tradfi_with_timeout.sh: line 20: /usr/bin/caffeinate: No such file or directory"
    }
   ]
  },
- "updated": "2026-08-04T15:00:42Z"
+ "updated": "2026-08-04T15:52:29Z"
 }
