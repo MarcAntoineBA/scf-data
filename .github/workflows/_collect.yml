@@ -10,11 +10,6 @@ on:
       bucket:
         required: true
         type: string
-      minutes:
-        description: Plafond de temps du job, marge comprise
-        required: false
-        type: number
-        default: 90
 
 permissions:
   contents: write        # nécessaire pour publier les données collectées
@@ -22,7 +17,8 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.minutes }}
+    timeout-minutes: 120   # filet contre un runner bloqué ; le bornage
+                           # fin est fait par collecteur dans l'orchestrateur
 
     # Deux exécutions d'une même cadence ne doivent jamais se chevaucher : elles
     # écriraient les mêmes fichiers. On laisse la nouvelle attendre plutôt que

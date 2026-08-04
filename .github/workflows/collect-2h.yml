@@ -15,5 +15,4 @@ jobs:
     uses: ./.github/workflows/_collect.yml
     with:
       bucket: 2h
-      minutes: 55
     secrets: inherit
