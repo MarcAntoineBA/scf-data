@@ -1,15 +1,19 @@
 {
  "bucket": "12h",
  "run": {
-  "ts": "2026-08-04T15:25:43Z",
+  "ts": "2026-08-04T16:24:28Z",
   "total": 20,
-  "ok": 18,
-  "secs": 1337.3,
-  "changed": 34,
+  "ok": 17,
+  "secs": 1815.2,
+  "changed": 32,
   "versionnes": 28,
-  "pieces_jointes": 6,
-  "absents": 15,
+  "pieces_jointes": 4,
+  "absents": 17,
   "failed": [
+   {
+    "job": "atlasmaritime",
+    "why": "AssertionError: Suez devrait être en fort recul vs 2019 (mer Rouge), got -19.2%"
+   },
    {
     "job": "radarv3.refresh",
     "why": ""
@@ -20,5 +24,5 @@
    }
   ]
  },
- "updated": "2026-08-04T15:25:43Z"
+ "updated": "2026-08-04T16:24:28Z"
 }
