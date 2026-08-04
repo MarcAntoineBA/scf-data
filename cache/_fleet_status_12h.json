@@ -1,10 +1,10 @@
 {
  "bucket": "12h",
  "run": {
-  "ts": "2026-08-04T14:09:32Z",
+  "ts": "2026-08-04T14:21:39Z",
   "total": 25,
   "ok": 16,
-  "secs": 711.8,
+  "secs": 622.1,
   "changed": 24,
   "versionnes": 24,
   "pieces_jointes": 0,
@@ -16,7 +16,7 @@
    },
    {
     "job": "backtest.refresh",
-    "why": "[2026-08-04 13:57:40] ERROR: sentiment_index.json absent/vide dans le cache — render annulé"
+    "why": "[2026-08-04 14:11:17] ERROR: sentiment_index.json absent/vide dans le cache — render annulé"
    },
    {
     "job": "correlations.refresh",
@@ -28,15 +28,15 @@
    },
    {
     "job": "macrotrends.refresh",
-    "why": "[2026-08-04 13:57:41] ERROR: sentiment_index.json missing or empty in cache — aborting render"
+    "why": "[2026-08-04 14:11:17] ERROR: sentiment_index.json missing or empty in cache — aborting render"
    },
    {
     "job": "modelesvalo.refresh",
-    "why": "[2026-08-04 13:57:41] ERREUR : render n'a pas produit Modeles_Valorisation_Crypto.html — on garde l'ancienne version."
+    "why": "[2026-08-04 14:11:17] ERREUR : render n'a pas produit Modeles_Valorisation_Crypto.html — on garde l'ancienne version."
    },
    {
     "job": "predmarkets",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_prediction_markets_with_timeout.sh: line 28: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+    "why": "~/work/scf-data/scf-data/scripts/fetch_prediction_markets_with_timeout.sh: line 49: /usr/bin/caffeinate: No such file or directory"
    },
    {
     "job": "radarv3.refresh",
@@ -44,9 +44,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "NameError: name 'os' is not defined. Did you forget to import 'os'?"
+    "why": "FileNotFoundError: [Errno 2] No such file or directory: '~/Library/Caches/site_crypto_finance/tradfi_fundamentals_cache.json'"
    }
   ]
  },
- "updated": "2026-08-04T14:09:32Z"
+ "updated": "2026-08-04T14:21:39Z"
 }
