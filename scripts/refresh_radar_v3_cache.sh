@@ -20,12 +20,19 @@ $PY fetch_radar_signals_part2.py >> "$LOG" 2>&1 || echo "[WARN] fetch_radar_sign
 $PY fetch_binance_metrics.py >> "$LOG" 2>&1 || echo "[WARN] fetch_binance_metrics non-zero" >> "$LOG"
 
 # 4. Consolide les data_raw/*.json en radar_signals_history.json.
-$PY consolidate_signals.py >> "$LOG" 2>&1 || { echo "[FATAL] consolidate_signals fail" >> "$LOG"; exit 1; }
+fatal() {   # remonte les dernières lignes du journal : sans ça, l'échec est muet
+  echo "[FATAL] $1" >> "$LOG"
+  echo "[FATAL] $1 — dernières lignes du journal :" >&2
+  tail -6 "$LOG" >&2
+  exit 1
+}
+
+$PY consolidate_signals.py >> "$LOG" 2>&1 || fatal "consolidate_signals"
 
 # 5. Calcule les scores Radar v3 (radar_v3_history.json).
-$PY build_radar_v3.py >> "$LOG" 2>&1 || { echo "[FATAL] build_radar_v3 fail" >> "$LOG"; exit 1; }
+$PY build_radar_v3.py >> "$LOG" 2>&1 || fatal "build_radar_v3"
 
 # 6. Construit le cache JS lu par Indicateur.html (radar_v3_cache.js).
-$PY build_radar_v3_cache.py >> "$LOG" 2>&1 || { echo "[FATAL] build_radar_v3_cache fail" >> "$LOG"; exit 1; }
+$PY build_radar_v3_cache.py >> "$LOG" 2>&1 || fatal "build_radar_v3_cache"
 
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') done =====" >> "$LOG"

@@ -15,6 +15,7 @@ Klines fields :
 Taker Buy/Sell ratio = takerBuyBaseVolume / volume
   Si >0.5 = pression acheteuse, <0.5 = pression vendeuse.
 """
+import os
 import json, time
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -42,7 +43,14 @@ def fetch_klines(symbol, interval="1d", market="spot"):
     Pagination via startTime/endTime. Klines spot ou um (futures).
     Limit 1000 par appel, donc 1000 jours par requête.
     """
-    base = "https://api.binance.com/api/v3" if market == "spot" else "https://fapi.binance.com/fapi/v1"
+    # Binance renvoie 451 aux IP américaines — donc aux runners. Son miroir de données
+    # publiques, lui, répond (mesuré). On le prend d'emblée pour le spot : il sert
+    # exactement la même API, sans le filtre géographique.
+    if market == "spot":
+        base = os.environ.get("BINANCE_SPOT_BASE",
+                              "https://data-api.binance.vision/api/v3")
+    else:
+        base = "https://fapi.binance.com/fapi/v1"
     print(f"[KLINES {symbol} {interval} {market}] fetch from Binance…")
     all_data = []
     start = 1500000000000  # 2017-07
