@@ -1,20 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-04T16:08:23Z",
+  "ts": "2026-08-04T17:54:09Z",
   "total": 13,
   "ok": 12,
-  "secs": 777.8,
+  "secs": 346.1,
   "changed": 13,
   "versionnes": 11,
   "pieces_jointes": 2,
-  "absents": 21,
+  "absents": 19,
   "failed": [
    {
     "job": "sentiment.fng",
-    "why": "python3: can't open file '~/work/scf-data/scf-data/scripts/fetch_sentiment_fng.py': [Errno 2] No such file or directory"
+    "why": "[17:51:34] ERREUR : SPY vide, abort."
    }
   ]
  },
- "updated": "2026-08-04T16:08:23Z"
+ "updated": "2026-08-04T17:54:09Z"
 }
