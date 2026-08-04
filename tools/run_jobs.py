@@ -247,4 +247,4 @@ def main():
 if __name__ == "__main__":
     sys.exit(main())
 
-# migration : declencheur temporaire
+# migration : declencheur temporaire (rejoue une collecte reelle apres correction)
