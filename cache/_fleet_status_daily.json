@@ -1,0 +1,36 @@
+{
+ "bucket": "daily",
+ "run": {
+  "ts": "2026-08-04T13:45:11Z",
+  "total": 13,
+  "ok": 8,
+  "secs": 147.0,
+  "changed": 7,
+  "versionnes": 7,
+  "pieces_jointes": 0,
+  "absents": 23,
+  "failed": [
+   {
+    "job": "atlasdetail",
+    "why": "FileNotFoundError: [Errno 2] No such file or directory: '~/work/scf-data/scf-data/scripts/assets/js/atlas/atlas_countries_meta.js'"
+   },
+   {
+    "job": "buffettcash",
+    "why": "NameError: name 'os' is not defined. Did you forget to import 'os'?"
+   },
+   {
+    "job": "finance_americaine",
+    "why": "NameError: name 'os' is not defined. Did you forget to import 'os'?"
+   },
+   {
+    "job": "narratives",
+    "why": "NameError: name 'fos' is not defined"
+   },
+   {
+    "job": "sentiment.fng",
+    "why": "~/work/scf-data/scf-data/scripts/refresh_sentiment_fng.sh: line 8: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+   }
+  ]
+ },
+ "updated": "2026-08-04T13:45:11Z"
+}
