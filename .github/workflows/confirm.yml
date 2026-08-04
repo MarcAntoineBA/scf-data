@@ -1,0 +1,21 @@
+name: Confirmation des sources douteuses
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [tools/probe_confirm.py]
+
+permissions:
+  contents: read
+
+jobs:
+  confirmer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install --quiet curl_cffi
+      - run: python tools/probe_confirm.py | tee -a "$GITHUB_STEP_SUMMARY"

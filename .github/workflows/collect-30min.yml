@@ -7,6 +7,12 @@ name: Collecte 30min
 
 on:
   workflow_dispatch:
+  # Déclencheur temporaire : force une VRAIE collecte au premier envoi, sans attendre
+  # que GitHub active les plannings d'un dépôt neuf. À retirer une fois la migration
+  # validée — sinon chaque correction de collecteur relancerait un lot complet.
+  push:
+    branches: [main]
+    paths: [tools/run_jobs.py]
   schedule:
     - cron: "*/30 * * * *"
 
