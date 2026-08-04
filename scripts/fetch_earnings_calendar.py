@@ -357,6 +357,106 @@ def parse_day(html, day):
     return out
 
 
+NASDAQ_API = "https://api.nasdaq.com/api/calendar/earnings?date={}"
+NASDAQ_SESSION = {"time-pre-market": "bmo", "time-after-hours": "amc",
+                  "time-not-supplied": "tba"}
+
+
+def _mcap_label(v):
+    """1_081_910_196_869 → « 1.08T », dans le style des libellés d'origine."""
+    for seuil, suffixe in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
+        if v >= seuil:
+            return f"{v / seuil:.2f}{suffixe}"
+    return f"{v:.0f}"
+
+
+def fetch_day_nasdaq(day):
+    """Repli quand Investing.com refuse l'adresse IP (403 depuis un datacenter).
+
+    CE QUE CE REPLI NE SAIT PAS FAIRE : Nasdaq ne publie pas le CHIFFRE D'AFFAIRES,
+    seulement le bénéfice par action et son consensus. Les champs CA restent donc
+    vides plutôt que remplis d'une valeur reconstituée — un chiffre d'affaires
+    inventé serait indiscernable d'un chiffre publié, et fausserait la surprise.
+    La provenance est écrite dans le sous-titre : la page dit ce qu'elle sait.
+    """
+    try:
+        req = urllib.request.Request(NASDAQ_API.format(day), headers={
+            "User-Agent": UA, "Accept": "application/json"})
+        raw = urllib.request.urlopen(req, timeout=25).read()
+        rows = (json.loads(raw).get("data") or {}).get("rows") or []
+    except Exception as e:
+        sys.stderr.write(f"[Earnings] repli Nasdaq {day} err: {e}\n")
+        return None
+
+    out = []
+    for r in rows:
+        ticker = (r.get("symbol") or "").strip()
+        if not ticker:
+            continue
+        company = (r.get("name") or ticker).strip()
+
+        nettoyer = lambda v: (v or "").replace("$", "").replace(",", "").strip()
+        eps_a, eps_f = nettoyer(r.get("eps")), nettoyer(r.get("epsForecast"))
+        if eps_a in ("", "-", "--"):
+            eps_a = ""
+
+        try:
+            mcap = float(nettoyer(r.get("marketCap")) or 0)
+        except ValueError:
+            mcap = 0.0
+        mcap_lbl = _mcap_label(mcap) if mcap else ""
+
+        wl = WATCHLIST.get(ticker)
+        if wl is None and mcap < MCAP_FLOOR:
+            continue
+
+        session = NASDAQ_SESSION.get(r.get("time"), "tba")
+        y, mo, d = (int(x) for x in day.split("-"))
+        hh, mm = SESSION_TIME[session]
+        iso = datetime(y, mo, d, hh, mm, tzinfo=ET).isoformat()
+        (fh, fm), (th, tm) = SESSION_POLL[session]
+        poll_from = datetime(y, mo, d, fh, fm, tzinfo=ET).isoformat()
+        poll_to = datetime(y, mo, d, th, tm, tzinfo=ET).isoformat()
+
+        if ticker in CORE_HIGH or mcap >= 1e12:
+            impact = "high"
+        elif wl:
+            impact = wl["impact"]
+        elif mcap >= 500e9:
+            impact = "high"
+        else:
+            impact = "med"
+
+        eps_s = surprise_pct(eps_a, eps_f)
+        sub = [company, ticker, SESSION_LABEL[session].lower()]
+        if eps_a:
+            sub.append(f"BPA {eps_a}" + (f" vs {eps_f}" if eps_f else ""))
+        elif eps_f:
+            sub.append(f"cons. BPA {eps_f}")
+        sub.append("source Nasdaq")
+
+        out.append({
+            "date": iso,
+            "name": f"{ticker} — Résultats {company}",
+            "sub": " · ".join(sub),
+            "region": "USA", "impact": impact, "cat": "earnings",
+            "btcHist": (wl or {}).get("btc", ""), "btcDir": "neut",
+            "note": (wl or {}).get("note", ""),
+            "url": f"https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/earnings",
+            "ticker": ticker, "company": company,
+            "session": session, "sessionLabel": SESSION_LABEL[session],
+            "timeKnown": session != "tba",
+            "pollFrom": poll_from, "pollTo": poll_to,
+            "mcap": mcap, "mcapLabel": mcap_lbl,
+            "epsActual": eps_a, "epsForecast": eps_f,
+            "revActual": "", "revForecast": "",       # non publié par cette source
+            "epsSurprise": eps_s, "revSurprise": "",
+            "actual": eps_a, "forecast": eps_f, "previous": "",
+            "source": "nasdaq",
+        })
+    return out
+
+
 def day_range(days_back, days_fwd):
     """Jours ouvrés à interroger. Les sociétés ≥ 200 Md$ ne publient pas le
     week-end -> on saute samedi/dimanche (économise ~13 requêtes sur 45)."""
@@ -375,10 +475,17 @@ def fetch_window(days):
     events, fails = [], 0
     for i, day in enumerate(days):
         html = fetch_day(day)
-        if html is None:
-            fails += 1
-            continue
-        events += parse_day(html, day)
+        if html is not None:
+            events += parse_day(html, day)
+        else:
+            # Investing refuse les IP de datacenter (403). On ne compte l'échec que si
+            # le repli échoue AUSSI : sinon on signalerait une panne là où la donnée
+            # est bien arrivée, et le garde-fou de fraîcheur crierait pour rien.
+            secours = fetch_day_nasdaq(day)
+            if secours is None:
+                fails += 1
+            else:
+                events += secours
         if i + 1 < len(days):
             time.sleep(REQ_DELAY)
     return events, fails

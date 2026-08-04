@@ -434,20 +434,22 @@ def fetch_one(asset_key: str, cfg: dict) -> dict:
             print(f"[fetch] {asset_key}: retry {attempt}/{len(backoffs)} apres {wait}s", file=sys.stderr)
             time.sleep(wait)
         try:
-            r = curl_requests.get(url, impersonate="chrome120", timeout=30)
-            if r.status_code == 200:
-                parsed = parse_table(r.text)
-                if "error" in parsed:
-                    print(f"[parse][ERR] {asset_key}: {parsed['error']}", file=sys.stderr)
-                    return parsed
-                print(f"[fetch] {asset_key.upper()}: {len(parsed['rows'])} rows, {len(parsed['tickers'])} ETFs, since {parsed['launch_date']}")
+            # Deux façons de demander la page, essayées dans cet ordre. MESURÉ, et
+            # contre-intuitif : depuis une adresse résidentielle, l'usurpation TLS passe
+            # et la requête nue se fait jeter ; depuis une IP de datacenter (les runners),
+            # c'est l'INVERSE — une empreinte Chrome venant d'un serveur est plus suspecte
+            # qu'un client honnête. L'ancien code abandonnait dès le premier 4xx, ce qui
+            # aurait fait échouer les flux ETF à chaque exécution dans le cloud.
+            import _cloud_sources as _cs
+            html = _cs.guarded_html(url, impersonate_first=True)
+            parsed = parse_table(html)
+            if "error" in parsed:
+                print(f"[parse][ERR] {asset_key}: {parsed['error']}", file=sys.stderr)
                 return parsed
-            # HTTP non-200 : si 4xx (sauf 429), pas la peine de retry — c'est probablement un bug d'URL
-            if 400 <= r.status_code < 500 and r.status_code != 429:
-                print(f"[fetch][ERR] {asset_key}: HTTP {r.status_code} (no retry on 4xx)", file=sys.stderr)
-                return {"error": f"HTTP {r.status_code}"}
-            last_err = f"HTTP {r.status_code}"
-            print(f"[fetch][WARN] {asset_key}: HTTP {r.status_code}, tentative {attempt}/{len(backoffs)}", file=sys.stderr)
+            print(f"[fetch] {asset_key.upper()}: {len(parsed['rows'])} rows, "
+                  f"{len(parsed['tickers'])} ETFs, since {parsed['launch_date']} "
+                  f"(voie {_cs.LAST_SOURCE.get('guarded_html')})")
+            return parsed
         except Exception as e:
             last_err = str(e)
             print(f"[fetch][WARN] {asset_key}: {e}, tentative {attempt}/{len(backoffs)}", file=sys.stderr)

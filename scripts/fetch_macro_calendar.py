@@ -8,6 +8,7 @@ Couverture : 60 jours glissants (today → today+60).
 Injecte un bloc JS `window.__MACRO_CAL_LIVE__` dans News_Crypto.html.
 """
 import fcntl
+import html as html_lib
 import json
 import os
 import re
@@ -160,6 +161,89 @@ def fetch_window(date_from, date_to):
     except Exception as e:
         sys.stderr.write(f"[Macro] fetch err: {e}\n")
         return None
+
+
+NASDAQ_CAL = "https://api.nasdaq.com/api/calendar/economicevents?date={}"
+
+# Nasdaq nomme les pays en anglais ; on retrouve les libellés déjà utilisés par le site.
+# Un pays absent de cette table est ignoré : le calendrier ne suit que ces économies,
+# et laisser passer le reste noierait les publications qui comptent.
+NASDAQ_PAYS = {
+    "United States": "USA", "Euro Zone": "Zone Euro", "Germany": "Allemagne",
+    "United Kingdom": "Royaume-Uni", "Japan": "Japon", "China": "Chine",
+    "Switzerland": "Suisse", "Canada": "Canada", "France": "France",
+    "Italy": "Italie", "Spain": "Espagne", "Australia": "Australie",
+}
+
+
+def fetch_window_nasdaq(date_from, date_to):
+    """Repli quand Investing.com refuse l'adresse IP (403 depuis un datacenter).
+
+    DIFFÉRENCE ASSUMÉE : Investing était filtré sur les publications « 3 étoiles ».
+    Nasdaq ne note pas l'importance — on ne peut donc pas reproduire ce filtre, et
+    inventer une note d'importance reviendrait à décider soi-même de ce qui compte.
+    On retient à la place les événements que le site sait déjà interpréter (ceux qui
+    correspondent à une règle de `classify`), ce qui est un critère explicite et
+    vérifiable. Les autres sont écartés.
+    """
+    events, jour = [], datetime.strptime(date_from, "%Y-%m-%d")
+    fin = datetime.strptime(date_to, "%Y-%m-%d")
+    while jour <= fin:
+        j = jour.strftime("%Y-%m-%d")
+        try:
+            req = urllib.request.Request(NASDAQ_CAL.format(j), headers={
+                "User-Agent": UA, "Accept": "application/json"})
+            rows = (json.loads(urllib.request.urlopen(req, timeout=25).read())
+                    .get("data") or {}).get("rows") or []
+        except Exception as e:
+            sys.stderr.write(f"[Macro] repli Nasdaq {j} err: {e}\n")
+            jour += timedelta(days=1)
+            continue
+
+        for r in rows:
+            pays = NASDAQ_PAYS.get((r.get("country") or "").strip())
+            if not pays:
+                continue
+            nom = (r.get("eventName") or "").strip()
+            btc, direction, note = classify(nom)
+            if not note and not btc:
+                continue                      # publication que le site ne sait pas lire
+
+            def propre(v):
+                """Nasdaq remplit les valeurs absentes par une espace insécable HTML.
+                Sans décodage, « &nbsp; » s'afficherait tel quel dans le calendrier —
+                et pire, passerait pour une valeur PUBLIÉE, donc pour un événement déjà
+                sorti alors qu'il est à venir."""
+                v = html_lib.unescape((v or "").strip()).replace("\xa0", " ").strip()
+                return "" if v in ("", "-", "--", "—") else v
+
+            actual, cons, prev = (propre(r.get("actual")), propre(r.get("consensus")),
+                                  propre(r.get("previous")))
+
+            hh, mm = 12, 0
+            gmt = (r.get("gmt") or "").strip()
+            if ":" in gmt:
+                try:
+                    hh, mm = (int(x) for x in gmt.split(":")[:2])
+                except ValueError:
+                    hh, mm = 12, 0
+            iso = datetime(jour.year, jour.month, jour.day, hh, mm,
+                           tzinfo=timezone.utc).isoformat()
+
+            sub = [pays] + ([f"prév. {cons}"] if cons else []) + \
+                  ([f"préc. {prev}"] if prev else []) + ["source Nasdaq"]
+            events.append({
+                "date": iso, "name": nom, "sub": " · ".join(sub), "region": pays,
+                "actual": actual, "forecast": cons, "previous": prev,
+                "impact": "high", "cat": "macro",
+                "btcHist": btc, "btcDir": direction, "note": note,
+                "url": "https://www.nasdaq.com/market-activity/economic-calendar",
+                "source": "nasdaq",
+            })
+        jour += timedelta(days=1)
+
+    events.sort(key=lambda x: x["date"])
+    return events
 
 
 def classify(name):
@@ -315,10 +399,21 @@ def fetch_and_save():
     date_to = (today + timedelta(days=60)).strftime("%Y-%m-%d")
     sys.stderr.write(f"[Macro] Investing.com 3-stars {date_from} → {date_to}\n")
     raw = fetch_window(date_from, date_to)
-    if not raw:
-        return None
-    events = parse_rows(raw.get("data", ""))
-    sys.stderr.write(f"[Macro] {len(events)} events 3-stars extracted\n")
+    if raw:
+        events = parse_rows(raw.get("data", ""))
+        sys.stderr.write(f"[Macro] {len(events)} events 3-stars extracted\n")
+    else:
+        # Investing refuse les IP de datacenter (403). Le repli couvre une fenêtre plus
+        # courte à dessein : il interroge un jour à la fois, et 60 appels à chaque
+        # exécution feraient de nous exactement le robot que ces sources filtrent.
+        # Deux semaines suffisent au calendrier affiché ; le reste se remplira aux
+        # exécutions suivantes.
+        court = (today + timedelta(days=14)).strftime("%Y-%m-%d")
+        sys.stderr.write(f"[Macro] Investing indisponible → repli Nasdaq {date_from} → {court}\n")
+        events = fetch_window_nasdaq(date_from, court)
+        if not events:
+            return None
+        sys.stderr.write(f"[Macro] {len(events)} events via Nasdaq\n")
 
     payload = {"events": events, "updated": datetime.now().isoformat()}
     with open(CACHE_FILE, "w") as f:

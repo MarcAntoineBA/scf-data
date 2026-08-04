@@ -45,17 +45,43 @@ def fetch_json(url, timeout=15, retries=1, backoff=3):
             log(f"  FAIL {url[:50]}... → {e}")
     return None
 
+# Binance renvoie 451 depuis les IP américaines (donc depuis les runners). Les appels
+# passent par _cloud_sources, qui essaie Binance D'ABORD et ne bascule sur OKX qu'en cas
+# de refus : sur cette machine, rien ne change. Le repli rend la même FORME de données,
+# les pages n'ont rien à modifier.
+import _cloud_sources as _cs
+
+
 def fetch_binance_fr(symbol="BTCUSDT"):
-    return fetch_json(f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}")
+    try:
+        return _cs.premium_index(symbol)
+    except Exception as e:
+        log(f"  FAIL funding {symbol} → {e}")
+        return None
+
 
 def fetch_binance_oi(symbol="BTCUSDT"):
-    return fetch_json(f"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=48")
+    try:
+        return _cs.open_interest_hist(symbol, "1h", 48)
+    except Exception as e:
+        log(f"  FAIL open interest {symbol} → {e}")
+        return None
+
 
 def fetch_binance_ls():
-    return fetch_json("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=4h&limit=12")
+    try:
+        return _cs.long_short_ratio("BTCUSDT", "4h", 12)
+    except Exception as e:
+        log(f"  FAIL long/short → {e}")
+        return None
+
 
 def fetch_binance_taker():
-    return fetch_json("https://fapi.binance.com/futures/data/takerlongshortRatio?symbol=BTCUSDT&period=1h&limit=24")
+    try:
+        return _cs.taker_ratio("BTCUSDT", "1h", 24)
+    except Exception as e:
+        log(f"  FAIL taker → {e}")
+        return None
 
 # ──────────────────────────────────────────────────────────
 # Fetchers — CoinGecko
