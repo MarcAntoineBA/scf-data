@@ -20,13 +20,6 @@ jobs:
     timeout-minutes: 120   # filet contre un runner bloqué ; le bornage
                            # fin est fait par collecteur dans l'orchestrateur
 
-    # Deux exécutions d'une même cadence ne doivent jamais se chevaucher : elles
-    # écriraient les mêmes fichiers. On laisse la nouvelle attendre plutôt que
-    # d'annuler — une collecte à moitié faite vaut moins qu'une collecte finie.
-    concurrency:
-      group: collecte-${{ inputs.bucket }}
-      cancel-in-progress: false
-
     steps:
       - uses: actions/checkout@v4
 

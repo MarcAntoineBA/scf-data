@@ -10,6 +10,13 @@ on:
   schedule:
     - cron: "*/10 * * * *"
 
+# Deux exécutions de la même cadence ne doivent jamais se chevaucher : elles
+# écriraient les mêmes fichiers. La nouvelle attend son tour plutôt que d'annuler
+# l'autre — une collecte à moitié faite vaut moins qu'une collecte finie.
+concurrency:
+  group: collecte-10min
+  cancel-in-progress: false
+
 jobs:
   collecte:
     uses: ./.github/workflows/_collect.yml
