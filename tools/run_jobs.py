@@ -61,7 +61,7 @@ SITE_DIR = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
 # d'origine. Elle apportait deux choses — empêcher la veille (sans objet ici) et borner
 # la durée (assuré ici). Rien n'est perdu.
 BUCKETS = [
-    ("5min", 288, 4),      # cotations en séance
+    ("5min", 288, 4),      # cotations en séance + guetteurs de publication (rafale)
     ("10min", 96, 8),      # publications guettées (résultats, macro, news)
     ("1h", 12, 45),        # marchés et dérivés
     ("6h", 2, 75),         # lourd, ou source qui ne publie pas plus vite
@@ -79,6 +79,30 @@ PARALLEL = 6
 DEPENDANCES = {
     "tradfihist": ["tradfifund"],       # lit tradfi_fundamentals_cache.json
 }
+
+# ── RAFALE INTERNE ────────────────────────────────────────────────────────────
+# Le planning de la plateforme ne descend pas sous 5 minutes. Or pour un chiffre macro
+# ou une dépêche, l'intérêt est à l'instant de la publication : cinq minutes de retard
+# sur un CPI, c'est le mouvement déjà passé. La machine d'origine le savait — son
+# calendrier macro interrogeait la source toutes les 60 s autour d'une publication.
+#
+# On reproduit ce comportement là où il compte : ces collecteurs sont rejoués plusieurs
+# fois DANS la même exécution, espacés, jusqu'à une échéance qui reste sous la cadence.
+# Le délai réel tombe ainsi à ~80 s au lieu de 5 min, sans monopoliser un serveur.
+#
+# Volontairement limité à quatre collecteurs : appliquer ça partout occuperait un
+# runner en continu pour des sources qui ne publient pas plus vite, et transformerait
+# un usage légitime en gaspillage.
+REPETITIONS = {
+    "macrocal": 80,      # secondes entre deux passages
+    "news": 80,
+    "fjnews": 80,
+    "earningscal": 80,
+}
+# Échéance volontairement basse : au-delà, le temps de mise en place du serveur
+# (~60 s) ferait déborder la fenêtre de 5 min et deux exécutions se mettraient en
+# file d'attente au lieu de se suivre.
+RAFALE_ECHEANCE = 175
 
 
 def bucket_of(job):
@@ -157,6 +181,24 @@ def _sans_chemin_perso(msg):
     return (msg or "").replace(os.path.expanduser("~"), "~")
 
 
+def _executer(cmd, timeout):
+    """Un passage. Renvoie le même dictionnaire que run_one, sans l'identifiant."""
+    t0 = time.time()
+    try:
+        p = subprocess.run(cmd, cwd=SCRIPTS, capture_output=True, text=True,
+                           timeout=timeout, env=os.environ.copy())
+        ok = p.returncode == 0
+        why = "" if ok else (p.stderr or p.stdout or "").strip().splitlines()[-1:] or [""]
+        return dict(job="", ok=ok, secs=round(time.time() - t0, 1), code=p.returncode,
+                    why="" if ok else _sans_chemin_perso(str(why[0]))[:200])
+    except subprocess.TimeoutExpired:
+        return dict(job="", ok=False, secs=round(time.time() - t0, 1), code=None,
+                    why=f"dépassement du plafond ({timeout//60} min)")
+    except Exception as e:
+        return dict(job="", ok=False, secs=round(time.time() - t0, 1), code=None,
+                    why=_sans_chemin_perso(f"{type(e).__name__}: {e}")[:200])
+
+
 def run_one(job, timeout):
     script = os.path.join(SCRIPTS, job["script"])
     if not os.path.exists(script):
@@ -165,6 +207,28 @@ def run_one(job, timeout):
     cmd = (["bash", script] if script.endswith(".sh")
            else [sys.executable, script])
     t0 = time.time()
+
+    # Guetteurs de publication : on repasse plusieurs fois dans la même exécution.
+    # Le dernier passage fait foi ; les précédents servent à attraper un chiffre qui
+    # tombe entre deux cadences. On s'arrête à l'échéance, jamais au milieu d'un passage.
+    espacement = REPETITIONS.get(job["id"])
+    if espacement:
+        # Chaque passage est borné à l'espacement : un passage qui traîne mangerait
+        # la rafale entière et on n'aurait gagné qu'un appel sur trois.
+        plafond_passage = min(timeout, espacement + 40)
+        dernier, passages = None, 0
+        while True:
+            dernier = _executer(cmd, plafond_passage)
+            passages += 1
+            reste = RAFALE_ECHEANCE - (time.time() - t0)
+            if reste < espacement + 20:
+                break
+            time.sleep(espacement)
+        dernier["secs"] = round(time.time() - t0, 1)
+        dernier["job"] = job["id"]
+        dernier["passages"] = passages
+        return dernier
+
     try:
         p = subprocess.run(cmd, cwd=SCRIPTS, capture_output=True, text=True,
                            timeout=timeout, env=os.environ.copy())

@@ -1,0 +1,20 @@
+{
+ "bucket": "daily",
+ "run": {
+  "ts": "2026-08-04T17:54:09Z",
+  "total": 13,
+  "ok": 12,
+  "secs": 346.1,
+  "changed": 13,
+  "versionnes": 11,
+  "pieces_jointes": 2,
+  "absents": 19,
+  "failed": [
+   {
+    "job": "sentiment.fng",
+    "why": "[17:51:34] ERREUR : SPY vide, abort."
+   }
+  ]
+ },
+ "updated": "2026-08-04T17:54:09Z"
+}

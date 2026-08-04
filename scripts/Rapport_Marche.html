@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Marché ce matin — Capital Antifragile</title>
+<meta name="description" content="Rapport de marché matinal, neutre et éducatif : crypto, macro, thèses structurelles et catalyseurs du jour. Capital Antifragile.">
+<meta name="robots" content="index,follow">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --navy:#0b1929; --bg:#070f1c; --bg2:#0d1a2e; --card:#111d2e; --card2:#0f1a2c;
+  --border:#1e3250; --border2:#152438; --text:#d0dae8; --muted:#8ba0bd;
+  --teal:#00c4d8; --cyan:#00cec9; --blue:#74b9ff; --green:#3ddb9a; --red:#e57b6f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(ellipse at 82% 12%, rgba(37,88,217,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 12% 88%, rgba(0,196,216,0.06) 0%, transparent 55%),
+    var(--bg);
+  color:var(--text); font-family:'Inter',system-ui,sans-serif; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:20; display:flex; align-items:center;
+  justify-content:space-between; gap:16px; padding:14px 24px;
+  background:rgba(7,15,28,0.94); border-bottom:1px solid var(--border);
+}
+.brand{font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.12em;
+  font-size:.95rem; color:#eaf2ff; text-decoration:none; white-space:nowrap}
+.brand span{color:var(--teal)}
+.topbar a.back{color:var(--muted); text-decoration:none; font-size:.85rem;
+  font-weight:600; border:1px solid var(--border); padding:7px 14px; border-radius:8px;
+  transition:color .2s,border-color .2s}
+.topbar a.back:hover{color:var(--cyan); border-color:var(--cyan)}
+.wrap{max-width:820px; margin:0 auto; padding:40px 24px 72px}
+.kicker{font-family:'JetBrains Mono',monospace; font-size:.72rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--teal); margin:0 0 6px}
+h1{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:2.05rem;
+  line-height:1.15; margin:.1rem 0 1.2rem; color:#f2f7ff; letter-spacing:-.01em}
+h2{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:1.28rem;
+  margin:2.4rem 0 .9rem; padding-bottom:.5rem; color:#eaf2ff;
+  border-bottom:1px solid var(--border2)}
+h3{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:1.05rem;
+  margin:1.6rem 0 .5rem; color:var(--blue)}
+p{margin:.7rem 0}
+strong{color:#f2f7ff; font-weight:700}
+em{color:var(--muted)}
+a{color:var(--cyan)}
+code{font-family:'JetBrains Mono',monospace; background:#172236; color:#8fd4ff;
+  padding:1px 6px; border-radius:5px; font-size:.86em}
+ul,ol{margin:.6rem 0 1rem; padding-left:1.3rem}
+li{margin:.32rem 0}
+hr{border:0; border-top:1px solid var(--border2); margin:2rem 0}
+table.rep-tbl{width:100%; border-collapse:collapse; margin:1rem 0 1.3rem;
+  font-size:.92rem; background:var(--card); border:1px solid var(--border);
+  border-radius:10px; overflow:hidden}
+table.rep-tbl th{background:#0a1525; color:#cfe0f5; text-align:left;
+  font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:.78rem;
+  letter-spacing:.04em; text-transform:uppercase; padding:11px 14px;
+  border-bottom:1px solid var(--border)}
+table.rep-tbl td{padding:10px 14px; border-bottom:1px solid var(--border2);
+  color:var(--text)}
+table.rep-tbl tr:last-child td{border-bottom:0}
+table.rep-tbl td:first-child{color:#cfe0f5; font-weight:600}
+.rep-callout{margin:1.4rem 0; padding:16px 20px; background:var(--card2);
+  border:1px solid var(--border); border-left:3px solid var(--teal);
+  border-radius:8px; color:var(--text)}
+.rep-callout p{margin:.35rem 0}
+.rep-callout p:first-child{margin-top:0}
+.rep-callout p:last-child{margin-bottom:0}
+.disclaimer{margin-top:2.4rem; padding:14px 18px; background:rgba(13,26,46,0.6);
+  border:1px solid var(--border2); border-radius:8px; font-size:.82rem;
+  color:var(--muted); line-height:1.55}
+.foot{margin-top:20px; font-size:.75rem; color:#5f748f; font-family:'JetBrains Mono',monospace}
+@media(max-width:640px){
+  .wrap{padding:28px 16px 56px} h1{font-size:1.6rem}
+  .topbar{padding:12px 16px} .brand{font-size:.8rem; letter-spacing:.08em}
+  table.rep-tbl{font-size:.82rem} table.rep-tbl th,table.rep-tbl td{padding:8px 10px}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html">CAPITAL <span>ANTIFRAGILE</span></a>
+  <a class="back" href="index.html">Voir le dashboard →</a>
+</div>
+<main class="wrap">
+  <p class="kicker">Rapport de marché · édition du matin</p>
+  <h1>📊 Le Marché ce matin — 4 août 2026</h1>
+<p>Ambiance calme malgré un fond fragile : le Bitcoin se stabilise près de 63 500 $ après un trimestre en repli (-21,5 % sur 90 j), pendant que les marchés actions restent proches de leurs sommets et que la volatilité (VIX 15,6) demeure basse. La semaine est chargée en données d'emploi américaines, potentiels catalyseurs.</p>
+<h2>₿ Crypto</h2>
+<table class="rep-tbl"><thead><tr><th>Indicateur</th><th>Niveau</th><th>Tendance</th></tr></thead><tbody>
+<tr><td>BTC</td><td>~63 500 $ (mark 63 864 $)</td><td>−0,4 % (7 j) · −21,5 % (90 j)</td></tr>
+<tr><td>ETH</td><td>~1 872 $</td><td>ETF −11,9 M$ (dernier jour)</td></tr>
+<tr><td>Dominance BTC</td><td>59,1 %</td><td>+0,8 pt (30 j)</td></tr>
+<tr><td>Régime de cycle</td><td>22–23/100 « bas de cycle / accumulation »</td><td>−10 pts (12 sem.)</td></tr>
+<tr><td>Fear &amp; Greed crypto</td><td>36 (« Peur »)</td><td>+1 pt (7 j)</td></tr>
+<tr><td>Funding BTC (8 h)</td><td>+0,0091 % (positif léger)</td><td>quasi neutre</td></tr>
+</tbody></table>
+<p>Le composite de cycle est bas et plusieurs métriques on-chain sont « vertes » (MVRV Z-Score 0,35 ; Puell 0,77 ; Mayer 0,89), ce qui décrit historiquement une zone d'accumulation. En parallèle, BTC évolue sous sa moyenne 200 j (68 469 $) et la dominance élevée indique des capitaux orientés vers BTC/cash plutôt que vers les alts. Le funding proche de zéro signale un levier peu tendu.</p>
+<h2>🌍 Macro &amp; taux</h2>
+<table class="rep-tbl"><thead><tr><th>Repère</th><th>Niveau</th><th>Lecture</th></tr></thead><tbody>
+<tr><td>Fed Funds</td><td>3,63 %</td><td>0 baisse anticipée en 2026 (88,7 % sur marché de prédiction)</td></tr>
+<tr><td>FedWatch (16 sept.)</td><td>375–400 pb à 68,6 %</td><td>biais resserrement (+17 pb priced)</td></tr>
+<tr><td>10Y Treasury</td><td>4,75 %</td><td>courbe 10Y-2Y à +0,45</td></tr>
+<tr><td>DXY (USD Broad)</td><td>119,7</td><td>−2,0 pts (12 m)</td></tr>
+<tr><td>VIX</td><td>15,6</td><td>stress financier bas (−0,83)</td></tr>
+<tr><td>Corrélations BTC</td><td>S&amp;P 500 : 0,42 (90 j)</td><td>or : 0,13 · DXY : −0,26</td></tr>
+</tbody></table>
+<p>Le chemin de taux implicite penche vers un léger resserrement (+47 pb à horizon mars 2027), soit un vent de face pour les actifs risqués selon cette lecture. La corrélation BTC↔actions (0,42 sur 90 j) reste supérieure à la corrélation BTC↔or (0,13), et le dollar est en repli sur un an.</p>
+<h2>🏗️ Thèses structurelles</h2>
+<ul>
+<li><strong>Bulle IA ?</strong> Capex Mag7 2025 : 352 Md$ (vs 108 Md$ en 2020) ; capitalisation Mag7 : 21 050 Md$ ; à comparer au coût d'entraînement affiché de DeepSeek-R1 (~5,6 M$).</li>
+<li><strong>Tech chinoise</strong> : +60,5 % YTD (vs +44,7 % pour la tech US) mais −13 % sur le dernier mois ; valorisations basses (Alibaba PE 19,95 ; Tencent 16,47) face à un PE médian Mag7 de 27,17.</li>
+<li><strong>Dette</strong> : France à 117,6 % du PIB (3 536 Md€), taux 10 ans à 3,68 % ; Italie à 138,9 %.</li>
+<li><strong>Dollar &amp; or</strong> : part de l'USD dans les réserves à 57,8 % (vs 71,0 % en 1999) ; achats nets d'or des banques centrales de 1 045 tonnes en 2024.</li>
+<li><strong>Pendule séculaire</strong> : 90/100 (ratio S&amp;P 500 / Or à 1,85, 81ᵉ percentile historique) — cadre décennal, pas un signal court terme.</li>
+</ul>
+<h2>📰 News &amp; catalyseurs</h2>
+<p><strong>Marchés de prédiction :</strong> 0 baisse Fed en 2026 à <strong>88,7 %</strong> ; hausse de 25 pb en septembre à <strong>54,5 %</strong> ; MicroStrategy retiré de l'indice MSCI à <strong>48,5 %</strong> (+12,5 pts/24 h) ; nouveau « downgrade » de la dette US avant 2027 à <strong>16 %</strong>.</p>
+<p><strong>Calendrier macro (impact élevé) :</strong> JOLTS aujourd'hui ; ADP + ISM Services le 5 août ; inscriptions chômage le 6 ; <strong>Nonfarm Payrolls + taux de chômage le 7 août</strong> (réaction BTC historique ±1,8 %). Résultats <strong>AMD</strong> ce soir après clôture.</p>
+<p><strong>Fil d'actualité :</strong> pertes liées au phishing Coldcard estimées à ~130 M$ ; BlackRock tokenise 311 Md$ de fonds monétaires européens avec Kinexys (JPMorgan) ; flux ETF BTC positifs (+170,1 M$), mais ETH (−11,9 M$) et HYPE (9ᵉ jour de sorties) en repli.</p>
+<h2>⚖️ Les deux lectures</h2>
+<blockquote class="rep-callout"><p>🟢 <strong>Côté constructif</strong> : métriques de cycle en zone basse et « vertes », flux ETF Bitcoin positifs (+170 M$), entrées nettes de stablecoins sur 24 h (+1 022 M$), stress financier bas et VIX à 15,6 ; un analogue historique (oct. 2023, corrélation 0,90) a été suivi de +29 % à 30 j.</p><p>🔴 <strong>Côté prudent</strong> : BTC sous sa moyenne 200 j et −21,5 % sur 90 j, sorties nettes de stablecoins sur 1 semaine (−1,5 Md$) et 1 mois (−2,2 Md$), chemin de taux Fed orienté resserrement, saisonnalité d'août historiquement faible (médiane −3,1 %, 36 % de cas positifs) et narratifs IA/DePIN/Gaming en recul (~−15 % sur 30 j).</p></blockquote>
+<hr>
+<p><em>Rapport informatif et éducatif, sans conseil en investissement. Données : indicateurs du site, 14h11.</em></p>
+  <div class="disclaimer">
+    ⚖️ Ce rapport est <strong>informatif et éducatif</strong>. Il ne constitue pas un
+    conseil en investissement, une recommandation ni une sollicitation d'achat ou de
+    vente. Les marchés comportent un risque de perte en capital. Faites vos propres
+    recherches.
+  </div>
+  <div class="foot">Généré automatiquement le 04/08/2026 à 14h12 · Capital Antifragile</div>
+</main>
+</body>
+</html>

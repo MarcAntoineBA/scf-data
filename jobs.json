@@ -557,7 +557,7 @@
    "script": "fetch_earnings_calendar.py",
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
-   "cadence": "10min",
+   "cadence": "5min",
    "category": "public",
    "outputs": [
     "earnings_calendar_cache.json",
@@ -645,7 +645,7 @@
    "script": "fetch_fj_news.py",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
-   "cadence": "10min",
+   "cadence": "5min",
    "category": "public",
    "outputs": [
     "fj_news_cache.js",
@@ -681,7 +681,7 @@
    "script": "fetch_fred_stress_indicators.py",
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
-   "cadence": "6h",
+   "cadence": "1h",
    "category": "public",
    "outputs": [
     "fred_stress_indicators_cache.js"
@@ -826,7 +826,7 @@
    "script": "fetch_macro_calendar.py",
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
-   "cadence": "10min",
+   "cadence": "5min",
    "category": "public",
    "outputs": [
     "macro_cal_live.js",
@@ -839,7 +839,7 @@
    "script": "fetch_macro_fred_data.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
-   "cadence": "6h",
+   "cadence": "1h",
    "category": "public",
    "outputs": [
     "macro_fred_cache.js",
@@ -926,7 +926,7 @@
    "script": "fetch_news.py",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
-   "cadence": "10min",
+   "cadence": "5min",
    "category": "public",
    "outputs": [
     "news_cache.js",

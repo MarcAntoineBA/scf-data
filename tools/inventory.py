@@ -89,11 +89,16 @@ CADENCE_OVERRIDES = {
     "com.bassetti.moneyflow": "5min",         # flux intrajournaliers
     "com.bassetti.stockbubble": "5min",       # cotations des actions suivies
 
-    # ── 10 min : guettent une publication, ou la relaient ─────────────────────
-    "com.bassetti.earningscal": "10min",      # résultats publiés dans la minute
-    "com.bassetti.macrocal": "10min",         # chiffres macro à l'instant de leur sortie
-    "com.bassetti.news": "10min",
-    "com.bassetti.fjnews": "10min",
+    # ── 5 min : guetteurs de publication. Ce sont EUX qui portent la valeur sur un
+    # site de marché — un chiffre macro ou une dépêche n'ont d'intérêt qu'à l'instant
+    # où ils tombent. Ils repassent en plus par une rafale interne (voir REPETITIONS
+    # dans l'orchestrateur) qui ramène le délai réel sous la minute et demie.
+    "com.bassetti.macrocal": "5min",          # chiffres macro à l'instant de leur sortie
+    "com.bassetti.news": "5min",
+    "com.bassetti.fjnews": "5min",
+    "com.bassetti.earningscal": "5min",       # résultats publiés dans la minute
+
+    # ── 10 min ────────────────────────────────────────────────────────────────
     "com.bassetti.treasury": "10min",         # dépôts SEC + valorisation au spot
 
     # ── 1 h : marchés et dérivés. Étaient à 6 h, sans raison autre que le Mac ──
@@ -118,6 +123,8 @@ CADENCE_OVERRIDES = {
     "com.bassetti.l1valuation": "1h",
     "com.bassetti.backtestradar": "1h",
     "com.bassetti.macro-corr": "1h",
+    "com.bassetti.macrofred.refresh": "1h",   # séries officielles, publiées en journée
+    "com.bassetti.fredstress.refresh": "1h",  # indicateurs de tension financière
 
     # ── 6 h : lourd, ou source qui ne publie pas plus vite ─────────────────────
     "com.bassetti.tradfi": "6h",              # ~50 min d'exécution : plancher physique
@@ -126,8 +133,7 @@ CADENCE_OVERRIDES = {
     "com.bassetti.tradfi-growth": "6h",
     "com.bassetti.narrfund": "6h",
     "com.bassetti.radarv3.refresh": "6h",
-    "com.bassetti.macrofred.refresh": "6h",   # séries officielles, mises à jour au jour
-    "com.bassetti.fredstress.refresh": "6h",
+
     "com.bassetti.fluxphysiques": "6h",
     "com.bassetti.hydrocarbures": "6h",
     "com.bassetti.narratives": "6h",
