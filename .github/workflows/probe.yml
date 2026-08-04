@@ -1,0 +1,43 @@
+name: Sonde des sources
+
+# Répond à la seule question qui décide de la migration hors du Mac :
+# les sources du site répondent-elles depuis une IP de datacenter ?
+# On la relance chaque jour : une source peut se fermer aux IP cloud du jour au
+# lendemain, et il vaut mieux l'apprendre par ce tableau que par un widget figé.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"   # 06:17 UTC, hors des heures de pointe des runners
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # curl_cffi = usurpation TLS chrome120, indispensable à Yahoo. Sans elle,
+      # un 403 dirait « IP bloquée » alors qu'il ne dirait que « client non déguisé ».
+      - name: Dépendances
+        run: pip install --quiet curl_cffi
+
+      - name: Sonder
+        env:
+          SCF_PROBE_LABEL: runner GitHub (IP datacenter)
+          SCF_PROBE_OUT: probe_runner.json
+        run: python tools/probe_sources.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sonde-runner
+          path: probe_runner.json
+          retention-days: 30
