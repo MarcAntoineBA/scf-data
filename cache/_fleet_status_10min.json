@@ -1,0 +1,24 @@
+{
+ "bucket": "10min",
+ "run": {
+  "ts": "2026-08-04T13:56:29Z",
+  "total": 4,
+  "ok": 2,
+  "secs": 0.1,
+  "changed": 0,
+  "versionnes": 0,
+  "pieces_jointes": 0,
+  "absents": 23,
+  "failed": [
+   {
+    "job": "fjnews",
+    "why": "~/work/scf-data/scf-data/scripts/refresh_fj_news.sh: line 10: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+   },
+   {
+    "job": "news",
+    "why": "~/work/scf-data/scf-data/scripts/fetch_news_with_timeout.sh: line 11: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+   }
+  ]
+ },
+ "updated": "2026-08-04T13:56:29Z"
+}
