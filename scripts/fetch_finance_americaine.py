@@ -24,6 +24,7 @@ Colonne vertébrale (toutes validées sur l'API FRED, 2026-06-30) :
 Cache : ~/Library/Caches/site_crypto_finance/finance_americaine_cache.{json,js}
         window.__FINANCE_AMERICAINE__ = {...}
 """
+import os
 import json
 import sys
 import time

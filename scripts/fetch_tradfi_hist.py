@@ -20,6 +20,7 @@ CLI:
 """
 # ── Global timeout : 50 min (gros scrape multi-source). Auto-tue si bloque sur I/O,
 #    libère le lock pour le prochain cycle launchd (cf fetch_pe_hist pattern).
+import os
 import signal as _signal, sys as _sys
 def _to(signum, frame):
     print("[fatal] global timeout (75 min) — abort to free launchd lock.", file=_sys.stderr)

@@ -1,6 +1,25 @@
 {
  "jobs": [
   {
+   "id": "bulleai.refresh",
+   "script": "refresh_bulle_ia.sh",
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "category": "locale",
+   "outputs": [
+    "ai_adoption_cache.js",
+    "ai_models_cache.js",
+    "ai_models_cache.json",
+    "ai_research_cache.json",
+    "bulle_ia_render/Bulle_IA.html",
+    "cycle_cache.js",
+    "mag7_hist_cache.js",
+    "nvda_hist_cache.js",
+    "pe_hist_cache.js"
+   ],
+   "witness": "bulle_ia_render/Bulle_IA.html"
+  },
+  {
    "id": "cfdeploy",
    "script": "deploy_public_wrangler.sh",
    "schedule": "toutes les 0.5 h",
@@ -19,6 +38,15 @@
     "fj_news_cache.json",
     "treasury_alert_live.json"
    ],
+   "witness": null
+  },
+  {
+   "id": "ecosysteme.refresh",
+   "script": "refresh_ecosysteme.sh",
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "category": "locale",
+   "outputs": [],
    "witness": null
   },
   {
@@ -375,25 +403,6 @@
    "witness": "buffett_cash_cache.json"
   },
   {
-   "id": "bulleai.refresh",
-   "script": "refresh_bulle_ia.sh",
-   "schedule": "3 créneau(x)/jour",
-   "per_day": 3.0,
-   "category": "public",
-   "outputs": [
-    "ai_adoption_cache.js",
-    "ai_models_cache.js",
-    "ai_models_cache.json",
-    "ai_research_cache.json",
-    "bulle_ia_render/Bulle_IA.html",
-    "cycle_cache.js",
-    "mag7_hist_cache.js",
-    "nvda_hist_cache.js",
-    "pe_hist_cache.js"
-   ],
-   "witness": "bulle_ia_render/Bulle_IA.html"
-  },
-  {
    "id": "correlations.refresh",
    "script": "refresh_correlations.sh",
    "schedule": "2 créneau(x)/jour",
@@ -505,15 +514,6 @@
     "ecosysteme_indicators_cache.json"
    ],
    "witness": "ecosysteme_indicators_cache.json"
-  },
-  {
-   "id": "ecosysteme.refresh",
-   "script": "refresh_ecosysteme.sh",
-   "schedule": "3 créneau(x)/jour",
-   "per_day": 3.0,
-   "category": "public",
-   "outputs": [],
-   "witness": null
   },
   {
    "id": "energymacro",
@@ -703,11 +703,12 @@
   },
   {
    "id": "l1valuation",
-   "script": "refresh_l1_valuation.sh",
+   "script": "fetch_l1_valuation.py",
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "category": "public",
    "outputs": [
+    "l1_valuation_cache.js",
     "l1_valuation_cache.json"
    ],
    "witness": "l1_valuation_cache.json"

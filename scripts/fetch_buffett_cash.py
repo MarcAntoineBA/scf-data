@@ -11,6 +11,7 @@ on parse la ligne du BILAN consolidé (R2.htm "Consolidated Balance Sheets") de 
 
 Sortie : buffett_cash_cache.json/.js  (window.__BUFFETT_CASH__)
 """
+import os
 import json, re, sys, time, shutil
 import html as H
 from pathlib import Path

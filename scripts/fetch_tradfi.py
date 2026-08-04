@@ -8,6 +8,7 @@ Parallele de fetch_narratives.py mais pour les actions mondiales :
   - News via flux RSS tradfi deja presents dans news_cache.json (section 'macro')
   - Filtre tendance = S&P 500 vs MA200 (au lieu de BTC vs MA200)
 """
+import os
 import json, re, time, sys, base64, hashlib, os
 from pathlib import Path
 from datetime import datetime, timezone, timedelta

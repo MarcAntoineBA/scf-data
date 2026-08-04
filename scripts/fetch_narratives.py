@@ -12,6 +12,7 @@ Pipeline:
 # ── Global timeout safeguard (30 min) — auto-tué si bloqué sur un I/O réseau,
 #    libère le lock pour le prochain cycle launchd. Sans ça, un script bloqué
 #    monopolise indéfiniment le verrou et empêche tous les refresh suivants.
+import os
 import signal as _signal, sys as _sys
 def _global_timeout_handler(signum, frame):
     print(f"[fatal] global timeout (30 min) reached — aborting to free lock for next launchd cycle.", file=_sys.stderr)
@@ -1480,7 +1481,7 @@ def narrative_stats(narr, cfg, scan, assets, max_rank=MAX_MCAP_RANK):
             img_fallback = m.get("image_fallback") or ""
         else:
             cg_image = m.get("image") or ""
-            jsdeliver_svg = (fos.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")
+            jsdeliver_svg = (os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")
                              if sym_lower else "")
             img_url      = cg_image or jsdeliver_svg
             img_fallback = jsdeliver_svg if cg_image and jsdeliver_svg and cg_image != jsdeliver_svg else ""

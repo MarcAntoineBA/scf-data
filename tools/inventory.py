@@ -50,6 +50,19 @@ LOCALE = {
     "com.bassetti.syncprod", "com.bassetti.savoir",
     # Module « savoir/souveraineté » : dépôt privé, base D1, contenu non publié tel quel.
     "com.bassetti.souv_carte", "com.bassetti.souv_grind", "com.bassetti.souv_links",
+    # RENDU DE PAGE, pas de la collecte : ces jobs appellent rmarkdown::render. Ils
+    # exigent R, qui n'existe pas sur un runner — et le rendu des pages reste de toute
+    # façon sur la machine, ce n'est pas ce qu'on migre. Constaté en conditions réelles :
+    # « /usr/local/bin/Rscript: No such file or directory ».
+    "com.bassetti.bulleai.refresh", "com.bassetti.ecosysteme.refresh",
+}
+
+# Un job peut MÊLER collecte et rendu. On ne veut alors migrer que la collecte : le
+# cloud rafraîchit la donnée, la machine continue de fabriquer la page. Sans cette
+# distinction, il faudrait choisir entre laisser la donnée figée ou installer R sur
+# un runner pour rien.
+SCRIPT_OVERRIDES = {
+    "com.bassetti.l1valuation": "fetch_l1_valuation.py",   # au lieu du refresh complet
 }
 
 CACHE_RE = re.compile(r"[\w\-.]+_(?:cache|live|light|data)[\w\-.]*\.(?:js|json)|"
@@ -104,6 +117,7 @@ def main():
         args = d.get("ProgramArguments", [])
         script = next((os.path.basename(a) for a in args
                        if a.endswith((".py", ".sh"))), "")
+        script = SCRIPT_OVERRIDES.get(label, script)
         sched, per_day = schedule_of(d)
         cat = "perso" if label in PERSO else "locale" if label in LOCALE else "public"
         # `jobs.json` part dans un dépôt public : l'étiquette launchd complète

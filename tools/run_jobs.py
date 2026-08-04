@@ -81,6 +81,18 @@ def prepare_env():
     """Recrée l'arborescence que les collecteurs attendent."""
     for d in (CACHE_DIR, SITE_DIR, CACHE_OUT):
         os.makedirs(d, exist_ok=True)
+
+    # Les enveloppes shell se placent d'abord dans le dossier où elles vivent sur la
+    # machine d'origine. Ce chemin n'existe pas ici : quatre collecteurs mouraient sur
+    # « cd: … No such file or directory » avant d'avoir rien fait. On y pointe le
+    # dossier des scripts, et leur `cd` retombe sur leurs voisins comme prévu.
+    maison = os.path.expanduser("~/Library/Application Support/SiteCryptoFinance")
+    if not os.path.exists(maison):
+        os.makedirs(os.path.dirname(maison), exist_ok=True)
+        try:
+            os.symlink(SCRIPTS, maison)
+        except OSError:
+            shutil.copytree(SCRIPTS, maison)   # si les liens sont refusés
     # Les collecteurs relisent souvent leur propre cache précédent (fusion, historique,
     # préservation en cas d'échec partiel). Sans cette copie, chaque exécution repartirait
     # de zéro et perdrait l'historique accumulé — et un collecteur dont la source est

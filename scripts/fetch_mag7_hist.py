@@ -16,6 +16,7 @@ ANCIENNE methode (jusqu'au 2026-06-08) : proxy prix XLK/SPY x calibration 27.6% 
 
 Ecrit mag7_hist_cache.json + mag7_hist_cache.js (charge directement par Bulle_IA.html).
 """
+import os
 import yfinance as yf
 import json, sys, warnings, os
 from pathlib import Path

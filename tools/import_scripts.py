@@ -48,7 +48,7 @@ LABEL_RULE = (rf"com\.{re.escape(ACCOUNT)}\.", "scf.")
 # On ne peut ni les supprimer (la source refuserait) ni les publier (adresse récoltée
 # par les robots dès l'indexation) : la valeur passe par l'environnement, alimentée
 # par un secret GitHub, avec un repli neutre qui garde le script exécutable en local.
-EMAIL_IN_STRING = re.compile(r'"[^"\n]*[\w.+-]+@[\w-]+\.[\w.]+[^"\n]*"')
+EMAIL_IN_STRING = re.compile(r'(?<![\w.])[fFrRbB]{0,2}"[^"\n]*[\w.+-]+@[\w-]+\.[\w.]+[^"\n]*"')
 CONTACT_ENV_PY = 'os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")'
 CONTACT_ENV_SH = '"${SCF_CONTACT_UA:-CapitalAntifragile research}"'
 
@@ -61,8 +61,8 @@ SCRATCH_ENTRY = re.compile(r'^[ \t]*"/private/tmp/[^"\n]*",[ \t]*\n', re.M)
 # Réécritures, appliquées dans l'ordre. Le shell et Python n'ont pas la même syntaxe
 # pour « mon dossier personnel », d'où deux jeux de règles.
 PY_RULES = [
-    (rf'"{re.escape(HOME)}/([^"]*)"', r'os.path.expanduser("~/\1")'),
-    (rf"'{re.escape(HOME)}/([^']*)'", r"os.path.expanduser('~/\1')"),
+    (rf'(?<![\w.])[fFrRbB]{{0,2}}"{re.escape(HOME)}/([^"]*)"', r'os.path.expanduser("~/\1")'),
+    (rf"(?<![\w.])[fFrRbB]{{0,2}}'{re.escape(HOME)}/([^']*)'", r"os.path.expanduser('~/\1')"),
     # Chemin nu dans une f-string ou une concaténation : plus rare, traité au cas par cas.
     (re.escape(HOME) + r"/", "~/"),
 ]
@@ -96,6 +96,39 @@ ENV_DEFAULT_SECRET = re.compile(
     r'["\'][A-Za-z0-9_\-]{16,}["\']')
 
 
+# Fichiers d'appui rangés en SOUS-DOSSIERS. La détection automatique ne les voit pas :
+# les collecteurs les désignent par morceaux de chemin assemblés (`dossier / "assets" /
+# "js" / …`), pas par un nom de fichier littéral. Liste explicite, donc — comme pour le
+# classement des jobs, on ne confie pas à une heuristique ce qui casse trois collecteurs
+# quand elle se trompe. Constaté en conditions réelles : atlaseco, atlasdetail et
+# hydrocarbures mouraient tous les trois sur ce seul fichier.
+ASSETS = [
+    "assets/js/atlas/atlas_countries_meta.js",
+]
+SITE = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
+
+
+def copier_assets(dry):
+    """Recopie les fichiers d'appui depuis le dépôt du site, en conservant leur
+    arborescence : les collecteurs les cherchent à un emplacement RELATIF précis."""
+    faits, absents = [], []
+    for rel in ASSETS:
+        src = os.path.join(SITE, rel)
+        if not os.path.exists(src):
+            absents.append(rel)
+            continue
+        contenu = open(src, encoding="utf-8", errors="replace").read()
+        if ACCOUNT.lower() in contenu.lower():
+            absents.append(f"{rel} (contient le nom du compte)")
+            continue
+        dst = os.path.join(DEST, rel)
+        if not dry:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        faits.append(rel)
+    return faits, absents
+
+
 def scrub_prose(text):
     """Retire le nom du compte des COMMENTAIRES (« enregistrée par <compte> le … »).
 
@@ -126,7 +159,8 @@ def rewrite(text, is_shell):
 
 def needs_os_import(text):
     """Une réécriture Python introduit `os.path.expanduser` : le module doit être importé."""
-    return "os.path.expanduser" in text and not re.search(r"^import os\b|^import os,", text, re.M)
+    return bool(re.search(r"\bos\.", text)) and not re.search(
+        r"^import os\b|^import os,|^from os import", text, re.M)
 
 
 def add_os_import(text):
@@ -260,7 +294,13 @@ def main():
             shutil.copy2(os.path.join(SRC, f), os.path.join(DEST, f))
         emportees.append(f)
 
+    assets_ok, assets_ko = copier_assets(dry)
+
     print(f"{'[simulation] ' if dry else ''}collecteurs publics : {len(wanted)} attendus")
+    if assets_ok:
+        print(f"  appuis    {len(assets_ok)}   ({', '.join(assets_ok)})")
+    for rel in assets_ko:
+        print(f"    ✗ appui introuvable : {rel}")
     if emportees:
         print(f"  entrées   {len(emportees)}   ({', '.join(emportees)})")
     print(f"  importés  {len(copied)}")
