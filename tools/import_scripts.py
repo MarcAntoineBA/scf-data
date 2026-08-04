@@ -105,6 +105,13 @@ ENV_DEFAULT_SECRET = re.compile(
 ASSETS = [
     "assets/js/atlas/atlas_countries_meta.js",
 ]
+
+# Un collecteur peut être un PETIT PIPELINE rangé dans son propre sous-dossier : il
+# s'y déplace, puis enchaîne plusieurs scripts. On emporte le dossier, sans ses
+# données brutes (54 Mo de sources téléchargées, régénérables) ni les caches de
+# compilation. Sans ça, le collecteur meurt sur « cd : dossier introuvable ».
+SOUS_DOSSIERS = ["radar_audit"]
+SOUS_DOSSIERS_EXCLUS = {"data_raw", "__pycache__", ".DS_Store"}
 SITE = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
 
 
@@ -127,6 +134,37 @@ def copier_assets(dry):
             shutil.copy2(src, dst)
         faits.append(rel)
     return faits, absents
+
+
+def copier_sous_dossiers(dry):
+    """Emporte les pipelines rangés en sous-dossier, code et données de travail."""
+    faits = []
+    for nom in SOUS_DOSSIERS:
+        src = os.path.join(SRC, nom)
+        if not os.path.isdir(src):
+            continue
+        n = 0
+        for entree in sorted(os.listdir(src)):
+            if entree in SOUS_DOSSIERS_EXCLUS:
+                continue
+            chemin = os.path.join(src, entree)
+            if not os.path.isfile(chemin):
+                continue
+            contenu = open(chemin, encoding="utf-8", errors="replace").read()
+            if ACCOUNT.lower() in contenu.lower():
+                contenu = rewrite(contenu, entree.endswith(".sh"))
+                if ACCOUNT.lower() in contenu.lower():
+                    print(f"    ✗ {nom}/{entree} : chemin personnel résiduel")
+                    continue
+                if entree.endswith(".py") and needs_os_import(contenu):
+                    contenu = add_os_import(contenu) or contenu
+            if not dry:
+                os.makedirs(os.path.join(DEST, nom), exist_ok=True)
+                with open(os.path.join(DEST, nom, entree), "w", encoding="utf-8") as f:
+                    f.write(contenu)
+            n += 1
+        faits.append(f"{nom} ({n} fichiers)")
+    return faits
 
 
 def scrub_prose(text):
@@ -295,10 +333,13 @@ def main():
         emportees.append(f)
 
     assets_ok, assets_ko = copier_assets(dry)
+    sous_dossiers = copier_sous_dossiers(dry)
 
     print(f"{'[simulation] ' if dry else ''}collecteurs publics : {len(wanted)} attendus")
     if assets_ok:
         print(f"  appuis    {len(assets_ok)}   ({', '.join(assets_ok)})")
+    if sous_dossiers:
+        print(f"  pipelines {len(sous_dossiers)}   ({', '.join(sous_dossiers)})")
     for rel in assets_ko:
         print(f"    ✗ appui introuvable : {rel}")
     if emportees:

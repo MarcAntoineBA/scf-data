@@ -1,0 +1,170 @@
+{
+  "_doc": "Watchlist thématique de l'onglet Prediction Markets. Ajouter/retirer un thème = éditer CE fichier uniquement, zéro code. 'keywords' = requêtes envoyées à Polymarket public-search (phrases multi-mots OK). 'exclude' = termes qui disqualifient un marché (faux positifs). 'category' = regroupement UI + signaux (regulation/macro/markets/crypto/tail_risk/geo/iran/ipo/ai/tech/elections) — TOUTE nouvelle catégorie doit être ajoutée à CAT_LABELS/CAT_COLORS/CAT_ORDER dans Prediction_Markets.Rmd, sinon pas de pastille. 'top_n' = nb max de marchés gardés par thème (défaut global). ATTENTION au matching : un mot-clé de 4 caractères ou plus matche par PRÉFIXE (« Iran » attrape « Iranian », mais « DeFi » attraperait « deficit ») — préférer une phrase de 2 mots pour lever l'ambiguïté.",
+  "defaults": { "top_n": 14, "min_volume_composite": 10000, "resolved_prob_threshold": 0.97, "settled_prob_threshold": 0.995,
+    "_doc_outcome_full_min_volume": "Au-dessus de ce volume, on collecte l'historique de CHAQUE issue (graphique multi-courbes du drawer) ; en dessous, seule la courbe du favori. Un marché à 12 issues coûte 12 appels réseau : sans ce palier, 370 marchés feraient un run quotidien de plus d'une heure.",
+    "outcome_full_min_volume": 500000 },
+
+  "_doc_sweep": "BALAYAGE PAR LIQUIDITÉ (2026-08-03). La watchlist de mots-clés ne voit que ce que ses mots-clés attrapent : un marché géopolitique majeur sans mot-clé correspondant restait invisible. Le balayage parcourt au contraire TOUS les événements actifs de Polymarket triés par volume décroissant (endpoint /events) et garde ceux qui franchissent un plancher de volume ET de liquidité. C'est la source d'exhaustivité ; la watchlist reste la source de couverture éditoriale (elle attrape des marchés plus petits sur les thèmes que le site suit). Les deux se cumulent, dédupliqués par id. 'exclude_tags' = domaines hors sujet (sport, esport, divertissement, météo…). 'routes' = tag Polymarket → thème existant (donc catégorie + libellé) ; PREMIÈRE route qui matche gagne, l'ordre est donc significatif (Iran avant géopolitique, élections spécifiques avant géopolitique, politique générique après). Un événement qui ne matche AUCUNE route est écarté : le routage fait aussi office de filtre « sujet sérieux ».",
+  "sweep": {
+    "enabled": true,
+    "pages": 20,
+    "page_size": 100,
+    "min_volume": 200000,
+    "min_liquidity": 25000,
+    "exclude_tags": ["sports", "esports", "games", "video games", "culture", "movies", "awards", "weather",
+      "daily temperature", "highest temperature", "soccer", "mlb", "baseball", "nfl", "nba", "basketball",
+      "tennis", "counter strike 2", "dota 2", "league of legends", "valorant", "music", "celebrities",
+      "pop culture", "token launch", "fdv", "mentions", "chess", "f1", "formula 1", "golf", "hockey", "nhl",
+      "cricket", "ufc", "boxing", "olympics", "tv", "entertainment", "hide from new", "aliens", "religion"],
+    "routes": [
+      { "theme_id": "iran", "tags": ["iran", "u.s. x iran", "iran regime", "khamenei", "mojtaba khamenei",
+        "strait of hormuz", "iran ceasefire", "iranian", "us x iran"] },
+      { "theme_id": "tail_risks", "tags": ["shutdown", "government shutdown", "recession", "debt ceiling",
+        "default", "bank failure"] },
+      { "theme_id": "fed_policy", "tags": ["fed rates", "fed", "fomc", "interest rates", "economic policy", "powell"] },
+      { "theme_id": "economy", "tags": ["economy", "macro indicators", "inflation", "cpi", "gdp", "jobs",
+        "unemployment", "trade war", "tariffs"] },
+      { "theme_id": "markets", "tags": ["finance", "oil", "business", "stocks", "commodities", "gold",
+        "housing", "markets", "earnings", "mergers & acquisitions"] },
+      { "theme_id": "ipos", "tags": ["ipos", "ipo"] },
+      { "theme_id": "ai", "tags": ["ai", "artificial intelligence", "openai", "anthropic"] },
+      { "theme_id": "tech", "tags": ["tech", "big tech", "space", "spacex", "semiconductors", "quantum computing"] },
+      { "theme_id": "crypto_prices", "tags": ["crypto prices", "hit price", "bitcoin", "ethereum", "solana", "xrp"] },
+      { "theme_id": "crypto_ecosystem", "tags": ["crypto", "stablecoins", "defi", "nft", "coinbase"] },
+      { "theme_id": "elections", "tags": ["main election", "global elections", "world elections", "us election",
+        "midterms", "primaries", "primary elections", "house elections", "senate midterms", "governor midterms",
+        "democratic primary", "republican primary", "international election props", "macro election 2"] },
+      { "theme_id": "geopolitics", "tags": ["geopolitics", "military strikes", "foreign policy", "middle east",
+        "ukraine", "russia", "china", "israel", "nato", "venezuela", "north korea", "taiwan", "gaza", "syria",
+        "india", "pakistan", "greenland", "putin", "world", "ukraine map", "war"] },
+      { "theme_id": "elections", "tags": ["politics", "elections", "congress", "president", "governor",
+        "senate", "trump"] }
+    ]
+  },
+
+  "_doc_rules": "CONDITIONS DE RÉSOLUTION (2026-08-03). Le champ `description` de Polymarket porte le contrat : ce qui fait gagner ou perdre le pari, la source qui tranche, l'heure limite. Il est publié dans un fichier SÉPARÉ (prediction_markets_rules.json → window.__PM_RULES__), jamais inliné dans la page : ~1 Ko par marché ne doit pas peser sur le chargement alors que la donnée ne sert qu'à l'ouverture d'un drawer. 'summary' = résumé français de 2-3 lignes produit EN LOCAL par le CLI Claude (abonnement, jamais l'API) ; il ne remplace jamais le texte d'origine, qui reste affiché intégralement et fait foi. Le résumé est mis en cache par empreinte du texte : un marché déjà résumé ne repasse jamais par l'IA. 'per_run' borne le nombre de résumés par exécution pour ne pas épuiser la session — le reste est traité aux exécutions suivantes.",
+  "rules": {
+    "enabled": true,
+    "summarize": true,
+    "model": "sonnet",
+    "batch_size": 10,
+    "per_run": 60,
+    "budget_seconds": 600,
+    "max_chars": 4000
+  },
+
+  "themes": [
+    {
+      "id": "us_crypto_regulation",
+      "label": "Régulation crypto US",
+      "keywords": ["CLARITY Act", "GENIUS Act", "stablecoin bill", "market structure bill", "crypto regulation", "SEC crypto", "strategic bitcoin reserve", "crypto tax", "CFTC crypto"],
+      "exclude": ["launch a token", "FDV"],
+      "category": "regulation",
+      "weight_in_composite": 1.0
+    },
+    {
+      "id": "fed_policy",
+      "label": "Politique de la Fed",
+      "keywords": ["rate cut", "rate hike", "FOMC", "Fed funds", "interest rate", "Powell", "Fed rate", "Fed chair", "Fed decision"],
+      "exclude": [],
+      "category": "macro",
+      "weight_in_composite": 1.0
+    },
+    {
+      "id": "economy",
+      "label": "Économie & inflation",
+      "keywords": ["US inflation", "CPI", "unemployment rate", "jobs report", "GDP growth", "economic recession", "inflation 2026", "trade deficit", "national debt"],
+      "exclude": [],
+      "category": "macro",
+      "weight_in_composite": 0.8
+    },
+    {
+      "id": "markets",
+      "label": "Marchés & actifs",
+      "keywords": ["S&P 500", "stock market", "gold price", "oil price", "WTI Crude", "10-year Treasury", "Treasury yield", "housing market", "mortgage rate"],
+      "exclude": ["median home value"],
+      "category": "markets",
+      "weight_in_composite": 0.8
+    },
+    {
+      "id": "etf_approval",
+      "label": "Approbations d'ETF",
+      "keywords": ["Solana ETF", "XRP ETF", "spot ETF", "ETF approval", "ETF approved", "crypto ETF"],
+      "exclude": ["ETF Flows", "Flows on"],
+      "category": "crypto",
+      "weight_in_composite": 0.8
+    },
+    {
+      "id": "crypto_prices",
+      "label": "Prix crypto",
+      "keywords": ["Bitcoin price", "Bitcoin all time high", "Bitcoin reach", "Bitcoin hit", "Ethereum price", "Solana price", "XRP price", "crypto market cap", "Hyperliquid price"],
+      "exclude": ["ETF"],
+      "category": "crypto",
+      "weight_in_composite": 0.7
+    },
+    {
+      "id": "crypto_ecosystem",
+      "label": "Écosystème crypto",
+      "keywords": ["stablecoin", "USDT market cap", "altcoin market cap", "crypto hack", "Hyperliquid", "MicroStrategy", "Coinbase", "Kraken IPO", "bitcoin treasury"],
+      "exclude": [],
+      "category": "crypto",
+      "weight_in_composite": 0.6
+    },
+    {
+      "id": "tail_risks",
+      "label": "Risques extrêmes",
+      "keywords": ["recession", "government shutdown", "debt default", "debt downgrade", "debt ceiling", "market crash", "bank failure", "US default"],
+      "exclude": [],
+      "category": "tail_risk",
+      "weight_in_composite": 1.0
+    },
+    {
+      "id": "iran",
+      "label": "Iran & Ormuz",
+      "keywords": ["Iran", "Iran nuclear deal", "Iran sanctions", "Khamenei", "Strait of Hormuz", "Israel Iran", "Iranian control"],
+      "exclude": [],
+      "category": "iran",
+      "weight_in_composite": 0.9
+    },
+    {
+      "id": "geopolitics",
+      "label": "Géopolitique",
+      "keywords": ["Ukraine ceasefire", "Russia Ukraine", "Zelensky", "Taiwan", "China invade", "Israel Hamas", "Gaza", "Syria", "nuclear weapon", "nuclear test", "Putin", "NATO", "North Korea", "Venezuela", "Maduro", "Greenland", "India Pakistan", "military strike", "war end", "tariffs", "trade deal"],
+      "exclude": [],
+      "category": "geo",
+      "weight_in_composite": 0.7
+    },
+    {
+      "id": "ai",
+      "label": "Intelligence artificielle",
+      "keywords": ["AGI", "OpenAI", "GPT-5", "best AI model", "Gemini", "frontier model", "Anthropic", "Claude", "DeepSeek", "Grok", "AI regulation", "GPU rental", "AI valuation"],
+      "exclude": [],
+      "category": "ai",
+      "weight_in_composite": 0.6
+    },
+    {
+      "id": "tech",
+      "label": "Tech & innovation",
+      "keywords": ["Apple", "Tesla", "Nvidia", "Microsoft", "Google", "Amazon", "SpaceX", "Starship", "robotaxi", "humanoid robot", "semiconductor", "TikTok ban", "quantum computing", "self-driving", "tech layoffs"],
+      "exclude": [],
+      "category": "tech",
+      "weight_in_composite": 0.6
+    },
+    {
+      "id": "ipos",
+      "label": "Introductions en bourse (IPO)",
+      "keywords": ["IPO", "go public", "direct listing", "public offering", "largest IPO", "IPO market cap"],
+      "exclude": ["ETF"],
+      "category": "ipo",
+      "weight_in_composite": 0.6
+    },
+    {
+      "id": "elections",
+      "label": "Élections & politique",
+      "keywords": ["presidential election", "midterm elections", "next president", "election winner", "win the election", "general election", "nominee", "approval rating"],
+      "exclude": [],
+      "category": "elections",
+      "weight_in_composite": 0.6
+    }
+  ]
+}

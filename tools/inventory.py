@@ -55,6 +55,14 @@ LOCALE = {
     # façon sur la machine, ce n'est pas ce qu'on migre. Constaté en conditions réelles :
     # « /usr/local/bin/Rscript: No such file or directory ».
     "com.bassetti.bulleai.refresh", "com.bassetti.ecosysteme.refresh",
+    # Même famille, découverte au deuxième passage : ces cinq-là fabriquent une page
+    # et RIEN d'autre. Leur donnée est déjà collectée par un job distinct (le calcul
+    # de corrélations, le radar de backtest, les tendances de recherche…), donc les
+    # laisser sur la machine ne fige aucune donnée — ça évite juste d'installer R
+    # sur un runner pour produire un fichier que le runner ne publie pas.
+    "com.bassetti.correlations.refresh", "com.bassetti.backtest.refresh",
+    "com.bassetti.gtrends.refresh", "com.bassetti.macrotrends.refresh",
+    "com.bassetti.modelesvalo.refresh",
 }
 
 # Un job peut MÊLER collecte et rendu. On ne veut alors migrer que la collecte : le
@@ -63,6 +71,15 @@ LOCALE = {
 # un runner pour rien.
 SCRIPT_OVERRIDES = {
     "com.bassetti.l1valuation": "fetch_l1_valuation.py",   # au lieu du refresh complet
+    # Ces quatre-là sont enveloppés dans un script dont l'unique raison d'être est
+    # d'EMPÊCHER LE MAC DE S'ENDORMIR pendant un fetch long (`caffeinate`, échéance à
+    # l'horloge murale, anti-zombie). Sur un serveur qui ne dort pas, cette précaution
+    # n'a plus d'objet — et `caffeinate` n'existe pas sous Linux. On appelle donc
+    # directement le collecteur qu'elles protégeaient.
+    "com.bassetti.news": "fetch_news.py",
+    "com.bassetti.tradfi": "fetch_tradfi.py",
+    "com.bassetti.predmarkets": "fetch_prediction_markets.py",
+    "com.bassetti.fjnews": "fetch_fj_news.py",
 }
 
 CACHE_RE = re.compile(r"[\w\-.]+_(?:cache|live|light|data)[\w\-.]*\.(?:js|json)|"

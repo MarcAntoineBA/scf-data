@@ -1,6 +1,15 @@
 {
  "jobs": [
   {
+   "id": "backtest.refresh",
+   "script": "refresh_backtest.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
    "id": "bulleai.refresh",
    "script": "refresh_bulle_ia.sh",
    "schedule": "3 créneau(x)/jour",
@@ -38,6 +47,15 @@
     "fj_news_cache.json",
     "treasury_alert_live.json"
    ],
+   "witness": null
+  },
+  {
+   "id": "correlations.refresh",
+   "script": "refresh_correlations.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "locale",
+   "outputs": [],
    "witness": null
   },
   {
@@ -127,6 +145,35 @@
     "tradfi_hist_cache.json",
     "treasury_cache.json"
    ],
+   "witness": null
+  },
+  {
+   "id": "gtrends.refresh",
+   "script": "refresh_gtrends.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "locale",
+   "outputs": [
+    "gtrends_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "macrotrends.refresh",
+   "script": "refresh_macro_trends.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "modelesvalo.refresh",
+   "script": "refresh_modeles_valo.sh",
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "category": "locale",
+   "outputs": [],
    "witness": null
   },
   {
@@ -342,15 +389,6 @@
    "witness": "atlas_quarterly_cache.json"
   },
   {
-   "id": "backtest.refresh",
-   "script": "refresh_backtest.sh",
-   "schedule": "2 créneau(x)/jour",
-   "per_day": 2.0,
-   "category": "public",
-   "outputs": [],
-   "witness": null
-  },
-  {
    "id": "backtestradar",
    "script": "backtest_radar.py",
    "schedule": "toutes les 6 h",
@@ -401,15 +439,6 @@
     "buffett_cash_cache.json"
    ],
    "witness": "buffett_cash_cache.json"
-  },
-  {
-   "id": "correlations.refresh",
-   "script": "refresh_correlations.sh",
-   "schedule": "2 créneau(x)/jour",
-   "per_day": 2.0,
-   "category": "public",
-   "outputs": [],
-   "witness": null
   },
   {
    "id": "creditprive",
@@ -562,12 +591,14 @@
   },
   {
    "id": "fjnews",
-   "script": "refresh_fj_news.sh",
+   "script": "fetch_fj_news.py",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
    "category": "public",
    "outputs": [
-    "fj_news_cache.json"
+    "fj_news_cache.js",
+    "fj_news_cache.json",
+    "fj_trans_cache.json"
    ],
    "witness": "fj_news_cache.json"
   },
@@ -625,17 +656,6 @@
     "global_markets_cache.json"
    ],
    "witness": "global_markets_cache.json"
-  },
-  {
-   "id": "gtrends.refresh",
-   "script": "refresh_gtrends.sh",
-   "schedule": "2 créneau(x)/jour",
-   "per_day": 2.0,
-   "category": "public",
-   "outputs": [
-    "gtrends_cache.json"
-   ],
-   "witness": null
   },
   {
    "id": "gtrends.serpapi",
@@ -763,15 +783,6 @@
    "witness": "macro_fred_cache.json"
   },
   {
-   "id": "macrotrends.refresh",
-   "script": "refresh_macro_trends.sh",
-   "schedule": "2 créneau(x)/jour",
-   "per_day": 2.0,
-   "category": "public",
-   "outputs": [],
-   "witness": null
-  },
-  {
    "id": "mag7hist",
    "script": "fetch_mag7_hist.py",
    "schedule": "toutes les 4 h",
@@ -782,15 +793,6 @@
     "mag7_hist_cache.json"
    ],
    "witness": "mag7_hist_cache.json"
-  },
-  {
-   "id": "modelesvalo.refresh",
-   "script": "refresh_modeles_valo.sh",
-   "schedule": "2 créneau(x)/jour",
-   "per_day": 2.0,
-   "category": "public",
-   "outputs": [],
-   "witness": null
   },
   {
    "id": "moneyflow",
@@ -849,11 +851,14 @@
   },
   {
    "id": "news",
-   "script": "fetch_news_with_timeout.sh",
+   "script": "fetch_news.py",
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
    "category": "public",
-   "outputs": [],
+   "outputs": [
+    "news_cache.js",
+    "news_cache.json"
+   ],
    "witness": null
   },
   {
@@ -894,12 +899,14 @@
   },
   {
    "id": "predmarkets",
-   "script": "fetch_prediction_markets_with_timeout.sh",
+   "script": "fetch_prediction_markets.py",
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "category": "public",
    "outputs": [
-    "prediction_markets_cache.json"
+    "prediction_markets_cache.js",
+    "prediction_markets_cache.json",
+    "prediction_markets_cache_light.json"
    ],
    "witness": "prediction_markets_cache.json"
   },
@@ -1049,12 +1056,18 @@
   },
   {
    "id": "tradfi",
-   "script": "fetch_tradfi_with_timeout.sh",
+   "script": "fetch_tradfi.py",
    "schedule": "4 créneau(x)/jour",
    "per_day": 4.0,
    "category": "public",
    "outputs": [
-    "tradfi_cache.json"
+    "mode_tradfi_live.js",
+    "news_cache.json",
+    "tradfi_cache.js",
+    "tradfi_cache.json",
+    "tradfi_fx_cache.json",
+    "tradfi_history_cache.json",
+    "tradfi_shares_history_cache.json"
    ],
    "witness": "tradfi_cache.json"
   },
