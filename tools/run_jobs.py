@@ -271,3 +271,4 @@ if __name__ == "__main__":
 
 # migration : declencheur temporaire (rejoue une collecte reelle apres correction)
 # relance apres correction du verrou
+# verification de la migration

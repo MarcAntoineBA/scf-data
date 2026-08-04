@@ -34,6 +34,17 @@ CADENCES = [
     ("weekly", "45 4 * * 1", "une fois par semaine"),
 ]
 
+# Pendant la migration, une cadence porte un déclencheur sur l'orchestrateur : GitHub
+# met parfois beaucoup plus que prévu à activer les plannings d'un dépôt neuf, et on a
+# besoin d'une preuve d'exécution maintenant, pas au bon vouloir du planificateur.
+# À retirer une fois la migration validée — sinon chaque retouche de l'orchestrateur
+# relancerait un lot complet.
+VERIF = """  push:
+    branches: [main]
+    paths: [tools/run_jobs.py]
+"""
+CADENCE_VERIF = "30min"
+
 MODELE = '''name: Collecte {cadence}
 
 # Cadence : {humain}. Fichier GÉNÉRÉ par tools/gen_workflows.py — ne pas éditer
@@ -48,7 +59,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "{cron}"
-
+{verif}
 permissions:
   contents: write        # publie les données collectées
 
@@ -153,7 +164,8 @@ jobs:
 def main():
     ecrits = []
     for cadence, cron, humain in CADENCES:
-        contenu = MODELE.format(cadence=cadence, cron=cron, humain=humain)
+        contenu = MODELE.format(cadence=cadence, cron=cron, humain=humain,
+                                verif=VERIF if cadence == CADENCE_VERIF else "")
         chemin = os.path.join(DEST, f"collect-{cadence}.yml")
         with open(chemin, "w", encoding="utf-8") as f:
             f.write(contenu)
