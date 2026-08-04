@@ -1,40 +1,24 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-04T13:59:36Z",
-  "total": 26,
-  "ok": 20,
-  "secs": 148.9,
-  "changed": 8,
-  "versionnes": 7,
-  "pieces_jointes": 1,
-  "absents": 22,
+  "ts": "2026-08-04T15:00:42Z",
+  "total": 24,
+  "ok": 22,
+  "secs": 3008.0,
+  "changed": 12,
+  "versionnes": 10,
+  "pieces_jointes": 2,
+  "absents": 21,
   "failed": [
    {
-    "job": "atlaseco",
-    "why": "FileNotFoundError: [Errno 2] No such file or directory: '~/work/scf-data/scf-data/scripts/assets/js/atlas/atlas_countries_meta.js'"
-   },
-   {
-    "job": "bulleai.refresh",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_bulle_ia.sh: line 57: /usr/local/bin/Rscript: No such file or directory"
-   },
-   {
-    "job": "ecosysteme.refresh",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_ecosysteme.sh: line 26: /usr/local/bin/Rscript: No such file or directory"
-   },
-   {
     "job": "hydrocarbures",
-    "why": "FileNotFoundError: [Errno 2] No such file or directory: '~/Desktop/Site_Crypto_Finance/assets/js/atlas/atlas_countries_meta.js'"
-   },
-   {
-    "job": "l1valuation",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_l1_valuation.sh: line 35: /usr/local/bin/Rscript: No such file or directory"
+    "why": "dépassement du plafond (50 min)"
    },
    {
     "job": "tradfi",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_tradfi_with_timeout.sh: line 10: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+    "why": "~/work/scf-data/scf-data/scripts/fetch_tradfi_with_timeout.sh: line 20: /usr/bin/caffeinate: No such file or directory"
    }
   ]
  },
- "updated": "2026-08-04T13:59:36Z"
+ "updated": "2026-08-04T15:00:42Z"
 }
