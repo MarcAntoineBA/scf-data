@@ -61,6 +61,11 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
           GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+          # Cotations SPY de l'indice de sentiment. Cette clé vivait en clair dans deux
+          # scripts ; elle a été retirée du code et passe par un secret. Sans elle, le
+          # collecteur s'arrête net sur « SPY vide » — un refus franc plutôt qu'un
+          # indice calculé sur une donnée manquante.
+          TD_API_KEY: ${{ secrets.TD_API_KEY }}
           # La SEC refuse (403) toute requête sans contact nominatif. La valeur vit
           # dans un secret : l'adresse ne doit pas se trouver dans un dépôt public,
           # où elle serait récoltée dès l'indexation.
