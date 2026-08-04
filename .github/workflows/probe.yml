@@ -9,6 +9,13 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 6 * * *"   # 06:17 UTC, hors des heures de pointe des runners
+  push:
+    # La sonde se relance dès qu'on touche à ce qu'elle mesure — et au premier envoi,
+    # ce qui donne le verdict sans attendre le prochain créneau.
+    branches: [main]
+    paths:
+      - tools/probe_sources.py
+      - .github/workflows/probe.yml
 
 permissions:
   contents: read
