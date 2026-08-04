@@ -69,6 +69,107 @@ LOCALE = {
 # cloud rafraîchit la donnée, la machine continue de fabriquer la page. Sans cette
 # distinction, il faudrait choisir entre laisser la donnée figée ou installer R sur
 # un runner pour rien.
+# ── CADENCES : classées par VITESSE RÉELLE DE LA SOURCE ──────────────────────
+# Les cadences d'origine venaient de la machine, où elles étaient conservatrices pour
+# une raison qui n'existe plus : batterie, veille, processeur partagé. Sur des serveurs
+# gratuits et illimités, la seule question qui vaille est « à quelle vitesse cette
+# source change-t-elle ? ». Un site de marché doit afficher le funding à l'heure, pas
+# à six heures — mais interroger la Banque mondiale toutes les dix minutes ne ferait
+# que du bruit et des refus.
+#
+# TROIS CONTRAINTES QUI BORNENT L'ACCÉLÉRATION, mesurées et non supposées :
+#   · quota strict — les tendances de recherche passent par un service à 250 requêtes
+#     PAR MOIS. Les accélérer les casserait en quelques jours ;
+#   · durée d'exécution — le lot d'actions met ~50 min : le passer sous l'heure ferait
+#     se chevaucher deux exécutions sur les mêmes fichiers ;
+#   · politesse — treize collecteurs tapent la même API gratuite de cotations crypto,
+#     limitée à la minute. Les grouper trop serré provoque des refus, donc des trous.
+CADENCE_OVERRIDES = {
+    # ── 5 min : ce qui bouge en séance ────────────────────────────────────────
+    "com.bassetti.moneyflow": "5min",         # flux intrajournaliers
+    "com.bassetti.stockbubble": "5min",       # cotations des actions suivies
+
+    # ── 10 min : guettent une publication, ou la relaient ─────────────────────
+    "com.bassetti.earningscal": "10min",      # résultats publiés dans la minute
+    "com.bassetti.macrocal": "10min",         # chiffres macro à l'instant de leur sortie
+    "com.bassetti.news": "10min",
+    "com.bassetti.fjnews": "10min",
+    "com.bassetti.treasury": "10min",         # dépôts SEC + valorisation au spot
+
+    # ── 1 h : marchés et dérivés. Étaient à 6 h, sans raison autre que le Mac ──
+    "com.bassetti.radardata": "1h",           # financement, intérêt ouvert, ratios
+    "com.bassetti.globalmarkets": "1h",       # indices mondiaux
+    "com.bassetti.cryptoytd": "1h",
+    "com.bassetti.cyclecache": "1h",
+    "com.bassetti.btccycle.live": "1h",
+    "com.bassetti.mag7hist": "1h",
+    "com.bassetti.perdata": "1h",
+    "com.bassetti.pehist": "1h",
+    "com.bassetti.crypto-pe-hist": "1h",
+    "com.bassetti.fedwatch.refresh": "1h",    # probabilités de taux, très réactives
+    "com.bassetti.cryptoetf": "1h",           # flux ETF quotidiens, publiés en journée
+    "com.bassetti.atlasdebt": "1h",           # taux souverains à 10 ans
+    "com.bassetti.energymacro": "1h",         # pétrole, spreads de raffinage
+    "com.bassetti.leveredetf": "1h",
+    "com.bassetti.tradficycle": "1h",
+    "com.bassetti.predmarkets": "1h",         # cotes de marchés de prédiction
+    "com.bassetti.defiengagement.refresh": "1h",
+    "com.bassetti.newlistings": "1h",
+    "com.bassetti.l1valuation": "1h",
+    "com.bassetti.backtestradar": "1h",
+    "com.bassetti.macro-corr": "1h",
+
+    # ── 6 h : lourd, ou source qui ne publie pas plus vite ─────────────────────
+    "com.bassetti.tradfi": "6h",              # ~50 min d'exécution : plancher physique
+    "com.bassetti.tradfifund": "6h",
+    "com.bassetti.tradfihist": "6h",
+    "com.bassetti.tradfi-growth": "6h",
+    "com.bassetti.narrfund": "6h",
+    "com.bassetti.radarv3.refresh": "6h",
+    "com.bassetti.macrofred.refresh": "6h",   # séries officielles, mises à jour au jour
+    "com.bassetti.fredstress.refresh": "6h",
+    "com.bassetti.fluxphysiques": "6h",
+    "com.bassetti.hydrocarbures": "6h",
+    "com.bassetti.narratives": "6h",
+    "com.bassetti.sentiment.fng": "6h",
+    "com.bassetti.ecosysteme.indicators": "6h",
+    "com.bassetti.l1history": "6h",
+    "com.bassetti.ipocal": "6h",
+    "com.bassetti.atlasmaritime": "6h",       # ~11 min d'exécution
+
+    # ── quotidien : sources qui ne publient qu'une fois par jour, ou moins ─────
+    "com.bassetti.gtrends.serpapi": "daily",  # QUOTA 250/mois — surtout ne pas monter
+    "com.bassetti.gtrendshype": "daily",      # même service, même quota
+    "com.bassetti.atlaseco": "daily",         # Banque mondiale, FMI : trimestriel
+    "com.bassetti.atlasquarterly": "daily",
+    "com.bassetti.atlasdetail": "daily",
+    "com.bassetti.atlasbudget": "daily",
+    "com.bassetti.buffettcash": "daily",      # dépôts trimestriels
+    "com.bassetti.financiarisation": "daily",
+    "com.bassetti.ecophysique": "daily",
+    "com.bassetti.globalhist": "daily",
+    "com.bassetti.pehistglobal": "daily",
+    "com.bassetti.creditprive": "daily",
+    "com.bassetti.finance_americaine": "daily",
+    "com.bassetti.ai_adoption": "daily",
+    "com.bassetti.btccycle": "daily",         # doublon lent de la version live
+
+    # ── 6 h : pages de thèse. Elles agrègent des séries macro qui bougent peu en
+    # séance, mais leurs chiffres de marché méritaient mieux que deux fois par jour.
+    "com.bassetti.these_bitcoin.refresh": "6h",
+    "com.bassetti.these_bulleia.refresh": "6h",
+    "com.bassetti.these_dette.refresh": "6h",
+    "com.bassetti.these_dollar.refresh": "6h",
+    "com.bassetti.these_effondrement.refresh": "6h",
+    "com.bassetti.these_energie.refresh": "6h",
+    "com.bassetti.these_stagnation.refresh": "6h",
+    "com.bassetti.these_web3.refresh": "6h",
+
+    # ── hebdomadaire : données structurelles, publiées quelques fois par an ────
+    "com.bassetti.frbudget": "weekly",           # budget de l'État
+    "com.bassetti.tradfiallocation.refresh": "weekly",
+}
+
 SCRIPT_OVERRIDES = {
     "com.bassetti.l1valuation": "fetch_l1_valuation.py",   # au lieu du refresh complet
     # Ces quatre-là sont enveloppés dans un script dont l'unique raison d'être est
@@ -136,6 +237,7 @@ def main():
                        if a.endswith((".py", ".sh"))), "")
         script = SCRIPT_OVERRIDES.get(label, script)
         sched, per_day = schedule_of(d)
+        cadence = CADENCE_OVERRIDES.get(label)
         cat = "perso" if label in PERSO else "locale" if label in LOCALE else "public"
         # `jobs.json` part dans un dépôt public : l'étiquette launchd complète
         # (« com.<compte>.treasury ») y révélerait le compte de l'utilisateur pour
@@ -144,6 +246,7 @@ def main():
         # collision « gtrends.refresh » et « gtrends.serpapi », deux jobs distincts.
         jobs.append(dict(id=re.sub(r"^com\.[^.]+\.", "", label),
                          script=script, schedule=sched, per_day=per_day,
+                         cadence=cadence,
                          category=cat, outputs=outputs_of(script, witness.get(label)),
                          witness=witness.get(label)))
 

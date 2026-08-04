@@ -1,6 +1,6 @@
-name: Collecte 2h
+name: Collecte 1h
 
-# Cadence : toutes les 2 heures. Fichier GÉNÉRÉ par tools/gen_workflows.py — ne pas éditer
+# Cadence : toutes les heures. Fichier GÉNÉRÉ par tools/gen_workflows.py — ne pas éditer
 # à la main : modifier le générateur et le relancer, sinon la correction ne vaudra
 # que pour cette cadence et divergera silencieusement des six autres.
 #
@@ -11,7 +11,7 @@ name: Collecte 2h
 on:
   workflow_dispatch:
   schedule:
-    - cron: "11 */2 * * *"
+    - cron: "17 * * * *"
 
 permissions:
   contents: write        # publie les données collectées
@@ -20,7 +20,7 @@ permissions:
 # écriraient les mêmes fichiers. La nouvelle attend son tour plutôt que d'annuler
 # l'autre — une collecte à moitié faite vaut moins qu'une collecte finie.
 concurrency:
-  group: collecte-2h
+  group: collecte-1h
   cancel-in-progress: false
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
           # dans un secret : l'adresse ne doit pas se trouver dans un dépôt public,
           # où elle serait récoltée dès l'indexation.
           SCF_CONTACT_UA: ${{ secrets.SCF_CONTACT_UA }}
-        run: python tools/run_jobs.py --bucket 2h
+        run: python tools/run_jobs.py --bucket 1h
 
       # Douze fichiers pèsent 93 des 114 Mo du parc (historiques de cours, atlas).
       # Les versionner à chaque passage ferait enfler le dépôt indéfiniment : ils
@@ -117,7 +117,7 @@ jobs:
               exit 0
             fi
             N=$(git diff --cached --name-only | wc -l | tr -d ' ')
-            git commit -q -m "données 2h : $N fichier(s)"
+            git commit -q -m "données 1h : $N fichier(s)"
             if git push -q; then
               echo "publié : $N fichier(s) (essai $essai)"
               exit 0

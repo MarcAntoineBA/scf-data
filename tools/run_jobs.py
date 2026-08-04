@@ -61,11 +61,10 @@ SITE_DIR = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
 # d'origine. Elle apportait deux choses — empêcher la veille (sans objet ici) et borner
 # la durée (assuré ici). Rien n'est perdu.
 BUCKETS = [
-    ("10min", 96, 8),
-    ("30min", 24, 20),
-    ("2h", 8, 40),
-    ("6h", 3, 75),      # tradfi met ~50 min a lui seul : 50 tuait pile a la limite
-    ("12h", 1.5, 60),
+    ("5min", 288, 4),      # cotations en séance
+    ("10min", 96, 8),      # publications guettées (résultats, macro, news)
+    ("1h", 12, 45),        # marchés et dérivés
+    ("6h", 2, 75),         # lourd, ou source qui ne publie pas plus vite
     ("daily", 0.9, 70),
     ("weekly", 0.0, 70),
 ]
@@ -82,7 +81,19 @@ DEPENDANCES = {
 }
 
 
-def bucket_of(per_day):
+def bucket_of(job):
+    """Cadence DÉCLARÉE dans l'inventaire, classée selon la vitesse de la source.
+
+    L'ancienne version déduisait la cadence du planning de la machine d'origine — donc
+    d'un arbitrage batterie/veille/processeur qui n'a plus lieu d'être. Un job non
+    classé retombe sur cette déduction, mais il est signalé : le silence produirait
+    exactement le défaut qu'on corrige ici, une donnée rafraîchie trop lentement sans
+    que personne ne sache pourquoi.
+    """
+    declaree = job.get("cadence")
+    if declaree:
+        return declaree
+    per_day = job.get("per_day", 0)
     for name, threshold, _ in BUCKETS:
         if per_day >= threshold:
             return name
@@ -219,13 +230,17 @@ def main():
 
     if args.list:
         for name, _, mins in BUCKETS:
-            sel = [j for j in jobs if bucket_of(j["per_day"]) == name]
+            sel = [j for j in jobs if bucket_of(j) == name]
             print(f"{name:7} {len(sel):3} collecteurs  (plafond {mins} min)")
             for j in sorted(sel, key=lambda j: -j["per_day"]):
                 print(f"          {j['per_day']:6.1f}/j  {j['id']:26} {j['script']}")
         return 0
 
-    due = [j for j in jobs if bucket_of(j["per_day"]) == args.bucket]
+    due = [j for j in jobs if bucket_of(j) == args.bucket]
+    orphelins = [j["id"] for j in jobs if not j.get("cadence")]
+    if orphelins:
+        print(f"  ! {len(orphelins)} collecteur(s) sans cadence déclarée : "
+              + ", ".join(orphelins[:6]))
     if args.only:
         due = [j for j in jobs if j["id"] == args.only]
         if not due:

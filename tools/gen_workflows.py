@@ -29,11 +29,10 @@ DEST = os.path.join(HERE, "..", ".github", "workflows")
 # explicitement le début de chaque heure. Des expressions en minutes rondes (0, 10,
 # 20…) tombent pile au pire moment. Ce décalage ne coûte rien et sort de la cohue.
 CADENCES = [
+    ("5min", "1,6,11,16,21,26,31,36,41,46,51,56 * * * *", "toutes les 5 minutes"),
     ("10min", "3,13,23,33,43,53 * * * *", "toutes les 10 minutes"),
-    ("30min", "7,37 * * * *", "toutes les 30 minutes"),
-    ("2h", "11 */2 * * *", "toutes les 2 heures"),
+    ("1h", "17 * * * *", "toutes les heures"),
     ("6h", "19 1,7,13,19 * * *", "toutes les 6 heures"),
-    ("12h", "23 3,15 * * *", "deux fois par jour"),
     ("daily", "37 4 * * *", "une fois par jour"),
     ("weekly", "43 4 * * 1", "une fois par semaine"),
 ]

@@ -34,7 +34,7 @@ jobs:
       fail-fast: false          # une cadence en échec ne doit pas annuler les autres
       max-parallel: 3           # au-delà, les sources voient trois fois le même client
       matrix:
-        cadence: ["10min", "30min", "2h", "6h", "12h", "daily", "weekly"]
+        cadence: ["5min", "10min", "1h", "6h", "daily", "weekly"]
 
     steps:
       - uses: actions/checkout@v4
