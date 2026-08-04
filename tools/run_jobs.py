@@ -155,7 +155,7 @@ def collect(manifest):
     Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
     os.makedirs(RELEASE_OUT, exist_ok=True)
-    small, big, absent = [], [], []
+    small, big, absent, retires = [], [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
@@ -170,12 +170,14 @@ def collect(manifest):
         stale = os.path.join(CACHE_OUT if heavy else RELEASE_OUT, name)
         if os.path.exists(stale):
             os.remove(stale)
+            if heavy:
+                retires.append(name)     # la copie versionnée doit disparaître aussi
 
         if os.path.exists(dst) and filecmp.cmp(src, dst, shallow=False):
             continue
         shutil.copy2(src, dst)
         (big if heavy else small).append(name)
-    return small, big, absent
+    return small, big, absent, retires
 
 
 def main():
@@ -214,7 +216,7 @@ def main():
         results = list(ex.map(lambda j: run_one(j, timeout), due))
     elapsed = round(time.time() - t0, 1)
 
-    small, big, absent = collect(manifest)
+    small, big, absent, retires = collect(manifest)
     changed = small + big
 
     ko = [r for r in results if not r["ok"]]
@@ -248,6 +250,16 @@ def main():
     status["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with open(status_path, "w") as f:
         json.dump(status, f, indent=1, ensure_ascii=False)
+
+    # Liste EXACTE des fichiers à publier. Sans elle, la publication stockait tout
+    # le dossier : les fichiers qu'une autre cadence venait d'ajouter étaient absents
+    # de CE poste de travail, donc enregistrés comme des suppressions. Résultat mesuré :
+    # sur sept bilans publiés, un seul survivait — chaque cadence annulait les autres.
+    with open(os.path.join(ROOT, ".publish_list"), "w") as f:
+        for nom in small + [os.path.basename(status_path)]:
+            f.write(f"cache/{nom}\n")
+        for nom in retires:
+            f.write(f"cache/{nom}\n")
 
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

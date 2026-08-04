@@ -94,16 +94,24 @@ jobs:
           git config user.name  "collecte"
           git config user.email "collecte@users.noreply.github.com"
 
-          # Rejouer notre travail au-dessus du distant SANS rebase : un rebase peut
-          # entrer en conflit, un reset souple jamais. On ne réécrit que des fichiers
-          # de données, il n'y a aucun historique à réconcilier — seulement un
-          # contenu à poser au-dessus du dernier état publié.
+          if [ ! -s .publish_list ]; then
+            echo "aucun changement — rien à publier"
+            exit 0
+          fi
+
+          # Reposer NOTRE contenu au-dessus du dernier état publié, sans rebase.
+          # `reset` (mixte) remet l'index sur le distant : c'est indispensable, la
+          # variante souple laisserait l'index sur la base d'origine et la publication
+          # annulerait les fichiers ajoutés entre-temps par les autres cadences —
+          # mesuré : sur sept bilans, un seul survivait.
+          # `--pathspec-from-file` ne prend QUE les fichiers que l'orchestrateur dit
+          # avoir touchés : ceux des autres cadences ne sont ni écrasés ni supprimés.
           for essai in 1 2 3 4 5 6 7 8; do
             git fetch -q origin main
-            git reset -q --soft origin/main
-            git add cache/
+            git reset -q origin/main
+            git add --pathspec-from-file=.publish_list --ignore-missing 2>/dev/null               || git add --pathspec-from-file=.publish_list
             if git diff --cached --quiet; then
-              echo "aucun changement — rien à publier"
+              echo "déjà publié par une autre exécution — rien à faire"
               exit 0
             fi
             N=$(git diff --cached --name-only | wc -l | tr -d ' ')
