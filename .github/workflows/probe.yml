@@ -18,7 +18,7 @@ on:
       - .github/workflows/probe.yml
 
 permissions:
-  contents: read
+  contents: write   # le verdict est publié dans le dépôt, pas seulement en artefact
 
 jobs:
   probe:
@@ -48,3 +48,17 @@ jobs:
           name: sonde-runner
           path: probe_runner.json
           retention-days: 30
+
+      # Un artefact ne se télécharge qu'authentifié, et expire. Le verdict est le
+      # document qui décide de la migration : il doit rester lisible par tous, et
+      # comparable d'un jour à l'autre — donc versionné, pas rangé dans un tiroir.
+      - name: Publier le verdict
+        if: always()
+        run: |
+          mkdir -p sonde && mv probe_runner.json sonde/dernier.json
+          git config user.name  "sonde"
+          git config user.email "sonde@users.noreply.github.com"
+          git add sonde/
+          git diff --cached --quiet && { echo "verdict inchangé"; exit 0; }
+          git commit -q -m "sonde : verdict du $(date -u '+%F %H:%M UTC')"
+          git pull --rebase --autostash origin main && git push
