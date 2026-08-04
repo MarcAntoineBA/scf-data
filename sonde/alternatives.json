@@ -1,0 +1,149 @@
+{
+ "where": "runner GitHub",
+ "ip": "52.157.33.44",
+ "results": [
+  {
+   "need": "funding",
+   "label": "Binance data-api.binance.vision",
+   "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "funding",
+   "label": "Binance fapi via miroir fapi1",
+   "url": "https://fapi1.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT",
+   "ok": false,
+   "code": 202,
+   "verdict": "HTTP 202"
+  },
+  {
+   "need": "funding",
+   "label": "Bybit v5 funding",
+   "url": "https://api.bybit.com/v5/market/funding/history?category=linear&symbol=BTCUSDT&limit=2",
+   "ok": false,
+   "code": 403,
+   "verdict": "HTTP 403"
+  },
+  {
+   "need": "funding",
+   "label": "OKX funding-rate",
+   "url": "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "funding",
+   "label": "Coinbase Intl / Deribit (repli marché)",
+   "url": "https://www.deribit.com/api/v2/public/get_funding_rate_value?instrument_name=BTC-PERPETUAL&start_timestamp=1754179200000&end_timestamp=1754265600000",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "oi",
+   "label": "Bybit open interest",
+   "url": "https://api.bybit.com/v5/market/open-interest?category=linear&symbol=BTCUSDT&intervalTime=1h&limit=2",
+   "ok": false,
+   "code": 403,
+   "verdict": "HTTP 403"
+  },
+  {
+   "need": "oi",
+   "label": "OKX open interest",
+   "url": "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "etf",
+   "label": "Farside sans déguisement (contrôle)",
+   "url": "https://farside.co.uk/bitcoin-etf-flow-all-data/",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "etf",
+   "label": "CoinGlass ETF (page publique)",
+   "url": "https://www.coinglass.com/bitcoin-etf",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "etf",
+   "label": "SoSoValue ETF api",
+   "url": "https://api.sosovalue.xyz/openapi/v2/etf/historicalInflowChart",
+   "ok": false,
+   "code": 405,
+   "verdict": "HTTP 405"
+  },
+  {
+   "need": "etf",
+   "label": "Fonds iShares IBIT (émetteur, source primaire)",
+   "url": "https://www.ishares.com/us/products/333011/fund/1467271812596.ajax?fileType=json&tab=all",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "earnings",
+   "label": "Nasdaq calendrier résultats",
+   "url": "https://api.nasdaq.com/api/calendar/earnings?date=2026-08-05",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "earnings",
+   "label": "Yahoo calendrier résultats (visualization)",
+   "url": "https://query1.finance.yahoo.com/v1/finance/visualization?lang=en-US&region=US",
+   "ok": false,
+   "code": 405,
+   "verdict": "HTTP 405"
+  },
+  {
+   "need": "earnings",
+   "label": "Financial Modeling Prep (démo)",
+   "url": "https://financialmodelingprep.com/api/v3/earning_calendar?apikey=demo",
+   "ok": false,
+   "code": 401,
+   "verdict": "HTTP 401"
+  },
+  {
+   "need": "macrocal",
+   "label": "Nasdaq calendrier économique",
+   "url": "https://api.nasdaq.com/api/calendar/economicevents?date=2026-08-05",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "macrocal",
+   "label": "Trading Economics (flux public)",
+   "url": "https://tradingeconomics.com/calendar",
+   "ok": true,
+   "code": 200,
+   "verdict": "OK"
+  },
+  {
+   "need": "macrocal",
+   "label": "FRED releases (dates officielles)",
+   "url": "https://api.stlouisfed.org/fred/releases/dates?file_type=json&api_key=INVALID",
+   "ok": true,
+   "code": 400,
+   "verdict": "OK"
+  }
+ ],
+ "retenus": {
+  "funding": "Binance data-api.binance.vision",
+  "oi": "OKX open interest",
+  "etf": "Farside sans déguisement (contrôle)",
+  "earnings": "Nasdaq calendrier résultats",
+  "macrocal": "Nasdaq calendrier économique"
+ }
+}
