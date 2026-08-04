@@ -11,7 +11,7 @@ name: Collecte 12h
 on:
   workflow_dispatch:
   schedule:
-    - cron: "25 3,15 * * *"
+    - cron: "23 3,15 * * *"
 
 permissions:
   contents: write        # publie les données collectées

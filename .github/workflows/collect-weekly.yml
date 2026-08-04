@@ -11,7 +11,7 @@ name: Collecte weekly
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 4 * * 1"
+    - cron: "43 4 * * 1"
 
 permissions:
   contents: write        # publie les données collectées

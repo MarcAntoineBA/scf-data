@@ -24,14 +24,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEST = os.path.join(HERE, "..", ".github", "workflows")
 
 # (cadence, expression cron, description lisible)
+# Minutes VOLONTAIREMENT décalées. La plateforme prévient que les tâches planifiées
+# peuvent être retardées, voire abandonnées, aux heures de forte charge — et cite
+# explicitement le début de chaque heure. Des expressions en minutes rondes (0, 10,
+# 20…) tombent pile au pire moment. Ce décalage ne coûte rien et sort de la cohue.
 CADENCES = [
-    ("10min", "*/10 * * * *", "toutes les 10 minutes"),
-    ("30min", "*/30 * * * *", "toutes les 30 minutes"),
-    ("2h", "5 */2 * * *", "toutes les 2 heures"),
-    ("6h", "15 */6 * * *", "toutes les 6 heures"),
-    ("12h", "25 3,15 * * *", "deux fois par jour"),
-    ("daily", "35 4 * * *", "une fois par jour"),
-    ("weekly", "45 4 * * 1", "une fois par semaine"),
+    ("10min", "3,13,23,33,43,53 * * * *", "toutes les 10 minutes"),
+    ("30min", "7,37 * * * *", "toutes les 30 minutes"),
+    ("2h", "11 */2 * * *", "toutes les 2 heures"),
+    ("6h", "19 1,7,13,19 * * *", "toutes les 6 heures"),
+    ("12h", "23 3,15 * * *", "deux fois par jour"),
+    ("daily", "37 4 * * *", "une fois par jour"),
+    ("weekly", "43 4 * * 1", "une fois par semaine"),
 ]
 
 # Pendant la migration, une cadence porte un déclencheur sur l'orchestrateur : GitHub

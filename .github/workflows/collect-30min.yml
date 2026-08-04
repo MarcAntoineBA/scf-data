@@ -11,7 +11,7 @@ name: Collecte 30min
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "7,37 * * * *"
   push:
     branches: [main]
     paths: [tools/run_jobs.py]
