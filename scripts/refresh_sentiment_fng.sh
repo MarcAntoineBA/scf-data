@@ -10,6 +10,6 @@ cd "$HOME/Library/Application Support/SiteCryptoFinance"
 # Twelve Data API key (free tier basic, 8 req/min, 800 req/jour).
 # La cle est aussi dans le code Python en fallback ; ici la variable env permet
 # rotation rapide sans redeployer le script.
-export TD_API_KEY="${TD_API_KEY:-81ceb5874fbd43b7a19268af4c2e148e}"
+export TD_API_KEY="${TD_API_KEY:-}"
 
-exec /opt/anaconda3/bin/python fetch_sentiment_fng.py "$@"
+exec python3 fetch_sentiment_fng.py "$@"

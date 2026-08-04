@@ -72,6 +72,8 @@ SH_RULES = [
     # Interpréteur figé du Mac → celui du système hôte.
     (r"/Library/Frameworks/Python\.framework/Versions/3\.\d+/bin/python3", "python3"),
     (r"/usr/local/bin/python3|/opt/homebrew/bin/python3", "python3"),
+    (r"/opt/anaconda3/bin/python3?|/opt/miniconda3/bin/python3?", "python3"),
+    (r"/usr/bin/caffeinate -[a-z]* ", ""),   # anti-veille : sans objet sur un serveur
 ]
 
 # Les scripts qui n'ont rien à faire dans un dépôt public, quelle que soit leur
@@ -94,6 +96,13 @@ SECRET_HINT = re.compile(
 ENV_DEFAULT_SECRET = re.compile(
     r'(os\.environ\.get\(\s*["\'](?:[A-Z_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*)["\']\s*,\s*)'
     r'["\'][A-Za-z0-9_\-]{16,}["\']')
+
+# MÊME PIÈGE, EN SHELL — et il a coûté une vraie clé publiée. La forme
+# `${TD_API_KEY:-81ceb…}` a exactement la même apparence rassurante (« ça vient de
+# l'environnement ») et le même défaut : le littéral est dans le fichier. La règle
+# Python ci-dessus ne la voyait pas. On vide la valeur de repli.
+SH_DEFAULT_SECRET = re.compile(
+    r'(\$\{[A-Z_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*:-)[A-Za-z0-9_\-]{16,}(\})')
 
 
 # Fichiers d'appui rangés en SOUS-DOSSIERS. La détection automatique ne les voit pas :
@@ -187,6 +196,7 @@ def scrub_prose(text):
 
 def rewrite(text, is_shell):
     text = ENV_DEFAULT_SECRET.sub(r'\1""', text)
+    text = SH_DEFAULT_SECRET.sub(r'\1\2', text)
     text = scrub_prose(text)
     text = SCRATCH_ENTRY.sub("", text)
     text = EMAIL_IN_STRING.sub(CONTACT_ENV_SH if is_shell else CONTACT_ENV_PY, text)
