@@ -1,7 +1,7 @@
 {
  "bucket": "10min",
  "run": {
-  "ts": "2026-08-04T13:56:29Z",
+  "ts": "2026-08-04T14:10:05Z",
   "total": 4,
   "ok": 2,
   "secs": 0.1,
@@ -12,13 +12,13 @@
   "failed": [
    {
     "job": "fjnews",
-    "why": "~/work/scf-data/scf-data/scripts/refresh_fj_news.sh: line 10: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+    "why": "~/work/scf-data/scf-data/scripts/refresh_fj_news.sh: line 12: /usr/bin/caffeinate: No such file or directory"
    },
    {
     "job": "news",
-    "why": "~/work/scf-data/scf-data/scripts/fetch_news_with_timeout.sh: line 11: cd: ~/Library/Application Support/SiteCryptoFinance: No such file or directory"
+    "why": "~/work/scf-data/scf-data/scripts/fetch_news_with_timeout.sh: line 14: /usr/bin/caffeinate: No such file or directory"
    }
   ]
  },
- "updated": "2026-08-04T13:56:29Z"
+ "updated": "2026-08-04T14:10:05Z"
 }
