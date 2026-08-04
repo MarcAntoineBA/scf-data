@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
@@ -44,6 +45,14 @@ GIT_SIZE_LIMIT = 1_000_000
 RELEASE_OUT = os.path.join(ROOT, "release")
 MANIFEST = os.path.join(ROOT, "cache_manifest.txt")
 JOBS = os.path.join(ROOT, "jobs.json")
+
+# Les pièces jointes de la release, telles que le site les lit lui aussi. `release/`
+# est ignoré par git : sur un runner fraîchement cloné, ce dossier est TOUJOURS vide.
+# Sans cette adresse, prepare_env() ne pouvait restaurer que les petits fichiers
+# versionnés, et tout collecteur dont la base de fusion pèse plus d'un mégaoctet
+# repartait de zéro à chaque exécution — en perdant l'historique qu'il accumule.
+RELEASE_URL = "https://github.com/{}/releases/download/data/".format(
+    os.environ.get("GITHUB_REPOSITORY") or "MarcAntoineBA/scf-data")
 
 # Là où les collecteurs écrivent, tel qu'ils l'ont toujours fait. Sous Linux, ces
 # chemins n'ont rien de spécial : ce sont de simples dossiers qu'on crée.
@@ -128,7 +137,42 @@ def timeout_of(bucket):
     return next(t for n, _, t in BUCKETS if n == bucket) * 60
 
 
-def prepare_env():
+def rapatrier_pieces_jointes(noms):
+    """Redescend dans `release/` les gros caches précédents que git ne versionne pas.
+
+    POURQUOI CETTE FONCTION EXISTE
+    `release/` est ignoré par git. Sur un runner, le clone ne le contient donc jamais,
+    et la restauration d'en dessous n'avait plus rien à restaurer pour les fichiers
+    lourds. Un collecteur qui relit son cache précédent pour préserver ce qu'il n'a pas
+    pu récupérer cette fois-ci repartait alors d'une page blanche, à chaque exécution.
+    Constaté sur l'historique fondamental TradFi : 138 valeurs publiées au lieu de 781,
+    zéro ligne préservée, 162 échecs perdus — et aucune reconstitution possible d'un
+    passage à l'autre, puisque chacun recommençait de zéro. Les graphes du site
+    perdaient les quatre cinquièmes de leur profondeur sans qu'aucune erreur ne le dise.
+
+    On ne rapatrie QUE ce que les collecteurs de cette cadence vont réécrire : tirer les
+    93 Mo du parc à chaque passage de cinq minutes coûterait plus que ça ne rapporte.
+    Un fichier absent de la release (jamais produit) répond 404 : on passe, sans bruit.
+    """
+    os.makedirs(RELEASE_OUT, exist_ok=True)
+    repris = 0
+    for name in sorted(noms):
+        if os.path.exists(os.path.join(CACHE_DIR, name)):
+            continue          # déjà là (machine d'origine, ou petit fichier versionné)
+        try:
+            with urllib.request.urlopen(RELEASE_URL + name, timeout=120) as r:
+                contenu = r.read()
+        except Exception:
+            continue          # 404 ou réseau muet : le collecteur repartira de zéro
+        if not contenu:
+            continue          # un fichier vide serait pire qu'absent : il ferait base
+        with open(os.path.join(RELEASE_OUT, name), "wb") as f:
+            f.write(contenu)
+        repris += 1
+    return repris
+
+
+def prepare_env(attendus=()):
     """Recrée l'arborescence que les collecteurs attendent."""
     for d in (CACHE_DIR, SITE_DIR, CACHE_OUT):
         os.makedirs(d, exist_ok=True)
@@ -144,6 +188,10 @@ def prepare_env():
             os.symlink(SCRIPTS, maison)
         except OSError:
             shutil.copytree(SCRIPTS, maison)   # si les liens sont refusés
+    # Les gros caches d'abord : ils ne sont pas dans le clone, il faut aller les chercher
+    # à la source. Sinon la boucle suivante ne trouve dans `release/` que du vide.
+    repris = rapatrier_pieces_jointes(attendus)
+
     # Les collecteurs relisent souvent leur propre cache précédent (fusion, historique,
     # préservation en cas d'échec partiel). Sans cette copie, chaque exécution repartirait
     # de zéro et perdrait l'historique accumulé — et un collecteur dont la source est
@@ -167,7 +215,7 @@ def prepare_env():
             jumeau = os.path.join(SCRIPTS, name)
             if not os.path.exists(jumeau):
                 shutil.copy2(src, jumeau)
-    return restored
+    return restored, repris
 
 
 def _sans_chemin_perso(msg):
@@ -204,8 +252,13 @@ def run_one(job, timeout):
     if not os.path.exists(script):
         return dict(job=job["id"], ok=False, secs=0, code=None, why="script absent")
 
+    # Les arguments de lancement font partie de la commande, au même titre que le nom
+    # du script : `--force` traverse une garde de fraîcheur qui, sans lui, fait sortir
+    # le collecteur sans rien collecter ; `--resume` lui fait relire son cache précédent
+    # au lieu de repartir d'une page blanche. Les ignorer revenait à lancer une AUTRE
+    # commande que celle qui tourne sur la machine d'origine, sans que rien ne le dise.
     cmd = (["bash", script] if script.endswith(".sh")
-           else [sys.executable, script])
+           else [sys.executable, script]) + list(job.get("args") or [])
     t0 = time.time()
 
     # Guetteurs de publication : on repasse plusieurs fois dans la même exécution.
@@ -312,11 +365,14 @@ def main():
             return 1
 
     manifest = [l.strip() for l in open(MANIFEST) if l.strip()] if os.path.exists(MANIFEST) else []
-    restored = prepare_env()
+    # Ce que les collecteurs de cette cadence vont réécrire : ce sont exactement les
+    # fichiers dont ils relisent la version précédente pour la fusionner.
+    attendus = {n for j in due for n in j.get("outputs", [])} & set(manifest)
+    restored, repris = prepare_env(attendus)
     timeout = timeout_of(args.bucket)
 
     print(f"cadence « {args.bucket} » · {len(due)} collecteurs · plafond {timeout//60} min "
-          f"· {restored} cache(s) restauré(s)\n")
+          f"· {restored} cache(s) restauré(s) dont {repris} pièce(s) jointe(s)\n")
 
     # Deux vagues : d'abord ce dont un autre collecteur dépend, ensuite le reste.
     attendus = {d for deps in DEPENDANCES.values() for d in deps}

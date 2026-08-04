@@ -242,6 +242,17 @@ def main():
         script = next((os.path.basename(a) for a in args
                        if a.endswith((".py", ".sh"))), "")
         script = SCRIPT_OVERRIDES.get(label, script)
+        # Les arguments qui SUIVENT le script. On les perdait : seul le nom du fichier
+        # était retenu, et le runner lançait donc une commande différente de celle qui
+        # tourne sur la machine d'origine depuis toujours. Vingt et un collecteurs sont
+        # concernés, et le silence était total — un `--force` absent fait sortir sans
+        # rien faire, un `--resume` absent fait repartir de zéro et perdre l'historique
+        # accumulé (constaté : 138 valeurs publiées au lieu de 781 pour l'historique
+        # fondamental TradFi). On prend la queue entière, pas les seuls tirets : des
+        # options portent une valeur (`--region all`).
+        i_script = next((k for k, a in enumerate(args)
+                         if a.endswith((".py", ".sh"))), None)
+        job_args = list(args[i_script + 1:]) if i_script is not None else []
         sched, per_day = schedule_of(d)
         cadence = CADENCE_OVERRIDES.get(label)
         cat = "perso" if label in PERSO else "locale" if label in LOCALE else "public"
@@ -251,7 +262,7 @@ def main():
         # On retire le PRÉFIXE seulement : couper au dernier point ferait entrer en
         # collision « gtrends.refresh » et « gtrends.serpapi », deux jobs distincts.
         jobs.append(dict(id=re.sub(r"^com\.[^.]+\.", "", label),
-                         script=script, schedule=sched, per_day=per_day,
+                         script=script, args=job_args, schedule=sched, per_day=per_day,
                          cadence=cadence,
                          category=cat, outputs=outputs_of(script, witness.get(label)),
                          witness=witness.get(label)))

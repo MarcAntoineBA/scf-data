@@ -3,6 +3,7 @@
   {
    "id": "backtest.refresh",
    "script": "refresh_backtest.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": null,
@@ -13,6 +14,7 @@
   {
    "id": "bulleai.refresh",
    "script": "refresh_bulle_ia.sh",
+   "args": [],
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
    "cadence": null,
@@ -33,6 +35,7 @@
   {
    "id": "cfdeploy",
    "script": "deploy_public_wrangler.sh",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": null,
@@ -45,6 +48,7 @@
   {
    "id": "cfwatchdog",
    "script": "watchdog_public_deploy.sh",
+   "args": [],
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
    "cadence": null,
@@ -58,6 +62,7 @@
   {
    "id": "correlations.refresh",
    "script": "refresh_correlations.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": null,
@@ -68,6 +73,7 @@
   {
    "id": "ecosysteme.refresh",
    "script": "refresh_ecosysteme.sh",
+   "args": [],
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
    "cadence": null,
@@ -78,6 +84,7 @@
   {
    "id": "fastpublish",
    "script": "fast_publish.sh",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -88,6 +95,7 @@
   {
    "id": "freshness.watchdog",
    "script": "watchdog_freshness.py",
+   "args": [],
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
    "cadence": null,
@@ -160,6 +168,7 @@
   {
    "id": "gtrends.refresh",
    "script": "refresh_gtrends.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": null,
@@ -172,6 +181,7 @@
   {
    "id": "macrotrends.refresh",
    "script": "refresh_macro_trends.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": null,
@@ -182,6 +192,7 @@
   {
    "id": "modelesvalo.refresh",
    "script": "refresh_modeles_valo.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": null,
@@ -192,6 +203,7 @@
   {
    "id": "savoir",
    "script": "",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -202,6 +214,7 @@
   {
    "id": "siteserver",
    "script": "",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -212,6 +225,7 @@
   {
    "id": "snapshot",
    "script": "snapshot_site.sh",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": null,
@@ -224,6 +238,7 @@
   {
    "id": "souv_carte",
    "script": "carte.sh",
+   "args": [],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": null,
@@ -234,6 +249,9 @@
   {
    "id": "souv_grind",
    "script": "grind.sh",
+   "args": [
+    "25"
+   ],
    "schedule": "toutes les 1 h",
    "per_day": 24.0,
    "cadence": null,
@@ -244,6 +262,7 @@
   {
    "id": "souv_links",
    "script": "links_runner.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": null,
@@ -254,6 +273,7 @@
   {
    "id": "syncprod",
    "script": "sync_prod_branch.sh",
+   "args": [],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": null,
@@ -264,6 +284,7 @@
   {
    "id": "syncthing",
    "script": "",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -274,6 +295,7 @@
   {
    "id": "syncthing.watchdog",
    "script": "syncthing_watchdog.sh",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": null,
@@ -284,6 +306,7 @@
   {
    "id": "wakekicker",
    "script": "wake_kicker.py",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -294,6 +317,7 @@
   {
    "id": "advisor",
    "script": "trigger_advisor.sh",
+   "args": [],
    "schedule": "5 créneau(x)/jour",
    "per_day": 5.0,
    "cadence": null,
@@ -304,6 +328,7 @@
   {
    "id": "advisor.flows",
    "script": "refresh_flows.sh",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": null,
@@ -314,6 +339,7 @@
   {
    "id": "advisor.server",
    "script": "advisor_server.py",
+   "args": [],
    "schedule": "permanent",
    "per_day": 0.0,
    "cadence": null,
@@ -324,6 +350,7 @@
   {
    "id": "portefeuille",
    "script": "fetch_portefeuille_prices.py",
+   "args": [],
    "schedule": "toutes les 2 h",
    "per_day": 12.0,
    "cadence": null,
@@ -339,6 +366,7 @@
   {
    "id": "ai_adoption",
    "script": "fetch_ai_adoption.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "daily",
@@ -352,6 +380,7 @@
   {
    "id": "atlasbudget",
    "script": "fetch_atlas_budget.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -362,6 +391,9 @@
   {
    "id": "atlasdebt",
    "script": "fetch_atlas_debt.py",
+   "args": [
+    "--auto"
+   ],
    "schedule": "toutes les 2 h",
    "per_day": 12.0,
    "cadence": "1h",
@@ -374,6 +406,7 @@
   {
    "id": "atlasdetail",
    "script": "fetch_atlas_detail.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -387,6 +420,7 @@
   {
    "id": "atlaseco",
    "script": "fetch_atlas_econ.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "daily",
@@ -400,6 +434,7 @@
   {
    "id": "atlasmaritime",
    "script": "fetch_atlas_maritime.py",
+   "args": [],
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
    "cadence": "6h",
@@ -413,6 +448,7 @@
   {
    "id": "atlasquarterly",
    "script": "fetch_atlas_quarterly.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "daily",
@@ -425,6 +461,9 @@
   {
    "id": "backtestradar",
    "script": "backtest_radar.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -438,6 +477,9 @@
   {
    "id": "btccycle",
    "script": "fetch_btc_cycle.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "3 créneau(x)/jour",
    "per_day": 3.0,
    "cadence": "daily",
@@ -453,6 +495,10 @@
   {
    "id": "btccycle.live",
    "script": "fetch_btc_cycle.py",
+   "args": [
+    "--force",
+    "--no-onchain"
+   ],
    "schedule": "4 créneau(x)/jour",
    "per_day": 4.0,
    "cadence": "1h",
@@ -468,6 +514,7 @@
   {
    "id": "buffettcash",
    "script": "fetch_buffett_cash.py",
+   "args": [],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "daily",
@@ -481,6 +528,7 @@
   {
    "id": "creditprive",
    "script": "fetch_credit_prive.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -494,6 +542,7 @@
   {
    "id": "crypto-pe-hist",
    "script": "fetch_crypto_pe_hist.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -506,6 +555,7 @@
   {
    "id": "cryptoetf",
    "script": "fetch_crypto_etf_flows.py",
+   "args": [],
    "schedule": "12 créneau(x)/jour",
    "per_day": 12.0,
    "cadence": "1h",
@@ -519,6 +569,7 @@
   {
    "id": "cryptoytd",
    "script": "fetch_crypto_ytd.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -532,6 +583,9 @@
   {
    "id": "cyclecache",
    "script": "fetch_cycle_cache.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -545,6 +599,7 @@
   {
    "id": "defiengagement.refresh",
    "script": "fetch_defi_engagement.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -555,6 +610,9 @@
   {
    "id": "earningscal",
    "script": "fetch_earnings_calendar.py",
+   "args": [
+    "--auto"
+   ],
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
    "cadence": "5min",
@@ -568,6 +626,7 @@
   {
    "id": "ecophysique",
    "script": "fetch_economie_physique.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -581,6 +640,9 @@
   {
    "id": "ecosysteme.indicators",
    "script": "fetch_ecosysteme_indicators.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "6h",
@@ -594,6 +656,7 @@
   {
    "id": "energymacro",
    "script": "fetch_energy_macro.py",
+   "args": [],
    "schedule": "toutes les 3 h",
    "per_day": 8.0,
    "cadence": "1h",
@@ -604,6 +667,7 @@
   {
    "id": "fedwatch.refresh",
    "script": "fetch_fedwatch.py",
+   "args": [],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -617,6 +681,7 @@
   {
    "id": "finance_americaine",
    "script": "fetch_finance_americaine.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -630,6 +695,7 @@
   {
    "id": "financiarisation",
    "script": "fetch_financiarisation.py",
+   "args": [],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -643,6 +709,7 @@
   {
    "id": "fjnews",
    "script": "fetch_fj_news.py",
+   "args": [],
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
    "cadence": "5min",
@@ -657,6 +724,7 @@
   {
    "id": "fluxphysiques",
    "script": "fetch_flux_physiques.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "6h",
@@ -669,6 +737,7 @@
   {
    "id": "frbudget",
    "script": "fetch_atlas_france_budget.py",
+   "args": [],
    "schedule": "toutes les 1.7e+02 h",
    "per_day": 0.14,
    "cadence": "weekly",
@@ -679,6 +748,7 @@
   {
    "id": "fredstress.refresh",
    "script": "fetch_fred_stress_indicators.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -691,6 +761,9 @@
   {
    "id": "globalhist",
    "script": "fetch_global_hist.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 24 h",
    "per_day": 1.0,
    "cadence": "daily",
@@ -704,6 +777,9 @@
   {
    "id": "globalmarkets",
    "script": "fetch_global_markets.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "6 créneau(x)/jour",
    "per_day": 6.0,
    "cadence": "1h",
@@ -717,6 +793,10 @@
   {
    "id": "gtrends.serpapi",
    "script": "update_gtrends.py",
+   "args": [
+    "--region",
+    "all"
+   ],
    "schedule": "7 créneau(x)/jour",
    "per_day": 7.0,
    "cadence": "daily",
@@ -732,6 +812,7 @@
   {
    "id": "gtrendshype",
    "script": "fetch_gtrends_hype.py",
+   "args": [],
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
    "cadence": "daily",
@@ -746,6 +827,7 @@
   {
    "id": "hydrocarbures",
    "script": "fetch_hydrocarbures.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "6h",
@@ -759,6 +841,9 @@
   {
    "id": "ipocal",
    "script": "fetch_ipo_calendar.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
    "cadence": "6h",
@@ -772,6 +857,10 @@
   {
    "id": "l1history",
    "script": "fetch_l1_history.py",
+   "args": [
+    "--force",
+    "--daily"
+   ],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "6h",
@@ -786,6 +875,7 @@
   {
    "id": "l1valuation",
    "script": "fetch_l1_valuation.py",
+   "args": [],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -799,6 +889,7 @@
   {
    "id": "leveredetf",
    "script": "fetch_levered_etf_volume.py",
+   "args": [],
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
    "cadence": "1h",
@@ -811,6 +902,7 @@
   {
    "id": "macro-corr",
    "script": "fetch_macro_corr.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -824,6 +916,9 @@
   {
    "id": "macrocal",
    "script": "fetch_macro_calendar.py",
+   "args": [
+    "--auto"
+   ],
    "schedule": "toutes les 0.17 h",
    "per_day": 144.0,
    "cadence": "5min",
@@ -837,6 +932,9 @@
   {
    "id": "macrofred.refresh",
    "script": "fetch_macro_fred_data.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -852,6 +950,9 @@
   {
    "id": "mag7hist",
    "script": "fetch_mag7_hist.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -865,6 +966,7 @@
   {
    "id": "moneyflow",
    "script": "fetch_moneyflow.py",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": "5min",
@@ -879,6 +981,7 @@
   {
    "id": "narratives",
    "script": "fetch_narratives.py",
+   "args": [],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "6h",
@@ -896,6 +999,7 @@
   {
    "id": "narrfund",
    "script": "fetch_narratives_fundamentals.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -910,6 +1014,7 @@
   {
    "id": "newlistings",
    "script": "fetch_new_listings.py",
+   "args": [],
    "schedule": "toutes les 6 h",
    "per_day": 4.0,
    "cadence": "1h",
@@ -924,6 +1029,7 @@
   {
    "id": "news",
    "script": "fetch_news.py",
+   "args": [],
    "schedule": "toutes les 0.25 h",
    "per_day": 96.0,
    "cadence": "5min",
@@ -937,6 +1043,9 @@
   {
    "id": "pehist",
    "script": "fetch_pe_hist.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -950,6 +1059,9 @@
   {
    "id": "pehistglobal",
    "script": "fetch_pe_hist_global.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "daily",
@@ -963,6 +1075,9 @@
   {
    "id": "perdata",
    "script": "fetch_per_data.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "6 créneau(x)/jour",
    "per_day": 6.0,
    "cadence": "1h",
@@ -976,6 +1091,9 @@
   {
    "id": "predmarkets",
    "script": "fetch_prediction_markets.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "1h",
@@ -990,6 +1108,9 @@
   {
    "id": "radardata",
    "script": "fetch_radar_data.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "toutes les 4 h",
    "per_day": 6.0,
    "cadence": "1h",
@@ -1003,6 +1124,7 @@
   {
    "id": "radarv3.refresh",
    "script": "refresh_radar_v3_cache.sh",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1015,6 +1137,7 @@
   {
    "id": "sentiment.fng",
    "script": "refresh_sentiment_fng.sh",
+   "args": [],
    "schedule": "1 créneau(x)/jour",
    "per_day": 1.0,
    "cadence": "6h",
@@ -1027,6 +1150,7 @@
   {
    "id": "stockbubble",
    "script": "fetch_stock_bubble.py",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": "5min",
@@ -1042,6 +1166,7 @@
   {
    "id": "these_bitcoin.refresh",
    "script": "fetch_these_bitcoin.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1055,6 +1180,7 @@
   {
    "id": "these_bulleia.refresh",
    "script": "fetch_these_bulleia.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1068,6 +1194,7 @@
   {
    "id": "these_dette.refresh",
    "script": "fetch_these_dette.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1081,6 +1208,7 @@
   {
    "id": "these_dollar.refresh",
    "script": "fetch_these_dollar.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1094,6 +1222,7 @@
   {
    "id": "these_effondrement.refresh",
    "script": "fetch_these_effondrement.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1107,6 +1236,7 @@
   {
    "id": "these_energie.refresh",
    "script": "fetch_these_energie.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1120,6 +1250,7 @@
   {
    "id": "these_stagnation.refresh",
    "script": "fetch_these_stagnation.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1133,6 +1264,7 @@
   {
    "id": "these_web3.refresh",
    "script": "fetch_these_web3.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1146,6 +1278,7 @@
   {
    "id": "tradfi",
    "script": "fetch_tradfi.py",
+   "args": [],
    "schedule": "4 créneau(x)/jour",
    "per_day": 4.0,
    "cadence": "6h",
@@ -1164,6 +1297,7 @@
   {
    "id": "tradfi-growth",
    "script": "fetch_tradfi_growth.py",
+   "args": [],
    "schedule": "toutes les 12 h",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1176,6 +1310,7 @@
   {
    "id": "tradfiallocation.refresh",
    "script": "fetch_tradfi_allocation.py",
+   "args": [],
    "schedule": "toutes les 1.7e+02 h",
    "per_day": 0.14,
    "cadence": "weekly",
@@ -1186,6 +1321,9 @@
   {
    "id": "tradficycle",
    "script": "fetch_tradfi_cycle.py",
+   "args": [
+    "--force"
+   ],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "1h",
@@ -1199,6 +1337,7 @@
   {
    "id": "tradfifund",
    "script": "fetch_tradfi_fundamentals.py",
+   "args": [],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1213,6 +1352,9 @@
   {
    "id": "tradfihist",
    "script": "fetch_tradfi_hist.py",
+   "args": [
+    "--resume"
+   ],
    "schedule": "2 créneau(x)/jour",
    "per_day": 2.0,
    "cadence": "6h",
@@ -1227,6 +1369,7 @@
   {
    "id": "treasury",
    "script": "fetch_treasury_companies.py",
+   "args": [],
    "schedule": "toutes les 0.5 h",
    "per_day": 48.0,
    "cadence": "10min",
