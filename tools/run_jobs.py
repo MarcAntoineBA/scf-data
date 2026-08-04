@@ -235,14 +235,12 @@ def main():
 
     # Bilan cumulatif : on garde l'état des cadences qui n'ont pas tourné cette fois-ci,
     # sinon chaque passage effacerait la vue d'ensemble du parc.
-    status_path = os.path.join(CACHE_OUT, "_fleet_status.json")
-    status = {}
-    if os.path.exists(status_path):
-        try:
-            status = json.load(open(status_path))
-        except (json.JSONDecodeError, OSError):
-            status = {}
-    status.setdefault("buckets", {})[args.bucket] = dict(
+    # Un fichier par cadence : c'était le SEUL fichier écrit par les sept, donc le
+    # seul point de conflit quand plusieurs publient en même temps. Séparer supprime
+    # le conflit à la racine, au lieu de le rattraper au rebase.
+    status_path = os.path.join(CACHE_OUT, f"_fleet_status_{args.bucket}.json")
+    status = dict(bucket=args.bucket)
+    status["run"] = dict(
         ts=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         total=len(results), ok=len(results) - len(ko), secs=elapsed,
         changed=len(changed), versionnes=len(small), pieces_jointes=len(big),

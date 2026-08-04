@@ -90,24 +90,27 @@ jobs:
         run: |
           git config user.name  "collecte"
           git config user.email "collecte@users.noreply.github.com"
-          git add cache/
-          if git diff --cached --quiet; then
-            echo "aucun changement — rien à publier"
-            exit 0
-          fi
-          N=$(git diff --cached --name-only | wc -l | tr -d ' ')
-          git commit -q -m "données daily : $N fichier(s)"
 
-          # Plusieurs cadences peuvent publier en même temps. Le perdant rejoue son
-          # commit au-dessus du gagnant plutôt que d'échouer : les fichiers touchés
-          # sont disjoints, il n'y a rien à arbitrer, seulement à réessayer.
-          for essai in 1 2 3 4 5; do
-            if git push; then
-              echo "publié (essai $essai)"
+          # Rejouer notre travail au-dessus du distant SANS rebase : un rebase peut
+          # entrer en conflit, un reset souple jamais. On ne réécrit que des fichiers
+          # de données, il n'y a aucun historique à réconcilier — seulement un
+          # contenu à poser au-dessus du dernier état publié.
+          for essai in 1 2 3 4 5 6 7 8; do
+            git fetch -q origin main
+            git reset -q --soft origin/main
+            git add cache/
+            if git diff --cached --quiet; then
+              echo "aucun changement — rien à publier"
               exit 0
             fi
-            git pull --rebase --autostash origin main || exit 1
-            sleep $((essai * 5))
+            N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+            git commit -q -m "données daily : $N fichier(s)"
+            if git push -q; then
+              echo "publié : $N fichier(s) (essai $essai)"
+              exit 0
+            fi
+            echo "publication concurrente — nouvelle tentative"
+            sleep $((essai * 4))
           done
-          echo "échec de publication après 5 essais" >&2
+          echo "échec de publication après 8 essais" >&2
           exit 1
