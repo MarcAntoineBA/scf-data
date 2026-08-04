@@ -12,9 +12,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "7,37 * * * *"
-  push:
-    branches: [main]
-    paths: [tools/run_jobs.py]
 
 permissions:
   contents: write        # publie les données collectées

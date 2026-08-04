@@ -43,11 +43,8 @@ CADENCES = [
 # besoin d'une preuve d'exécution maintenant, pas au bon vouloir du planificateur.
 # À retirer une fois la migration validée — sinon chaque retouche de l'orchestrateur
 # relancerait un lot complet.
-VERIF = """  push:
-    branches: [main]
-    paths: [tools/run_jobs.py]
-"""
-CADENCE_VERIF = "30min"
+VERIF = ""
+CADENCE_VERIF = None   # migration vérifiée : plus de déclencheur de secours
 
 MODELE = '''name: Collecte {cadence}
 

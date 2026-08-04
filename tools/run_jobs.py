@@ -71,6 +71,16 @@ BUCKETS = [
 ]
 PARALLEL = 6
 
+# Un collecteur peut lire la SORTIE d'un autre. Lancés en parallèle dans la même
+# cadence, l'ordre n'est pas garanti : mesuré, l'historique tradfi mourait sur
+# « fichier introuvable » parce qu'il démarrait avant le collecteur qui le produit.
+# Deux vagues suffisent — ce qui est attendu par quelqu'un d'abord, le reste ensuite.
+# Une file de dépendances complète serait disproportionnée pour un seul cas connu, et
+# masquerait le vrai sujet : ces deux-là ne devraient pas partager une cadence.
+DEPENDANCES = {
+    "tradfihist": ["tradfifund"],       # lit tradfi_fundamentals_cache.json
+}
+
 
 def bucket_of(per_day):
     for name, threshold, _ in BUCKETS:
@@ -229,9 +239,18 @@ def main():
     print(f"cadence « {args.bucket} » · {len(due)} collecteurs · plafond {timeout//60} min "
           f"· {restored} cache(s) restauré(s)\n")
 
+    # Deux vagues : d'abord ce dont un autre collecteur dépend, ensuite le reste.
+    attendus = {d for deps in DEPENDANCES.values() for d in deps}
+    vague1 = [j for j in due if j["id"] in attendus]
+    vague2 = [j for j in due if j["id"] not in attendus]
+
     t0 = time.time()
-    with cf.ThreadPoolExecutor(max_workers=PARALLEL) as ex:
-        results = list(ex.map(lambda j: run_one(j, timeout), due))
+    results = []
+    for vague in (vague1, vague2):
+        if not vague:
+            continue
+        with cf.ThreadPoolExecutor(max_workers=PARALLEL) as ex:
+            results += list(ex.map(lambda j: run_one(j, timeout), vague))
     elapsed = round(time.time() - t0, 1)
 
     small, big, absent, retires = collect(manifest)

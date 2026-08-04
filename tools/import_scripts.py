@@ -238,13 +238,22 @@ def with_local_modules(names):
     """
     seen, queue = set(names), list(names)
     imp = re.compile(r"^\s*(?:import|from)\s+([A-Za-z_]\w*)", re.M)
+    # Une enveloppe shell LANCE un collecteur, elle ne l'importe pas. Sans cette
+    # seconde règle, le script appelé manquait et le collecteur mourait sur « fichier
+    # introuvable » — constaté avec l'indice de sentiment, dont le .sh n'est qu'un
+    # préambule de trois lignes autour du vrai collecteur.
+    lance = re.compile(r"([A-Za-z_][\w-]*\.py)")
     while queue:
         cur = queue.pop()
         path = os.path.join(SRC, cur)
-        if not cur.endswith(".py") or not os.path.exists(path):
+        if not os.path.exists(path):
             continue
-        for mod in set(imp.findall(open(path, encoding="utf-8", errors="replace").read())):
-            cand = mod + ".py"
+        texte = open(path, encoding="utf-8", errors="replace").read()
+        candidats = set()
+        if cur.endswith(".py"):
+            candidats |= {m + ".py" for m in imp.findall(texte)}
+        candidats |= set(lance.findall(texte))
+        for cand in candidats:
             if cand not in seen and os.path.exists(os.path.join(SRC, cand)):
                 seen.add(cand)
                 queue.append(cand)
