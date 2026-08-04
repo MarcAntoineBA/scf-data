@@ -248,3 +248,4 @@ if __name__ == "__main__":
     sys.exit(main())
 
 # migration : declencheur temporaire (rejoue une collecte reelle apres correction)
+# relance apres correction du verrou
