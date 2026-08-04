@@ -226,7 +226,43 @@ def main():
             shutil.copymode(src, os.path.join(DEST, name))
         copied.append(name)
 
+    # ── Fichiers d'ENTRÉE ────────────────────────────────────────────────────
+    # Certains collecteurs ne lisent pas que des sources distantes : ils s'appuient
+    # sur un fichier de référence posé à côté d'eux (l'univers d'actions suivi, par
+    # exemple). Sans lui, le collecteur démarre et meurt sur « fichier introuvable » —
+    # constaté en conditions réelles avec `stock_universe.json`.
+    # On n'emporte QUE les entrées : les fichiers du manifeste sont des SORTIES,
+    # restaurées ailleurs par l'orchestrateur, et les embarquer ici en ferait deux
+    # copies concurrentes de la même donnée.
+    manifeste = set()
+    chemin_manifeste = os.path.join(HERE, "..", "cache_manifest.txt")
+    if os.path.exists(chemin_manifeste):
+        manifeste = {l.strip() for l in open(chemin_manifeste) if l.strip()}
+
+    motif = re.compile(r'["\']([\w\-.]+\.(?:json|csv|txt))["\']')
+    entrees = set()
+    for name in copied:
+        chemin = os.path.join(SRC, name)
+        if not os.path.exists(chemin):
+            continue
+        for m in motif.finditer(open(chemin, encoding="utf-8", errors="replace").read()):
+            f = m.group(1)
+            if f not in manifeste and os.path.exists(os.path.join(SRC, f)):
+                entrees.add(f)
+
+    emportees = []
+    for f in sorted(entrees):
+        contenu = open(os.path.join(SRC, f), encoding="utf-8", errors="replace").read()
+        if ACCOUNT.lower() in contenu.lower() or SECRET_HINT.search(contenu):
+            refused.append((f, "fichier d'entrée contenant une donnée personnelle"))
+            continue
+        if not dry:
+            shutil.copy2(os.path.join(SRC, f), os.path.join(DEST, f))
+        emportees.append(f)
+
     print(f"{'[simulation] ' if dry else ''}collecteurs publics : {len(wanted)} attendus")
+    if emportees:
+        print(f"  entrées   {len(emportees)}   ({', '.join(emportees)})")
     print(f"  importés  {len(copied)}")
     print(f"  écartés   {len(skipped)}   (hors périmètre public)")
     print(f"  REFUSÉS   {len(refused)}   (à traiter à la main)")

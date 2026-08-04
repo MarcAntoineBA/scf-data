@@ -34,6 +34,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
 SCRIPTS = os.path.join(ROOT, "scripts")
 CACHE_OUT = os.path.join(ROOT, "cache")
+
+# Seuil de séparation entre les deux régimes de publication. 12 fichiers pèsent
+# 93 des 114 Mo du parc : versionner ceux-là à chaque passage ferait grossir le dépôt
+# sans fin, pour une donnée dont personne ne relira jamais la version d'avant-hier.
+# En dessous, l'historique git est au contraire précieux — on voit quelle valeur a
+# changé, et quand.
+GIT_SIZE_LIMIT = 1_000_000
+RELEASE_OUT = os.path.join(ROOT, "release")
 MANIFEST = os.path.join(ROOT, "cache_manifest.txt")
 JOBS = os.path.join(ROOT, "jobs.json")
 
@@ -78,13 +86,36 @@ def prepare_env():
     # de zéro et perdrait l'historique accumulé — et un collecteur dont la source est
     # momentanément muette écraserait ses données au lieu de les conserver.
     restored = 0
-    if os.path.isdir(CACHE_OUT):
-        for name in os.listdir(CACHE_OUT):
-            src, dst = os.path.join(CACHE_OUT, name), os.path.join(CACHE_DIR, name)
-            if os.path.isfile(src) and not os.path.exists(dst):
-                shutil.copy2(src, dst)
+    for source in (CACHE_OUT, RELEASE_OUT):
+        if not os.path.isdir(source):
+            continue
+        for name in os.listdir(source):
+            src = os.path.join(source, name)
+            if not os.path.isfile(src):
+                continue
+            if not os.path.exists(os.path.join(CACHE_DIR, name)):
+                shutil.copy2(src, os.path.join(CACHE_DIR, name))
                 restored += 1
+            # Sur la machine d'origine, plusieurs collecteurs relisent leur cache
+            # précédent À CÔTÉ D'EUX, pas dans le dossier des caches (les deux copies
+            # y cohabitent depuis toujours). On reproduit cette disposition, sinon ces
+            # collecteurs repartiraient de zéro à chaque exécution — en perdant
+            # l'historique qu'ils accumulent, sans que rien ne le signale.
+            jumeau = os.path.join(SCRIPTS, name)
+            if not os.path.exists(jumeau):
+                shutil.copy2(src, jumeau)
     return restored
+
+
+def _sans_chemin_perso(msg):
+    """Retire le dossier personnel des messages d'erreur avant publication.
+
+    Le bilan est publié dans un dépôt PUBLIC, et un message d'échec cite volontiers
+    le chemin complet du fichier fautif — donc le nom du compte de la machine. C'est
+    arrivé au premier essai réel : « univers introuvable (/Users/<compte>/…) ».
+    Le message reste lisible, il perd juste ce qu'il n'avait pas à dire.
+    """
+    return (msg or "").replace(os.path.expanduser("~"), "~")
 
 
 def run_one(job, timeout):
@@ -102,22 +133,13 @@ def run_one(job, timeout):
         ok = p.returncode == 0
         why = "" if ok else (p.stderr or p.stdout or "").strip().splitlines()[-1:] or [""]
         return dict(job=job["id"], ok=ok, secs=secs, code=p.returncode,
-                    why="" if ok else str(why[0])[:200])
+                    why="" if ok else _sans_chemin_perso(str(why[0]))[:200])
     except subprocess.TimeoutExpired:
         return dict(job=job["id"], ok=False, secs=round(time.time() - t0, 1),
                     code=None, why=f"dépassement du plafond ({timeout//60} min)")
     except Exception as e:
         return dict(job=job["id"], ok=False, secs=round(time.time() - t0, 1),
-                    code=None, why=f"{type(e).__name__}: {e}"[:200])
-
-
-# Seuil de séparation entre les deux régimes de publication. 12 fichiers pèsent
-# 93 des 114 Mo du parc : versionner ceux-là à chaque passage ferait grossir le dépôt
-# sans fin, pour une donnée dont personne ne relira jamais la version d'avant-hier.
-# En dessous, l'historique git est au contraire précieux — on voit quelle valeur a
-# changé, et quand.
-GIT_SIZE_LIMIT = 1_000_000
-RELEASE_OUT = os.path.join(ROOT, "release")
+                    code=None, why=_sans_chemin_perso(f"{type(e).__name__}: {e}")[:200])
 
 
 def collect(manifest):
