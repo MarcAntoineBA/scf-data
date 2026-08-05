@@ -1,15 +1,20 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-08-05T09:50:39Z",
+  "ts": "2026-08-05T11:50:15Z",
   "total": 6,
-  "ok": 6,
-  "secs": 91.7,
-  "changed": 15,
-  "versionnes": 11,
+  "ok": 5,
+  "secs": 120.0,
+  "changed": 17,
+  "versionnes": 13,
   "pieces_jointes": 4,
   "absents": 18,
-  "failed": []
+  "failed": [
+   {
+    "job": "earningscal",
+    "why": "dépassement du plafond (2 min)"
+   }
+  ]
  },
- "updated": "2026-08-05T09:50:39Z"
+ "updated": "2026-08-05T11:50:15Z"
 }
