@@ -1,20 +1,15 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-04T17:54:09Z",
-  "total": 13,
-  "ok": 12,
-  "secs": 346.1,
-  "changed": 13,
-  "versionnes": 11,
+  "ts": "2026-08-05T07:24:17Z",
+  "total": 15,
+  "ok": 15,
+  "secs": 341.5,
+  "changed": 21,
+  "versionnes": 19,
   "pieces_jointes": 2,
-  "absents": 19,
-  "failed": [
-   {
-    "job": "sentiment.fng",
-    "why": "[17:51:34] ERREUR : SPY vide, abort."
-   }
-  ]
+  "absents": 20,
+  "failed": []
  },
- "updated": "2026-08-04T17:54:09Z"
+ "updated": "2026-08-05T07:24:17Z"
 }
