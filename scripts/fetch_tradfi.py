@@ -2766,13 +2766,15 @@ def fetch_sp500_trend(histories=None):
     yfinance call (period="1y").
     """
     closes = None
+    series = None          # [(ts, close)] horodatée — nécessaire pour une VRAIE MA200
     # ── Path A : reuse already-fetched SPY history ──
     if histories and "SPY" in histories:
         spy_hist = histories["SPY"]
         if spy_hist and len(spy_hist) >= 50:
             # Sort chronologically, extract close prices
             sorted_hist = sorted(spy_hist, key=lambda p: p[0])
-            closes = [float(p[1]) for p in sorted_hist if p[1] and p[1] > 0]
+            series = [(int(p[0]), float(p[1])) for p in sorted_hist if p[1] and p[1] > 0]
+            closes = [c for _, c in series]
 
     # ── Path B : fallback to fresh yfinance fetch ──
     if not closes or len(closes) < 50:
@@ -2799,20 +2801,64 @@ def fetch_sp500_trend(histories=None):
         return {"mode": "unknown", "idx_px": None, "ma200": None,
                 "perf_30d": None, "distance_ma200": None}
 
-    # Use last 200 points for MA200 (or all available if < 200, with warning)
     px = closes[-1]
-    if len(closes) >= 200:
-        ma200 = sum(closes[-200:]) / 200
-    else:
-        # Histories are downsampled (mixed daily/weekly), so 200 "trading days" might
-        # not be present — use available with explicit divisor.
-        ma200 = sum(closes) / len(closes)
-        print(f"[info] SP500 trend: using MA{len(closes)} (less than 200 pts available)", file=sys.stderr)
 
-    # 30j perf : try to find the bar ~22 trading days ago (or ~30 calendar days
-    # if data is daily; otherwise use a proportionally older index).
-    idx_30d = max(0, len(closes) - 22)
-    perf_30d = ((px / closes[idx_30d]) - 1) * 100 if closes[idx_30d] > 0 else 0.0
+    # ── MA200 — BUG CORRIGÉ 2026-08-06 (mesuré, pas supposé) ─────────────────
+    # AVANT : `sum(closes[-200:]) / 200`. Or `histories["SPY"]` sort de
+    # `_downsample()` : quotidien sur 90 j PUIS hebdomadaire au-delà. Les 200
+    # derniers POINTS couvraient donc **1409 jours** (3,9 ans), pas 200 séances.
+    # Résultat mesuré : « MA200 » = 610 au lieu de ~704 → la tuile Accueil
+    # affichait **+26,19 %** au-dessus de la MA200 alors que le vrai écart est
+    # +9,7 % (recalculé sur ^GSPC en quotidien pur). Un point de comptage ≠ un
+    # jour dès que la série est downsamplée. Cf [[feedback_no_recurrence_safeguard]].
+    # MAINTENANT : fenêtre en TEMPS (200 séances ≈ 290 j calendaires) et moyenne
+    # pondérée par l'intervalle de chaque point, pour que les points hebdo ne
+    # pèsent pas comme les points quotidiens. Vérifié sur la série réelle :
+    # 700,01 vs 703,6 en quotidien pur (écart 0,5 %). Si la série est vraiment
+    # quotidienne sur 200 barres (Path B), on prend la MA200 exacte.
+    MA_TRADING_DAYS = 200
+    MA_WINDOW_DAYS = 290          # 200 séances ≈ 290 jours calendaires
+    ma200 = None
+    ma_label = "MA200"
+    if series and len(series) >= 2:
+        t_end = series[-1][0]
+        # Série réellement quotidienne sur la fenêtre ? (aucun trou > 5 j)
+        tail = series[-MA_TRADING_DAYS:]
+        daily = (len(tail) >= MA_TRADING_DAYS
+                 and all(tail[i][0] - tail[i-1][0] <= 5 * 86400 for i in range(1, len(tail))))
+        if daily:
+            ma200 = sum(c for _, c in tail) / MA_TRADING_DAYS
+        else:
+            win = [p for p in series if p[0] >= t_end - MA_WINDOW_DAYS * 86400]
+            span = (win[-1][0] - win[0][0]) / 86400 if len(win) >= 2 else 0
+            if len(win) >= 20 and span >= 250:      # couverture suffisante de la fenêtre
+                num = wsum = 0.0
+                for i in range(1, len(win)):
+                    w = win[i][0] - win[i-1][0]      # durée représentée par le point
+                    num += win[i][1] * w
+                    wsum += w
+                ma200 = num / wsum if wsum > 0 else None
+            elif len(win) >= 20:
+                ma200 = sum(c for _, c in win) / len(win)
+                ma_label = f"MA{int(span)}j"
+                print(f"[info] SP500 trend: fenêtre courte, MA sur {int(span)}j", file=sys.stderr)
+    if ma200 is None:
+        # Pas d'horodatage exploitable (Path B renvoie une série quotidienne pure)
+        if len(closes) >= MA_TRADING_DAYS:
+            ma200 = sum(closes[-MA_TRADING_DAYS:]) / MA_TRADING_DAYS
+        else:
+            ma200 = sum(closes) / len(closes)
+            ma_label = f"MA{len(closes)}"
+            print(f"[info] SP500 trend: using MA{len(closes)} (less than 200 pts available)", file=sys.stderr)
+
+    # ── perf 30 j — même piège : l'index -22 ne vaut 22 séances que si la série
+    # est quotidienne. On vise le point le plus proche de 30 jours CALENDAIRES.
+    if series and len(series) >= 2:
+        target = series[-1][0] - 30 * 86400
+        ref = min(series, key=lambda p: abs(p[0] - target))[1]
+    else:
+        ref = closes[max(0, len(closes) - 22)]
+    perf_30d = ((px / ref) - 1) * 100 if ref > 0 else 0.0
     dist = (px / ma200 - 1) * 100 if ma200 > 0 else 0.0
     if px > ma200 and perf_30d > -3:
         mode = "alpha"
@@ -2824,6 +2870,7 @@ def fetch_sp500_trend(histories=None):
         "mode": mode,
         "idx_px": round(px, 0),
         "ma200":  round(ma200, 0),
+        "ma_label": ma_label,
         "perf_30d": round(perf_30d, 2),
         "distance_ma200": round(dist, 2),
     }
@@ -3959,7 +4006,9 @@ def main():
         "ma": trend.get("ma200"),
         "perf_30d": trend.get("perf_30d"),
         "ref_asset": "S&P 500",
-        "ma_label": "MA200",
+        # Label RÉEL de la moyenne (dégradé en MA<n>j si l'historique ne couvre
+        # pas 200 séances) — on n'annonce pas « MA200 » quand ce n'en est pas une.
+        "ma_label": trend.get("ma_label", "MA200"),
         "updated": out.get("updated"),
     }
     _atomic_write_text(mode_js,
