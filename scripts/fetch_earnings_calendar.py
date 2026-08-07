@@ -482,11 +482,19 @@ def nasdaq_dates(tickers):
     jour (week-end compris) et on s'arrête dès que tous les tickers demandés sont
     trouvés. Appelé uniquement sur les lignes suspectes (cf. confirm_dates), donc
     quelques requêtes toutes les 6 h.
+
+    Retourne (dates, recoupement_possible). Le 2e élément dit si Nasdaq a
+    RÉPONDU au moins une fois : la collecte tourne aussi sur GitHub Actions, où
+    une API peut refuser l'IP du datacenter. Sans cette distinction, « Nasdaq
+    injoignable » serait lu comme « Nasdaq ne connaît aucune de ces dates » et
+    TOUTES les échéances passeraient en « date à confirmer » — un faux signal
+    est pire que pas de signal.
     """
     want = {_norm_ticker(t): t for t in tickers if t}
     found = {}
     if not want:
-        return found
+        return found, False
+    joignable = False
     today = datetime.now(ET).date()
     for i in range(NASDAQ_DATE_HORIZON + 1):
         day = (today + timedelta(days=i)).isoformat()
@@ -495,6 +503,7 @@ def nasdaq_dates(tickers):
                 "User-Agent": UA, "Accept": "application/json"})
             rows = (json.loads(urllib.request.urlopen(req, timeout=20).read())
                     .get("data") or {}).get("rows") or []
+            joignable = True
         except Exception as e:
             sys.stderr.write(f"[Earnings] date Nasdaq {day} err: {e}\n")
             continue
@@ -505,7 +514,10 @@ def nasdaq_dates(tickers):
         if len(found) == len(want):
             break
         time.sleep(REQ_DELAY)
-    return found
+    if not joignable:
+        sys.stderr.write("[Earnings] Nasdaq injoignable — aucune date recoupée "
+                         "(les échéances restent affichées telles quelles)\n")
+    return found, joignable
 
 
 def confirm_dates(events):
@@ -531,7 +543,9 @@ def confirm_dates(events):
                 and _src_day(e) <= limite]
     if not suspects:
         return events
-    trouve = nasdaq_dates({e.get("ticker") for e in suspects})
+    trouve, joignable = nasdaq_dates({e.get("ticker") for e in suspects})
+    if not joignable:
+        return events                     # rien recoupé : on n'affirme rien de neuf
     for e in suspects:
         jour = trouve.get(e.get("ticker"))
         if not jour:
