@@ -3988,8 +3988,19 @@ def main():
     }
     # Écritures ATOMIQUES : un hard-kill du watchdog en plein write laissait
     # sinon un JSON tronqué, qui cassait le gap-fill du run suivant (2026-07-31).
-    _atomic_write_text(OUT_CACHE, json.dumps(out, ensure_ascii=False, indent=2))
-    print(f"[ok] wrote {OUT_CACHE} ({n_covered} tickers, {coverage_pct}% frais)")
+    #
+    # ÉCRITURE COMPACTE (2026-08-07) : ce fichier était écrit avec indent=2, soit
+    # 10 Mo d'indentation pure — 24,0 Mio publiés pour 13,8 Mio de données, à
+    # comparer à la limite DURE de 25 Mio par fichier chez Cloudflare Pages. Le
+    # fichier grossissant d'un jour d'historique par jour, le déploiement allait
+    # se figer sans prévenir dans les semaines à venir. Aucune donnée n'est
+    # perdue : seul le formatage change (le .js voisin était déjà compact).
+    # NB : au premier passage, le bilan signalera ce fichier comme « fondu »
+    # (−42 %) — c'est le garde-fou anti-perte-de-données qui parle, c'est normal
+    # ici et cela n'arrivera qu'une fois.
+    _atomic_write_text(OUT_CACHE, json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    print(f"[ok] wrote {OUT_CACHE} ({n_covered} tickers, {coverage_pct}% frais, "
+          f"{os.path.getsize(OUT_CACHE) / 1048576:.1f} Mio)")
     # Cache JS live consomme par Narrative_Tracker.html (override de __TRADFI_DATA__ inline)
     _atomic_write_text(OUT_CACHE_JS,
                        "window.__TRADFI_LIVE__=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";\n")
@@ -4014,6 +4025,45 @@ def main():
     _atomic_write_text(mode_js,
                        "window.__MODE_TRADFI_LIVE__=" + json.dumps(mode_tradfi, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"[ok] wrote {mode_js}")
+
+    # ── CACHE LEGER POUR LE WIDGET SECTEURS DE L'ACCUEIL (2026-08-07) ─────────
+    # Mesure du 07/08 : la page d'ACCUEIL téléchargeait tradfi_cache.json en
+    # entier — 4,4 Mo compressés, 24 Mio bruts — uniquement pour afficher le
+    # trio de tête et le trio de queue des secteurs. Soit six lignes de texte
+    # payées au prix de 800 historiques de prix et 800 logos en base64.
+    # On publie donc à côté exactement ce que `processTradFi()` d'accueil.js
+    # lit : nom, leader, perfs, et les derniers points d'historique (il calcule
+    # la perf 24 h à partir de `history.dates/values`). Six points suffisent
+    # pour couvrir un week-end prolongé.
+    # La MEME source alimente les deux fichiers : aucune divergence possible
+    # entre l'Accueil et l'onglet.
+    top_json = CACHE_DIR / "tradfi_top_cache.json"
+    def _tail_hist(h, n=6):
+        if not isinstance(h, dict):
+            return None
+        d, v = h.get("dates"), h.get("values")
+        if not isinstance(d, list) or not isinstance(v, list):
+            return None
+        m = min(len(d), len(v))
+        return {"dates": d[m - n:m], "values": v[m - n:m]} if m else None
+    top_out = {
+        "updated": out.get("updated"),
+        "trend_filter": out.get("trend_filter"),
+        "narratives": [
+            {
+                "narrative": n.get("narrative"),
+                "dominant_sym": n.get("dominant_sym"),
+                "dominant_pct": n.get("dominant_pct"),
+                "perf_7d": n.get("perf_7d"),
+                "perf_30d": n.get("perf_30d"),
+                "history": _tail_hist(n.get("history")),
+            }
+            for n in stats_list
+        ],
+    }
+    _atomic_write_text(top_json, json.dumps(top_out, ensure_ascii=False, separators=(",", ":")))
+    print(f"[ok] wrote {top_json} ({os.path.getsize(top_json) / 1024:.0f} Ko "
+          f"contre {os.path.getsize(OUT_CACHE) / 1048576:.1f} Mio pour le cache complet)")
     print("\nTop 10 secteurs (momentum cyclique vs S&P 500):")
     for s in stats_list[:10]:
         rel = s.get("rel_mom_90d")
