@@ -183,6 +183,15 @@ QUOTE_PHASE_BUDGET_S = 1500   # 25 min sur les 50 min avant hard-kill externe
 NEWS_CACHE = CACHE_DIR / "news_cache.json"
 OUT_CACHE  = CACHE_DIR / "tradfi_cache.json"
 OUT_CACHE_JS = CACHE_DIR / "tradfi_cache.js"
+# Les deux blocs lourds du .js, publiés À CÔTÉ du cache principal (2026-08-07).
+# Voir le commentaire au point d'écriture pour le pourquoi. Le .json, lui, reste
+# COMPLET : il est le comparant du gap-fill et l'archive de référence.
+# Nommage en `*_cache.js` : tools/inventory.py ne reconnaît un produit de collecte
+# qu'à ce motif. Baptisés `tradfi_logos.js`, ces fichiers seraient absents de
+# jobs.json à la prochaine régénération de l'inventaire, donc jamais publiés — et
+# la page les chercherait indéfiniment.
+OUT_LOGOS_JS = CACHE_DIR / "tradfi_logos_cache.js"
+OUT_HIST_JS  = CACHE_DIR / "tradfi_histories_cache.js"
 HIST_CACHE = CACHE_DIR / "tradfi_history_cache.json"
 LOCK_FILE  = CACHE_DIR / "tradfi.lock"
 # Cache SQLite yfinance PRIVÉ à ce script (2026-07-31).
@@ -326,6 +335,48 @@ def write_guard(n_covered, prev_covered):
     return abort, bool(abort) and prev_covered >= MIN_COVERED_ABS
 
 
+def _json_dans_wrapper(chemin):
+    """Extrait l'objet JSON d'un fichier `window.X = {...};`. None si illisible."""
+    try:
+        txt = chemin.read_text(encoding="utf-8")
+        i, j = txt.find("{"), txt.rfind("}")
+        return json.loads(txt[i:j + 1]) if i >= 0 and j >= 0 else None
+    except Exception as e:
+        print(f"[warn] {chemin.name} illisible: {e}", file=sys.stderr)
+        return None
+
+
+def _regreffer_blocs_differes(data):
+    """Recolle historiques et logos sur un cache lu depuis le .js ALLÉGÉ.
+
+    Depuis le découpage du 2026-08-07, le .js ne porte plus ni historiques ni
+    logos. Or ce fichier sert de REPLI au gap-fill quand le .json est illisible,
+    et le gap-fill n'existe que pour restituer les historiques qu'un fetch raté
+    n'a pas pu récupérer. Sans cette regreffe, le repli rendrait un cache
+    structurellement vide de ce qu'on venait précisément y chercher : une panne
+    réseau passagère redeviendrait une page sans profondeur, en silence.
+    """
+    if not isinstance(data, dict):
+        return data
+    if not data.get("histories") and OUT_HIST_JS.exists():
+        bloc = _json_dans_wrapper(OUT_HIST_JS)
+        if isinstance(bloc, dict) and bloc.get("histories"):
+            data["histories"] = bloc["histories"]
+            print(f"[ok] historiques regreffés depuis {OUT_HIST_JS.name} "
+                  f"({len(data['histories'])} tickers)", file=sys.stderr)
+    if OUT_LOGOS_JS.exists():
+        bloc = _json_dans_wrapper(OUT_LOGOS_JS)
+        logos = bloc.get("logos") if isinstance(bloc, dict) else None
+        if logos:
+            for nar in data.get("narratives") or []:
+                for t in nar.get("tokens") or []:
+                    if not t.get("image"):
+                        uri = logos.get(t.get("symbol") or t.get("id"))
+                        if uri:
+                            t["image"] = uri
+    return data
+
+
 def load_previous_cache():
     """Load the last successful tradfi_cache.json so we can fill gaps for any
     ticker that today's fetch couldn't recover. Returns {} if no prior cache.
@@ -333,7 +384,10 @@ def load_previous_cache():
     2026-07-31 : repli sur le sibling `tradfi_cache.js` (MEME JSON, écrit
     séparément) si le .json est illisible. Le gap-fill est le seul filet quand
     Yahoo est injoignable — le perdre transforme une panne réseau passagère en
-    page vide."""
+    page vide.
+
+    2026-08-07 : ce sibling est désormais ALLÉGÉ (cf. le point d'écriture). Le
+    repli lui regreffe donc les blocs publiés à côté avant de le rendre."""
     for src in (OUT_CACHE, OUT_CACHE_JS):
         if not src.exists():
             continue
@@ -4001,10 +4055,86 @@ def main():
     _atomic_write_text(OUT_CACHE, json.dumps(out, ensure_ascii=False, separators=(",", ":")))
     print(f"[ok] wrote {OUT_CACHE} ({n_covered} tickers, {coverage_pct}% frais, "
           f"{os.path.getsize(OUT_CACHE) / 1048576:.1f} Mio)")
-    # Cache JS live consomme par Narrative_Tracker.html (override de __TRADFI_DATA__ inline)
+    # ── DÉCOUPAGE DU PAYLOAD SERVI AU NAVIGATEUR (2026-08-07) ─────────────────
+    # CE QUE CE FICHIER COÛTAIT
+    # Le .js est le SEUL des trois sorties que le navigateur télécharge, et il
+    # bloque le parseur de TradFi_Tracker. Mesuré le 07/08 : 13,10 Mio, dont
+    #   · 5,71 Mio de logos en base64 (814 jetons, 7 Ko pièce)
+    #   · 6,63 Mio d'historiques de prix (801 tickers × 421 points)
+    #   · 0,76 Mio pour TOUT LE RESTE — c'est-à-dire tout ce qu'il faut réellement
+    #     pour peindre la page.
+    # La page payait donc 17 fois le poids de ce qu'elle affiche au premier écran.
+    #
+    # POURQUOI CES DEUX BLOCS N'ONT RIEN À FAIRE SUR LE CHEMIN CRITIQUE
+    #   · Les logos ne changent JAMAIS. Ils voyageaient pourtant dans un fichier
+    #     dont la durée de cache est de 60 s : chaque rafraîchissement de cotation
+    #     refaisait circuler 5,71 Mio d'images immuables, gonflées de 33 % par le
+    #     base64. Publiés à part, ils sont téléchargés une fois puis revalidés en
+    #     304 — le mécanisme existe déjà dans functions/data/[[file]].js.
+    #   · Les historiques ne servent QU'AU RECALCUL FILTRÉ PAR RÉGION. En mode
+    #     « toutes régions », qui est le défaut, la page lit les scores déjà
+    #     calculés ici (`_global_score`) et ne touche pas une seule série. Les
+    #     charger avant le premier rendu, c'était faire attendre 100 % des
+    #     visiteurs pour une fonction qu'ils n'ont pas encore demandée.
+    #
+    # CE QUI N'EST PAS TOUCHÉ, ET POURQUOI
+    # Le .json reste COMPLET. Il est le comparant du gap-fill (load_previous_cache)
+    # et l'archive de référence : l'amputer ferait perdre au run suivant les
+    # historiques qu'il n'aurait pas réussi à refetcher, soit exactement la panne
+    # « fichier fondu » que run_jobs.py surveille. Seul le format servi au
+    # navigateur change ; aucune donnée ne disparaît du parc.
+    #
+    # AU PREMIER PASSAGE le bilan signalera tradfi_cache.js comme « fondu »
+    # (13 Mio → moins de 1 Mio). C'est le garde-fou anti-perte-de-données qui
+    # parle, il a raison de le dire, et cela n'arrivera qu'une fois.
+    logos = {}
+    slim_narratives = []
+    for nar in out.get("narratives") or []:
+        toks = []
+        for t in nar.get("tokens") or []:
+            t2 = dict(t)
+            img = t2.pop("image", "") or ""
+            cle = t2.get("symbol") or t2.get("id")
+            if img and cle:
+                logos[cle] = img          # un même titre peut figurer dans plusieurs
+            toks.append(t2)               # narratifs : la table dédoublonne d'office
+        nar2 = dict(nar)
+        nar2["tokens"] = toks
+        slim_narratives.append(nar2)
+
+    slim = dict(out)
+    slim["narratives"] = slim_narratives
+    histoires = slim.pop("histories", {}) or {}
+    # Ce drapeau dit à la page que les deux blocs sont AILLEURS, et non perdus. Sans
+    # lui, une page servie par une version antérieure du collecteur et une page
+    # servie par celle-ci seraient indiscernables — et l'absence d'historiques
+    # passerait pour une panne de collecte au lieu d'un chargement différé.
+    slim["__differe"] = {"logos": OUT_LOGOS_JS.name, "histories": OUT_HIST_JS.name}
+
     _atomic_write_text(OUT_CACHE_JS,
-                       "window.__TRADFI_LIVE__=" + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";\n")
-    print(f"[ok] wrote {OUT_CACHE_JS}")
+                       "window.__TRADFI_LIVE__=" + json.dumps(slim, ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"[ok] wrote {OUT_CACHE_JS} "
+          f"({os.path.getsize(OUT_CACHE_JS) / 1048576:.2f} Mio, allégé)")
+
+    # `updated` EN PREMIÈRE CLÉ dans les deux fichiers : tools/index_fraicheur.py ne
+    # lit que les 64 premiers Ko pour dater un cache. Reléguée après la table des
+    # logos, la clé tomberait hors de cette fenêtre, ces fichiers deviendraient
+    # indatables, et l'arbitrage par fichier de functions/data/[[file]].js
+    # retomberait sur la mesure de flotte — précisément la panne du 07/08 que cet
+    # arbitrage a été écrit pour supprimer.
+    _atomic_write_text(OUT_LOGOS_JS,
+                       "window.__TRADFI_LOGOS__=" + json.dumps(
+                           {"updated": out.get("updated"), "logos": logos},
+                           ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"[ok] wrote {OUT_LOGOS_JS} ({len(logos)} logos, "
+          f"{os.path.getsize(OUT_LOGOS_JS) / 1048576:.2f} Mio)")
+
+    _atomic_write_text(OUT_HIST_JS,
+                       "window.__TRADFI_HISTORIES__=" + json.dumps(
+                           {"updated": out.get("updated"), "histories": histoires},
+                           ensure_ascii=False, separators=(",", ":")) + ";\n")
+    print(f"[ok] wrote {OUT_HIST_JS} ({len(histoires)} tickers, "
+          f"{os.path.getsize(OUT_HIST_JS) / 1048576:.2f} Mio)")
     # Wrapper LEGER pour la tuile "Mode TradFi" de l'Accueil (file://-safe, MEME
     # source trend_filter que le badge ZEN/ALPHA de TradFi_Tracker). Evite de
     # charger les ~13M du cache complet juste pour 2 champs. Reecrit a chaque run
