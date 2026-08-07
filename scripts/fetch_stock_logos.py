@@ -85,6 +85,17 @@ def logo_exists(t):
     fn = t.replace(".", "_") + ".png"
     return any((d / fn).exists() for d in LOOKUP_DIRS)
 
+
+def read_manifest():
+    """Manifeste deja publie (repo ou Caches), {} s'il est absent/illisible."""
+    for p in (MANIFEST, REPO_DIR.parent / "stock_logos_manifest.js"):
+        try:
+            raw = p.read_text().split("=", 1)[1].strip().rstrip(";")
+            return json.loads(raw)
+        except Exception:
+            continue
+    return {}
+
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 ONLY_MISSING = "--only-missing" in sys.argv
@@ -361,8 +372,52 @@ EARNINGS_DOMAINS = {
     "ON":    "onsemi.com",          "RY":    "rbc.com",
     "SIEGY": "siemens.com",         "SMCI":  "supermicro.com",
     "SNOW":  "snowflake.com",       "TCEHY": "tencent.com",
-    "TM":    "toyota.com",
+    "TM":    "toyota.com",          "TD":    "td.com",
+    "SFTBF": "group.softbank",      "SFTBY": "group.softbank",
 }
+
+# ── Alias : MEME societe deja bakee sous un autre ticker (2026-08-07) ─────────
+# Le calendrier des resultats emploie les tickers d'Investing.com (BRKa/BRKb) ou
+# les ADR americains (BACHY, CICHY, IDCBY), la ou le pool a bake la ligne locale
+# (BRK-B, 601988.SS, 601939.SS, 1398.HK). Resoudre une 2e fois le meme domaine
+# etait au mieux du gaspillage, au pire un echec : berkshirehathaway.com n'expose
+# aucune icone exploitable, BRKa/BRKb figuraient donc dans la memoire des echecs
+# depuis le 02/08 et la 1re capi du calendrier s'affichait en monogramme « BRK »
+# alors que BRK-B.png dormait dans le depot. On COPIE le PNG deja valide : c'est
+# la meme marque, pas un logo devine.
+# BRK.A/BRK.B : orthographe Nasdaq. La collecte tourne sur GitHub Actions, ou
+# Investing.com refuse l'IP du datacenter (403) et le repli Nasdaq prend la main :
+# la MEME societe arrive alors sous un autre ticker. Sans alias, elle repasserait
+# en monogramme des que le repli se declenche.
+EARNINGS_ALIAS = {
+    "BRKa":  "BRK-B",       "BRKb":  "BRK-B",
+    "BRK.A": "BRK-B",       "BRK.B": "BRK-B",
+    "BACHY": "601988.SS",   # Bank of China ADR        -> ligne Shanghai
+    "CICHY": "601939.SS",   # China Construction Bank   -> ligne Shanghai
+    "IDCBY": "1398.HK",     # ICBC ADR                  -> ligne Hong Kong
+}
+
+
+def apply_aliases():
+    """Copie le PNG de la societe mere pour chaque alias qui n'en a pas encore.
+    Retourne la liste des tickers desormais couverts."""
+    faits = []
+    for cible, source in EARNINGS_ALIAS.items():
+        if logo_exists(cible):
+            faits.append(cible)
+            continue
+        src_fn = source.replace(".", "_") + ".png"
+        src = next((d / src_fn for d in LOOKUP_DIRS if (d / src_fn).exists()), None)
+        if src is None:
+            log(f"[StockLogos] alias {cible} -> {source} : source absente, ignore")
+            continue
+        try:
+            (OUT_DIR / (cible.replace(".", "_") + ".png")).write_bytes(src.read_bytes())
+            log(f"[StockLogos] alias {cible} <- {source} (meme societe)")
+            faits.append(cible)
+        except Exception as e:
+            log(f"[StockLogos] alias {cible} echoue : {e}")
+    return faits
 
 # Tickers dont le favicon du site est un FAUX logo connu (audit visuel 2026-07-20) :
 # YUMC = yumchina.com sert le favicon par defaut de Vue.js. 0288.HK = le favicon DDG
@@ -435,6 +490,9 @@ def earnings_jobs(already):
     out = []
     for t, n in sorted(names.items()):
         d = EARNINGS_DOMAINS.get(t)
+        if not d and t in EARNINGS_ALIAS:
+            out.append((t, None, n))       # apply_aliases() s'en charge, pas Wikidata
+            continue
         if not d and n and not (ONLY_MISSING and logo_exists(t)):
             d = domain_from_wikidata(n, t)
             if d:
@@ -466,8 +524,13 @@ def main():
             jobs.append((t, d, r.get("n", "")))
     # Tickers du calendrier des resultats absents du pool (ADR, hors seuil, BRKa/b).
     earn_extra = earnings_jobs(seen)
+    # Alias d'abord : une societe deja bakee sous un autre ticker n'a rien a
+    # resoudre, et son PNG existant vaut mieux qu'une 2e tentative qui echoue.
+    alias_ok = set(apply_aliases())
     for t, d, n in earn_extra:
         seen.add(t)
+        if t in alias_ok:
+            continue
         if d:
             jobs.append((t, d, n))
         else:
@@ -511,6 +574,20 @@ def main():
     # l'image est la.
     mapping = {t: 1 for t, _, _ in jobs if logo_exists(t)}
     mapping.update({t: 1 for t, _, _ in earn_extra if logo_exists(t)})
+    # Les alias sont bakes d'avance, y compris pour une orthographe de ticker qui
+    # n'apparait pas dans le calendrier D'AUJOURD'HUI (BRK.A/BRK.B ne surgissent
+    # que les jours ou le repli Nasdaq prend la main). Sans cette ligne le PNG
+    # existe mais le manifeste l'ignore, et le widget affiche un monogramme.
+    mapping.update({t: 1 for t in EARNINGS_ALIAS if logo_exists(t)})
+    # GARDE-FOU (2026-08-02) : on repart aussi du manifeste precedent, pour tout
+    # ticker dont le PNG est TOUJOURS sur disque. Sans ca, un run ou la liste
+    # d'entree est incomplete — calendrier des resultats illisible (TCC sur
+    # ~/Desktop), pool en cours de regeneration — reecrivait un manifeste appauvri
+    # et faisait disparaitre des logos deja bakes. La regle « manifeste = PNG
+    # reellement present » reste vraie : c'est logo_exists qui tranche.
+    for t in list(read_manifest()):
+        if t not in mapping and logo_exists(t):
+            mapping[t] = 1
     MANIFEST.write_text("window.__STOCK_LOGOS__=" + json.dumps(mapping, separators=(",", ":")) + ";\n")
     save_failed(failed_mem, [t for t, _ in ko])
     log(f"[StockLogos] OK {len(mapping)}/{len(jobs)} | echecs {len(ko)}")

@@ -457,26 +457,141 @@ def fetch_day_nasdaq(day):
     return out
 
 
-def day_range(days_back, days_fwd):
-    """Jours ouvrés à interroger. Les sociétés ≥ 200 Md$ ne publient pas le
-    week-end -> on saute samedi/dimanche (économise ~13 requêtes sur 45)."""
+NASDAQ_DATE_HORIZON = 12   # profondeur du recoupement de date (jours calendaires)
+
+
+def _norm_ticker(t):
+    """« BRKa » (Investing) et « BRK.A » (Nasdaq) désignent la même action."""
+    return re.sub(r"[^A-Z0-9]", "", (t or "").upper())
+
+
+def _set_day(e, day):
+    """Repositionne un évènement sur `day` : date affichée ET fenêtre de veille."""
+    y, mo, d = (int(x) for x in day.split("-"))
+    hh, mm = SESSION_TIME[e.get("session", "tba")]
+    (fh, fm), (th, tm) = SESSION_POLL[e.get("session", "tba")]
+    e["date"] = datetime(y, mo, d, hh, mm, tzinfo=ET).isoformat()
+    e["pollFrom"] = datetime(y, mo, d, fh, fm, tzinfo=ET).isoformat()
+    e["pollTo"] = datetime(y, mo, d, th, tm, tzinfo=ET).isoformat()
+
+
+def nasdaq_dates(tickers):
+    """Date de publication d'après Nasdaq pour une poignée de tickers.
+
+    Nasdaq n'expose pas d'endpoint par société : on balaie son calendrier jour par
+    jour (week-end compris) et on s'arrête dès que tous les tickers demandés sont
+    trouvés. Appelé uniquement sur les lignes suspectes (cf. confirm_dates), donc
+    quelques requêtes toutes les 6 h.
+    """
+    want = {_norm_ticker(t): t for t in tickers if t}
+    found = {}
+    if not want:
+        return found
     today = datetime.now(ET).date()
-    out = []
-    for i in range(-days_back, days_fwd + 1):
-        d = today + timedelta(days=i)
-        if d.weekday() >= 5:
+    for i in range(NASDAQ_DATE_HORIZON + 1):
+        day = (today + timedelta(days=i)).isoformat()
+        try:
+            req = urllib.request.Request(NASDAQ_API.format(day), headers={
+                "User-Agent": UA, "Accept": "application/json"})
+            rows = (json.loads(urllib.request.urlopen(req, timeout=20).read())
+                    .get("data") or {}).get("rows") or []
+        except Exception as e:
+            sys.stderr.write(f"[Earnings] date Nasdaq {day} err: {e}\n")
             continue
-        out.append(d.isoformat())
-    return out
+        for r in rows:
+            n = _norm_ticker(r.get("symbol"))
+            if n in want and want[n] not in found:
+                found[want[n]] = day
+        if len(found) == len(want):
+            break
+        time.sleep(REQ_DELAY)
+    return found
+
+
+def confirm_dates(events):
+    """Recale les lignes dont Investing REPOUSSE la date sans jamais rien publier.
+
+    Constaté le 2026-08-07 sur Berkshire Hathaway (1 130 Md$) : Investing.com ne
+    connaît pas la date et sert un substitut daté d'AUJOURD'HUI, réécrit chaque
+    matin (04/08 → 05/08 → 06/08 → 07/08 dans l'historique du dépôt de données).
+    Conséquences : la ligne restait « À VENIR » pendant des jours, et la veille
+    live tournait en rafale 24 h/24 pour une publication qui n'arrivait jamais.
+    Nasdaq, lui, donne la vraie date : samedi 08/08/2026.
+
+    On ne touche QUE la forme pathologique — pas encore publiée, heure non
+    communiquée, datée d'aujourd'hui ou presque. `srcDate` conserve la date de la
+    source pour que la clé de merge reste stable d'un run à l'autre. Quand Nasdaq
+    ne sait pas non plus, on ne déplace rien mais on cesse d'affirmer une date :
+    `dateConfirmed=False` (la tuile affiche « date à confirmer »).
+    """
+    limite = (datetime.now(ET).date() + timedelta(days=2)).isoformat()
+    suspects = [e for e in events
+                if not ((e.get("epsActual") or "").strip() or (e.get("revActual") or "").strip())
+                and e.get("session") == "tba"
+                and _src_day(e) <= limite]
+    if not suspects:
+        return events
+    trouve = nasdaq_dates({e.get("ticker") for e in suspects})
+    for e in suspects:
+        jour = trouve.get(e.get("ticker"))
+        if not jour:
+            e["dateConfirmed"] = False
+            continue
+        e["srcDate"] = _src_day(e)
+        e["dateConfirmed"] = True
+        if jour != (e.get("date") or "")[:10]:
+            sys.stderr.write(f"[Earnings] date recalée par Nasdaq : {e['ticker']} "
+                             f"{(e.get('date') or '')[:10]} → {jour}\n")
+            _set_day(e, jour)
+            e["dateSource"] = "nasdaq"
+    return events
+
+
+def day_range(days_back, days_fwd):
+    """Jours à interroger, WEEK-END COMPRIS.
+
+    Avant (2026-07-28) on sautait samedi/dimanche « parce qu'une société ≥ 200 Md$
+    ne publie pas le week-end ». C'est faux : Berkshire Hathaway publie
+    traditionnellement le SAMEDI matin (Nasdaq donne le 08/08/2026, un samedi, pour
+    BRK.A/BRK.B). Investing.com n'ayant aucune ligne ce jour-là, la 1re capi
+    mondiale hors Mag7 n'était jamais capturée — elle restait « à venir » indéfiniment
+    (cf. glissement de date corrigé par nasdaq_dates()). Coût du week-end : ~13
+    requêtes de plus par baseline (toutes les 6 h), négligeable.
+    """
+    today = datetime.now(ET).date()
+    return [(today + timedelta(days=i)).isoformat()
+            for i in range(-days_back, days_fwd + 1)]
+
+
+def _day_is_authoritative(html):
+    """Le HTML d'un jour est-il une RÉPONSE EXPLOITABLE, ou du bruit ?
+
+    Deux formes seulement font foi : au moins une ligne société (`earnCalCompany`),
+    ou le marqueur d'agenda vide servi par Investing (`noResults` = « No Earning
+    Reports have been scheduled »). Tout le reste (page d'erreur, anti-bot, corps
+    tronqué) n'autorise PAS à conclure que le jour est vide — sans ce contrôle,
+    une panne effacerait de vrais évènements (cf. purge par jour dans merge()).
+    """
+    if not html:
+        return False
+    return ("earnCalCompany" in html) or ("noResults" in html)
 
 
 def fetch_window(days):
-    """Interroge une liste de jours. Retourne (events, n_echecs)."""
-    events, fails = [], 0
+    """Interroge une liste de jours.
+
+    Retourne (events, n_echecs, jours_faisant_autorité). Le 3e élément est la liste
+    des jours dont la réponse est exploitable : merge() s'en sert pour PURGER les
+    lignes que la source ne renvoie plus (résultat déplacé, capi retombée sous le
+    plancher). Sans lui, une ligne périmée survivait à tous les merges.
+    """
+    events, fails, covered = [], 0, []
     for i, day in enumerate(days):
         html = fetch_day(day)
         if html is not None:
             events += parse_day(html, day)
+            if _day_is_authoritative(html):
+                covered.append(day)
         else:
             # Investing refuse les IP de datacenter (403). On ne compte l'échec que si
             # le repli échoue AUSSI : sinon on signalerait une panne là où la donnée
@@ -486,23 +601,62 @@ def fetch_window(days):
                 fails += 1
             else:
                 events += secours
+                covered.append(day)
         if i + 1 < len(days):
             time.sleep(REQ_DELAY)
-    return events, fails
+    return events, fails, covered
 
 
-def merge(base, fresh):
-    """Écrase les lignes de `base` par celles de `fresh` sur (ticker, jour).
+def _src_day(e):
+    """Jour ANNONCÉ PAR LA SOURCE (clé de merge), qui n'est pas forcément le jour
+    affiché : nasdaq_dates() peut déplacer un évènement dont Investing repousse la
+    date de jour en jour. La clé doit rester celle de la source, sinon la ligne
+    déplacée n'est plus reconnue au run suivant et se dédouble."""
+    return (e.get("srcDate") or (e.get("date") or "")[:10])
+
+
+def merge(base, fresh, covered=()):
+    """Écrase les lignes de `base` par celles de `fresh` sur (ticker, jour source).
 
     Garde-fou : on jette toute entrée sans `ticker`. Le cache d'avant la refonte
     (source yfinance, aucun chiffre) n'a pas ce champ ; sans ce filtre ses lignes
     se retrouvaient toutes sur la clé ("", jour) et survivaient indéfiniment aux
     merges, polluant le widget avec des dates sans résultat.
+
+    PURGE PAR JOUR (2026-08-07) : un jour réinterrogé avec succès FAIT AUTORITÉ.
+    Toute ligne du cache portant ce jour et que la source ne renvoie plus est
+    supprimée. Sans ça, deux dérives permanentes, toutes deux constatées :
+      - le doublon : Investing avance CSCO du 19/08 au 12/08 → les DEUX dates
+        restaient affichées (7 sociétés en double le 07/08/2026) ;
+      - le fantôme : MOL PLC ADR figé à « capi 912 Md$ » (chiffre en forints, la
+        source affiche 9,53 Md$ aujourd'hui) restait au calendrier alors qu'il est
+        très en dessous du plancher de 200 Md$ — in_universe() relit la capi
+        STOCKÉE, donc une valeur fausse une fois l'est pour toujours.
     """
-    key = lambda e: (e.get("ticker", ""), (e.get("date") or "")[:10])
+    key = lambda e: (e.get("ticker", ""), _src_day(e))
+    covered = set(covered)
     out = {key(e): e for e in base if e.get("ticker")}
+
+    fresh_keys = {key(e) for e in fresh}
+    for k in [k for k in out if k[1] in covered and k not in fresh_keys]:
+        del out[k]
+
     for e in fresh:
-        out[key(e)] = e
+        k = key(e)
+        ancien = out.get(k)
+        # La correction de date ne survit qu'à la baseline (confirm_dates n'est
+        # appelé que là). Sans ce report, la 1re rafale suivante réécrirait la
+        # ligne avec la date brute d'Investing et le recalage sauterait toutes
+        # les 10 min. Les CHIFFRES viennent toujours de `fresh`.
+        if ancien and ancien.get("dateSource") == "nasdaq" and not e.get("dateSource"):
+            for champ in ("date", "pollFrom", "pollTo", "srcDate", "dateSource", "dateConfirmed"):
+                if ancien.get(champ) is not None:
+                    e[champ] = ancien[champ]
+        # Idem pour le verdict « date à confirmer » (Nasdaq ne connaît pas non plus
+        # l'échéance) : sans report, la rafale se réarmerait à chaque poll.
+        if ancien and "dateConfirmed" not in e and "dateConfirmed" in ancien:
+            e["dateConfirmed"] = ancien["dateConfirmed"]
+        out[k] = e
     return sorted(out.values(), key=lambda e: (e.get("date") or "", e.get("ticker") or ""))
 
 
@@ -591,7 +745,10 @@ def load_cached():
 
 
 def actual_map(events):
-    return {(e.get("ticker", ""), (e.get("date") or "")[:10]):
+    # Clé = jour SOURCE (cf. _src_day) : une ligne recalée par Nasdaq changerait
+    # de clé d'un run à l'autre, et la détection « chiffre fraîchement publié »
+    # comparerait deux clés différentes, donc ne verrait jamais rien.
+    return {(e.get("ticker", ""), _src_day(e)):
             ((e.get("epsActual") or "").strip(), (e.get("revActual") or "").strip())
             for e in events}
 
@@ -600,7 +757,7 @@ def newly_filled(old_map, events):
     """Tickers dont le BPA ou le CA vient de passer de vide → publié."""
     out = []
     for e in events:
-        k = (e.get("ticker", ""), (e.get("date") or "")[:10])
+        k = (e.get("ticker", ""), _src_day(e))
         new = ((e.get("epsActual") or "").strip(), (e.get("revActual") or "").strip())
         old = old_map.get(k, ("", ""))
         if (new[0] and not old[0]) or (new[1] and not old[1]):
@@ -614,10 +771,18 @@ def pending_releases(events, now):
     La fenêtre vient de pollFrom/pollTo (calculés depuis le créneau annoncé), pas
     d'un delta symétrique : un « heure non communiquée » doit être surveillé toute
     la journée, un « avant ouverture » seulement le matin.
+
+    Une date NON CONFIRMÉE n'arme rien (2026-08-07). Berkshire, daté d'aujourd'hui
+    par un substitut qu'Investing réécrit chaque matin et sans heure communiquée,
+    maintenait la rafale 60 s ouverte de 06:00 à 21:00 ET tous les jours depuis le
+    04/08 pour une publication qui ne tombait jamais (98 lignes de log identiques).
+    Le rattrapage se fait par la baseline 6 h, qui suffit pour une date inconnue.
     """
     out = []
     for e in events:
         if (e.get("epsActual") or "").strip() or (e.get("revActual") or "").strip():
+            continue
+        if e.get("dateConfirmed") is False:
             continue
         try:
             if e.get("pollFrom") and e.get("pollTo"):
@@ -740,18 +905,20 @@ def refresh(full):
     (1-2 requêtes, utilisé pendant une rafale)."""
     if full:
         days = day_range(KEEP_PUBLISHED_DAYS, WINDOW_DAYS)
-        sys.stderr.write(f"[Earnings] calendrier complet : {len(days)} jours ouvrés\n")
-        fresh, fails = fetch_window(days)
+        sys.stderr.write(f"[Earnings] calendrier complet : {len(days)} jours\n")
+        fresh, fails, covered = fetch_window(days)
         if fails and fails >= len(days) / 2:
             sys.stderr.write(f"[Earnings] {fails}/{len(days)} jours en échec — cache conservé\n")
             return None
-        events = prune(merge(load_cached(), fresh))
+        # Recoupement de date : seulement sur la baseline (quelques requêtes / 6 h),
+        # jamais pendant une rafale où chaque seconde compte.
+        fresh = confirm_dates(fresh)
     else:
         days = day_range(KEEP_PUBLISHED_DAYS, 0)
-        fresh, fails = fetch_window(days)
+        fresh, fails, covered = fetch_window(days)
         if fails == len(days):
             return None
-        events = prune(merge(load_cached(), fresh))
+    events = prune(merge(load_cached(), fresh, covered))
     write_outputs(events)
     return events
 
