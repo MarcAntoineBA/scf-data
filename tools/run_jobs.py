@@ -31,6 +31,8 @@ import sys
 import time
 import urllib.request
 
+import index_fraicheur
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
 SCRIPTS = os.path.join(ROOT, "scripts")
@@ -442,12 +444,31 @@ def main():
     with open(status_path, "w") as f:
         json.dump(status, f, indent=1, ensure_ascii=False)
 
+    # ── ÂGE DE CHAQUE FICHIER, UN PAR UN (ajouté 2026-08-07) ──────────────────
+    # Le bilan ci-dessus dit si la CADENCE a tourné ; il ne dit rien de l'âge d'un
+    # fichier donné. C'est cette confusion qui a laissé le Narrative Tracker et le
+    # TradFi Tracker servir 6 h de retard pendant que le battement affichait 21 min :
+    # un seul chiffre répondait pour 139 fichiers. On publie donc la date de chacun,
+    # que la fonction /data/ compare à celle de la copie déployée — fichier par
+    # fichier. Voir tools/index_fraicheur.py pour la règle d'extraction, qui doit
+    # rester identique des deux côtés.
+    # On ne redate QUE les sorties des collecteurs qui ont abouti : un collecteur en
+    # échec laisse son cache précédent en place, et le redater le ferait passer pour
+    # frais — la panne muette que cet index existe pour rendre visible.
+    produits = {n for j in due for n in j.get("outputs", [])
+                if any(r["job"] == j["id"] and r["ok"] for r in results)}
+    index_path = os.path.join(CACHE_OUT, "_fichiers.json")
+    datés = index_fraicheur.ecrire(index_path, [CACHE_OUT, RELEASE_OUT],
+                                   status["updated"], produits)
+    print(f"  index de fraîcheur : {datés} fichier(s) datés "
+          f"({len(produits)} redaté(s) par ce passage)")
+
     # Liste EXACTE des fichiers à publier. Sans elle, la publication stockait tout
     # le dossier : les fichiers qu'une autre cadence venait d'ajouter étaient absents
     # de CE poste de travail, donc enregistrés comme des suppressions. Résultat mesuré :
     # sur sept bilans publiés, un seul survivait — chaque cadence annulait les autres.
     with open(os.path.join(ROOT, ".publish_list"), "w") as f:
-        for nom in small + [os.path.basename(status_path)]:
+        for nom in small + [os.path.basename(status_path), os.path.basename(index_path)]:
             f.write(f"cache/{nom}\n")
         for nom in retires:
             f.write(f"cache/{nom}\n")
