@@ -1,24 +1,15 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-07T06:48:52Z",
+  "ts": "2026-08-08T05:28:57Z",
   "total": 15,
-  "ok": 13,
-  "secs": 3082.3,
-  "changed": 17,
-  "versionnes": 17,
-  "pieces_jointes": 0,
-  "absents": 20,
-  "failed": [
-   {
-    "job": "atlasdetail",
-    "why": "[fatal] global timeout (50 min) — abort"
-   },
-   {
-    "job": "atlaseco",
-    "why": "[fatal] global timeout (25 min) — abort"
-   }
-  ]
+  "ok": 15,
+  "secs": 401.8,
+  "changed": 21,
+  "versionnes": 19,
+  "pieces_jointes": 2,
+  "absents": 19,
+  "failed": []
  },
- "updated": "2026-08-07T06:48:52Z"
+ "updated": "2026-08-08T05:28:57Z"
 }
