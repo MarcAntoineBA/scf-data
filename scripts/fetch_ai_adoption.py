@@ -958,18 +958,45 @@ def load_prev():
     except Exception:
         return {}
 
+
+def _deep_merge(base, over):
+    """Recouvre `base` par `over`, clé par clé, en profondeur.
+
+    Sert à poser la dernière collecte RÉUSSIE par-dessus le squelette de repli :
+    on garde les clés que le repli connaît et que l'ancienne collecte ignorait
+    (schéma qui s'enrichit), sans perdre les valeurs réelles déjà obtenues.
+    """
+    if not isinstance(base, dict) or not isinstance(over, dict):
+        return json.loads(json.dumps(over))
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = _deep_merge(base.get(k), v) if isinstance(v, dict) else json.loads(json.dumps(v))
+    return out
+
+
 def build_payload():
     ok, failed = [], []
     prev = load_prev()
 
-    # On part des valeurs de repli vérifiées, puis on écrase avec le live.
-    agentic = json.loads(json.dumps(FALLBACK["agentic"]))
-    intensity = json.loads(json.dumps(FALLBACK["intensity"]))
-    enterprise = json.loads(json.dumps(FALLBACK["enterprise"]))
-    public_admin = json.loads(json.dumps(FALLBACK["public_admin"]))
-    personal = json.loads(json.dumps(FALLBACK["personal"]))
-    labor = json.loads(json.dumps(FALLBACK["labor"]))
-    geo = json.loads(json.dumps(FALLBACK["geo"]))
+    # Socle : les valeurs de repli vérifiées (2026-06-17), PUIS la dernière collecte
+    # réussie par-dessus, PUIS le live par-dessus encore.
+    #
+    # L'étape du milieu est le garde-fou. Sans elle, une simple panne DNS au réveil
+    # du Mac (mesurée le 2026-08-08 à 05:40 : 8 sources en échec, résolution de nom
+    # impossible) republiait les constantes de juin sous l'étiquette « dernier mois
+    # glissant » — Codex à 44,8 M au lieu de 63,1 M, et un historique VIDE. Le repli
+    # doit être la dernière valeur RÉELLE connue, pas une photo de juin.
+    def socle(section):
+        base = json.loads(json.dumps(FALLBACK[section]))
+        return _deep_merge(base, prev[section]) if isinstance(prev.get(section), dict) else base
+
+    agentic = socle("agentic")
+    intensity = socle("intensity")
+    enterprise = socle("enterprise")
+    public_admin = socle("public_admin")
+    personal = socle("personal")
+    labor = socle("labor")
+    geo = socle("geo")
 
     # NB : on fusionne par clé (update) au lieu de remplacer, pour qu'un échec
     # partiel (un seul outil) conserve la valeur de repli des autres.
@@ -1027,12 +1054,21 @@ def build_payload():
     if euro and euro.get("adoption"):
         geo["eurostat"] = euro
 
+    # Date de dernier succès PAR SOURCE. « updated_at » ne dit que l'heure du passage,
+    # pas l'âge de chaque série : quand une source échoue, sa valeur est reconduite et
+    # seule cette horloge-ci permet à la page de dire depuis quand elle date.
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    source_last_ok = dict((prev.get("meta", {}) or {}).get("source_last_ok", {}) or {})
+    for s in ok:
+        source_last_ok[s] = now_iso
+
     meta = {
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at": now_iso,
         "updated_at_unix": int(time.time()),
         "sources_ok": ok,
         "sources_failed": failed,
-        "doc_version": "1.1",
+        "source_last_ok": source_last_ok,
+        "doc_version": "1.2",
         "note": "Toutes les séries live sont auditables : ouvrir les endpoints listés dans le bloc « Sources auditables » de l'onglet Adoption. Comparaison entre pays via Eurostat isoc_eb_ai.",
     }
     payload = {
