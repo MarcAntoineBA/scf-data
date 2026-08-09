@@ -553,6 +553,20 @@
    "witness": "crypto_pe_hist_cache.json"
   },
   {
+   "id": "crypto.options",
+   "script": "fetch_deribit_options.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "crypto_options_cache.js",
+    "crypto_options_cache.json"
+   ],
+   "witness": "crypto_options_cache.json"
+  },
+  {
    "id": "cryptoetf",
    "script": "fetch_crypto_etf_flows.py",
    "args": [],

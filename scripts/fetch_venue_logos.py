@@ -117,6 +117,9 @@ TABLE = {
     "variational": ("llama", "Variational"),
     "vest":        ("llama", "Vest Markets"),
     "woofipro":    ("llama", "WooFi Pro Perps"),
+    # Deribit ne fait pas partie des venues de perps suivies par Loris : il est
+    # ajouté ici pour le module d'options, qui a besoin de la même vignette.
+    "deribit":     ("llama", "Deribit"),
     # À REVOIR — trouvés, mais le visuel ne correspond pas à la marque :
     # "phoenix": ("llama", "Phoenix DEX"),   volute bleue, quatre « Phoenix » au registre
     # "zo":      ("llama", "01"),            visuel photographique, pas une marque
