@@ -1,15 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-08T05:28:57Z",
+  "ts": "2026-08-09T06:22:10Z",
   "total": 15,
-  "ok": 15,
-  "secs": 401.8,
+  "ok": 14,
+  "secs": 3085.9,
   "changed": 21,
-  "versionnes": 19,
-  "pieces_jointes": 2,
+  "versionnes": 21,
+  "pieces_jointes": 0,
   "absents": 19,
-  "failed": []
+  "failed": [
+   {
+    "job": "atlasdetail",
+    "why": "[fatal] global timeout (50 min) — abort"
+   }
+  ]
  },
- "updated": "2026-08-08T05:28:57Z"
+ "updated": "2026-08-09T06:22:10Z"
 }
