@@ -1328,6 +1328,20 @@
    "witness": "tradfi_growth_cache.json"
   },
   {
+   "id": "tradfi.cot",
+   "script": "fetch_cftc_cot.py",
+   "args": [],
+   "schedule": "1 fois/semaine",
+   "per_day": 0.14,
+   "cadence": "weekly",
+   "category": "public",
+   "outputs": [
+    "tradfi_cot_cache.js",
+    "tradfi_cot_cache.json"
+   ],
+   "witness": "tradfi_cot_cache.json"
+  },
+  {
    "id": "tradfi.gamma",
    "script": "fetch_cboe_gamma.py",
    "args": [],

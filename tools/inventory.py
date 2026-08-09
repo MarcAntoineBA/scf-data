@@ -243,6 +243,11 @@ SANS_PLIST = [
          outputs=["tradfi_gamma_cache.js", "tradfi_gamma_cache.json",
                   "tradfi_gamma_hist.json"],
          witness="tradfi_gamma_cache.json"),
+    dict(id="tradfi.cot", script="fetch_cftc_cot.py", args=[],
+         schedule="1 fois/semaine", per_day=0.14, cadence="weekly",
+         category="public",
+         outputs=["tradfi_cot_cache.js", "tradfi_cot_cache.json"],
+         witness="tradfi_cot_cache.json"),
 ]
 
 
