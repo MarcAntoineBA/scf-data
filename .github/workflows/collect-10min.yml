@@ -49,11 +49,13 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
           GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+          LORIS_API_KEY: ${{ secrets.LORIS_API_KEY }}
         run: |
           [ -n "$EIA_API_KEY" ] && printf '%s' "$EIA_API_KEY" > "$HOME/.eia_api_key"
           [ -n "$SERPAPI_KEY" ] && printf '%s' "$SERPAPI_KEY" > "$HOME/.serpapi_key"
           [ -n "$GIE_API_KEY" ] && printf '%s' "$GIE_API_KEY" > "$HOME/.gie_api_key"
-          chmod 600 "$HOME"/.eia_api_key "$HOME"/.serpapi_key "$HOME"/.gie_api_key || true
+          [ -n "$LORIS_API_KEY" ] && printf '%s' "$LORIS_API_KEY" > "$HOME/.loris_api_key"
+          chmod 600 "$HOME"/.eia_api_key "$HOME"/.serpapi_key "$HOME"/.gie_api_key "$HOME"/.loris_api_key || true
 
       - name: Collecte
         env:
@@ -70,6 +72,10 @@ jobs:
           # dans un secret : l'adresse ne doit pas se trouver dans un dépôt public,
           # où elle serait récoltée dès l'indexation.
           SCF_CONTACT_UA: ${{ secrets.SCF_CONTACT_UA }}
+          # Funding cross-venue de l'onglet Order Flow. Loris n'expose aucun en-tête
+          # CORS : l'appel ne peut PAS venir du navigateur, et la clé n'a donc rien à
+          # faire dans le HTML publié. Elle ne vit qu'ici.
+          LORIS_API_KEY: ${{ secrets.LORIS_API_KEY }}
         run: python tools/run_jobs.py --bucket 10min
 
       # Douze fichiers pèsent 93 des 114 Mo du parc (historiques de cours, atlas).

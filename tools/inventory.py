@@ -224,13 +224,29 @@ def outputs_of(script_name, witness):
     return sorted(out)
 
 
+# ── Collecteurs nés après la migration ────────────────────────────────────────
+# Ceux-là n'ont jamais eu de plist launchd : ils sont écrits directement pour les
+# workflows. Sans cette liste, une régénération de `jobs.json` les effacerait
+# silencieusement — le fichier ne connaît que ce que les plists racontent, et ces
+# collecteurs-là ne racontent rien à personne. Toute nouveauté vient donc ici.
+SANS_PLIST = [
+    dict(id="orderflow.funding", script="fetch_loris_funding.py", args=[],
+         schedule="toutes les 5 min", per_day=288.0, cadence="5min",
+         category="public",
+         outputs=["orderflow_funding_cache.js", "orderflow_funding_cache.json",
+                  "orderflow_funding_hist_1d.json", "orderflow_funding_hist_1h.json",
+                  "orderflow_funding_hist_5m.json"],
+         witness="orderflow_funding_cache.json"),
+]
+
+
 def main():
     witness = {}
     if os.path.exists(HEALTH):
         for r in json.load(open(HEALTH)).get("rows", []):
             witness[r["job"]] = r.get("cache")
 
-    jobs = []
+    jobs = [dict(j) for j in SANS_PLIST]
     for p in sorted(glob(os.path.join(LAUNCH_AGENTS, "com.bassetti.*.plist"))):
         try:
             d = plistlib.load(open(p, "rb"))
