@@ -83,6 +83,11 @@ HIST = {
     "1h": CACHE_DIR / "orderflow_funding_hist_1h.json",
     "1d": CACHE_DIR / "orderflow_funding_hist_1d.json",
 }
+# Les trois paliers sont AUSSI publiés dans un seul fichier JavaScript. La page
+# les charge alors par balise <script>, comme tous les autres caches du site,
+# au lieu d'un `fetch` — qui serait bloqué à l'ouverture d'un fichier local et
+# rendrait la page invérifiable hors serveur.
+HIST_JS = CACHE_DIR / "orderflow_funding_hist.js"
 RETENTION = {"5m": timedelta(days=7), "1h": timedelta(days=90), "1d": None}
 
 # La clé vit dans un secret du dépôt, jamais dans le code : le dépôt scf-data est
@@ -379,6 +384,12 @@ def main():
                  lambda t: t[:13] + ":00:00Z")
     n1d = rollup(HIST["1h"], HIST["1d"], RETENTION["1d"],
                  lambda t: t[:10] + "T00:00:00Z")
+
+    combine = {}
+    for palier, chemin in HIST.items():
+        combine[palier] = load(chemin, {"venues": [], "rows": []})
+    write_atomic(HIST_JS, "window.__OF_HIST__=" +
+                 json.dumps(combine, separators=(",", ":")) + ";\n")
 
     st = payload["stats"].get("BTC") or {}
     print(f"  {vivants}/{len(fr)} venues vivantes"

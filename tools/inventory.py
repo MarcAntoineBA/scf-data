@@ -234,6 +234,7 @@ SANS_PLIST = [
          schedule="toutes les 5 min", per_day=288.0, cadence="5min",
          category="public",
          outputs=["orderflow_funding_cache.js", "orderflow_funding_cache.json",
+                  "orderflow_funding_hist.js",
                   "orderflow_funding_hist_1d.json", "orderflow_funding_hist_1h.json",
                   "orderflow_funding_hist_5m.json"],
          witness="orderflow_funding_cache.json"),
