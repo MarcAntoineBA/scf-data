@@ -248,6 +248,16 @@ SANS_PLIST = [
          category="public",
          outputs=["tradfi_cot_cache.js", "tradfi_cot_cache.json"],
          witness="tradfi_cot_cache.json"),
+    dict(id="tradfi.short", script="fetch_finra_short.py", args=[],
+         schedule="1 fois/jour", per_day=1.0, cadence="daily",
+         category="public",
+         outputs=['tradfi_short_cache.js', 'tradfi_short_cache.json'],
+         witness="tradfi_short_cache.json"),
+    dict(id="tradfi.vix", script="fetch_cboe_vix.py", args=[],
+         schedule="1 fois/jour", per_day=1.0, cadence="daily",
+         category="public",
+         outputs=['tradfi_vix_cache.js', 'tradfi_vix_cache.json'],
+         witness="tradfi_vix_cache.json"),
 ]
 
 
