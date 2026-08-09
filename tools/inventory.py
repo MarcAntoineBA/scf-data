@@ -237,6 +237,12 @@ SANS_PLIST = [
                   "orderflow_funding_hist_1d.json", "orderflow_funding_hist_1h.json",
                   "orderflow_funding_hist_5m.json"],
          witness="orderflow_funding_cache.json"),
+    dict(id="tradfi.gamma", script="fetch_cboe_gamma.py", args=[],
+         schedule="1 fois/jour", per_day=1.0, cadence="daily",
+         category="public",
+         outputs=["tradfi_gamma_cache.js", "tradfi_gamma_cache.json",
+                  "tradfi_gamma_hist.json"],
+         witness="tradfi_gamma_cache.json"),
 ]
 
 
