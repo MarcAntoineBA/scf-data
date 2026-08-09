@@ -74,18 +74,38 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
+# ── productivité marginale de la dette (formule partagée) ─────────────────────
+# atlas_mpd.py vit à côté de ce script. Sous launchd, le CWD n'est PAS le dossier
+# du script : sans ce sys.path, l'import casse en production et pas en local.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from atlas_mpd import inject_mpd  # noqa: E402
+# ── volet « Prix & inflation » (structure et dynamique des prix) ──────────────
+# Même règle que ci-dessus : le module vit à côté du script, l'import passe par
+# le sys.path fixé juste au-dessus.
+from atlas_prix import fetch_oecd_prices, inject_prix  # noqa: E402
+
 # ── timeout global (sécurité launchd) ─────────────────────────────────────────
+# 75 min et non 50 : le run du 2026-08-08 a été TUÉ À 50 MIN alors qu'il avait
+# déjà tout collecté — il ne lui restait qu'à écrire. Le cache est resté sur sa
+# version de la veille, sans qu'aucune source soit en panne. Même erreur que le
+# lot 6 h de scf-data, dont le plafond valait exactement la durée du job : un
+# plafond SANS MARGE transforme un run lent en panne silencieuse.
+# ⚠ Ce n'est pas une licence à faire grossir le job : le volet Prix a été rendu
+# moins coûteux en parallèle (une requête OCDE de moins). Si on repasse près de
+# 75 min, réduire le travail, pas remonter le plafond.
 import signal as _signal
+
+GLOBAL_TIMEOUT_MIN = int(os.environ.get("ATLAS_DETAIL_TIMEOUT_MIN", "75"))
 
 
 def _timeout_handler(signum, frame):
-    sys.stderr.write("[fatal] global timeout (50 min) — abort\n")
+    sys.stderr.write(f"[fatal] global timeout ({GLOBAL_TIMEOUT_MIN} min) — abort\n")
     sys.exit(2)
 
 
 try:
     _signal.signal(_signal.SIGALRM, _timeout_handler)
-    _signal.alarm(50 * 60)
+    _signal.alarm(GLOBAL_TIMEOUT_MIN * 60)
 except Exception:
     pass
 
@@ -436,6 +456,12 @@ WB_HIST = {
     "internet": ("IT.NET.USER.ZS", r1),       # accès Internet (% population)
     "mktcap_gdp": ("CM.MKT.LCAP.GD.ZS", r1),  # capitalisation boursière (% PIB, ⚠ lacunaire)
     "credit_gdp": ("FS.AST.PRVT.GD.ZS", r1),  # crédit au secteur privé (% PIB)
+    # Productivité marginale de la dette (cf. atlas_mpd.py) — SERT UNIQUEMENT AU CALCUL.
+    # PIB nominal en MONNAIE LOCALE : indispensable pour que le taux de change
+    # n'entre pas dans le ratio (numérateur et dénominateur portent sur des années
+    # différentes, une dévaluation contaminerait le résultat). Retirée du cache
+    # après calcul par inject_mpd() : aucun graphe ne l'affiche.
+    "ngdp_lcu": ("NY.GDP.MKTP.CN", sig4),     # PIB nominal, unités de monnaie locale
     # E — profondeur : effort régalien/innovation, précarité jeunes, vulnérabilité externe
     "military": ("MS.MIL.XPND.GD.ZS", r2),    # dépenses militaires (% PIB)
     "rd": ("GB.XPD.RSDV.GD.ZS", r2),          # dépenses R&D (% PIB)
@@ -469,6 +495,17 @@ WB_HIST = {
     "gdp_emp": ("SL.GDP.PCAP.EM.KD", sig4),   # PIB par personne employée (PPA const. 2021)
     "gni_pc": ("NY.GNP.PCAP.PP.CD", sig4),    # RNB / habitant (PPA) = le REVENU, ≠ PIB/hab
     "cons_pc": ("NE.CON.PRVT.PC.KD", sig4),   # consommation des ménages / hab (const. 2015)
+    # ── v18 — VOLET PRIX & INFLATION (cf. atlas_prix.py pour le sens de chacune) ──
+    # Le déflateur mesure le prix de tout ce que le pays PRODUIT, l'IPC celui de
+    # ce qu'il CONSOMME : l'écart entre les deux porte les termes de l'échange.
+    "deflator": ("NY.GDP.DEFL.KD.ZG", r1),    # déflateur du PIB, variation annuelle (%)
+    "m2_gr": ("FM.LBL.BMNY.ZG", r1),          # croissance de la masse monétaire M2 (%)
+    "rinr": ("FR.INR.RINR", r1),              # taux d'intérêt réel (déflaté du déflateur)
+    # SERVENT UNIQUEMENT AU CALCUL — retirées du cache par inject_prix().
+    # Un taux de change brut et un facteur de conversion PPA ne racontent rien à
+    # un lecteur ; ce sont leurs dérivées (dépréciation, niveau des prix) qui parlent.
+    "fx_lcu": ("PA.NUS.FCRF", sig4),          # taux de change officiel (monnaie locale / USD)
+    "ppp_lcu": ("PA.NUS.PPP", sig4),          # facteur de conversion PPA (monnaie locale / int. $)
 }
 WGI_HIST = {"wgi_rl": "GOV_WGI_RL.EST", "wgi_ge": "GOV_WGI_GE.EST",
             "wgi_pv": "GOV_WGI_PV.EST", "wgi_cc": "GOV_WGI_CC.EST"}
@@ -596,7 +633,12 @@ def fetch_wgi_hist(a3set):
 
 
 IMF_CODES = {"growth": "NGDP_RPCH", "infl": "PCPIPCH", "unemp_imf": "LUR",
-             "cab": "BCA_NGDPD", "debt": "GGXWDG_NGDP", "fiscal": "GGXCNL_NGDP"}
+             "cab": "BCA_NGDPD", "debt": "GGXWDG_NGDP", "fiscal": "GGXCNL_NGDP",
+             # Inflation FIN DE PÉRIODE (décembre contre décembre). Le pendant
+             # indispensable de PCPIPCH (moyenne annuelle) : quand la fin de
+             # période passe SOUS la moyenne, la désinflation a déjà commencé et
+             # la moyenne mettra un an à le dire. Détail dans atlas_prix.py.
+             "infl_eop": "PCPIEPCH"}
 IMF_A3_FIX = {"UVK": "XKX", "WBG": "PSE"}
 
 
@@ -735,6 +777,19 @@ OWID_V5 = [
     # Couverture ~130 pays seulement (série la plus étroite du volet) → le front filtre
     # proprement les pays sans donnée ; sert aussi à dériver le PIB par HEURE travaillée.
     ("annual-working-hours-per-worker", "hours", r1, "working_hours_omm"),
+    # Taux de PRÉLÈVEMENTS OBLIGATOIRES : impôts + cotisations sociales, toutes
+    # administrations, en % du PIB (Government Revenue Dataset, UNU-WIDER).
+    # 190 pays, 1980→2023 (132 pays au millésime 2023) ; recoupé avec les Revenue
+    # Statistics de l'OCDE : FRA 43,8 · DEU 37,5 · USA 24,8 · JPN 34,9.
+    # ⚠ NE PAS confondre avec les deux autres ratios qui circulent pour un même pays :
+    #   - recettes fiscales de l'État CENTRAL (WB GC.TAX.TOTL.GD.ZS) : FRA 22,8 %,
+    #     DEU 10,9 % — exclut collectivités ET cotisations, incomparable entre
+    #     pays fédéraux et unitaires ;
+    #   - recettes publiques TOTALES (IMF WEO GGR_G01_GDP_PT) : FRA 51,8 % —
+    #     ajoute le non fiscal (pétrole, dividendes, redevances).
+    # Le CSV porte aussi une colonne `owid_region` (texte) : _owid_value_column
+    # l'écarte déjà, le col_override rend le choix explicite et robuste.
+    ("total-tax-revenues-gdp", "taxrev", r1, "tax_inc_sc"),
 ]
 # OWID entités agrégées → code AGG. Seul « World » (OWID_WRL) s'aligne proprement sur WLD ;
 # les continents OWID (Afrique/Asie/…) ne recouvrent pas les 7 régions WB → laissés de côté.
@@ -2393,6 +2448,8 @@ HIST_OWNER = {
            # v5 — sinon le hist frais est SILENCIEUSEMENT jeté par la fusion par source
            "tfr", "dep_tot", "dep_old", "dep_yg", "imr", "health_gdp",
            "internet", "mktcap_gdp", "credit_gdp",
+           # Entrée du calcul MPD (retirée du cache après coup, mais doit passer la fusion)
+           "ngdp_lcu",
            # E — profondeur (idem : à inscrire ici sinon jetées)
            "military", "rd", "youth_unemp", "extdebt",
            # v12 — investissement, épargne, rente des ressources
@@ -2403,9 +2460,14 @@ HIST_OWNER = {
            "eduq",
            # Travail & revenus (idem : à inscrire ici sinon jetées par la fusion par source)
            "emp_ratio", "lfpr", "lfpr_fe", "lfpr_ma", "neet", "vuln_emp", "selfemp",
-           "emp_agr", "emp_ind", "emp_srv", "gdp_emp", "gni_pc", "cons_pc"],
+           "emp_agr", "emp_ind", "emp_srv", "gdp_emp", "gni_pc", "cons_pc",
+           # v18 — volet Prix (idem : sans cette ligne, la série fraîche est
+           # SILENCIEUSEMENT jetée par la fusion par source)
+           "deflator", "m2_gr", "rinr", "fx_lcu", "ppp_lcu"],
     "WGI": ["wgi_rl", "wgi_ge", "wgi_pv", "wgi_cc"],
-    "IMF": ["growth", "infl", "cab", "debt", "fiscal", "int_gdp", "int_exp"],
+    "IMF": ["growth", "infl", "cab", "debt", "fiscal", "int_gdp", "int_exp",
+            # v18 — inflation fin de période
+            "infl_eop"],
     # v5 — 7 séries OWID + E top10 (idem : à inscrire ici sinon jetées par la fusion par source)
     "OWID": ["fh", "vdem", "cpi",
              "co2pc", "energypc", "enintensity", "renew_elec", "hdi", "medage", "schooling",
@@ -2413,7 +2475,10 @@ HIST_OWNER = {
              # Potentiel futur — part du travail (exposant Cobb-Douglas mesuré)
              "labsh",
              # Travail & revenus — heures travaillées par an et par actif
-             "hours"],
+             "hours",
+             # Prélèvements obligatoires (UNU-WIDER GRD) — idem : sans cette ligne
+             # la série fraîche est SILENCIEUSEMENT jetée par la fusion par source.
+             "taxrev"],
     # PISA (OCDE via miroir OWID) — source séparée d'OWID : une panne du grapher
     # multi-dimensions ne doit pas jeter fh/vdem/cpi (et réciproquement).
     "PISA": PISA_KEYS,
@@ -2526,6 +2591,13 @@ def assemble(meta, old, args):
     pisa_wave, pisa_pending = pisa_vintage(pisa_hist)
     elec_mix, elecmix_ok = fetch_elec_mix(a3set)
     (ok if elecmix_ok else failed).append("ELECMIX")
+    # Volet Prix : la STRUCTURE de l'inflation (sous-jacente / alimentation /
+    # énergie), mensuelle chez l'OCDE, annualisée par atlas_prix.py pour se
+    # superposer à l'IPC du FMI. Source à part : une panne de l'OCDE ne doit
+    # rien effacer d'autre — et ne DOIT PAS effacer le volet lui-même (garde
+    # par source, comme les autres blocs).
+    oecd_prix_hist, oecd_prix_last, oecd_prix_ok = fetch_oecd_prices(a3set)
+    (ok if oecd_prix_ok else failed).append("OECD_PRIX")
 
     # ── §3b COMMERCE ──
     wb_trade, wbt_ok = fetch_wb_trade(a3set)
@@ -2813,6 +2885,19 @@ def assemble(meta, old, args):
             n_lab_en += 1
     print(f"[hs4_labels] {len(hs4_labels)} libellés ({n_lab_fr} FR + {n_lab_en} EN) "
           f"sur {len(hs4_union)} codes de l'union")
+
+    # ── SÉRIE DÉRIVÉE : productivité marginale de la dette ────────────────────
+    # Doit tourner APRÈS la fusion des sources (elle croise IMF `debt`, WB
+    # `credit_gdp` et WB `ngdp_lcu`) et AVANT l'écriture. Retire ngdp_lcu au
+    # passage. Formule et pièges documentés dans atlas_mpd.py.
+    inject_mpd(countries)
+
+    # ── VOLET PRIX & INFLATION ────────────────────────────────────────────────
+    # Même contrainte d'ordre que le MPD : APRÈS la fusion par source (les
+    # dérivées croisent IMF `infl` et WB `fx_lcu`/`ppp_lcu`) et AVANT l'écriture.
+    # Retire fx_lcu et ppp_lcu au passage : séries de travail, jamais affichées.
+    inject_prix(countries, oecd_prix_hist, oecd_prix_last, oecd_prix_ok,
+                forecast_from=forecast_from)
 
     payload = {
         "meta": {

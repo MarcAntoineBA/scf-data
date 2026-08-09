@@ -39,6 +39,7 @@ import json
 import sys
 import time
 import calendar
+import statistics
 import datetime as dt
 from pathlib import Path
 from urllib import request, parse
@@ -140,6 +141,39 @@ def fetch_reliable_last():
         "outStatistics": json.dumps([STAT("portcalls", "pc")]), "orderByFields": "date",
     })
     good = [r["date"][:10] for r in rows if (r.get("pc") or 0) >= 2000 and r.get("date")]
+    return max(good) if good else None
+
+
+def fetch_reliable_last_choke(frac=0.6, days=75):
+    """Dernière date FIABLE pour la table DÉTROITS — distincte de celle des ports.
+
+    PortWatch ingère chaque table avec son propre décalage : Daily_Chokepoints_Data
+    accuse plusieurs jours de retard SUPPLÉMENTAIRES sur Daily_Ports_Data. Utiliser
+    la date fiable des ports pour découper les séries détroits laisse passer un
+    dernier mois en sous-couverture.
+      → Bug constaté le 2026-08-04 : juillet 2026 déclaré complet (couverture ports
+        OK au 31/07) alors que les transits détroits n'étaient ingérés qu'aux ~4/5.
+        Résultat : chg_1y affiché à -20/-25 % sur TOUS les détroits (Taïwan, Malacca,
+        Gibraltar, Suez, Bab el-Mandeb…) au lieu de -2 à +12 % réels — jusqu'à
+        39 points d'erreur, et le seul choc réel (Ormuz -85 %) noyé dans le bruit.
+
+    Seuil RELATIF à la médiane de la fenêtre récente, pas absolu : un vrai
+    effondrement de trafic (fermeture d'un détroit) déplace la médiane et ne
+    déclenche donc pas de faux positif ; seule la sous-couverture d'ingestion,
+    qui touche un jour isolé en fin de série, est filtrée.
+    """
+    cutoff = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    rows = query("Daily_Chokepoints_Data", {
+        "where": f"date >= '{cutoff}'", "groupByFieldsForStatistics": "date",
+        "outStatistics": json.dumps([STAT("n_total", "n")]), "orderByFields": "date",
+    })
+    vals = [(r["date"][:10], r.get("n") or 0) for r in rows if r.get("date")]
+    if not vals:
+        return None
+    med = statistics.median([v for _, v in vals])
+    if not med:
+        return None
+    good = [d for d, v in vals if v >= frac * med]
     return max(good) if good else None
 
 
@@ -372,6 +406,19 @@ def main():
     print(f"  dernier jour fiable : {reliable_last} · {len(months)} mois complets "
           f"(sur {len(all_months)}) — mois partiels écartés : {all_months[len(months):]}")
 
+    # Couverture DÉTROITS : décalage d'ingestion propre, plus long que celui des ports.
+    # cf. fetch_reliable_last_choke() pour le détail du bug 2026-08.
+    print("[maritime] date fiable détroits…")
+    try:
+        choke_reliable = fetch_reliable_last_choke() or reliable_last
+    except Exception as e:
+        print("  (couverture détroits indisponible :", e, ") → repli sur la date ports")
+        choke_reliable = reliable_last
+    choke_months = [k for k in months if month_complete(k, choke_reliable)]
+    n_drop = len(months) - len(choke_months)
+    print(f"  dernier jour fiable détroits : {choke_reliable} · "
+          f"{n_drop} mois écarté(s) des séries détroits : {months[len(choke_months):] or '—'}")
+
     # tonnage (import+export) moyen/jour par port sur 12 mois → classement par volume
     print("[maritime] tonnage par port (365 j)…")
     try:
@@ -414,13 +461,21 @@ def main():
 
     # --- détroits ---
     chokepoints = []
+
+    def mask_choke(arr):
+        """Neutralise les mois non couverts par l'ingestion DÉTROITS.
+        On garde la longueur alignée sur `months` (le front indexe les séries
+        détroits contre ce même axe) : les mois en sous-couverture passent à None,
+        et last_nn() retient donc le dernier mois RÉELLEMENT complet."""
+        return arr if not n_drop else arr[:len(choke_months)] + [None] * n_drop
+
     empty_cm = {"n": {}, "cap": {}, "calls": {tp: {} for tp in CK_TYPES}, "vol": {tp: {} for tp in CK_TYPES}}
     for pid, st in choke_static.items():
         cm = cmon.get(pid, empty_cm)
-        n = per_day(cm["n"], months, data_max, 0)
-        cap = per_day(cm["cap"], months, data_max, 0)
-        calls = {tp: per_day(cm["calls"][tp], months, data_max, 0) for tp in CK_TYPES}
-        vol = {tp: per_day(cm["vol"][tp], months, data_max, -3) for tp in CK_TYPES}
+        n = mask_choke(per_day(cm["n"], months, data_max, 0))
+        cap = mask_choke(per_day(cm["cap"], months, data_max, 0))
+        calls = {tp: mask_choke(per_day(cm["calls"][tp], months, data_max, 0)) for tp in CK_TYPES}
+        vol = {tp: mask_choke(per_day(cm["vol"][tp], months, data_max, -3)) for tp in CK_TYPES}
         li2, lv = last_nn(n)
         base_vals = [n[i] for i, k in enumerate(months) if k.startswith("2019") and n[i] is not None]
         base = round(sum(base_vals) / len(base_vals)) if base_vals else None
@@ -487,8 +542,40 @@ def main():
     # asserts d'ordre de grandeur (mer Rouge : Suez & Bab el-Mandeb en fort recul depuis 2023)
     assert ports[0]["tot"] > ports[10]["tot"], "tri ports incohérent"
     assert glob["latest"]["portcalls"] and glob["latest"]["portcalls"] > 3000, "escales mondiales/j trop basses"
+    # Suez : bande de plausibilité, pas une thèse géopolitique figée. Le seuil dur
+    # « < -20 % » datait de la crise mer Rouge 2023-2025 ; le trafic se rétablit
+    # (2026-08 : Suez -19,2 % vs 2019 et +10,5 % sur 1 an, Bab el-Mandeb +6,5 %),
+    # ce qui faisait échouer le fetch sur une évolution RÉELLE. On ne teste plus
+    # que la cohérence d'ordre de grandeur.
     if suez and suez["chg_base"] is not None:
-        assert suez["chg_base"] < -20, f"Suez devrait être en fort recul vs 2019 (mer Rouge), got {suez['chg_base']}%"
+        assert -70 < suez["chg_base"] < 15, \
+            f"Suez hors bande de plausibilité vs 2019 : {suez['chg_base']}%"
+
+    # --- garde-fou : signature du « mois partiel détroits » (bug 2026-08) ---
+    # Un VRAI choc maritime est LOCALISÉ : en juin 2026, Ormuz faisait -85 % pendant
+    # que Taïwan (+1,2 %), Gibraltar (-1,5 %) et le Cap (+1,1 %) restaient normaux.
+    # Une chute simultanée >10 % M/M sur des détroits sans lien géographique, alors
+    # que les escales mondiales sont normales, ne peut être qu'une sous-couverture.
+    _mm = []
+    for c in chokepoints[:12]:
+        if c["id"] == "chokepoint6":      # Ormuz : choc réel, exclu du test
+            continue
+        i, _v = last_nn(c["n"])
+        if i is None or i < 1 or not c["n"][i - 1]:
+            continue
+        _mm.append(100 * c["n"][i] / c["n"][i - 1] - 100)
+    _gi, _ = last_nn(glob["portcalls"])
+    _gmm = (100 * glob["portcalls"][_gi] / glob["portcalls"][_gi - 1] - 100) \
+        if (_gi is not None and _gi >= 1 and glob["portcalls"][_gi - 1]) else 0.0
+    if _mm:
+        _bad = sum(1 for x in _mm if x < -10)
+        assert not (_bad >= 3 and _gmm > -5), (
+            f"MOIS PARTIEL DÉTROITS NON FILTRÉ : {_bad}/{len(_mm)} détroits majeurs à "
+            f"<-10 % M/M alors que les escales mondiales font {_gmm:+.1f}%. "
+            f"Dernier mois détroits retenu = {chokepoints[0]['latest_month']}, "
+            f"date fiable détroits = {choke_reliable}. Voir fetch_reliable_last_choke().")
+        print(f"garde-fou mois partiel : {_bad}/{len(_mm)} détroits <-10 % M/M · "
+              f"mondial {_gmm:+.1f}% → OK")
     print("asserts OK")
 
     if DRY:

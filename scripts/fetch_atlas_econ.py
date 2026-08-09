@@ -983,10 +983,12 @@ def assemble_full(meta, old):
                         continue
                     latest[k] = v
         # chômage : IMF LUR prioritaire, fallback WB (flag 0)
+        unemp_src = "IMF" if latest["unemp"] is not None else None
         if latest["unemp"] is None and wb_latest and a3 in wb_latest:
             wbu = wb_latest[a3].get("unemp_wb")
             if wbu:
                 latest["unemp"] = wbu
+                unemp_src = "WB"
         if fh and a3 in fh:
             latest["fh"] = fh[a3]
         if vdem and a3 in vdem:
@@ -997,6 +999,11 @@ def assemble_full(meta, old):
             for k, v in pisa[a3].items():
                 latest[k] = v
         entry = {"latest": latest}
+        # src = source RÉELLEMENT retenue quand elle dépend du pays. Le lien d'audit ⓘ
+        # doit la suivre : la série FMI LUR ne couvre que 122 pays, donc pointer le FMI
+        # pour un pays servi par le repli Banque mondiale ouvre une page sans sa donnée.
+        if unemp_src:
+            entry["src"] = {"unemp": unemp_src}
         if bis and a3 in bis:
             val, month = bis[a3]
             latest["rate"] = [val, int(month[:4]), 0]

@@ -83,8 +83,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import unicodedata
 import zipfile
-from datetime import datetime, timezone
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 
 REPO = os.path.expanduser("~/Desktop/Site_Crypto_Finance")
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -141,6 +143,22 @@ GAS_FLOWS = {"INDPROD": "prod", "IMPPIP": "imp_pip", "IMPLNG": "imp_lng",
              "TOTEXPSB": "exp", "CLOSTLV": "stk", "TOTDEMC": "dem"}
 # Un stock est un NIVEAU (kbbl), un flux est un DÉBIT (kb/j) : unités distinctes.
 OIL_UNIT = {"prod": "KBD", "imp": "KBD", "exp": "KBD", "ref": "KBD", "stk": "KBBL"}
+
+# ── Produits raffinés (JODI « secondary ») ───────────────────────────────────
+# Le brut ne se consomme pas : ce qui fait tourner un camion, un tracteur ou un
+# avion, c'est un produit raffiné. Le goulot d'étranglement d'une crise peut
+# donc être ailleurs que dans le brut — mesuré : le 2026-07-08 (interdiction
+# russe d'exporter du gazole) a déplacé le crack diesel de +11,6 $/bbl en une
+# séance, alors que le pic d'Hormuz du 2026-07-23 (Brent +11,2 $) l'a laissé
+# inchangé. Sans ce fichier, l'onglet ne voit qu'un des deux chocs.
+JODI_SEC_URL = ("https://www.jodidata.org/_resources/files/downloads/oil-data/"
+                "world_secondary_csv.zip")
+# Les trois produits qui portent l'information : industrie/fret, aérien, ménages.
+# La divergence gazole ↔ essence est le signal de stagflation le plus lisible.
+SEC_PRODUCTS = {"GASDIES": "diesel", "JETKERO": "jet", "GASOLINE": "essence"}
+SEC_FLOWS = {"REFGROUT": "out", "TOTDEMO": "dem", "TOTIMPSB": "imp",
+             "TOTEXPSB": "exp", "CLOSTLV": "stk"}
+SEC_UNIT = {"out": "KBD", "dem": "KBD", "imp": "KBD", "exp": "KBD", "stk": "KBBL"}
 
 PRICE_TICKERS = [
     ("brent", "BZ=F", "Brent", "USD/bbl"),
@@ -418,6 +436,89 @@ def fetch_jodi_oil(a2map):
     return out, months
 
 
+def parse_jodi_multi(data, products, flows, unit_of, a2map):
+    """Variante de parse_jodi pour un fichier MULTI-PRODUITS.
+
+    parse_jodi() écrase les produits entre eux (il n'indexe que par flux) : il
+    faut une clé produit. On garde un seul parcours du CSV — 15,5 M lignes,
+    le relire une fois par produit coûterait trois passes pour rien.
+
+    ⚠ PIÈGE VÉCU (2026-07-30, deux tableaux faux avant de le voir) : ce fichier
+    porte CINQ unités, dont **CONVBBL qui n'est PAS une observation** mais le
+    facteur de conversion baril/tonne du pays — 7,460 pour la France, 7,458
+    pour l'Inde, 7,461 pour la Russie — RÉPÉTÉ À L'IDENTIQUE sur tous les flux.
+    Le lire comme une valeur donne « Inde : production 7 458, stocks 7 458,
+    exports 7 458 ». Le filtre d'unité n'est donc pas cosmétique, il est ce qui
+    sépare une donnée d'un artefact.
+    """
+    if not data:
+        return {}, []
+    txt = io.TextIOWrapper(io.BytesIO(data), encoding="utf-8-sig", newline="")
+    rd = csv.reader(txt)
+    head = next(rd, None)
+    if not head:
+        return {}, []
+    col = {c.strip().upper(): i for i, c in enumerate(head)}
+    need = ("REF_AREA", "TIME_PERIOD", "ENERGY_PRODUCT", "FLOW_BREAKDOWN",
+            "UNIT_MEASURE", "OBS_VALUE")
+    if any(c not in col for c in need):
+        log(f"JODI secondary : colonnes inattendues {head}")
+        return {}, []
+    iA, iT, iP, iF, iU, iV = (col[c] for c in need)
+
+    raw, periods = {}, set()
+    for row in rd:
+        try:
+            pk = products.get(row[iP])
+            if not pk:
+                continue
+            fk = flows.get(row[iF])
+            if not fk:
+                continue
+            if row[iU] != unit_of(fk):
+                continue
+            x = num(row[iV])
+            if x is None:
+                continue
+            a3 = to_a3(row[iA], a2map)
+            if not a3:
+                continue
+            periods.add(row[iT])
+            raw.setdefault(a3, {}).setdefault(pk, {}).setdefault(fk, {})[row[iT]] = x
+        except IndexError:
+            continue
+
+    months = sorted(periods)
+    mi = month_index(months)
+    out = {}
+    for a3, byp in raw.items():
+        rec = {}
+        for pk, byf in byp.items():
+            d = {}
+            for fk, permap in byf.items():
+                packed = pack(mi, {mi[p]: v for p, v in permap.items() if p in mi})
+                if packed:
+                    d[fk] = packed
+            if d:
+                rec[pk] = d
+        if rec:
+            out[a3] = rec
+    return out, months
+
+
+def fetch_jodi_products(a2map):
+    data = jodi_download(JODI_SEC_URL, "jodi_oil_secondary")
+    out, months = parse_jodi_multi(data, SEC_PRODUCTS, SEC_FLOWS,
+                                   lambda k: SEC_UNIT[k], a2map)
+    if out:
+        nd = sum(1 for r in out.values() if r.get("diesel"))
+        log(f"JODI-Produits : {len(out)} pays ({nd} avec gazole) · {len(months)} mois "
+            f"({months[0]} → {months[-1]})")
+    else:
+        log("JODI-Produits : rien parsé")
+    return out, months
+
+
 def fetch_jodi_gas(a2map):
     # Gaz : tout en M3 (millions de m³) pour rester homogène ; TJ ignoré.
     data = jodi_download(JODI_GAS_URL, "jodi_gas")
@@ -608,6 +709,152 @@ def fetch_eia_oecd_stocks():
     log(f"EIA stocks OCDE : {len(out)} entités · {len(months)} mois "
         f"({months[0] if months else '?'} → {months[-1] if months else '?'})")
     return out, months
+
+
+# ── 4 bis. EIA STEO — mensuel frais pour les non-déclarants JODI ─────────────
+#
+# POURQUOI. JODI est la colonne vertébrale de ce cache, mais plusieurs des
+# premiers producteurs mondiaux ont CESSÉ d'y déclarer : Russie gelée en
+# 2023-03, Iran en 2018-07, EAU et Qatar en 2018-12, Irak en 2024-03. Il n'y
+# avait donc AUCUN chiffre mensuel frais pour une grosse part de l'offre
+# mondiale — un trou qui saute aux yeux dès qu'une crise touche ces pays.
+#
+# Le Short-Term Energy Outlook de l'EIA publie du mensuel pour eux, plus une
+# série que personne d'autre ne donne gratuitement : PADI_*, les PERTURBATIONS
+# NON PLANIFIÉES de production, pays par pays. C'est la mesure directe d'une
+# rupture d'approvisionnement (fermeture d'un détroit, frappes sur des
+# raffineries) et elle recoupe JODI là où les deux existent : Arabie saoudite
+# avril 2026, JODI donne 6 316 kb/j et STEO 10 882 − 4 470 = 6 412 (1,5 % d'écart).
+#
+# ⚠ PIÈGE : le STEO est un modèle à 18 mois, il CONTIENT de la projection.
+# COPR_* et PADI_* s'arrêtent au dernier mois réalisé, mais PAPR_* se prolonge
+# dans le futur. On tronque donc tout à `hist_max` (dernier mois réalisé,
+# déduit des familles historiques) : aucune valeur prévisionnelle ne doit
+# entrer dans le cache déguisée en fait.
+
+# Codes STEO (≈ FIPS 10-4) → ISO3. Table explicite plutôt que geonames : elle
+# est courte, stable, et permet d'écarter nommément les agrégats composites.
+STEO_A3 = {
+    "RS": "RUS", "SA": "SAU", "IZ": "IRQ", "KU": "KWT", "IR": "IRN",
+    "LY": "LBY", "NI": "NGA", "VE": "VEN", "MX": "MEX", "CA": "CAN",
+    "BR": "BRA", "CH": "CHN", "US": "USA", "UK": "GBR", "NO": "NOR",
+    "AS": "AUS", "ID": "IDN", "CO": "COL", "PE": "PER", "AR": "ARG",
+    "AJ": "AZE", "GH": "GHA", "GB": "GAB", "CD": "TCD", "SY": "SYR",
+    "YM": "YEM", "EK": "GNQ", "BX": "BRN", "CF": "COG", "MY": "MYS",
+    "VM": "VNM", "GY": "GUY", "QA": "QAT", "EG": "EGY", "OD": "SSD",
+    # Golfe : ces trois-là n'apparaissent PAS dans la liste des séries PADI_*
+    # (celle qui saute aux yeux quand on explore l'API) et manquaient donc à la
+    # première version — or ce sont précisément des non-déclarants JODI. Ils
+    # n'ont que PAPR_* (offre de liquides), parfois COPR_* : c'est peu, mais
+    # c'est la seule donnée mensuelle publique qui les concerne.
+    "TC": "ARE", "BA": "BHR", "MU": "OMN",
+    # "SU" = « Sudan and South Sudan » : composite, écarté pour ne pas
+    # double-compter avec OD (Soudan du Sud).
+}
+# Agrégats gardés à part : ce ne sont pas des pays.
+STEO_AGG = {"OPEC": "OPEP", "NONOPEC": "Hors OPEP", "NORTHSEA": "Mer du Nord"}
+# Familles de séries → clé courte dans le cache. `hist` dit si la famille
+# s'arrête au réalisé (elle sert alors à calculer hist_max).
+STEO_FAM = [("PADI", "disr", True), ("COPR", "prod", True), ("PAPR", "supply", False)]
+STEO_START = "2015-01"
+
+
+def steo_series_ids():
+    """Liste les seriesId réellement exposés, pour ne demander que l'existant.
+    Les familles ne couvrent pas les mêmes pays (PADI ≈ 25, COPR ≈ 20…) et
+    demander un id inexistant fait taire toute la requête, pas juste lui."""
+    d = http_json(f"{EIA_BASE}/steo/facet/seriesId/?api_key={EIA_KEY}", timeout=90)
+    facets = (((d or {}).get("response") or {}).get("facets")) or []
+    return {f.get("id") for f in facets if f.get("id")}
+
+
+def fetch_steo():
+    have = steo_series_ids()
+    if not have:
+        log("STEO : liste des séries indisponible → bloc ignoré")
+        return None
+    codes = list(STEO_A3.keys()) + list(STEO_AGG.keys())
+    wanted, kind_of = [], {}
+    for pref, key, _hist in STEO_FAM:
+        for code in codes:
+            sid = f"{pref}_{code}"
+            if sid in have:
+                wanted.append(sid)
+                kind_of[sid] = (key, code)
+    if not wanted:
+        log("STEO : aucune série reconnue → bloc ignoré")
+        return None
+
+    raw = {}                                     # sid → {période: valeur}
+    CH = 40                                      # borne la longueur d'URL
+    for i in range(0, len(wanted), CH):
+        chunk = wanted[i:i + CH]
+        p = [("frequency", "monthly"), ("data[0]", "value"),
+             ("start", STEO_START), ("length", 5000)]
+        p += [("facets[seriesId][]", s) for s in chunk]
+        for r in eia("steo/data/", p):
+            x = num(r.get("value"))
+            if x is None:
+                continue
+            raw.setdefault(r["seriesId"], {})[r["period"]] = x
+    if not raw:
+        log("STEO : 0 ligne → bloc ignoré")
+        return None
+
+    # hist_max = frontière réalisé / projection.
+    #
+    # ⚠ Ne PAS la déduire du max d'une famille supposée historique : mesuré le
+    # 2026-07-30, COPR_OPEC et COPR_NONOPEC (agrégats) vont jusqu'en 2027-12
+    # alors que les 53 autres séries s'arrêtent en 2026-06. Prendre le max
+    # laissait donc passer 18 mois de projection sans rien couper.
+    #
+    # Règle retenue : le MODE des fins de série. Une publication STEO arrête
+    # tout son réalisé au même mois, donc le mois le plus fréquent EST la
+    # frontière (53 séries contre 26 dans la mesure ci-dessus). Ceinture et
+    # bretelles : on borne en plus au dernier mois calendaire révolu, l'EIA ne
+    # publiant jamais de réalisé pour le mois en cours.
+    ends = Counter(max(ser) for ser in raw.values() if ser)
+    if not ends:
+        log("STEO : impossible de dater le réalisé → bloc ignoré")
+        return None
+    hist_max = ends.most_common(1)[0][0]
+    now = datetime.now(timezone.utc)
+    prev_m = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    if hist_max > prev_m:
+        log(f"STEO : mode {hist_max} > mois révolu {prev_m} → borné à {prev_m}")
+        hist_max = prev_m
+
+    months = sorted({m for ser in raw.values() for m in ser if m <= hist_max})
+    idx = month_index(months)
+    ctry, agg, ncut = {}, {}, 0
+    for sid, ser in raw.items():
+        key, code = kind_of[sid]
+        cut = {idx[m]: v for m, v in ser.items() if m in idx}
+        ncut += len(ser) - len(cut)
+        packed = pack(idx, cut)
+        if not packed:
+            continue
+        if code in STEO_AGG:
+            agg.setdefault(code, {"label": STEO_AGG[code]})[key] = packed
+        else:
+            ctry.setdefault(STEO_A3[code], {})[key] = packed
+
+    log(f"EIA STEO : {len(ctry)} pays + {len(agg)} agrégats · {len(months)} mois "
+        f"({months[0]} → {hist_max}) · {ncut} points de projection écartés")
+    return {
+        "months": months,
+        "hist_max": hist_max,
+        "unit": "Mb/j",
+        "src": "EIA Short-Term Energy Outlook",
+        "url": "https://www.eia.gov/steo/",
+        "keys": {"disr": "Perturbations non planifiées",
+                 "prod": "Production de brut",
+                 "supply": "Offre totale de liquides"},
+        "audit": ("Séries mensuelles EIA STEO tronquées au dernier mois réalisé "
+                  f"({hist_max}) — aucune projection n'est stockée."),
+        "countries": ctry,
+        "agg": agg,
+    }
 
 
 def fetch_spr():
@@ -1095,16 +1342,237 @@ def fetch_gie(a2map):
 
 # ── 7. prix live (référence bakée ; le front rafraîchit lui-même) ────────────
 
+# ── Energy Institute — capacité de raffinage ─────────────────────────────────
+# La CAPACITÉ (ce qu'un pays pourrait raffiner) n'existe dans AUCUNE source
+# gratuite testée : l'API EIA v2 `international` n'expose que 4 activités
+# (Consumption, Production, Stocks OCDE, Imports — vérifié sur le facet
+# activityId), OWID n'a pas de grapher refinery, l'ASB de l'OPEP renvoie 403.
+# Seul le Statistical Review of World Energy la publie, gratuitement.
+#
+# ⚠ energyinst.org est derrière un challenge Cloudflare : urllib et curl nu
+# reçoivent 403 sur les fichiers. `curl_cffi` (empreinte Chrome) passe — c'est
+# la même dépendance que fetch_ttf, donc le même prérequis d'interpréteur.
+EI_PAGE = "https://www.energyinst.org/statistical-review/resources-and-data-downloads"
+EI_SHEETS = {"Oil refinery - capacity": "cap", "Oil refinery - throughput": "thr"}
+# Noms EI qui ne correspondent à aucun nom anglais de geonames, ou agrégats à
+# écarter explicitement (None = ignoré volontairement).
+EI_OVERRIDES = {
+    "us": "USA", "uk": "GBR", "southkorea": "KOR", "russianfederation": "RUS",
+    "czechrepublic": "CZE", "trinidadtobago": "TTO", "chinahongkongsar": "HKG",
+    "turkiye": "TUR", "turkey": "TUR", "vietnam": "VNM", "taiwan": "TWN",
+    "iran": "IRN", "venezuela": "VEN", "southafrica": "ZAF", "slovakia": "SVK",
+    "unitedarabemirates": "ARE", "saudiarabia": "SAU", "curacao": "CUW",
+    "netherlands": "NLD",
+    "netherlandsantilles": None, "ussr": None, "nonoecd": None,
+    "europeanunion": None,
+}
+
+
+def _ei_norm(s):
+    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z]", "", s)
+
+
+def _ei_name_index():
+    """Nom anglais → ISO3, depuis geonames (colonne 4 = Country, colonne 1 = ISO3).
+    La META de l'Atlas est en FRANÇAIS : l'appariement direct sur ses noms ne
+    rendait que 27 pays sur 76 (mesuré). Geonames en rend 71."""
+    b = http_bytes("https://download.geonames.org/export/dump/countryInfo.txt", timeout=90)
+    idx = {}
+    if not b:
+        log("EI : geonames indisponible → appariement des noms impossible")
+        return idx
+    for line in b.decode("utf-8", "replace").splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        c = line.split("\t")
+        if len(c) > 4 and c[1] and c[4]:
+            idx.setdefault(_ei_norm(c[4]), c[1].strip())
+    return idx
+
+
+def fetch_ei_refining():
+    try:
+        from curl_cffi import requests as cr
+        import openpyxl
+    except Exception as e:
+        log(f"EI raffinage : dépendance absente ({e}) → bloc ignoré")
+        return None
+    # 1. Retrouver l'URL du classeur (elle change à chaque millésime : ne jamais
+    #    la coder en dur, on la relit sur la page de téléchargement).
+    try:
+        r = cr.get(EI_PAGE, impersonate="chrome120", timeout=60)
+        links = re.findall(r'href="([^"]*\.xlsx[^"]*)"', r.text, re.I)
+    except Exception as e:
+        log(f"EI raffinage : page inaccessible ({e})")
+        return None
+    if not links:
+        log("EI raffinage : aucun .xlsx sur la page de téléchargement")
+        return None
+    # Le fichier « toutes données » sans millésime dans le nom est le courant ;
+    # à défaut on prend le plus récent par tri décroissant.
+    cur = [u for u in links if re.search(r"all[-_ ]?data", u, re.I) and not re.search(r"20\d\d", u)]
+    url = (cur or sorted(links, reverse=True))[0]
+    path = os.path.join(WORK_DIR, "ei_stats_review.xlsx")
+    try:
+        os.makedirs(WORK_DIR, exist_ok=True)
+        rb = cr.get(url, impersonate="chrome120", timeout=300)
+        if rb.status_code != 200 or len(rb.content) < 1_000_000:
+            raise RuntimeError(f"HTTP {rb.status_code}, {len(rb.content)} octets")
+        with open(path, "wb") as f:
+            f.write(rb.content)
+        log(f"EI raffinage : classeur {len(rb.content)/1e6:.1f} Mo")
+    except Exception as e:
+        if not os.path.exists(path):
+            log(f"EI raffinage : téléchargement KO ({e}) et pas de copie locale")
+            return None
+        log(f"EI raffinage : téléchargement KO ({e}) → copie locale réutilisée")
+
+    idx = _ei_name_index()
+    if not idx:
+        return None
+    try:
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    except Exception as e:
+        log(f"EI raffinage : classeur illisible ({e})")
+        return None
+
+    out, all_years, unmapped = {}, set(), set()
+    for sheet, key in EI_SHEETS.items():
+        if sheet not in wb.sheetnames:
+            log(f"EI raffinage : feuille « {sheet} » absente")
+            continue
+        rows = list(wb[sheet].iter_rows(values_only=True))
+        # L'en-tête d'années n'est pas toujours ligne 3 : on la cherche.
+        # ⚠ PIÈGE VÉCU : l'en-tête RÉPÈTE la dernière année pour des colonnes
+        #   d'analyse. Mesuré sur « Oil refinery - capacity » : col 60 = 2024
+        #   (la capacité, 18 416 pour les USA), col 61 = 2024 (taux de
+        #   croissance, −0,0007), col 63 = 2024 (part mondiale, 0,176). Indexer
+        #   par année écrasait la capacité par la PART : toutes les valeurs
+        #   2024 sortaient à 0,18 kb/j sans la moindre erreur.
+        #   → on ne garde que la PREMIÈRE colonne de chaque année, le bloc de
+        #     données étant contigu et placé avant les colonnes d'analyse.
+        ycols, hdr_i = {}, None
+        for i, row in enumerate(rows[:12]):
+            cand, seen = {}, set()
+            for j, v in enumerate(row or []):
+                try:
+                    y = int(str(v).strip())
+                except (TypeError, ValueError):
+                    continue
+                if not (1900 < y < 2100) or y in seen:
+                    continue
+                seen.add(y)
+                cand[j] = y
+            if len(cand) > 20:
+                ycols, hdr_i = cand, i
+                break
+        if not ycols:
+            log(f"EI raffinage : pas d'en-tête d'années dans « {sheet} »")
+            continue
+        all_years |= set(ycols.values())
+        for row in rows[hdr_i + 1:]:
+            name = (row[0] or "").strip() if row and row[0] else ""
+            # « Total … », « Other … », « of which » = agrégats, jamais des pays.
+            if not name or re.match(r"^(Total|Other|of which)", name, re.I):
+                continue
+            k = _ei_norm(name)
+            a3 = EI_OVERRIDES[k] if k in EI_OVERRIDES else idx.get(k)
+            if not a3:
+                if k not in EI_OVERRIDES:
+                    unmapped.add(name)
+                continue
+            for j, y in ycols.items():
+                v = num(row[j]) if j < len(row) else None
+                if v is None:
+                    continue
+                out.setdefault(a3, {}).setdefault(key, {})[y] = round(v, 2)
+
+    if not out:
+        log("EI raffinage : rien parsé")
+        return None
+    years = sorted(all_years)
+    yi = {y: i for i, y in enumerate(years)}
+    packed = {}
+    for a3, byk in out.items():
+        d = {}
+        for k, ymap in byk.items():
+            p = pack(yi, {yi[y]: v for y, v in ymap.items()})
+            if p:
+                d[k] = p
+        if d:
+            packed[a3] = d
+    nc = sum(1 for r in packed.values() if r.get("cap"))
+    log(f"EI raffinage : {len(packed)} pays ({nc} avec capacité) · {years[0]} → {years[-1]}"
+        + (f" · {len(unmapped)} noms non appariés : {sorted(unmapped)[:6]}" if unmapped else ""))
+    return {"years": years, "countries": packed,
+            "unit": "kb/j", "src": "Energy Institute — Statistical Review of World Energy",
+            "url": EI_PAGE,
+            "audit": ("Capacité = ce qu'un pays POURRAIT raffiner (annuel) ; débit = ce "
+                      "qu'il a réellement traité. Aucune source gratuite mensuelle "
+                      "n'existe pour la capacité.")}
+
+
+def fetch_ttf():
+    """Gaz TTF (référence européenne) — Yahoo `TTF=F`, via curl_cffi.
+
+    POURQUOI CETTE EXCEPTION. Le TTF n'a **aucune série FRED** : c'était donc le
+    seul prix du cockpit sans repli baké. Quand le tick live échouait, sa tuile
+    affichait « — · n.d. » pendant que toutes les autres retombaient sur leur
+    dernière clôture FRED. Or le tick live échoue en permanence : la Pages
+    Function `/live/quotes` n'est pas routée en production (mesuré le
+    2026-07-30 : `/live/quotes` ET `/functions/live/quotes.js` renvoient tous
+    deux l'index du site). Le prix du gaz européen était donc invisible.
+
+    ⚠ Yahoo exige `curl_cffi` avec empreinte Chrome — urllib nu reçoit 429
+    systématiquement (revérifié). `curl_cffi` est absent de l'anaconda, présent
+    dans le python Framework 3.12 : c'est celui qu'utilisent déjà les launchd
+    atlaseco / atlasdetail / globalmarkets. Le plist hydrocarbures a été aligné
+    dessus. Si l'import échoue malgré tout, on renvoie None et la tuile reste
+    honnêtement vide — on n'invente pas un prix.
+    """
+    try:
+        from curl_cffi import requests as cr
+    except Exception as e:
+        log(f"TTF : curl_cffi indisponible ({e}) → pas de repli baké")
+        return None
+    url = ("https://query1.finance.yahoo.com/v8/finance/chart/TTF=F"
+           "?range=5y&interval=1d")
+    try:
+        r = cr.get(url, impersonate="chrome120", timeout=45)
+        if r.status_code != 200:
+            log(f"TTF : Yahoo HTTP {r.status_code}")
+            return None
+        res = r.json()["chart"]["result"][0]
+        ts = res["timestamp"]
+        cl = res["indicators"]["quote"][0]["close"]
+    except Exception as e:
+        log(f"TTF : réponse Yahoo illisible ({e})")
+        return None
+    dates, vals = [], []
+    for t, v in zip(ts, cl):
+        if v is None:                      # séance sans clôture : un TROU, pas un zéro
+            continue
+        dates.append(datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%d"))
+        vals.append(round(float(v), 3))
+    if len(vals) < 30:
+        log(f"TTF : série trop courte ({len(vals)} pts) → ignorée")
+        return None
+    log(f"prix ttf : {len(vals)} pts · {dates[0]} → {dates[-1]} · {vals[-1]} EUR/MWh")
+    return {"src": "Yahoo Finance", "ticker": "TTF=F", "label": "Gaz TTF",
+            "unit": "EUR/MWh", "dates": dates, "vals": vals,
+            "last": vals[-1], "last_date": dates[-1],
+            "audit": "https://finance.yahoo.com/quote/TTF%3DF"}
+
+
 def fetch_prices():
     """Historique LONG des prix, via FRED (quotidien, décennies).
 
-    ⚠ Yahoo n'est PAS utilisable ici : urllib se fait renvoyer 429 systématiquement
-    (il faut `curl_cffi` avec empreinte Chrome, qui n'existe que dans
-    /usr/local/bin/python3 — pas dans l'anaconda qui exécute les launchd).
-    Ce n'est pas une perte : FRED donne Brent depuis 1987 et WTI depuis 1986,
-    contre 2 ans chez Yahoo. Le TICK LIVE, lui, est récupéré côté navigateur via
-    le proxy maison `/live/quotes` (déjà en place, CORS *), donc la page affiche
-    bien un prix live — voir _hydrocarbures_body.html.
+    FRED donne Brent depuis 1987 et WTI depuis 1986, contre 2 ans chez Yahoo :
+    c'est la bonne source pour l'historique. Seul le TTF n'y figure pas et passe
+    par Yahoo (cf. fetch_ttf). Le TICK LIVE, lui, devrait venir du navigateur
+    via `/live/quotes` — mais cette Pages Function n'est pas routée en prod, et
+    chaque tuile retombe donc sur sa dernière clôture bakée.
     """
     # _fred_helpers vit à côté du fetcher (les 3 copies l'ont) : on cherche d'abord
     # le dossier du script, sinon le dépôt — jamais l'inverse (sous launchd le
@@ -1144,9 +1612,14 @@ def fetch_prices():
             f"{pts[-1][1]} {unit}")
         time.sleep(0.2)
     # TTF (gaz européen) n'existe pas chez FRED → seul le live navigateur le sert.
-    out["_ttf_note"] = ("TTF: pas de série FRED — servi en direct par /live/quotes "
-                        "(ticker TTF=F)")
-    log(f"prix : {len([k for k in out if not k.startswith('_')])}/{len(spec)} séries FRED")
+    ttf = fetch_ttf()
+    if ttf:
+        out["ttf"] = ttf
+    else:
+        out["_ttf_note"] = ("TTF: pas de série FRED et Yahoo injoignable — "
+                            "la tuile reste vide plutôt que d'afficher un prix inventé.")
+    nf_ = len([k for k in out if not k.startswith("_") and k != "ttf"])
+    log(f"prix : {nf_}/{len(spec)} séries FRED" + (" + TTF (Yahoo)" if out.get("ttf") else ""))
     return out
 
 
@@ -1162,6 +1635,14 @@ def fetch_prices():
 # l'estimation annuelle EIA (qui couvre les non-déclarants), et le millésime ET
 # la source voyagent avec CHAQUE valeur jusqu'à l'écran.
 STALE_MONTHS = 8
+
+
+def _fresh(period, maxp):
+    """Une période est-elle assez récente pour être présentée comme actuelle ?
+    Même seuil que le repli EIA — un seul chiffre dans tout le fetcher."""
+    if not period or not maxp:
+        return False
+    return _months_between(period, maxp) <= STALE_MONTHS
 
 
 def _months_between(a, b):
@@ -1193,7 +1674,7 @@ def V(v, unit, src, date, note=None):
 
 
 def derive_latest(a3, rec, oil_months, gas_months, pop,
-                  oecd_months=None, eu_months=None):
+                  oecd_months=None, eu_months=None, prod_months=None):
     """Construit rec['latest'] : une entrée par métrique de la carte, chacune
     porteuse de sa valeur, son unité, sa source et son millésime."""
     oil, gas = rec.get("oil") or {}, rec.get("gas") or {}
@@ -1323,6 +1804,52 @@ def derive_latest(a3, rec, oil_months, gas_months, pop,
         v3, y3 = last_val(ann.get(k))
         if v3 is not None:
             L[lab] = V(v3, "%", "OWID/EI", str(y3))
+
+    # ── RAFFINAGE ────────────────────────────────────────────────────────────
+    # Le brut ne fait rouler aucun véhicule : entre le puits et le réservoir il
+    # y a une raffinerie, et c'est elle le goulot d'étranglement de 2026.
+    rf = rec.get("_refining") or {}
+    cap_v, cap_y = last_val(rf.get("cap"), rf.get("_years"))
+    if cap_v:
+        L["refin_cap"] = V(cap_v, "kb/j", "Energy Institute", str(cap_y))
+        # Taux d'utilisation = ce qui est RÉELLEMENT traité (JODI, mensuel) ÷ ce
+        # qui POURRAIT l'être (EI, annuel). Aucune source ne le publie tel quel.
+        # ⚠ Deux millésimes différents : on le DIT dans la note plutôt que de
+        # faire semblant que les deux chiffres sont contemporains.
+        thr_v, thr_p = last_val(oil.get("ref"), oil_months)
+        if thr_v and _fresh(thr_p, omax):
+            L["refin_util"] = V(100.0 * thr_v / cap_v, "%", "JODI/EI", thr_p,
+                                f"intrants JODI {thr_p} ÷ capacité EI {cap_y}")
+
+    # ── GAZOLE : le produit qui porte la crise ───────────────────────────────
+    rp = (rec.get("ref_prod") or {}).get("diesel") or {}
+    pmax = prod_months[-1] if prod_months else None
+    d_out, d_op = last_val(rp.get("out"), prod_months)
+    d_dem, d_dp = last_val(rp.get("dem"), prod_months)
+    d_stk, d_sp = last_val(rp.get("stk"), prod_months)
+    if d_out is not None and _fresh(d_op, pmax):
+        L["diesel_out"] = V(d_out, "kb/j", "JODI", d_op)
+    if d_dem is not None and _fresh(d_dp, pmax):
+        L["diesel_dem"] = V(d_dem, "kb/j", "JODI", d_dp)
+    # Balance : positif = le pays raffine plus de gazole qu'il n'en consomme.
+    #
+    # ⚠ GARDE-FOU : quelques déclarants ne publient qu'UN chiffre, que JODI
+    # recopie à l'identique dans production ET consommation. Mesuré sur le
+    # gazole 2026 : 10 couples (pays, mois) sur 285, uniquement la Chine et le
+    # Venezuela, avec des valeurs égales à la quatrième décimale et le drapeau
+    # qualité 3 au lieu de 1. En déduire une balance afficherait « équilibre
+    # parfait » pour le premier raffineur mondial, ce qui est faux : la Chine
+    # exporte du gazole. Deux valeurs rigoureusement égales = une seule mesure.
+    mirrored = (d_out is not None and d_dem is not None and d_out == d_dem)
+    if (d_out is not None and d_dem is not None and not mirrored
+            and _fresh(d_op, pmax) and d_op == d_dp):
+        L["diesel_bal"] = V(d_out - d_dem, "kb/j", "JODI", d_op,
+                            "production de raffinerie − consommation")
+    # Couverture : stocks (NIVEAU, kbbl) ÷ consommation (DÉBIT, kb/j) = jours.
+    # Mélanger les deux unités donnerait un nombre sans signification.
+    if (d_stk and d_dem and d_dem > 0 and _fresh(d_sp, pmax) and d_sp == d_dp):
+        L["diesel_cov"] = V(d_stk / d_dem, "jours", "JODI", d_sp,
+                            "stocks ÷ consommation quotidienne")
     return L
 
 
@@ -1361,12 +1888,15 @@ def load_population():
 def build(countries, a2map):
     oil, oil_months = fetch_jodi_oil(a2map)
     gas, gas_months = fetch_jodi_gas(a2map)
+    prods, prod_months = fetch_jodi_products(a2map)
     owid, owid_span = fetch_owid(set(countries))
     oilres = fetch_owid_oil_reserves()
     eia_c, eia_agg = fetch_eia_intl()
     oecd_stk, oecd_months = fetch_eia_oecd_stocks()
     eu_stk, eu_months = fetch_eu_oil_stocks(a2map)
     fb = fetch_factbook(countries, a2map)
+    refining = fetch_ei_refining()
+    steo = fetch_steo()
     spr = fetch_spr()
     usgas = fetch_us_gas_storage()
     prices = fetch_prices()
@@ -1377,7 +1907,13 @@ def build(countries, a2map):
     gie = fetch_gie(a2map)
     pop = load_population()
 
-    a3s = set(oil) | set(gas) | set(owid) | set(eia_c) | set(fb) | set(eu_stk)
+    # Vue par pays du bloc raffinage, avec son axe d'années, pour derive_latest.
+    ref_by_a3 = {}
+    if refining:
+        for _a3, _r in refining["countries"].items():
+            ref_by_a3[_a3] = dict(_r, _years=refining["years"])
+
+    a3s = set(oil) | set(gas) | set(prods) | set(owid) | set(eia_c) | set(fb) | set(eu_stk)
     a3s &= set(countries)
     out = {}
     for a3 in sorted(a3s):
@@ -1387,6 +1923,8 @@ def build(countries, a2map):
             rec["oil"] = oil[a3]
         if a3 in gas:
             rec["gas"] = gas[a3]
+        if a3 in prods:
+            rec["ref_prod"] = prods[a3]
         if a3 in owid:
             rec["ann"] = owid[a3]
         if a3 in eia_c:
@@ -1400,14 +1938,18 @@ def build(countries, a2map):
             res["oil_hist"] = oilres[a3]
         if res:
             rec["res"] = res
+        if a3 in ref_by_a3:
+            rec["_refining"] = ref_by_a3[a3]
         rec["latest"] = derive_latest(a3, rec, oil_months, gas_months, pop.get(a3),
-                                      oecd_months, eu_months)
+                                      oecd_months, eu_months, prod_months)
+        rec.pop("_refining", None)          # champ de travail, pas de donnée dupliquée
         out[a3] = rec
 
     meta = {
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "oil_months": oil_months,
         "gas_months": gas_months,
+        "prod_months": prod_months,
         "oecd_months": oecd_months,
         "eu_months": eu_months,
         "owid_span": owid_span,
@@ -1423,6 +1965,11 @@ def build(countries, a2map):
         "eu_partners": {"oil": eu_oil_p, "gas": eu_gas_p},
         "gie": gie,
     }
+    if refining:
+        payload["refining"] = refining
+    if steo:
+        payload["steo"] = steo
+        meta["steo_max"] = steo["hist_max"]
     return payload
 
 
@@ -1457,10 +2004,13 @@ def merge_previous(payload, prev):
         return payload
     kept = []
     # Blocs de premier niveau (séries autonomes).
-    for k in ("spr", "us_gas", "prices", "eu_partners", "gie", "eia_agg"):
+    for k in ("spr", "us_gas", "prices", "eu_partners", "gie", "eia_agg", "steo",
+              "refining"):
         if not payload.get(k) and prev.get(k):
             payload[k] = prev[k]
             kept.append(k)
+            if k == "steo" and prev[k].get("hist_max"):
+                payload["meta"]["steo_max"] = prev[k]["hist_max"]
     # Pays : si le run courant en a nettement moins, c'est un run dégradé →
     # on complète pays par pays plutôt que de perdre l'historique.
     pc, qc = payload.get("countries") or {}, prev.get("countries") or {}
@@ -1471,14 +2021,16 @@ def merge_previous(payload, prev):
             if a3 not in pc:
                 pc[a3] = rec
                 continue
-            for sub in ("oil", "gas", "ann", "eia", "res", "eu_stk", "oecd_stk", "latest"):
+            for sub in ("oil", "gas", "ref_prod", "ann", "eia", "res", "eu_stk",
+                        "oecd_stk", "latest"):
                 if not pc[a3].get(sub) and rec.get(sub):
                     pc[a3][sub] = rec[sub]
         payload["countries"] = pc
         kept.append(f"countries(+{len(qc) - len(pc)})")
     # Les index de mois servent d'axe aux séries : ne jamais les perdre.
     pm, qm = payload.get("meta") or {}, prev.get("meta") or {}
-    for k in ("oil_months", "gas_months", "oecd_months", "eu_months", "owid_span"):
+    for k in ("oil_months", "gas_months", "prod_months", "oecd_months",
+              "eu_months", "owid_span"):
         if not pm.get(k) and qm.get(k):
             pm[k] = qm[k]
             kept.append("meta." + k)
