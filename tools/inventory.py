@@ -226,7 +226,13 @@ def outputs_of(script_name, witness):
             txt = open(path, encoding="utf-8", errors="replace").read()
         except OSError:
             txt = ""
-        for m in re.finditer(r"[\"']([\w\-.]+_(?:cache|live|light|alert)[\w\-.]*\.(?:js|json))[\"']", txt):
+        # `ext` ajouté le 2026-08-10 : les fichiers d'extension de la carte à bulles
+        # (`stock_ext_us.js`, rangs 101-300) ne portent aucun des quatre mots-clés et
+        # restaient donc hors de `outputs`. Conséquence NON évidente : `run_jobs` ne
+        # date QUE les sorties déclarées dans `_fichiers.json`, or c'est cet index que
+        # la fonction /data/ consulte pour arbitrer. Un fichier absent de l'index est
+        # « connu du déploiement seul » — publié par la collecte, mais jamais servi.
+        for m in re.finditer(r"[\"']([\w\-.]+_(?:cache|live|light|alert|ext)[\w\-.]*\.(?:js|json))[\"']", txt):
             out.add(m.group(1))
     return sorted(out)
 
