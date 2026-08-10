@@ -231,7 +231,7 @@ def outputs_of(script_name, witness):
 # collecteurs-là ne racontent rien à personne. Toute nouveauté vient donc ici.
 SANS_PLIST = [
     dict(id="orderflow.funding", script="fetch_loris_funding.py", args=[],
-         schedule="toutes les 5 min", per_day=288.0, cadence="5min",
+         schedule="toutes les 10 min", per_day=144.0, cadence="10min",
          category="public",
          outputs=["orderflow_funding_cache.js", "orderflow_funding_cache.json",
                   "orderflow_funding_hist.js",

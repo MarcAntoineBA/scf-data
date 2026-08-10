@@ -58,8 +58,13 @@ valeur, marquée `stale` avec son `asof`), jamais d'écrasement par du vide, éc
 atomique. Si la source ne répond pas du tout, le script sort en erreur SANS toucher
 aux fichiers — un refus franc plutôt qu'un cache vidé.
 
-Charge : 1 requête HTTP par passage, contre un plafond mesuré à 30/min. La cadence
-5 min consomme 0,7 % du quota.
+Charge : 1 requête HTTP par passage, contre un plafond mesuré à 30/min.
+
+CADENCE — Loris affiche « temps réel » mais ne rafraîchit qu'aux 30 à 40 minutes.
+Relever plus vite ne crée aucune granularité : cela empile la même valeur et
+fabrique un faux plat. D'où la cadence 10 min ET le dédoublonnage par la valeur
+en aval — l'un sans l'autre ne suffit pas, puisque l'horodatage, lui, change à
+chaque appel.
 """
 import json
 import os
@@ -197,6 +202,15 @@ def hist_append(path, retention, ts, per_venue, symbols=("BTC", "ETH")):
         row.append(arr)
 
     rows = [r for r in h["rows"] if r[0] != ts]     # rejouer un passage n'ajoute rien
+
+    # DÉDOUBLONNAGE PAR LA VALEUR, et non par l'horodatage. Loris renvoie un
+    # `timestamp` neuf à chaque appel, mais ne rafraîchit sa donnée que toutes
+    # les 30 à 40 minutes : à cadence plus rapide, on empilerait six à huit fois
+    # la même mesure et on fabriquerait un plat de marché qui n'existe pas.
+    # On ne conserve donc un point que si au moins une venue a bougé.
+    if rows and rows[-1][1:] == row[1:]:
+        return len(rows)
+
     rows.append(row)
     rows.sort(key=lambda r: r[0])
 
