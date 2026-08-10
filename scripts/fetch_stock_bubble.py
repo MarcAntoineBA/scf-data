@@ -28,7 +28,7 @@ un graphe fige la veille alors que la bulle, elle, montrait le prix live. La cou
 (spark range=1mo&interval=1h, ~141 pts/mois/titre, 1 requete par batch de 10) donne 7x plus
 de points ET un bord droit a <1h ; elle est rafraichie a CHAQUE run (fichier separe ~280 Ko
 par zone, vs 2,4 Mo pour le daily 5 ans qui garde son TTL de 4h et ne bouge quasi pas)."""
-import json, socket, sys, time, warnings, urllib.parse
+import json, re, socket, sys, time, warnings, urllib.parse
 from pathlib import Path
 from datetime import datetime, timezone
 import requests
@@ -296,6 +296,114 @@ def fetch_history(tickers, rng="5y", interval="1d"):
     return out
 
 
+# ── Anti-DOUBLON de societe : une entreprise = UNE bulle ───────────────────
+# Constate le 2026-08-10 : ASML apparaissait DEUX FOIS sur la carte Europe
+# (ASML.SW et ASMN.VI), et 11 autres societes avec elle (Roche, Nestle, LVMH,
+# Novartis, L'Oreal, Novo Nordisk, ABB, Lindt, Prosus, Infineon, Munich Re) —
+# plus 10 autres dans l'extension rangs 101-300 et 4 doubles cotations A+H en
+# Chine. Cause : le dedup de build_stock_universe.py repose sur le NOM Yahoo,
+# qui change d'une place a l'autre (« ASML Holding N.V » a Vienne contre
+# « ASML HOLDING EO -,09 » a Zurich) — deux lignes miroir du meme titre.
+#
+# Cle retenue : le DOMAINE de la societe (stable d'une place a l'autre),
+# CONFIRME par un second signal quantitatif — meme flottant (`so`) a 15 % pres
+# OU meme capitalisation a 3 % pres. Les deux signaux sont necessaires :
+#   • le domaine seul fusionnerait a tort des societes DISTINCTES qui partagent
+#     un site (Sartorius AG / Sartorius Stedim Biotech, JSW Energy / JSW
+#     Infrastructure, Heineken N.V. / Heineken Holding) ;
+#   • `so` seul raterait Lindt N / Lindt PS (classes d'actions au nominal
+#     different, donc flottants sans rapport) — que la capi, elle, rattrape.
+# Verifie sur les 31 groupes « meme domaine » des 4 zones (rangs 1-300) :
+# 26 vrais doublons fusionnes, 5 faux positifs correctement laisses intacts.
+# Un titre SANS domaine n'est jamais fusionne (pas de preuve) — il est logue.
+SO_TOL = 0.15      # ecart max de flottant pour reconnaitre la meme societe
+MC_TOL = 0.03      # ecart max de capitalisation (rattrape les classes d'actions)
+# Place PRIMAIRE preferee quand plusieurs cotations survivent. Le domicile
+# (`pays`, issu de l'univers) prime ; sinon, ordre generique ou les places de
+# cotation miroir notoires (Vienne, Varsovie) arrivent en dernier.
+HOME_SUFFIX = {
+    "Netherlands": ("AS",), "France": ("PA",), "Germany": ("DE",),
+    "Switzerland": ("SW",), "United Kingdom": ("L",), "Spain": ("MC",),
+    "Italy": ("MI",), "Sweden": ("ST",), "Denmark": ("CO",), "Finland": ("HE",),
+    "Norway": ("OL",), "Belgium": ("BR",), "Portugal": ("LS",),
+    "Austria": ("VI",), "Ireland": ("IR",), "Poland": ("WA",),
+    "China": ("SS", "SZ"), "Hong Kong": ("HK",), "India": ("NS", "BO"),
+}
+VENUE_RANK = ["AS", "PA", "DE", "MI", "MC", "CO", "ST", "HE", "OL", "BR", "LS",
+              "L", "SS", "SZ", "NS", "BO", "SW", "HK", "VI", "WA"]
+
+# « 2. Linie » : ligne de negoce SECONDAIRE d'un meme titre a Zurich (artefact
+# SIX/Yahoo). Elle ne peut pas etre une autre societe : meme domaine -> meme
+# emetteur, quel que soit l'ecart de flottant (Lindt N 133 905 titres contre
+# 1 084 452 sur sa 2e ligne).
+DEUXIEME_LIGNE = re.compile(r"\b2\.\s*LINIE\b", re.I)
+
+def _same_company(a, b):
+    """Deux lignes du meme domaine designent-elles la MEME societe ?"""
+    if DEUXIEME_LIGNE.search(a.get("n") or "") or DEUXIEME_LIGNE.search(b.get("n") or ""):
+        return True
+    sa, sb = a.get("so"), b.get("so")
+    if sa and sb and abs(sa - sb) / max(sa, sb) <= SO_TOL: return True
+    ma, mb = a.get("mc"), b.get("mc")
+    if ma and mb and abs(ma - mb) / max(ma, mb) <= MC_TOL: return True
+    return False
+
+# Marques d'une raison sociale defiguree par la place de cotation : nominal de
+# l'action (« EO -,09 », « EO 0,2 »), forme du titre (INH. = Inhaber, N/PS),
+# 2e ligne de negoce… Un nom qui en porte passe apres un nom propre.
+NOM_ABIME = re.compile(r"\bEO\s|\bINH\b|\bNAM\b|\b2\.\s*LINIE\b|\bPS\b|\bREG\b", re.I)
+
+def _name_score(n, t):
+    """Plus c'est BAS, meilleur est le libelle (min() choisit le plus propre).
+    A egalite on prend le PLUS COURT : « ABB » vaut mieux que « ABB LTD. N »."""
+    abime = 1 if NOM_ABIME.search(n) else 0
+    ticker = 1 if n == t or n == t.split(".")[0] else 0          # « NESR.DE » en guise de nom
+    capitales = 1 if n == n.upper() else 0                       # « GALDERMA GROUP N »
+    return (abime, ticker, capitales, len(n), n)
+
+def _listing_score(row, pays):
+    """Plus c'est BAS, plus la cotation est primaire (donc gardee)."""
+    t = row["t"]; sfx = t.rsplit(".", 1)[-1] if "." in t else ""
+    home = HOME_SUFFIX.get(pays or "", ())
+    return (0 if sfx in home else 1,
+            VENUE_RANK.index(sfx) if sfx in VENUE_RANK else len(VENUE_RANK),
+            -(row.get("mc") or 0), t)
+
+def dedupe_listings(zone, rows, meta):
+    """Une societe = une bulle. Retourne (rows_uniques, [(garde, [ecartes])])."""
+    by_dom = {}
+    out, merged = [], []
+    for r in rows:
+        d = r.get("d")
+        if not d: out.append(r); continue
+        by_dom.setdefault(d, []).append(r)
+    for d, group in by_dom.items():
+        clusters = []                       # regroupement par proche-en-proche
+        for r in group:
+            for c in clusters:
+                if any(_same_company(r, x) for x in c): c.append(r); break
+            else:
+                clusters.append([r])
+        for c in clusters:
+            # Le domicile est une propriete de la SOCIETE, pas de la ligne : Yahoo
+            # ne le renseigne que sur certaines places (Nestle est « Switzerland »
+            # sur sa ligne allemande et vide sur la suisse). On le resout donc au
+            # niveau du groupe, sinon la cotation miroir gagnerait sur la primaire.
+            pays = next((( meta.get(r["t"]) or {}).get("pays") for r in c
+                         if (meta.get(r["t"]) or {}).get("pays")), None)
+            c.sort(key=lambda r: _listing_score(r, pays))
+            garde = dict(c[0])
+            # Le libelle affiche vient de la ligne au nom le plus PROPRE du groupe,
+            # meme si la cotation retenue est une autre : les places miroir
+            # renvoient des raisons sociales defigurees par le nominal du titre
+            # (« ASML HOLDING EO -,09 » a Zurich pour « ASML Holding N.V »).
+            garde["n"] = min(((r.get("n") or r["t"], r["t"]) for r in c),
+                             key=lambda x: _name_score(*x))[0]
+            out.append(garde)
+            if len(c) > 1: merged.append((c[0]["t"], [x["t"] for x in c[1:]]))
+    return out, merged
+
+
 # ── Construction d'une zone : Top 100 evolutif par mcap USD live ────────────
 def build_zone(zone, pool, fx, prev_stocks=None):
     tickers = [r["t"] for r in pool]
@@ -334,6 +442,17 @@ def build_zone(zone, pool, fx, prev_stocks=None):
         if t in got: continue
         if t in prev:
             rows.append(prev[t]); backfill += 1
+    # une societe = une bulle (cotations miroir fusionnees avant le classement,
+    # sinon le rang libere serait perdu au lieu de laisser monter le suivant)
+    n_avant = len(rows)
+    rows, merged = dedupe_listings(zone, rows, meta)
+    if merged:
+        log(f"  zone {zone}: {n_avant - len(rows)} cotation(s) miroir fusionnee(s): "
+            + ", ".join(f"{k}<-{'+'.join(v)}" for k, v in merged[:14])
+            + (" …" if len(merged) > 14 else ""))
+    sans_dom = [r["t"] for r in rows if not r.get("d")]
+    if sans_dom:
+        log(f"  zone {zone}: sans domaine, doublon indetectable ({len(sans_dom)}): {sans_dom[:10]}")
     rows.sort(key=lambda r: r["mc"], reverse=True)
     top = rows[:DEEP_N]                  # classement profond : le Top 100 en est le prefixe
     live = len(rows) - backfill          # lignes issues du spark de CE run (pas du cache)
@@ -341,6 +460,20 @@ def build_zone(zone, pool, fx, prev_stocks=None):
         + (f" + {backfill} backfill" if backfill else "")
         + f" -> {len(rows)} valides -> classement {len(top)} (top100 + ext {max(0, len(top)-TOP_N)})"
         + (f" | #1 {top[0]['n']} ${top[0]['mc']}B" if top else ""))
+    # Garde-fou anti-regression : aucune PAIRE reconnue « meme societe » ne doit
+    # subsister dans ce qui part a l'ecran (le doublon ASML, lui, est alle
+    # jusqu'a la carte Europe sans qu'aucun controle ne bronche).
+    par_dom = {}
+    for r in top:
+        if r.get("d"): par_dom.setdefault(r["d"], []).append(r)
+    alerte = [d for d, g in par_dom.items() if len(g) > 1
+              and any(_same_company(a, b) for i, a in enumerate(g) for b in g[i+1:])]
+    info = [d for d, g in par_dom.items() if len(g) > 1 and d not in alerte]
+    if alerte:
+        log(f"  ALERTE zone {zone}: doublon NON resolu (tolerances a revoir): {sorted(alerte)}")
+    if info:
+        # attendu : societes DISTINCTES partageant un site (Sartorius, JSW…)
+        log(f"  zone {zone}: domaines partages par des societes distinctes (ok): {sorted(info)}")
     return top, live
 
 
