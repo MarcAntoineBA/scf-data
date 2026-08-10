@@ -1,15 +1,20 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-10T04:30:38Z",
+  "ts": "2026-08-10T10:13:58Z",
   "total": 20,
-  "ok": 20,
-  "secs": 4222.1,
+  "ok": 19,
+  "secs": 4795.2,
   "changed": 28,
   "versionnes": 22,
   "pieces_jointes": 6,
-  "absents": 24,
-  "failed": []
+  "absents": 15,
+  "failed": [
+   {
+    "job": "tradfihist",
+    "why": "dépassement du plafond (75 min)"
+   }
+  ]
  },
- "updated": "2026-08-10T04:30:38Z"
+ "updated": "2026-08-10T10:13:58Z"
 }
