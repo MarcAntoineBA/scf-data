@@ -87,7 +87,6 @@ LOCALE = {
 CADENCE_OVERRIDES = {
     # ── 5 min : ce qui bouge en séance ────────────────────────────────────────
     "com.bassetti.moneyflow": "5min",         # flux intrajournaliers
-    "com.bassetti.stockbubble": "5min",       # cotations des actions suivies
 
     # ── 5 min : guetteurs de publication. Ce sont EUX qui portent la valeur sur un
     # site de marché — un chiffre macro ou une dépêche n'ont d'intérêt qu'à l'instant
@@ -100,6 +99,14 @@ CADENCE_OVERRIDES = {
 
     # ── 10 min ────────────────────────────────────────────────────────────────
     "com.bassetti.treasury": "10min",         # dépôts SEC + valorisation au spot
+    # Les actions étaient à 5 min, donc bornées à 4 min d'exécution. Le collecteur
+    # classe désormais 1 296 titres sur quatre zones et va chercher, pour chacun, les
+    # clôtures de référence 1H et 4H : 3 min 01 mesurées, soit 40 s de marge sur ce
+    # plafond — trop peu, et un dépassement ne coûte pas un retard mais un GEL (le
+    # cache n'est écrit qu'à la fin, donc rien ne serait publié, indéfiniment). À
+    # 10 min le plafond passe à 8 min. La fraîcheur ne change pas pour autant : le
+    # collecteur porte sa propre garde de 20 min et ne travaille que quand elle tombe.
+    "com.bassetti.stockbubble": "10min",      # cotations des actions suivies
 
     # ── 1 h : marchés et dérivés. Étaient à 6 h, sans raison autre que le Mac ──
     "com.bassetti.radardata": "1h",           # financement, intérêt ouvert, ratios

@@ -30,7 +30,7 @@ de points ET un bord droit a <1h ; elle est rafraichie a CHAQUE run (fichier sep
 par zone, vs 2,4 Mo pour le daily 5 ans qui garde son TTL de 4h et ne bouge quasi pas)."""
 import json, socket, sys, time, warnings, urllib.parse
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
 
 warnings.filterwarnings("ignore")
@@ -69,15 +69,18 @@ UNIVERSE = HERE / "stock_universe.json"           # copie a cote du script (Desk
 
 CACHE_MAX_MINUTES = 20
 HISTORY_MAX_MINUTES = 240        # 4h
-TOP_N = 100
+TOP_N = 100                      # carte par defaut (fichier principal, logos + histo 5 ans bakes)
+DEEP_N = 300                     # profondeur maximale du spectre (rangs 101-300 = fichier d'extension)
 MIN_ZONE_OK = 60                 # seuil merge-preserve (zone consideree saine)
 
 ZONE_ORDER = ["us", "cn", "eu", "in"]
+# Plus de profondeur dans le libelle (« Top 100 X ») : le spectre est reglable cote
+# client (100/200/300) et le titre de la carte annonce deja le nombre reellement affiche.
 ZONE_SOURCE = {
-    "us": "Yahoo Finance · S&P 100",
-    "cn": "Yahoo Finance · Top 100 Chine",
-    "eu": "Yahoo Finance · Top 100 Europe",
-    "in": "Yahoo Finance · Top 100 Inde",
+    "us": "Yahoo Finance · actions US",
+    "cn": "Yahoo Finance · actions Chine",
+    "eu": "Yahoo Finance · actions Europe",
+    "in": "Yahoo Finance · actions Inde",
 }
 # zone -> (global JS, fichier .js, fichier .json) pour l'historique splitte
 HISTORY_FILES = {
@@ -95,6 +98,16 @@ INTRADAY_FILES = {
 }
 INTRADAY_RANGE    = "1mo"
 INTRADAY_INTERVAL = "1h"
+# Extension du spectre (rangs 101-300) : fichier SEPARE par zone, charge a la demande
+# quand l'utilisateur demande « top 200 » ou « top 300 ». Volontairement sans historique
+# 5 ans ni couche horaire bakee (le modal de ces titres tire sa courbe de /live/chart) :
+# c'est ce qui garde le poids du depot et la duree du run raisonnables.
+EXT_FILES = {
+    "us": ("__STOCK_EXT_US__", "stock_ext_us.js", "stock_ext_us.json"),
+    "cn": ("__STOCK_EXT_CN__", "stock_ext_cn.js", "stock_ext_cn.json"),
+    "eu": ("__STOCK_EXT_EU__", "stock_ext_eu.js", "stock_ext_eu.json"),
+    "in": ("__STOCK_EXT_IN__", "stock_ext_in.js", "stock_ext_in.json"),
+}
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 def log(msg): sys.stderr.write(f"[StockBubble] {msg}\n"); sys.stderr.flush()
@@ -166,6 +179,18 @@ def _ref_at(pairs, days_ago):
         else: break
     return ref
 
+def _ref_before(pairs, ts_cutoff):
+    """Derniere cloture ANTERIEURE a un horodatage absolu (None si aucune)."""
+    ref = None
+    for t, c in pairs:
+        if t < ts_cutoff: ref = c
+        else: break
+    return ref
+
+def _jan1_ts():
+    """Horodatage UTC du 1er janvier de l'annee en cours (borne YTD)."""
+    return datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc).timestamp()
+
 def compute_changes(obj):
     # Paires (ts, close) alignees : le filtrage des None doit garder l'horodatage,
     # sinon une seance trouee (Yahoo renvoie close:null, cf 24/07/2026) decale les
@@ -189,8 +214,9 @@ def compute_changes(obj):
         if not prev1 or prev1 <= 0:
             return None                       # aucune reference -> on n'invente pas
         d = round((cur1 / prev1 - 1) * 100, 2)
-        return {"px": round(cur1, 4), "d1": d, "d5": d, "m1": d, "ytd": d,
-                "pc": round(prev1, 4), "c5": round(prev1, 4), "c1m": round(prev1, 4), "cy": round(prev1, 4)}
+        return {"px": round(cur1, 4), "d1": d, "d5": d, "m1": d, "m3": d, "ytd": d,
+                "pc": round(prev1, 4), "c5": round(prev1, 4), "c1m": round(prev1, 4),
+                "c3m": round(prev1, 4), "cy": round(prev1, 4)}
     if len(closes) < 2: return None
     cur = closes[-1]; n = len(closes); prev = obj.get("chartPreviousClose")
     # CLOTURES DE REFERENCE (2026-07-29) — le coeur du correctif « variations fausses ».
@@ -202,14 +228,24 @@ def compute_changes(obj):
     ref_1d = closes[n-2]                                   # veille = seance precedente
     ref_5d = closes[n-6] if n >= 6 else ref_1d             # 5 seances (= « 5J »)
     ref_1m = _ref_at(pairs, 30) or closes[0]               # 1 mois CALENDAIRE (avant : 22 seances)
-    ref_ytd = prev if (prev and prev > 0) else closes[0]   # cloture du 31/12 (chartPreviousClose sur range=ytd)
+    ref_3m = _ref_at(pairs, 91) or closes[0]               # 3 mois CALENDAIRES
+    # YTD : la fenetre spark est passee de `ytd` a `1y` (il faut >90 jours d'historique
+    # pour la reference 3 mois, ce que `ytd` ne fournit pas en janvier-mars). Du coup
+    # `chartPreviousClose` ne designe PLUS la cloture du 31/12 mais celle d'avant la
+    # fenetre d'un an -> la reference YTD est desormais lue dans la SERIE, a la borne
+    # du 1er janvier. Plus robuste : elle ne depend plus du sens que Yahoo donne a un
+    # champ selon le `range` demande.
+    ref_ytd = _ref_before(pairs, _jan1_ts())
+    if not ref_ytd or ref_ytd <= 0:
+        ref_ytd = prev if (prev and prev > 0) else closes[0]
     chg1d = round((cur / ref_1d - 1) * 100, 2)
     chg5d = round((cur / ref_5d - 1) * 100, 2)
     chg1m = round((cur / ref_1m - 1) * 100, 2)
+    chg3m = round((cur / ref_3m - 1) * 100, 2)
     chg_ytd = round((cur / ref_ytd - 1) * 100, 2)
-    return {"px": round(cur, 4), "d1": chg1d, "d5": chg5d, "m1": chg1m, "ytd": chg_ytd,
+    return {"px": round(cur, 4), "d1": chg1d, "d5": chg5d, "m1": chg1m, "m3": chg3m, "ytd": chg_ytd,
             "pc": round(ref_1d, 4), "c5": round(ref_5d, 4),
-            "c1m": round(ref_1m, 4), "cy": round(ref_ytd, 4)}
+            "c1m": round(ref_1m, 4), "c3m": round(ref_3m, 4), "cy": round(ref_ytd, 4)}
 
 def fetch_spark(tickers, rng="ytd"):
     out = {}
@@ -265,7 +301,7 @@ def build_zone(zone, pool, fx, prev_stocks=None):
     tickers = [r["t"] for r in pool]
     meta = {r["t"]: r for r in pool}
     prev = {s["t"]: s for s in (prev_stocks or [])}
-    spark = fetch_spark(tickers, "ytd")
+    spark = fetch_spark(tickers, "1y")
     rows = []
     for t in tickers:
         obj = spark.get(t)
@@ -279,13 +315,14 @@ def build_zone(zone, pool, fx, prev_stocks=None):
         if not mc: continue                        # ni live ni fallback -> on saute (jamais de bulle nulle)
         row = {"t": t, "n": m.get("n", t), "s": m.get("s", "—"), "d": m.get("d"),
                "ccy": ccy, "p": round(p_usd, 2) if p_usd is not None else None,
-               "d1": ch["d1"], "d5": ch["d5"], "m1": ch["m1"], "ytd": ch["ytd"],
+               "d1": ch["d1"], "d5": ch["d5"], "m1": ch["m1"], "m3": ch["m3"], "ytd": ch["ytd"],
                "mc": round(mc)}
         # Socle du RECALCUL LIVE cote client (cf functions/live/quotes.js) : clotures de
         # reference en devise NATIVE (comme le prix renvoye par le proxy Yahoo) + actions
         # en circulation. Le client n'a alors besoin que du prix live pour reconstruire
         # 1J/5J/1M/YTD *et* la capi, tous coherents avec le prix qu'il affiche.
-        row["pc"] = ch["pc"]; row["c5"] = ch["c5"]; row["c1m"] = ch["c1m"]; row["cy"] = ch["cy"]
+        row["pc"] = ch["pc"]; row["c5"] = ch["c5"]; row["c1m"] = ch["c1m"]
+        row["c3m"] = ch["c3m"]; row["cy"] = ch["cy"]
         row["pn"] = ch["px"]                       # prix natif du snapshot (base du % de secours)
         if m.get("so"): row["so"] = m["so"]
         if m.get("lbl"): row["lbl"] = m["lbl"]   # label court d'affichage (bulle/movers) ex. CN: ICBC, CATL…
@@ -298,14 +335,39 @@ def build_zone(zone, pool, fx, prev_stocks=None):
         if t in prev:
             rows.append(prev[t]); backfill += 1
     rows.sort(key=lambda r: r["mc"], reverse=True)
-    top = rows[:TOP_N]
+    top = rows[:DEEP_N]                  # classement profond : le Top 100 en est le prefixe
     live = len(rows) - backfill          # lignes issues du spark de CE run (pas du cache)
     log(f"  zone {zone}: {len(spark)}/{len(tickers)} spark"
         + (f" + {backfill} backfill" if backfill else "")
-        + f" -> {len(rows)} valides -> top{len(top)}"
+        + f" -> {len(rows)} valides -> classement {len(top)} (top100 + ext {max(0, len(top)-TOP_N)})"
         + (f" | #1 {top[0]['n']} ${top[0]['mc']}B" if top else ""))
     return top, live
 
+
+# ── References INTRA-JOURNALIERES (1H / 4H) ────────────────────────────────
+# Definition retenue, identique a celle des Narrative Trackers : « cloture d'il y a
+# n BARRES -> dernier cours ». En barres et non en heures d'horloge, sinon la vue 1H
+# d'un marche ferme mesurerait une plage sans aucune cotation et afficherait 0 %.
+#
+# PIEGE Yahoo (deja rencontre sur fetch_trackers_tf.py) : la serie intraday se termine
+# par une pseudo-barre HORS GRILLE, horodatee a l'instant de la requete, qui porte le
+# prix courant. Comptee comme une barre, elle decale toute la fenetre d'un cran (« 4h »
+# ne couvrant plus que quelques minutes). On la replie donc sur la derniere barre alignee.
+def _normalize_hourly(pts):
+    """Replie la pseudo-barre hors grille sur la derniere barre ALIGNEE, qui porte
+    alors le prix courant. La grille horaire reste ainsi reguliere."""
+    if len(pts) >= 2 and (pts[-1][0] - pts[-2][0]) < 1800:
+        return pts[:-2] + [[pts[-2][0], pts[-1][1]]]
+    return pts
+
+def _intraday_refs(pts):
+    """(ref_1h, ref_4h) en devise NATIVE, ou (None, None) si la serie est trop courte."""
+    if not pts: return None, None
+    p = _normalize_hourly([list(x) for x in pts])
+    if len(p) < 2: return None, None
+    r1 = p[-2][1]
+    r4 = p[-5][1] if len(p) >= 5 else p[0][1]
+    return r1, r4
 
 def load_json(p):
     try: return json.loads(Path(p).read_text())
@@ -321,6 +383,7 @@ def main():
 
     prev = load_json(CACHE_FILE) or {}
     prev_zones = prev.get("zones", {})
+    intra_by_zone = {}                    # zone -> series horaires du Top 100 (ecrites plus bas)
 
     # freshness prix
     refresh_prices = True
@@ -358,6 +421,56 @@ def main():
                 log(f"  zone {z}: {len(top)} titres (<{MIN_ZONE_OK}) — merge-preserve cache precedent")
                 zones[z] = prev_zones[z]
         now = datetime.now().isoformat()
+
+        # ── Couche HORAIRE : elle doit passer AVANT l'ecriture du cache, car elle
+        # fournit les clotures de reference 1H et 4H que le client utilisera pour
+        # recalculer ces deux fenetres a partir du prix live. Le Top 100 tire un
+        # mois d'historique (il alimente aussi le modal) ; les rangs 101-300 se
+        # contentent de 5 jours, largement assez pour deux references et bien plus
+        # leger a telecharger comme a stocker.
+        for z in ZONE_ORDER:
+            stocks = zones.get(z, {}).get("stocks", [])
+            if not stocks: continue
+            head = [s["t"] for s in stocks[:TOP_N]]
+            tail = [s["t"] for s in stocks[TOP_N:]]
+            try:
+                got = fetch_history(head, INTRADAY_RANGE, INTRADAY_INTERVAL) if head else {}
+                if tail:
+                    got_tail = fetch_history(tail, "5d", INTRADAY_INTERVAL)
+                else:
+                    got_tail = {}
+            except NetworkDown as e:
+                log(f"intraday {z}: ABORT ({e}) — references 1H/4H du run precedent conservees")
+                break
+            intra_by_zone[z] = got                      # seul le Top 100 est publie comme historique
+            got_tail = got_tail or {}
+            n1h = 0
+            for s in stocks:
+                pts = got.get(s["t"]) or got_tail.get(s["t"])
+                r1, r4 = _intraday_refs(pts)
+                if r1: s["c1h"] = round(r1, 4); n1h += 1
+                if r4: s["c4h"] = round(r4, 4)
+            log(f"  intraday {z}: {len(got)}/{len(head)} top100 + {len(got_tail)}/{len(tail)} ext"
+                f" -> {n1h}/{len(stocks)} references 1H")
+
+        # Le fichier principal ne porte que le Top 100 ; les rangs 101-300 partent
+        # dans un fichier d'extension par zone, charge seulement si l'utilisateur
+        # elargit le spectre.
+        deep = {z: zones[z].get("stocks", []) for z in zones}
+        for z in zones:
+            zones[z] = dict(zones[z], stocks=deep[z][:TOP_N])
+        for z, rows in deep.items():
+            ext = rows[TOP_N:]
+            gname, jsname, jsonname = EXT_FILES[z]
+            ext_json = CACHE_DIR / jsonname; ext_js = CACHE_DIR / jsname
+            if not ext:
+                log(f"  ext {z}: 0 titre au-dela du rang {TOP_N} (pool trop court) — fichier inchange")
+                continue
+            payload_ext = {"updated": now, "stocks": ext}
+            ext_json.write_text(json.dumps(payload_ext, separators=(",", ":")))
+            with open(ext_js, "w") as f:
+                f.write(f"window.{gname}=" + json.dumps(payload_ext, separators=(",", ":")) + ";\n")
+            log(f"  wrote {jsname} (rangs {TOP_N+1}-{TOP_N+len(ext)}, {ext_js.stat().st_size // 1024} Ko)")
 
         payload = {"updated": now, "fx": fx, "zones": zones}
         CACHE_FILE.write_text(json.dumps(payload, separators=(",", ":")))
@@ -416,11 +529,16 @@ def main():
         intra_json = CACHE_DIR / jsonname; intra_js = CACHE_DIR / jsname
         tickers = [s["t"] for s in cur_zones.get(z, {}).get("stocks", [])]
         if not tickers: continue
-        log(f"intraday {z}: {len(tickers)} tickers, {INTRADAY_RANGE} {INTRADAY_INTERVAL}…")
-        try:
-            intra = fetch_history(tickers, INTRADAY_RANGE, INTRADAY_INTERVAL)
-        except NetworkDown as e:
-            log(f"intraday {z}: ABORT ({e}) — caches intraday conserves"); break
+        # Les series ont deja ete tirees plus haut (elles servaient a calculer les
+        # references 1H/4H) : on ne redemande pas Yahoo une seconde fois. Elles ne
+        # manquent que sur un run ou les prix etaient encore frais (<20 min).
+        intra = intra_by_zone.get(z)
+        if intra is None:
+            log(f"intraday {z}: {len(tickers)} tickers, {INTRADAY_RANGE} {INTRADAY_INTERVAL}…")
+            try:
+                intra = fetch_history(tickers, INTRADAY_RANGE, INTRADAY_INTERVAL)
+            except NetworkDown as e:
+                log(f"intraday {z}: ABORT ({e}) — caches intraday conserves"); break
         # merge-preserve : un run maigre (Yahoo qui tousse) ne doit jamais ecraser
         # une couche horaire saine par du vide — meme regle que le daily.
         if len(intra) >= max(1, len(tickers) // 2):
