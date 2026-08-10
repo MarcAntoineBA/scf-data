@@ -238,7 +238,7 @@ SANS_PLIST = [
                   "orderflow_funding_hist_1d.json", "orderflow_funding_hist_1h.json",
                   "orderflow_funding_hist_5m.json"],
          witness="orderflow_funding_cache.json"),
-    dict(id="crypto.options", script="fetch_deribit_options.py", args=[],
+    dict(id="crypto.options", script="fetch_options_multi.py", args=[],
          schedule="toutes les 1 h", per_day=24.0, cadence="1h",
          category="public",
          outputs=["crypto_options_cache.js", "crypto_options_cache.json"],
