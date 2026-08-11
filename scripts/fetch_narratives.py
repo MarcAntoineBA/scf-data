@@ -1670,9 +1670,20 @@ def augment_with_momentum_metrics(stats_list, histories):
             last = vals[-1]
             above_ma = last > ma50
             ok_breadth = breadth_30d is not None and breadth_30d > 50.0
-            if above_ma and ok_breadth:
+            # 3e condition ajoutée le 2026-08-11 : battre le benchmark. La
+            # soustraction du benchmark est un nombre unique retranché à tous les
+            # narratifs — mesuré, rang(rel_mom_90d) ≡ rang(perf_90d_w), ρ=1,000 :
+            # elle ne pouvait donc déplacer aucun classement. En la posant comme
+            # condition du régime LONG, elle décide enfin de quelque chose. Le
+            # score composite reste inchangé (choix explicite : ne pas déplacer
+            # la référence du site).
+            ok_rel = rel_mom_90d is None or rel_mom_90d > 0
+            if above_ma and ok_breadth and ok_rel:
                 signal = "long"
-                signal_reason = f"idx>MA50 & breadth {breadth_30d:.0f}%>50%"
+                signal_reason = f"idx>MA50, breadth {breadth_30d:.0f}%>50% & bat BTC"
+            elif above_ma and ok_breadth:
+                signal_reason = (f"idx>MA50 & breadth {breadth_30d:.0f}%>50%, "
+                                 f"mais sous-performe BTC de {abs(rel_mom_90d):.1f} pt")
             elif above_ma:
                 signal_reason = f"idx>MA50 mais breadth {breadth_30d:.0f}%≤50%"
             elif ok_breadth:
@@ -1705,29 +1716,33 @@ def augment_with_momentum_metrics(stats_list, histories):
 
 def compute_composite(stats_list):
     """Composite 0..100 — style momentum cyclique (Thami Kabaj / Alpha ZEN):
-        50% momentum RELATIF vs BTC (90j)     → force du narratif, pas juste son prix
-        20% breadth (% tokens narratif >0 sur 30j) → confirme la largeur du move
-        20% momentum court terme (7j+30j)      → réactivité / timing
-        10% news acceleration                   → attention (poids réduit, signal bruité)
+        55 %   momentum RELATIF vs BTC (90j)          → force du narratif, pas son prix
+        22,5 % breadth (% tokens du narratif >0 sur 30j) → largeur du mouvement
+        22,5 % momentum court terme (7j+30j)          → réactivité / timing
+
+    LA JAMBE NEWS A ÉTÉ RETIRÉE (2026-08-11). Elle ne l'était que dans le
+    discours : la page annonçait « news désactivé (v2 2026-04-24) » et affichait
+    des poids 55 / 22,5 / 22,5, pendant que ce calcul appliquait toujours
+    50/20/20/10 avec `mention_accel`. L'écart n'était pas cosmétique — la jambe
+    news pesait réellement sur le classement (ρ = 0,30 avec le score final), sur
+    un signal RSS que le site avait justement jugé trop fragile. Les poids
+    correspondent maintenant à ceux de fetch_tradfi.py et de la couche fenêtres,
+    donc la crypto applique enfin UNE seule formule sur toutes ses fenêtres.
     """
     rel_vals     = [s.get("rel_mom_90d")    for s in stats_list]
     breadth_vals = [s.get("breadth_30d")    for s in stats_list]
     px_vals      = [s.get("price_momentum") for s in stats_list]
-    news_vals    = [s.get("mention_accel")  for s in stats_list]
 
     rel_rk     = rank_normalize(rel_vals)
     breadth_rk = rank_normalize(breadth_vals)
     px_rk      = rank_normalize(px_vals)
-    news_rk    = rank_normalize(news_vals)
 
     for i, s in enumerate(stats_list):
         s["score_rel_mom"] = rel_rk[i]
         s["score_breadth"] = breadth_rk[i]
         s["score_price"]   = px_rk[i]
-        s["score_news"]    = news_rk[i]
         s["score"] = round(
-            0.50 * rel_rk[i] + 0.20 * breadth_rk[i]
-            + 0.20 * px_rk[i] + 0.10 * news_rk[i], 1
+            0.55 * rel_rk[i] + 0.225 * breadth_rk[i] + 0.225 * px_rk[i], 1
         )
     stats_list.sort(key=lambda s: s["score"], reverse=True)
     for i, s in enumerate(stats_list):

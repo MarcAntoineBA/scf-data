@@ -3590,9 +3590,19 @@ def augment_with_momentum_metrics(stats_list, histories):
             last = vals[-1]
             above_ma = last > ma50
             ok_breadth = breadth_30d is not None and breadth_30d > 50.0
-            if above_ma and ok_breadth:
+            # 3e condition ajoutée le 2026-08-11 : battre le S&P 500. La
+            # soustraction du benchmark est un nombre unique retranché à tous les
+            # secteurs — mesuré, rang(rel_mom_90d) ≡ rang(perf_90d_w), ρ=1,000 :
+            # elle ne déplaçait aucun classement, alors que la Méthodologie en
+            # fait « le signal-roi ». Posée en condition du régime LONG, elle
+            # décide enfin. Le score composite reste inchangé (choix explicite).
+            ok_rel = rel_mom_90d is None or rel_mom_90d > 0
+            if above_ma and ok_breadth and ok_rel:
                 signal = "long"
-                signal_reason = f"idx>MA50 & breadth {breadth_30d:.0f}%>50%"
+                signal_reason = f"idx>MA50, breadth {breadth_30d:.0f}%>50% & bat le S&P 500"
+            elif above_ma and ok_breadth:
+                signal_reason = (f"idx>MA50 & breadth {breadth_30d:.0f}%>50%, "
+                                 f"mais sous-performe le S&P 500 de {abs(rel_mom_90d):.1f} pt")
             elif above_ma:
                 signal_reason = f"idx>MA50 mais breadth {breadth_30d:.0f}%≤50%"
             elif ok_breadth:
@@ -3627,29 +3637,26 @@ def compute_composite(stats_list):
         55%  momentum RELATIF vs S&P 500 (90j)  → vraie force du secteur vs le marché
         22.5% breadth (% actions secteur >0 sur 30j) → largeur du move
         22.5% momentum court terme (7j+30j)     → réactivité / timing
-        0%   news acceleration                   → désactivé : signal RSS trop fragile
-                                                    (baseline quasi-vide → accel plafonné à +3
-                                                    pour 14 secteurs, aucune discrimination).
-                                                    Le rank est conservé en output pour debug.
+
+    La jambe news a été entièrement retirée le 2026-08-11. Elle était déjà à
+    poids 0 ici, mais son rang restait calculé et publié « pour debug » : un
+    champ mort qui laissait croire à une quatrième dimension, et que la page
+    crypto, elle, appliquait encore réellement. Plus de news nulle part.
     """
     rel_vals     = [s.get("rel_mom_90d")    for s in stats_list]
     breadth_vals = [s.get("breadth_30d")    for s in stats_list]
     px_vals      = [s.get("price_momentum") for s in stats_list]
-    news_vals    = [s.get("mention_accel")  for s in stats_list]
 
     rel_rk     = rank_normalize(rel_vals)
     breadth_rk = rank_normalize(breadth_vals)
     px_rk      = rank_normalize(px_vals)
-    news_rk    = rank_normalize(news_vals)  # gardé en output pour debug, poids 0
 
     for i, s in enumerate(stats_list):
         s["score_rel_mom"] = rel_rk[i]
         s["score_breadth"] = breadth_rk[i]
         s["score_price"]   = px_rk[i]
-        s["score_news"]    = news_rk[i]
         s["score"] = round(
-            0.55  * rel_rk[i] + 0.225 * breadth_rk[i]
-            + 0.225 * px_rk[i] + 0.0 * news_rk[i], 1
+            0.55 * rel_rk[i] + 0.225 * breadth_rk[i] + 0.225 * px_rk[i], 1
         )
     stats_list.sort(key=lambda s: s["score"], reverse=True)
     for i, s in enumerate(stats_list):
