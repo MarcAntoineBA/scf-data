@@ -64,7 +64,7 @@
       "name": "Nikkei 225",
       "currency": "JPY",
       "region": "Asie",
-      "pe": 20.0,
+      "pe": 19.9,
       "pb": 1.4,
       "div_yield": 3.86,
       "rev_growth": null,
@@ -131,7 +131,8 @@
       "perf_ytd": 9.2,
       "perf_1y": 19.0,
       "perf_3y": 44.7,
-      "perf_5y": 52.5
+      "perf_5y": 52.5,
+      "_stale": true
     },
     {
       "country": "Corée du Sud",
@@ -140,7 +141,7 @@
       "name": "KOSPI",
       "currency": "KRW",
       "region": "Asie",
-      "pe": 16.4,
+      "pe": 16.3,
       "pb": 1.9,
       "div_yield": 1.25,
       "rev_growth": null,
@@ -150,7 +151,8 @@
       "perf_ytd": 46.2,
       "perf_1y": 96.4,
       "perf_3y": 145.0,
-      "perf_5y": 92.6
+      "perf_5y": 92.6,
+      "_stale": true
     },
     {
       "country": "Brésil",
@@ -159,7 +161,7 @@
       "name": "Bovespa",
       "currency": "BRL",
       "region": "Amérique",
-      "pe": 10.8,
+      "pe": 10.7,
       "pb": 0.9,
       "div_yield": 4.0,
       "rev_growth": null,
@@ -216,7 +218,7 @@
       "name": "TAIEX",
       "currency": "TWD",
       "region": "Asie",
-      "pe": 30.6,
+      "pe": 30.5,
       "pb": 1.8,
       "div_yield": 1.04,
       "rev_growth": null,
@@ -343,7 +345,7 @@
     "perf_3y": 75.7,
     "perf_5y": 77.5
   },
-  "updated": "11/08/2026 15:17",
+  "updated": "11/08/2026 16:13",
   "sources": {
     "fundamentals": "Yahoo Finance (ETF info: SPY, EWJ, MCHI, INDA, etc.)",
     "performance": "Yahoo Finance (index historical prices)",
