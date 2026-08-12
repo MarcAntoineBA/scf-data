@@ -1,15 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-11T05:46:19Z",
+  "ts": "2026-08-12T06:57:31Z",
   "total": 18,
-  "ok": 18,
-  "secs": 471.7,
-  "changed": 28,
-  "versionnes": 26,
+  "ok": 17,
+  "secs": 3408.9,
+  "changed": 26,
+  "versionnes": 24,
   "pieces_jointes": 2,
   "absents": 21,
-  "failed": []
+  "failed": [
+   {
+    "job": "atlaseco",
+    "why": "[GUARD] audit interne en échec — cache précédent conservé"
+   }
+  ]
  },
- "updated": "2026-08-11T05:46:19Z"
+ "updated": "2026-08-12T06:57:31Z"
 }
