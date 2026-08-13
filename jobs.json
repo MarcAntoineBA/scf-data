@@ -1670,6 +1670,20 @@
     "sec_inities_vus.json"
    ],
    "witness": "sec_inities_cache.json"
+  },
+  {
+   "id": "secrachats",
+   "script": "fetch_sec_rachats.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "sec_rachats_cache.js",
+    "sec_rachats_cache.json"
+   ],
+   "witness": "sec_rachats_cache.json"
   }
  ]
 }
