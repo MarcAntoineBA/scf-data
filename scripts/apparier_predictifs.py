@@ -50,11 +50,26 @@ import sys
 
 CACHE = os.environ.get("SCF_CACHE_DIR") or os.path.expanduser(
     "~/Library/Caches/site_crypto_finance")
-DEPOT = os.path.expanduser("~/Desktop/scf-data/cache")
 
-# La table DÉCLARÉE vit dans le dépôt (versionnée : une déclaration doit avoir un auteur et une
-# date), pas dans le cache (réécrit à chaque collecte).
-DECLAREES = os.path.expanduser("~/Desktop/scf-data/prediction_markets_appariements.json")
+# ── LE DÉPÔT SE TROUVE DEPUIS CE FICHIER, PAS DEPUIS UN CHEMIN DE MACHINE ─────────────────────
+# ⚠ DÉFAUT MESURÉ EN PRODUCTION, ET IL ÉTAIT SILENCIEUX. La première version codait en dur
+# `~/Desktop/scf-data` — le chemin du Mac et du PC. Sur un runner GitHub le dépôt est cloné
+# dans `/home/runner/work/scf-data/scf-data` : la table déclarée était donc INTROUVABLE, et
+# `agreger()` prenait sa branche « aucune table déclarée » — qui est un état NORMAL et non une
+# erreur. Résultat : le collecteur sortait en succès et publiait 0 paire, tous les jours, sans
+# que rien ne le signale. Constaté sur la course 1h #144 : 6 paires en local, 0 sur le runner.
+# On part donc de l'emplacement de CE fichier (scripts/ → racine), et on ne garde le chemin
+# personnel que comme repli, pour les lancements à la main hors du dépôt.
+ICI = os.path.dirname(os.path.abspath(__file__))
+RACINE = os.path.dirname(ICI)
+DEPOT = (os.path.join(RACINE, "cache") if os.path.isdir(os.path.join(RACINE, "cache"))
+         else os.path.expanduser("~/Desktop/scf-data/cache"))
+
+# La table DÉCLARÉE vit à la racine du dépôt (versionnée : une déclaration doit avoir un auteur
+# et une date), pas dans le cache (réécrit à chaque collecte).
+DECLAREES = os.path.join(RACINE, "prediction_markets_appariements.json")
+if not os.path.exists(DECLAREES):
+    DECLAREES = os.path.expanduser("~/Desktop/scf-data/prediction_markets_appariements.json")
 
 SORTIE_CANDIDATS = os.path.join(CACHE, "pm_appariements_candidats.json")
 SORTIE_AGREGE = os.path.join(CACHE, "pm_agrege.json")
@@ -277,9 +292,13 @@ def candidats(gauche, droite):
 
 def agreger(gauche, droite):
     if not os.path.exists(DECLAREES):
+        # Le chemin cherché sort dans le message : c'est précisément son absence qui a rendu
+        # la panne du runner indiagnosticable — « aucune table déclarée » se lit comme un état
+        # normal, et ne dit pas qu'on a cherché au mauvais endroit.
         return {"paires": [], "lacunes": [
-            "aucune table d'appariement déclarée : rien n'est agrégé. C'est l'état NORMAL "
-            "tant que personne n'a signé de paire — pas une panne."]}, 0
+            f"aucune table d'appariement trouvée à « {DECLAREES} » : rien n'est agrégé. "
+            f"C'est l'état normal tant que personne n'a signé de paire — mais si des paires "
+            f"ONT été déclarées, c'est que le chemin est faux."]}, 0
 
     with open(DECLAREES, encoding="utf-8") as f:
         table = json.load(f)
