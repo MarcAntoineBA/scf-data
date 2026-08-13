@@ -1624,6 +1624,23 @@
     "volatility_cache.js"
    ],
    "witness": null
+  },
+  {
+   "id": "kalshi",
+   "script": "fetch_kalshi.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "kalshi_cache.js",
+    "kalshi_cache.json",
+    "kalshi_cache_light.json",
+    "kalshi_rules.json",
+    "kalshi_series.json"
+   ],
+   "witness": "kalshi_cache.json"
   }
  ]
 }
