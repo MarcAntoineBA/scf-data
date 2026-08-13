@@ -120,34 +120,123 @@ def douze_mois(cik, tags):
                  f"/us-gaap/{tag}.json")
         if not d:
             continue
-        trim, ann = {}, {}
+        trim, ann, brut_periodes = {}, {}, {}
         for u in (d.get("units") or {}).get("USD") or []:
             deb, fin = u.get("start"), u.get("end")
             if not deb or not fin or u.get("val") is None:
                 continue
-            try:
-                nj = (datetime.date.fromisoformat(fin) - datetime.date.fromisoformat(deb)).days
-            except ValueError:
+            nj = _jours(deb, fin)
+            if nj <= 0 or nj > 400:
                 continue
-            cible = trim if 80 <= nj <= 100 else (ann if 350 <= nj <= 380 else None)
-            if cible is None:
-                continue
-            prec = cible.get(fin)
+            # TOUTES les périodes sont gardées : la dérivation par différence a besoin des
+            # cumuls intermédiaires (6 et 9 mois), que l'ancien filtre jetait.
+            cle = (deb, fin)
+            prec = brut_periodes.get(cle)
             if not prec or (u.get("filed") or "") > (prec.get("filed") or ""):
-                cible[fin] = u
+                brut_periodes[cle] = u
+            cible = trim if 80 <= nj <= 100 else (ann if 350 <= nj <= 380 else None)
+            if cible is not None:
+                pc = cible.get(fin)
+                if not pc or (u.get("filed") or "") > (pc.get("filed") or ""):
+                    cible[fin] = u
+        tous = list(brut_periodes.values())
 
-        qs = sorted(trim.values(), key=lambda u: u["end"], reverse=True)
+        # ── LES TRIMESTRES DÉRIVÉS DES CUMULS ────────────────────────────────────────────────
+        # Sans cette étape, 10 sociétés sur 11 tombaient sur le repli « exercice », c'est-à-dire
+        # une donnée vieille de douze mois sur une mesure que l'onglet qualifie de vivante.
+        # Un déclarant en cumul publie, dans un même exercice, des périodes qui PARTENT TOUTES
+        # DU MÊME JOUR et finissent plus tard : 3 mois, 6, 9, 12. La différence de deux cumuls
+        # consécutifs est donc exactement le trimestre qui les sépare.
+        # On regroupe par date de DÉBUT — c'est ce qui identifie un exercice sans avoir à
+        # deviner les bornes fiscales, qui varient d'une société à l'autre.
+        derives, anomalies = {}, 0
+        par_debut = {}
+        for u in tous:
+            par_debut.setdefault(u["start"], []).append(u)
+        for debut, lot in par_debut.items():
+            lot = sorted(lot, key=lambda u: u["end"])
+            precedent = None
+            for u in lot:
+                if precedent is None:
+                    # Le premier cumul d'un exercice EST le premier trimestre, s'il en a la durée.
+                    if 80 <= _jours(debut, u["end"]) <= 100:
+                        derives[u["end"]] = {"end": u["end"], "val": u["val"],
+                                             "filed": u.get("filed"), "origine": "natif"}
+                    precedent = u
+                    continue
+                ecart = _jours(precedent["end"], u["end"])
+                if 80 <= ecart <= 100:
+                    v = u["val"] - precedent["val"]
+                    # Un rachat trimestriel NÉGATIF n'existe pas : c'est le signe que les deux
+                    # cumuls viennent de dépôts qui ne se recouvrent pas (retraitement). On ne
+                    # le corrige pas en douce, on le compte et on le déclare.
+                    if v < 0:
+                        anomalies += 1
+                    else:
+                        derives.setdefault(u["end"], {"end": u["end"], "val": v,
+                                                      "filed": u.get("filed"),
+                                                      "origine": "dérivé"})
+                precedent = u
+
+        # Un trimestre publié tel quel prime toujours sur un trimestre dérivé.
+        for fin, u in trim.items():
+            derives[fin] = {"end": fin, "val": u["val"], "filed": u.get("filed"),
+                            "origine": "natif"}
+
+        qs = sorted(derives.values(), key=lambda u: u["end"], reverse=True)
         if len(qs) >= TRIMESTRES:
             fins = [datetime.date.fromisoformat(q["end"]) for q in qs[:TRIMESTRES]]
             # Quatre trimestres ne font une année que s'ils se SUIVENT : on exige que le plus
             # ancien des quatre soit à moins de 400 jours du plus récent.
             if (fins[0] - fins[-1]).days <= 400:
-                return tag, "TTM", sum(q["val"] for q in qs[:TRIMESTRES]), \
-                       [q["end"] for q in qs[:TRIMESTRES]], qs
+                total = sum(q["val"] for q in qs[:TRIMESTRES])
+                return (tag, "TTM", total, [q["end"] for q in qs[:TRIMESTRES]], qs,
+                        {"anomalies": anomalies,
+                         "derives": sum(1 for q in qs[:TRIMESTRES] if q["origine"] == "dérivé"),
+                         "controle": _controle(qs, ann)})
         a = sorted(ann.values(), key=lambda u: u["end"], reverse=True)
         if a:
-            return tag, "exercice", a[0]["val"], [a[0]["end"]], a
-    return None, None, None, [], []
+            return tag, "exercice", a[0]["val"], [a[0]["end"]], a, {"anomalies": anomalies}
+    return None, None, None, [], [], {}
+
+
+def _jours(d1, d2):
+    try:
+        return (datetime.date.fromisoformat(d2) - datetime.date.fromisoformat(d1)).days
+    except (ValueError, TypeError):
+        return -1
+
+
+def _controle(qs, ann):
+    """CONTRÔLE ARITHMÉTIQUE : la somme des quatre trimestres qui couvrent un exercice publié
+    doit retomber sur le montant annuel publié.
+
+    C'est la seule façon de savoir si la différence de cumuls est juste. Sans lui, une erreur
+    de bornes produirait un TTM plausible et faux — exactement le défaut qu'on vient de corriger
+    sur ce fichier, et qui était passé inaperçu parce que le total tombait près du vrai."""
+    if not ann:
+        return None
+    a = sorted(ann.values(), key=lambda u: u["end"], reverse=True)[0]
+    fin_a, deb_a = a["end"], a.get("start")
+    couvrants = [q for q in qs if deb_a and deb_a < q["end"] <= fin_a]
+    if len(couvrants) != TRIMESTRES:
+        return {"verifiable": False, "pourquoi": f"{len(couvrants)} trimestre(s) couvrent "
+                                                 f"l'exercice clos le {fin_a}, il en faut 4"}
+    somme = sum(q["val"] for q in couvrants)
+    ecart = abs(somme - a["val"])
+    # ⚠ Un exercice à ZÉRO rend l'écart RELATIF indéfini — et la première version marquait
+    # alors « discordant », c'est-à-dire qu'elle accusait la dérivation d'une faute là où il n'y
+    # avait rien à diviser. Home Depot, qui n'a rien racheté, ressortait ainsi en défaut.
+    # Quand les deux côtés valent zéro, ils concordent parfaitement ; on juge en ABSOLU.
+    if not a["val"]:
+        return {"verifiable": True, "exercice_publie": 0, "somme_trimestres": round(somme),
+                "ecart_pct": None, "ecart_absolu": round(ecart),
+                "concordant": ecart < 1_000_000,
+                "note": "exercice nul : concordance jugée en absolu, l'écart relatif n'existe pas"}
+    rel = round(100 * ecart / a["val"], 2)
+    return {"verifiable": True, "exercice_publie": round(a["val"]),
+            "somme_trimestres": round(somme), "ecart_pct": rel,
+            "concordant": rel < 1.0}
 
 
 def main():
@@ -166,6 +255,7 @@ def main():
     ciks = {(v.get("ticker") or "").upper(): str(v.get("cik_str")) for v in tab.values()}
 
     societes, lacunes, natures = [], [], {}
+    controles, discordants = {}, []
     sans_cik, sans_donnee, sans_emission, sans_mcap = [], [], 0, 0
 
     for e in pool:
@@ -174,7 +264,7 @@ def main():
         if not cik:
             sans_cik.append(tk)
             continue
-        tag, nature, rachats, periodes, brut = douze_mois(cik, TAGS_RACHAT)
+        tag, nature, rachats, periodes, brut, ctl = douze_mois(cik, TAGS_RACHAT)
         if rachats is None:
             sans_donnee.append(tk)
             continue
@@ -188,7 +278,7 @@ def main():
         elif nature == "exercice" and len(brut) >= 2:
             rachats_avant = brut[1]["val"]
 
-        _, nature_e, emissions, _, _ = douze_mois(cik, TAGS_EMISSION)
+        _, nature_e, emissions, _, _, _ = douze_mois(cik, TAGS_EMISSION)
         # Un net n'a de sens que si les deux jambes couvrent la MÊME nature de période.
         if emissions is not None and nature_e != nature:
             emissions = None
@@ -205,12 +295,23 @@ def main():
             return round(100 * x / mcap_usd, 2) if (mcap_usd and x is not None) else None
 
         net = (rachats - emissions) if emissions is not None else None
+        c = (ctl or {}).get("controle") or {}
+        if c.get("verifiable"):
+            controles["verifiables"] = controles.get("verifiables", 0) + 1
+            if c.get("concordant"):
+                controles["concordants"] = controles.get("concordants", 0) + 1
+            else:
+                discordants.append(f"{tk} (écart {c.get('ecart_pct')} %)")
         societes.append({
             "ticker": tk, "nom": e.get("n"), "secteur": e.get("s"), "cik": cik, "tag": tag,
             # « TTM » = quatre trimestres consécutifs ; « exercice » = dernier exercice clos,
             # jusqu'à douze mois de retard. Comparer deux sociétés sans lire ce champ, c'est
             # comparer deux fenêtres différentes.
             "nature_periode": nature,
+            # Le controle arithmetique de la derivation : somme des trimestres contre exercice
+            # publie. `concordant: false` signale une derivation douteuse SUR CETTE societe.
+            "controle_derivation": (ctl or {}).get("controle"),
+            "trimestres_derives": (ctl or {}).get("derives"),
             "periodes_utilisees": periodes,
             "rachats_brut_usd": round(rachats),
             "emissions_usd": (round(emissions) if emissions is not None else None),
@@ -241,6 +342,16 @@ def main():
     if sans_mcap:
         lacunes.append(f"{sans_mcap} société(s) sans capitalisation dans l'univers : aucun "
                        f"rendement calculable, seulement un montant — donc incomparable")
+    if discordants:
+        lacunes.append(
+            f"{len(discordants)} société(s) dont la somme des trimestres dérivés NE RETOMBE PAS "
+            f"sur l'exercice publié (écart > 1 %) : leur TTM est douteux et doit être lu comme "
+            f"tel — " + ", ".join(discordants[:8]))
+    if controles.get("verifiables"):
+        lacunes.append(
+            f"contrôle arithmétique : {controles.get('concordants', 0)}/"
+            f"{controles['verifiables']} société(s) vérifiables voient la somme de leurs "
+            f"trimestres dérivés retomber sur l'exercice publié à moins de 1 % près")
     lacunes.append("données TRIMESTRIELLES déposées : le dernier trimestre publié a jusqu'à "
                    "trois mois de retard sur aujourd'hui. Un programme lancé ce mois-ci est "
                    "invisible ici")
@@ -258,6 +369,7 @@ def main():
             "sans_capitalisation": sans_mcap, "societes_publiees": len(societes),
             "tags_rachat": TAGS_RACHAT, "tags_emission": TAGS_EMISSION,
             "natures_de_periode": natures,
+            "controle_derivation": controles,
         },
         "lacunes": lacunes,
         "societes": societes,
