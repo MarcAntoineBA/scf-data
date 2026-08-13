@@ -1655,6 +1655,21 @@
     "pm_agrege.json"
    ],
    "witness": "pm_agrege.json"
+  },
+  {
+   "id": "secinities",
+   "script": "fetch_sec_inities.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "sec_inities_cache.js",
+    "sec_inities_cache.json",
+    "sec_inities_vus.json"
+   ],
+   "witness": "sec_inities_cache.json"
   }
  ]
 }
