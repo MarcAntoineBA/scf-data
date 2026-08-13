@@ -19,6 +19,11 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# Fuseau dans lequel Investing.com ET Nasdaq servent leurs heures. ZoneInfo et non
+# un décalage figé : -04:00 l'été, -05:00 l'hiver.
+ET = ZoneInfo("America/New_York")
 
 CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -175,6 +180,49 @@ NASDAQ_PAYS = {
     "Italy": "Italie", "Spain": "Espagne", "Australia": "Australie",
 }
 
+# ── Adresses réelles des indicateurs (récoltées sur Investing.com) ──────────
+# L'API Nasdaq ne renvoie aucune adresse par événement : le repli mettait donc la
+# même page d'accueil du calendrier sur toutes les lignes, et cliquer menait à un
+# site où la donnée était introuvable. Elle ne dit pas non plus la période, d'où
+# quatre lignes « GDP » indiscernables pour le Royaume-Uni.
+# `investing_event_urls.json` est produit par `harvest_investing_urls.py`, lancé
+# depuis une machine à IP résidentielle (Investing renvoie 403 depuis Actions).
+TABLE_URLS = Path(__file__).resolve().parent / "investing_event_urls.json"
+_urls_cache = None
+
+
+def _table_urls():
+    global _urls_cache
+    if _urls_cache is None:
+        try:
+            _urls_cache = json.loads(TABLE_URLS.read_text(encoding="utf-8"))["entrees"]
+        except Exception as e:
+            # Absente ou illisible : on dégrade proprement vers l'ancien lien générique.
+            sys.stderr.write(f"[Macro] table d'URLs indisponible ({e}) — liens génériques\n")
+            _urls_cache = {}
+    return _urls_cache
+
+
+def resoudre_investing(pays, nom, prev, cons):
+    """(url, période) de l'indicateur chez Investing. ('', '') s'il est inconnu."""
+    variantes = _table_urls().get(f"{pays}|{nom.lower()}") or []
+    if not variantes:
+        return "", ""
+    if len(variantes) == 1:
+        return variantes[0]["url"], variantes[0].get("periode", "")
+    # Homonymes : Nasdaq tait la période, mais les valeurs sont les mêmes des deux
+    # côtés — le précédent d'abord (publié, donc stable), le consensus ensuite.
+    for champ, valeur in (("prev", prev), ("cons", cons)):
+        if not valeur:
+            continue
+        trouves = [v for v in variantes if v.get(champ) and v[champ] == valeur]
+        if len(trouves) == 1:
+            return trouves[0]["url"], trouves[0].get("periode", "")
+    # Départage impossible (table vieillie, valeurs décalées) : on renvoie la
+    # première variante. C'est la page du BON indicateur, seul l'onglet de période
+    # peut être à côté — sans commune mesure avec le lien générique d'avant.
+    return variantes[0]["url"], ""
+
 
 def fetch_window_nasdaq(date_from, date_to):
     """Repli quand Investing.com refuse l'adresse IP (403 depuis un datacenter).
@@ -188,6 +236,8 @@ def fetch_window_nasdaq(date_from, date_to):
     """
     events, jour = [], datetime.strptime(date_from, "%Y-%m-%d")
     fin = datetime.strptime(date_to, "%Y-%m-%d")
+    maintenant = datetime.now(timezone.utc)
+    masques = 0
     while jour <= fin:
         j = jour.strftime("%Y-%m-%d")
         try:
@@ -205,9 +255,6 @@ def fetch_window_nasdaq(date_from, date_to):
             if not pays:
                 continue
             nom = (r.get("eventName") or "").strip()
-            btc, direction, note = classify(nom)
-            if not note and not btc:
-                continue                      # publication que le site ne sait pas lire
 
             def propre(v):
                 """Nasdaq remplit les valeurs absentes par une espace insécable HTML.
@@ -220,6 +267,26 @@ def fetch_window_nasdaq(date_from, date_to):
             actual, cons, prev = (propre(r.get("actual")), propre(r.get("consensus")),
                                   propre(r.get("previous")))
 
+            # Lien réel + période, récupérés sur Investing (cf. resoudre_investing).
+            url, periode = resoudre_investing(pays, nom, prev, cons)
+            # « GDP » + « QoQ » → « GDP (QoQ) ». Sans ça, le Royaume-Uni aligne
+            # quatre lignes « GDP » identiques dont rien ne distingue la période.
+            nom_affiche = f"{nom} ({periode})" if periode else nom
+
+            # La période enrichit aussi la classification : la règle `\bgdp\b.*qoq`
+            # (±2.1%) ne pouvait jamais matcher un nom Nasdaq nu. On retombe sur le
+            # nom brut si le nom enrichi ne déclenche aucune règle.
+            btc, direction, note = classify(nom_affiche)
+            if not btc and not note:
+                btc, direction, note = classify(nom)
+            if not btc and not note:
+                continue                      # publication que le site ne sait pas lire
+
+            # ── HEURE : le champ Nasdaq s'appelle « gmt » mais porte l'heure de
+            # NEW YORK. Vérifié le 2026-08-13 : le CPI US y figure à 08:30, son
+            # heure de publication à New York (14:30 à Paris) ; le CPI allemand à
+            # 02:00, soit 08:00 à Berlin, l'heure réelle. Le lire comme de l'UTC
+            # décalait TOUT le calendrier de 4 à 6 heures selon la saison.
             hh, mm = 12, 0
             gmt = (r.get("gmt") or "").strip()
             if ":" in gmt:
@@ -227,21 +294,33 @@ def fetch_window_nasdaq(date_from, date_to):
                     hh, mm = (int(x) for x in gmt.split(":")[:2])
                 except ValueError:
                     hh, mm = 12, 0
-            iso = datetime(jour.year, jour.month, jour.day, hh, mm,
-                           tzinfo=timezone.utc).isoformat()
+            quand = datetime(jour.year, jour.month, jour.day, hh, mm, tzinfo=ET)
+            iso = quand.isoformat()
+
+            # ── VALEUR PUBLIÉE : Nasdaq sert parfois un « actual » pour un
+            # événement qui n'a pas encore eu lieu (constaté le 2026-08-13 : le PPI
+            # US et les Jobless Claims du 14 étaient déjà chiffrés le 13 au soir).
+            # Une valeur que personne n'a publiée ne doit pas s'afficher comme
+            # publiée : tant que l'heure prévue est devant nous, on l'ignore.
+            if actual and quand > maintenant:
+                actual = ""
+                masques += 1
 
             sub = [pays] + ([f"prév. {cons}"] if cons else []) + \
                   ([f"préc. {prev}"] if prev else []) + ["source Nasdaq"]
             events.append({
-                "date": iso, "name": nom, "sub": " · ".join(sub), "region": pays,
+                "date": iso, "name": nom_affiche, "sub": " · ".join(sub), "region": pays,
                 "actual": actual, "forecast": cons, "previous": prev,
                 "impact": "high", "cat": "macro",
                 "btcHist": btc, "btcDir": direction, "note": note,
-                "url": "https://www.nasdaq.com/market-activity/economic-calendar",
+                "url": url or "https://www.nasdaq.com/market-activity/economic-calendar",
                 "source": "nasdaq",
             })
         jour += timedelta(days=1)
 
+    if masques:
+        sys.stderr.write(f"[Macro] {masques} valeur(s) Nasdaq ignorée(s) : "
+                         f"événement encore à venir\n")
     events.sort(key=lambda x: x["date"])
     return events
 
