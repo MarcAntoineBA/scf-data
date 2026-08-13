@@ -1,15 +1,20 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-08-13T10:05:59Z",
+  "ts": "2026-08-13T11:10:17Z",
   "total": 5,
-  "ok": 5,
-  "secs": 95.5,
-  "changed": 6,
-  "versionnes": 6,
+  "ok": 4,
+  "secs": 120.1,
+  "changed": 8,
+  "versionnes": 8,
   "pieces_jointes": 0,
   "absents": 22,
-  "failed": []
+  "failed": [
+   {
+    "job": "macrocal",
+    "why": "dépassement du plafond (2 min)"
+   }
+  ]
  },
- "updated": "2026-08-13T10:05:59Z"
+ "updated": "2026-08-13T11:10:17Z"
 }
