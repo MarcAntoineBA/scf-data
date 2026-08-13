@@ -474,6 +474,16 @@ def main():
         for nom in retires:
             f.write(f"cache/{nom}\n")
 
+    # Même raisonnement pour les pièces jointes : la liste EXACTE de celles qui ont
+    # changé. La publication renvoyait tout le dossier `release/`, ce qui était sans
+    # conséquence à un envoi par heure. Depuis que la cadence fine se joue en dix
+    # passages dans une même exécution, renvoyer l'inchangé coûterait dix fois le
+    # poids du parc. Et on ne peut pas vider `release/` après envoi : c'est la base
+    # de comparaison du passage suivant.
+    with open(os.path.join(ROOT, ".upload_list"), "w") as f:
+        for nom in big:
+            f.write(f"{nom}\n")
+
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as f:

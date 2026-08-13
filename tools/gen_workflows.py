@@ -23,18 +23,41 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEST = os.path.join(HERE, "..", ".github", "workflows")
 
-# (cadence, expression cron, description lisible)
+# (cadence, expression cron, description lisible, passages, espacement en secondes)
 # Minutes VOLONTAIREMENT décalées. La plateforme prévient que les tâches planifiées
 # peuvent être retardées, voire abandonnées, aux heures de forte charge — et cite
 # explicitement le début de chaque heure. Des expressions en minutes rondes (0, 10,
 # 20…) tombent pile au pire moment. Ce décalage ne coûte rien et sort de la cohue.
+#
+# ── POURQUOI LES CADENCES FINES NE SONT PLUS DES CRON ────────────────────────────
+# Les deux premières lignes demandaient 12 et 6 déclenchements par heure. Relevé sur
+# les 300 dernières exécutions réelles, tous workflows confondus :
+#
+#     demandé 12/h → obtenu 1,1/h     (5min)
+#     demandé  6/h → obtenu 1,0/h     (10min)
+#     demandé  1/h → obtenu 1,1/h     (1h, la seule honorée)
+#
+# Six workflows distincts, tous plafonnés à exactement un passage par heure. Ce n'est
+# pas de la charge aléatoire — les exécutions démarrent sans la moindre attente et
+# durent 2 à 4 minutes — c'est un plafond de la plateforme. Les cadences « 5 min » et
+# « 10 min » n'ont donc jamais existé : elles tournaient à l'heure depuis le début,
+# en silence, pendant que le réglage affichait autre chose.
+#
+# On cesse de demander plus de réveils, puisque c'est refusé. Le réveil horaire lance
+# désormais une exécution qui RESTE au travail et refait une collecte toutes les cinq
+# minutes d'elle-même. Le cron redescend à une fois par heure : c'est ce que la
+# plateforme accorde, et l'annoncer évite la fiction précédente. C'est aussi une
+# sécurité — si un second réveil était un jour honoré, il attendrait la fin du
+# premier (voir `concurrency`) et le retard s'accumulerait sans fin.
+#
+# Les cadences d'une heure et au-delà gardent un seul passage : le cron les honore.
 CADENCES = [
-    ("5min", "1,6,11,16,21,26,31,36,41,46,51,56 * * * *", "toutes les 5 minutes"),
-    ("10min", "3,13,23,33,43,53 * * * *", "toutes les 10 minutes"),
-    ("1h", "17 * * * *", "toutes les heures"),
-    ("6h", "19 1,7,13,19 * * *", "toutes les 6 heures"),
-    ("daily", "37 4 * * *", "une fois par jour"),
-    ("weekly", "43 4 * * 1", "une fois par semaine"),
+    ("5min", "1 * * * *", "toutes les 5 minutes", 10, 300),
+    ("10min", "3 * * * *", "toutes les 10 minutes", 5, 600),
+    ("1h", "17 * * * *", "toutes les heures", 1, 0),
+    ("6h", "19 1,7,13,19 * * *", "toutes les 6 heures", 1, 0),
+    ("daily", "37 4 * * *", "une fois par jour", 1, 0),
+    ("weekly", "43 4 * * 1", "une fois par semaine", 1, 0),
 ]
 
 # Pendant la migration, une cadence porte un déclencheur sur l'orchestrateur : GitHub
@@ -51,9 +74,10 @@ MODELE = '''name: Collecte {cadence}
 # à la main : modifier le générateur et le relancer, sinon la correction ne vaudra
 # que pour cette cadence et divergera silencieusement des six autres.
 #
-# GitHub exécute les tâches planifiées « au mieux » : quelques minutes de retard aux
-# heures de pointe sont normales. Sans commune mesure avec les 10 à 19 heures de gel
-# que produisait une machine endormie.
+# GitHub n'accorde qu'UN déclenchement planifié par heure et par workflow, quelle que
+# soit la fréquence demandée — mesuré sur 300 exécutions. Le cron ci-dessous est donc
+# horaire, et la cadence réelle est tenue par la boucle de l'étape « Collecte » :
+# {passages} passage(s) par exécution. Voir tools/gen_workflows.py pour le relevé.
 
 on:
   workflow_dispatch:
@@ -73,8 +97,11 @@ concurrency:
 jobs:
   collecte:
     runs-on: ubuntu-latest
-    timeout-minutes: 120   # filet contre un runner bloqué ; le bornage fin est fait
-                           # par collecteur, dans l'orchestrateur
+    timeout-minutes: {plafond}   # filet contre un runner bloqué ; le bornage fin est fait
+                           # par collecteur, dans l'orchestrateur. Une cadence à
+                           # passages multiples se borne SOUS l'heure : son exécution
+                           # doit être finie avant le réveil suivant, faute de quoi
+                           # celui-ci attendrait son tour et le retard s'accumulerait.
 
     steps:
       - uses: actions/checkout@v4
@@ -104,8 +131,15 @@ jobs:
           [ -n "$LORIS_API_KEY" ] && printf '%s' "$LORIS_API_KEY" > "$HOME/.loris_api_key"
           chmod 600 "$HOME"/.eia_api_key "$HOME"/.serpapi_key "$HOME"/.gie_api_key "$HOME"/.loris_api_key || true
 
+      # UNE exécution, {passages} passage(s). Chaque passage vise un instant CALCULÉ
+      # depuis le début de l'exécution, jamais « attendre N secondes après le
+      # précédent » : sinon la durée de chaque collecte s'ajouterait au rythme et les
+      # passages dériveraient d'un quart d'heure sur la fin de l'heure.
+      # Un passage en échec n'interrompt pas les suivants — perdre cinq minutes de
+      # cotations vaut mieux que perdre le reste de l'heure.
       - name: Collecte
         env:
+          GH_TOKEN: ${{{{ github.token }}}}
           FRED_API_KEY: ${{{{ secrets.FRED_API_KEY }}}}
           EIA_API_KEY: ${{{{ secrets.EIA_API_KEY }}}}
           SERPAPI_KEY: ${{{{ secrets.SERPAPI_KEY }}}}
@@ -123,71 +157,53 @@ jobs:
           # CORS : l'appel ne peut PAS venir du navigateur, et la clé n'a donc rien à
           # faire dans le HTML publié. Elle ne vit qu'ici.
           LORIS_API_KEY: ${{{{ secrets.LORIS_API_KEY }}}}
-        run: python tools/run_jobs.py --bucket {cadence}
-
-      # Douze fichiers pèsent 93 des 114 Mo du parc (historiques de cours, atlas).
-      # Les versionner à chaque passage ferait enfler le dépôt indéfiniment : ils
-      # partent en pièces jointes d'une release, remplacées sur place.
-      - name: Publier les gros fichiers
-        env:
-          GH_TOKEN: ${{{{ github.token }}}}
         run: |
-          shopt -s nullglob
-          FICHIERS=(release/*)
-          if [ ${{#FICHIERS[@]}} -eq 0 ]; then
-            echo "aucun gros fichier modifié"
-            exit 0
-          fi
-          gh release view data >/dev/null 2>&1 || gh release create data \\
-            --title "Données" \\
-            --notes "Pièces jointes remplacées à chaque collecte, sans historique."
-          gh release upload data "${{FICHIERS[@]}}" --clobber
-          echo "${{#FICHIERS[@]}} fichier(s) publié(s) en pièce jointe"
+          PASSAGES={passages}
+          ESPACEMENT={espacement}
+          DEBUT=$SECONDS
+          ECHECS=0
 
-      - name: Publier les données modifiées
-        run: |
-          git config user.name  "collecte"
-          git config user.email "collecte@users.noreply.github.com"
-
-          if [ ! -s .publish_list ]; then
-            echo "aucun changement — rien à publier"
-            exit 0
-          fi
-
-          # Reposer NOTRE contenu au-dessus du dernier état publié, sans rebase.
-          # `reset` (mixte) remet l'index sur le distant : c'est indispensable, la
-          # variante souple laisserait l'index sur la base d'origine et la publication
-          # annulerait les fichiers ajoutés entre-temps par les autres cadences —
-          # mesuré : sur sept bilans, un seul survivait.
-          # `--pathspec-from-file` ne prend QUE les fichiers que l'orchestrateur dit
-          # avoir touchés : ceux des autres cadences ne sont ni écrasés ni supprimés.
-          for essai in 1 2 3 4 5 6 7 8; do
-            git fetch -q origin main
-            git reset -q origin/main
-            git add --pathspec-from-file=.publish_list --ignore-missing 2>/dev/null \
-              || git add --pathspec-from-file=.publish_list
-            if git diff --cached --quiet; then
-              echo "déjà publié par une autre exécution — rien à faire"
-              exit 0
+          for p in $(seq 1 $PASSAGES); do
+            CIBLE=$(( (p - 1) * ESPACEMENT ))
+            ECOULE=$(( SECONDS - DEBUT ))
+            if [ $CIBLE -gt $ECOULE ]; then
+              echo "— attente de $(( CIBLE - ECOULE ))s avant le passage $p"
+              sleep $(( CIBLE - ECOULE ))
             fi
-            N=$(git diff --cached --name-only | wc -l | tr -d ' ')
-            git commit -q -m "données {cadence} : $N fichier(s)"
-            if git push -q; then
-              echo "publié : $N fichier(s) (essai $essai)"
-              exit 0
+
+            echo "::group::passage $p/$PASSAGES (à $(( (SECONDS - DEBUT) / 60 )) min)"
+            if tools/une_passe.sh {cadence}; then
+              echo "passage $p terminé"
+            else
+              ECHECS=$(( ECHECS + 1 ))
+              echo "::warning::passage $p en échec — la boucle continue"
             fi
-            echo "publication concurrente — nouvelle tentative"
-            sleep $((essai * 4))
+            echo "::endgroup::"
           done
-          echo "échec de publication après 8 essais" >&2
-          exit 1
+
+          echo "$(( PASSAGES - ECHECS ))/$PASSAGES passage(s) menés à bien "\\
+               "en $(( (SECONDS - DEBUT) / 60 )) min"
+
+          # L'exécution ne tombe QUE si tout a échoué : un passage perdu est un
+          # incident, la totalité est une panne — et seule la seconde doit teinter
+          # l'historique en rouge, sinon plus personne ne regarde les alertes.
+          if [ $ECHECS -eq $PASSAGES ]; then
+            echo "::error::aucun passage n'a abouti"
+            exit 1
+          fi
 '''
 
 
 def main():
     ecrits = []
-    for cadence, cron, humain in CADENCES:
+    for cadence, cron, humain, passages, espacement in CADENCES:
+        # Le dernier passage démarre à (passages-1) × espacement ; on lui laisse de
+        # quoi finir, puis on borne SOUS l'heure pour ne pas mordre sur le réveil
+        # suivant. Une cadence à passage unique garde le filet large d'origine.
+        plafond = 120 if passages == 1 else min(55, (passages - 1) * espacement // 60 + 10)
         contenu = MODELE.format(cadence=cadence, cron=cron, humain=humain,
+                                passages=passages, espacement=espacement,
+                                plafond=plafond,
                                 verif=VERIF if cadence == CADENCE_VERIF else "")
         chemin = os.path.join(DEST, f"collect-{cadence}.yml")
         with open(chemin, "w", encoding="utf-8") as f:
