@@ -41,6 +41,7 @@
    "cadence": null,
    "category": "locale",
    "outputs": [
+    "advisor_cache.js",
     "treasury_alert_live.js"
    ],
    "witness": null
@@ -134,6 +135,7 @@
     "macro_corr_cache.json",
     "macro_fred_cache.json",
     "mag7_hist_cache.json",
+    "market_concentration_cache.json",
     "moneyflow_cache.json",
     "narratives_cache.json",
     "narratives_fundamentals_cache.json",
@@ -148,6 +150,7 @@
     "radar_v3_cache.js",
     "sentiment_index_live.js",
     "stock_bubble_cache.json",
+    "tech_debt_cache.json",
     "these_bitcoin_cache.json",
     "these_bulleia_cache.json",
     "these_dette_cache.json",
@@ -622,6 +625,58 @@
    "witness": null
   },
   {
+   "id": "desk.complet",
+   "script": "desk_chaine.sh",
+   "args": [
+    "complet"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "desk.flash",
+   "script": "desk_chaine.sh",
+   "args": [
+    "flash"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "desk.revue",
+   "script": "desk_chaine.sh",
+   "args": [
+    "revue"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "deskaudit",
+   "script": "desk_audit_maj.sh",
+   "args": [
+    "--boucle"
+   ],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
    "id": "earningscal",
    "script": "fetch_earnings_calendar.py",
    "args": [
@@ -839,6 +894,28 @@
    "witness": "gtrends_hype_cache.json"
   },
   {
+   "id": "hlaccount",
+   "script": "refresh_hl.sh",
+   "args": [],
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "hlflow",
+   "script": "hl_flow_recorder.py",
+   "args": [],
+   "schedule": "toutes les 0.083 h",
+   "per_day": 288.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
    "id": "hydrocarbures",
    "script": "fetch_hydrocarbures.py",
    "args": [],
@@ -978,6 +1055,20 @@
    "witness": "mag7_hist_cache.json"
   },
   {
+   "id": "marketconcentration",
+   "script": "fetch_market_concentration.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "market_concentration_cache.js",
+    "market_concentration_cache.json"
+   ],
+   "witness": "market_concentration_cache.json"
+  },
+  {
    "id": "moneyflow",
    "script": "fetch_moneyflow.py",
    "args": [],
@@ -996,9 +1087,9 @@
    "id": "narratives",
    "script": "fetch_narratives.py",
    "args": [],
-   "schedule": "24 créneau(x)/jour",
-   "per_day": 24.0,
-   "cadence": "1h",
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "6h",
    "category": "public",
    "outputs": [
     "btc_longhist_cache.json",
@@ -1167,6 +1258,17 @@
    "witness": "radar_v3_cache.js"
   },
   {
+   "id": "savoirbake",
+   "script": "bake_savoir.sh",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
    "id": "sentiment.fng",
    "script": "refresh_sentiment_fng.sh",
    "args": [],
@@ -1191,13 +1293,30 @@
     "stock_bubble_cache.js",
     "stock_bubble_cache.json",
     "stock_ext_cn.js",
+    "stock_ext_cn.json",
     "stock_ext_eu.js",
+    "stock_ext_eu.json",
     "stock_ext_in.js",
+    "stock_ext_in.json",
     "stock_ext_us.js",
+    "stock_ext_us.json",
     "stock_history_cache.js",
     "stock_history_cache.json"
    ],
    "witness": "stock_bubble_cache.json"
+  },
+  {
+   "id": "techdebt",
+   "script": "fetch_tech_debt.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "tech_debt_cache.json"
+   ],
+   "witness": "tech_debt_cache.json"
   },
   {
    "id": "these_bitcoin.refresh",
@@ -1312,12 +1431,26 @@
    "witness": "these_web3_cache.json"
   },
   {
+   "id": "trackerstf",
+   "script": "fetch_trackers_tf.py",
+   "args": [],
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "narratives_cache.json",
+    "tradfi_cache.json"
+   ],
+   "witness": null
+  },
+  {
    "id": "tradfi",
    "script": "fetch_tradfi.py",
    "args": [],
-   "schedule": "24 créneau(x)/jour",
-   "per_day": 24.0,
-   "cadence": "1h",
+   "schedule": "4 créneau(x)/jour",
+   "per_day": 4.0,
+   "cadence": "6h",
    "category": "public",
    "outputs": [
     "mode_tradfi_live.js",
@@ -1350,9 +1483,9 @@
    "id": "tradfi.cot",
    "script": "fetch_cftc_cot.py",
    "args": [],
-   "schedule": "1 fois/semaine",
-   "per_day": 0.14,
-   "cadence": "weekly",
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
    "category": "public",
    "outputs": [
     "tradfi_cot_cache.js",
@@ -1478,6 +1611,19 @@
     "treasury_edgar_cache.json"
    ],
    "witness": "treasury_cache.json"
+  },
+  {
+   "id": "volatility",
+   "script": "fetch_volatility_multiasset.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "volatility_cache.js"
+   ],
+   "witness": null
   }
  ]
 }

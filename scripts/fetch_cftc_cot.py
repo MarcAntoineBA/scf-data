@@ -79,6 +79,19 @@ CATEGORIES = [
 
 SEMAINES = 160          # ~3 ans de rapports hebdomadaires
 
+# ╔════════════════════════════════════════════════════════════════════════════╗
+# ║ ÂGE MAXIMAL TOLÉRÉ DE LA DATE D'ARRÊTÉ                                     ║
+# ╚════════════════════════════════════════════════════════════════════════════╝
+# Le rapport photographie le mardi et paraît le vendredi. Juste AVANT la parution
+# du vendredi, le plus récent rapport disponible est donc celui du mardi 10 jours
+# plus tôt : dix jours d'écart sont NORMAUX et ne doivent rien déclencher. Un jour
+# férié qui décale la parution ajoute deux ou trois jours. Au-delà de quatorze, ce
+# n'est plus la latence de la source : soit elle a cessé de publier, soit ce
+# collecteur ramène une valeur figée. On sort alors en ERREUR — les fichiers sont
+# tout de même écrits, mais le passage est compté en échec, l'index de fraîcheur
+# ne redate pas ces sorties et la panne devient visible au lieu de rester muette.
+AGE_MAX_JOURS = 14
+
 
 def get(url, essais=3):
     dernier = None
@@ -198,10 +211,21 @@ def main():
         sys.exit("aucun marché frais — fichiers laissés intacts")
 
     frais = [v["arrete"] for v in res.values() if not v.get("stale")]
+    arrete = max(frais) if frais else None
+
+    # L'âge est PORTÉ DANS LE FICHIER, pas seulement testé ici : la page peut ainsi
+    # dire elle-même « donnée d'il y a n jours » sans refaire le calcul de calendrier,
+    # et un lecteur peut vérifier la fraîcheur sans lire ce script.
+    age = None
+    if arrete:
+        age = (datetime.now(timezone.utc).date()
+               - datetime.strptime(arrete, "%Y-%m-%d").date()).days
+
     payload = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": "publicreporting.cftc.gov — Traders in Financial Futures",
-        "arrete": max(frais) if frais else None,
+        "arrete": arrete,
+        "age_jours": age,
         "lecture": {
             "latence": "rapport publié le vendredi, arrêté le MARDI précédent — "
                        "afficher la date d'arrêté, pas celle de publication",
@@ -224,6 +248,11 @@ def main():
     print(f"\n  {len(res)} marchés · arrêté {payload['arrete']} · {len(body)//1024} Ko")
     for r in rates:
         print(f"  échec : {r}")
+
+    if age is not None and age > AGE_MAX_JOURS:
+        return (f"arrêté {payload['arrete']} — {age} jours, au-delà des "
+                f"{AGE_MAX_JOURS} tolérés : la source ne publie plus ou ce "
+                f"collecteur sert une valeur figée")
     return 0
 
 

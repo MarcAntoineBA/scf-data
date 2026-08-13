@@ -262,8 +262,15 @@ SANS_PLIST = [
          outputs=["tradfi_gamma_cache.js", "tradfi_gamma_cache.json",
                   "tradfi_gamma_hist.json"],
          witness="tradfi_gamma_cache.json"),
+    # Cadence QUOTIDIENNE alors que la source ne publie qu'une fois par semaine : ce
+    # n'est pas un gaspillage, c'est le rattrapage. La CFTC publie le vendredi à
+    # 15 h 30 New York ; une collecte hebdomadaire calée sur le lundi matin laissait
+    # le site afficher, tout le week-end, un rapport d'une semaine plus vieux que
+    # celui disponible. Huit appels par jour ne coûtent rien et ramènent le retard de
+    # publication de deux jours et demi à moins de treize heures. Un jour férié qui
+    # décale la parution est rattrapé le lendemain, sans intervention.
     dict(id="tradfi.cot", script="fetch_cftc_cot.py", args=[],
-         schedule="1 fois/semaine", per_day=0.14, cadence="weekly",
+         schedule="1 fois/jour", per_day=1.0, cadence="daily",
          category="public",
          outputs=["tradfi_cot_cache.js", "tradfi_cot_cache.json"],
          witness="tradfi_cot_cache.json"),
