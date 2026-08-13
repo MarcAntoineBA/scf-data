@@ -1,0 +1,95 @@
+{
+ "notes": "TABLE D'APPARIEMENT DÉCLARÉE entre Polymarket et Kalshi. Rien n'est apparié automatiquement : chaque paire est signée à la main, avec le motif tiré des DEUX textes de résolution. `forte` autorise un consensus et un écart ; `partielle` et `juxtaposition` affichent les deux prix côte à côte sans jamais les combiner. Les candidats non signés vivent dans pm_appariements_candidats.json et n'ont aucun effet.",
+ "degres": {
+  "forte": "même événement, même borne, même source — consensus et écart calculés",
+  "partielle": "même sujet, règlement différent — juxtaposition seule",
+  "juxtaposition": "parenté thématique, questions différentes — non comparables"
+ },
+ "maj": "2026-08-13T19:57:09+00:00",
+ "paires": [
+  {
+   "id": "satoshi-bouge-2026",
+   "libelle": "Satoshi déplace des bitcoins avant 2027",
+   "actif": true,
+   "equivalence": "forte",
+   "polymarket_id": "153719",
+   "polymarket_question": "Will Satoshi move any Bitcoin in 2026?",
+   "polymarket_issue": null,
+   "kalshi_ticker": "KXSATOSHIBTCYEAR-27",
+   "kalshi_titre": "Will Satoshi move any Bitcoin by 2027?",
+   "note_reglement": "Les DEUX textes citent la même source et le même déclencheur : un portefeuille étiqueté Satoshi Nakamoto sur Arkham Intel Explorer présentant une transaction « Outflow » ou « Swaps ». Même borne de fin (1er janvier 2027). Seule différence : Polymarket ouvre sa fenêtre au 9 janvier 2026, Kalshi ne précise pas de début — sans effet, aucun mouvement n'a eu lieu depuis.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  },
+  {
+   "id": "clarity-act-58-senateurs",
+   "libelle": "Plus de 58 sénateurs votent pour la loi crypto",
+   "actif": true,
+   "equivalence": "forte",
+   "polymarket_id": "769594",
+   "polymarket_question": "How many Senators will vote for the Clarity Act?",
+   "polymarket_issue": "Above 58",
+   "kalshi_ticker": "KXVOTECLARITY-26MAY16-T58",
+   "kalshi_titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
+   "note_reglement": "MÊME SEUIL CHIFFRÉ (58) et même critère : nombre de sénateurs votant « Yea » sur le premier vote de passage d'une loi de structure de marché crypto avant le 1er janvier 2027. Kalshi nomme sa source (Library of Congress), Polymarket ne la nomme pas — sur un vote du Sénat, le décompte officiel ne prête pas à deux lectures. ⚠ L'issue Polymarket « Above 58 » est la FAVORITE d'un marché à issues multiples : si elle change, l'agrégation se suspend d'elle-même.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  },
+  {
+   "id": "mythos-avant-octobre",
+   "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
+   "actif": true,
+   "equivalence": "forte",
+   "polymarket_id": "578305",
+   "polymarket_question": "Next Mythos-Class Model released by…?",
+   "polymarket_issue": "September 30",
+   "kalshi_ticker": "KXCLAUDE-NXTMYTH-26OCT01",
+   "kalshi_titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
+   "note_reglement": "« by September 30 » et « before Oct 1, 2026 » désignent la même borne. Les deux textes excluent explicitement Claude Fable 5 (sorti le 9 juin 2026) et visent la mise à disposition au public du modèle SUIVANT. Source de règlement identique : Anthropic.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  },
+  {
+   "id": "defaut-us-2026",
+   "libelle": "Défaut de paiement des États-Unis avant 2027",
+   "actif": true,
+   "equivalence": "partielle",
+   "polymarket_id": "73331",
+   "polymarket_question": "US defaults on debt by 2027?",
+   "polymarket_issue": null,
+   "kalshi_ticker": "KXDEFAULT-26DEC31",
+   "kalshi_titre": "Will the US default on its debt by Dec 31, 2026?",
+   "note_reglement": "PIÈGE : les titres sont jumeaux, les contrats ne le sont pas. Polymarket ne reconnaît QU'UN déclencheur — un paiement programmé non honoré. Kalshi en reconnaît DEUX : le paiement manqué OU la désignation en défaut par l'une des trois grandes agences de notation. Kalshi devrait donc coter PLUS HAUT mécaniquement ; il cote plus bas. Cet écart n'est pas une opinion, c'est une différence de contrat — aucun consensus ne sera calculé.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  },
+  {
+   "id": "fed-hausse-vs-niveau-2026",
+   "libelle": "Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi)",
+   "actif": true,
+   "equivalence": "juxtaposition",
+   "polymarket_id": "101936",
+   "polymarket_question": "Fed rate hike in 2026?",
+   "polymarket_issue": null,
+   "kalshi_ticker": "KXFED-26DEC-T3.50",
+   "kalshi_titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
+   "note_reglement": "Ces deux marchés ne posent PAS la même question et l'écart apparent de ~30 points n'a aucun sens. Polymarket demande s'il y aura une HAUSSE en 2026 ; Kalshi demande si le NIVEAU dépassera 3,50 % après la réunion du 9 décembre. Un taux peut finir au-dessus de 3,50 % sans aucune hausse. Juxtaposés parce qu'ils éclairent le même sujet, jamais comparés.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  },
+  {
+   "id": "hypotheque-30-ans-2026",
+   "libelle": "Taux hypothécaire 30 ans en 2026 (sens opposés)",
+   "actif": true,
+   "equivalence": "juxtaposition",
+   "polymarket_id": "197683",
+   "polymarket_question": "Will the 30-year Mortgage Rate hit __ in 2026?",
+   "polymarket_issue": "↑ 6.75%",
+   "kalshi_ticker": "KXFM30YMTG-26DEC31-T5.75",
+   "kalshi_titre": "Will any 2026 Freddie Mac Primary Mortgage Market Survey (PMMS) report a 30-Year Fixed-Rate Mortgage rate below 5.75%?",
+   "note_reglement": "Même source (enquête PMMS de Freddie Mac) mais SENS OPPOSÉS et seuils différents : Polymarket cote « atteint ou dépasse 6,75 % », Kalshi cote « passe sous 5,75 % ». Les deux peuvent être vrais la même année. Rapprocher leurs prix n'aurait aucun sens ; on les montre ensemble parce qu'ils bornent le même intervalle.",
+   "declare_le": "2026-08-13",
+   "declare_par": "claude — à relire par Marc-Antoine"
+  }
+ ]
+}

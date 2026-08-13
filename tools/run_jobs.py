@@ -89,6 +89,7 @@ PARALLEL = 6
 # masquerait le vrai sujet : ces deux-là ne devraient pas partager une cadence.
 DEPENDANCES = {
     "tradfihist": ["tradfifund"],       # lit tradfi_fundamentals_cache.json
+    "appariepredictifs": ["kalshi"],    # lit kalshi_cache.json et ses règles
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────

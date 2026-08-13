@@ -1641,6 +1641,20 @@
     "kalshi_series.json"
    ],
    "witness": "kalshi_cache.json"
+  },
+  {
+   "id": "appariepredictifs",
+   "script": "apparier_predictifs.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "pm_appariements_candidats.json",
+    "pm_agrege.json"
+   ],
+   "witness": "pm_agrege.json"
   }
  ]
 }
