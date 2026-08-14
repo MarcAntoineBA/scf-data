@@ -10,20 +10,27 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0485,
-    "volume": 4763889.615856999,
-    "liquidite": 96618.04649,
+    "volume": 4763895.918376999,
+    "liquidite": 100251.29048,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": null,
-    "bid": 0.0,
-    "ask": 0.04,
-    "volume": 181726.2
+    "mid": 0.035,
+    "bid": 0.02,
+    "ask": 0.05,
+    "volume": 181764.06
    },
-   "mesures": null,
-   "pourquoi_pas_de_consensus": "équivalence FORTE, mais aucun prix exploitable côté Kalshi en ce moment (carnet vide ou à un seul côté). Rien n'est calculé cette fois-ci ; la paire reste valide et repassera dès que le carnet se reforme."
+   "mesures": {
+    "consensus_pondere_volume": 0.048,
+    "ecart_points": -1.35,
+    "sens": "Polymarket plus haut",
+    "cout_execution_kalshi_points": 3.0,
+    "ecart_net_de_cout_points": -1.65,
+    "actionnable": false,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
   },
   {
    "id": "clarity-act-58-senateurs",
@@ -36,7 +43,7 @@
     "question": "How many Senators will vote for the Clarity Act?",
     "prob": 0.52,
     "volume": 9330.399088,
-    "liquidite": 13573.1927,
+    "liquidite": 13711.8906,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
@@ -66,26 +73,26 @@
    "polymarket": {
     "id": "578305",
     "question": "Next Mythos-Class Model released by…?",
-    "prob": 0.745,
+    "prob": 0.735,
     "volume": 110724.127702,
-    "liquidite": 4468.9087,
+    "liquidite": 4521.1595,
     "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
    },
    "kalshi": {
     "ticker": "KXCLAUDE-NXTMYTH-26OCT01",
     "titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
-    "mid": 0.73,
-    "bid": 0.71,
-    "ask": 0.75,
+    "mid": 0.67,
+    "bid": 0.64,
+    "ask": 0.7,
     "volume": 30730.15
    },
    "mesures": {
-    "consensus_pondere_volume": 0.7417,
-    "ecart_points": -1.5,
+    "consensus_pondere_volume": 0.7209,
+    "ecart_points": -6.5,
     "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 4.0,
-    "ecart_net_de_cout_points": -2.5,
-    "actionnable": false,
+    "cout_execution_kalshi_points": 6.0,
+    "ecart_net_de_cout_points": 0.5,
+    "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -99,8 +106,8 @@
     "id": "73331",
     "question": "US defaults on debt by 2027?",
     "prob": 0.03,
-    "volume": 16302.636346999996,
-    "liquidite": 2435.67422,
+    "volume": 16302.636346999998,
+    "liquidite": 2437.61955,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -123,9 +130,9 @@
    "polymarket": {
     "id": "101936",
     "question": "Fed rate hike in 2026?",
-    "prob": 0.495,
-    "volume": 7455997.599695003,
-    "liquidite": 250259.2364,
+    "prob": 0.485,
+    "volume": 7474440.099695002,
+    "liquidite": 235820.5798,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -148,9 +155,9 @@
    "polymarket": {
     "id": "197683",
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
-    "prob": 0.83,
+    "prob": 0.825,
     "volume": 50730.25307099999,
-    "liquidite": 1937.9838,
+    "liquidite": 1897.7372,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -166,6 +173,6 @@
   }
  ],
  "lacunes": [],
- "generated_at": "2026-08-14T19:57:06+00:00",
+ "generated_at": "2026-08-14T20:46:07+00:00",
  "paires_declarees": 6
 }
