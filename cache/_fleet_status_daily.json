@@ -1,15 +1,32 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-13T06:32:39Z",
-  "total": 18,
-  "ok": 18,
-  "secs": 1893.4,
-  "changed": 32,
-  "versionnes": 30,
-  "pieces_jointes": 2,
-  "absents": 20,
-  "failed": []
+  "ts": "2026-08-14T06:15:40Z",
+  "total": 25,
+  "ok": 21,
+  "secs": 891.0,
+  "changed": 35,
+  "versionnes": 32,
+  "pieces_jointes": 3,
+  "absents": 24,
+  "failed": [
+   {
+    "job": "desk.complet",
+    "why": "script absent"
+   },
+   {
+    "job": "desk.flash",
+    "why": "script absent"
+   },
+   {
+    "job": "desk.revue",
+    "why": "script absent"
+   },
+   {
+    "job": "savoirbake",
+    "why": "script absent"
+   }
+  ]
  },
- "updated": "2026-08-13T06:32:39Z"
+ "updated": "2026-08-14T06:15:40Z"
 }
