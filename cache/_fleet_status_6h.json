@@ -1,15 +1,19 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-15T14:54:28Z",
+  "ts": "2026-08-15T20:57:16Z",
   "total": 25,
-  "ok": 22,
-  "secs": 4053.4,
-  "changed": 38,
+  "ok": 21,
+  "secs": 4652.4,
+  "changed": 36,
   "versionnes": 29,
-  "pieces_jointes": 9,
-  "absents": 15,
+  "pieces_jointes": 7,
+  "absents": 18,
   "failed": [
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   },
    {
     "job": "marketconcentration",
     "why": "script absent"
@@ -24,5 +28,5 @@
    }
   ]
  },
- "updated": "2026-08-15T14:54:28Z"
+ "updated": "2026-08-15T20:57:16Z"
 }
