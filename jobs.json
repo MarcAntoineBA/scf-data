@@ -1700,6 +1700,20 @@
     "prediction_markets_icons.json"
    ],
    "witness": "platform_volume_hist.json"
+  },
+  {
+   "id": "gerants13f",
+   "script": "fetch_13f.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "gerants_13f_cache.js",
+    "gerants_13f_cache.json"
+   ],
+   "witness": "gerants_13f_cache.json"
   }
  ]
 }

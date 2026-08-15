@@ -1,0 +1,160 @@
+{
+ "notes": "Les gerants suivis par le desk, groupes par CE QU'ILS INFORMENT. Chaque CIK a ete RESOLU aupres d'EDGAR puis verifie : depot 13F-HR de moins de 200 jours ET raison sociale ressemblant au nom demande. Sans ces deux controles, « State Street » se resolvait vers « Bell Bank » et « Trian » vers une entite arretee en 2011.",
+ "groupes": {
+  "allocateur": "conviction a horizon d'annees — un achat pese",
+  "macro": "leur book EST une opinion sur le regime",
+  "activiste": "une entree est un CATALYSEUR date, pas un avis de valorisation",
+  "croissance": "ceux qui portent le theme IA que le desk surveille",
+  "systematique": "du FLUX, jamais une conviction — leurs lignes tournent par construction"
+ },
+ "ecartes_volontairement": {
+  "BlackRock / Vanguard / State Street": "detiennent a peu pres tout, a peu pres tout le temps : leur 13F suit les flux d'indices, pas une opinion. Utiles comme denominateur du flottant, jamais comme signal — et leurs raisons sociales eclatees en dizaines d'entites font courir un risque de mauvaise resolution pour un benefice nul."
+ },
+ "resolu_le": "2026-08-16",
+ "gerants": [
+  {
+   "nom": "Berkshire Hathaway",
+   "groupe": "allocateur",
+   "cik": "1067983",
+   "nom_edgar": "BERKSHIRE HATHAWAY INC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Markel Group",
+   "groupe": "allocateur",
+   "cik": "1096343",
+   "nom_edgar": "MARKEL GROUP INC.",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Bridgewater Associates",
+   "groupe": "macro",
+   "cik": "1350694",
+   "nom_edgar": "Bridgewater Associates, LP",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Soros Fund Management",
+   "groupe": "macro",
+   "cik": "1029160",
+   "nom_edgar": "SOROS FUND MANAGEMENT LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Duquesne Family Office",
+   "groupe": "macro",
+   "cik": "1536411",
+   "nom_edgar": "Duquesne Family Office LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Pershing Square Capital Management",
+   "groupe": "activiste",
+   "cik": "1336528",
+   "nom_edgar": "Pershing Square Capital Management, L.P.",
+   "derniere_periode_vue": "2026-03-31"
+  },
+  {
+   "nom": "Third Point",
+   "groupe": "activiste",
+   "cik": "1040273",
+   "nom_edgar": "Third Point LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Elliott Investment Management",
+   "groupe": "activiste",
+   "cik": "1791786",
+   "nom_edgar": "Elliott Investment Management L.P.",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Starboard Value",
+   "groupe": "activiste",
+   "cik": "1517137",
+   "nom_edgar": "Starboard Value LP",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Coatue Management",
+   "groupe": "croissance",
+   "cik": "1135730",
+   "nom_edgar": "COATUE MANAGEMENT LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Tiger Global Management",
+   "groupe": "croissance",
+   "cik": "1167483",
+   "nom_edgar": "TIGER GLOBAL MANAGEMENT LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Lone Pine Capital",
+   "groupe": "croissance",
+   "cik": "1061165",
+   "nom_edgar": "LONE PINE CAPITAL LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Whale Rock Capital Management",
+   "groupe": "croissance",
+   "cik": "1387322",
+   "nom_edgar": "Whale Rock Capital Management LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Altimeter Capital Management",
+   "groupe": "croissance",
+   "cik": "1541617",
+   "nom_edgar": "Altimeter Capital Management, LP",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Baillie Gifford",
+   "groupe": "croissance",
+   "cik": "1088875",
+   "nom_edgar": "BAILLIE GIFFORD & CO",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Renaissance Technologies",
+   "groupe": "systematique",
+   "cik": "1037389",
+   "nom_edgar": "RENAISSANCE TECHNOLOGIES LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Two Sigma Investments",
+   "groupe": "systematique",
+   "cik": "1179392",
+   "nom_edgar": "TWO SIGMA INVESTMENTS, LP",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "AQR Capital Management",
+   "groupe": "systematique",
+   "cik": "1167557",
+   "nom_edgar": "AQR CAPITAL MANAGEMENT LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Millennium Management",
+   "groupe": "systematique",
+   "cik": "1273087",
+   "nom_edgar": "MILLENNIUM MANAGEMENT LLC",
+   "derniere_periode_vue": "2026-06-30"
+  },
+  {
+   "nom": "Citadel Advisors",
+   "groupe": "systematique",
+   "cik": "1423053",
+   "nom_edgar": "CITADEL ADVISORS LLC",
+   "derniere_periode_vue": "2026-06-30"
+  }
+ ],
+ "introuvables": [
+  "Trian Fund Management",
+  "D. E. Shaw"
+ ]
+}
