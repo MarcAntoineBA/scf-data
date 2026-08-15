@@ -1684,6 +1684,22 @@
     "sec_rachats_cache.json"
    ],
    "witness": "sec_rachats_cache.json"
+  },
+  {
+   "id": "predmarkets_extras",
+   "script": "fetch_predmarkets_extras.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "platform_volume_hist.js",
+    "platform_volume_hist.json",
+    "prediction_markets_icons.js",
+    "prediction_markets_icons.json"
+   ],
+   "witness": "platform_volume_hist.json"
   }
  ]
 }
