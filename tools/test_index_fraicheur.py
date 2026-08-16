@@ -84,12 +84,21 @@ def main():
         c = ecrire(tmp, "muet.json", '{"valeurs": [1, 2, 3]}')
         verifie("aucun champ de date → None", ix.horodatage_contenu(c), None)
 
-        print("\nRepli sur la date du passage")
-        verifie("contenu daté → le contenu gagne sur le passage",
+        print("\nRepli sur le mtime, puis sur la date du passage")
+        verifie("contenu daté → le contenu gagne sur mtime et passage",
                 ix.dater(os.path.join(tmp, "narratives_cache.json"), PASSAGE),
                 "2026-08-07T08:38:29Z")
-        verifie("contenu non daté → date du passage",
-                ix.dater(os.path.join(tmp, "muet.json"), PASSAGE), PASSAGE)
+
+        # RÉCIDIVE DU 2026-08-16 : un contenu non datable ne doit plus retomber
+        # directement sur la date du passage. Le passage dit quand on a REGARDÉ ;
+        # le mtime dit quand le collecteur a ÉCRIT. Sur 26 caches à date nue, cette
+        # nuance valait jusqu'à 224 h d'erreur dans l'index.
+        muet = os.path.join(tmp, "muet.json")
+        os.utime(muet, (1_754_000_000, 1_754_000_000))   # 2025-07-31T22:13:20Z
+        verifie("contenu non daté → mtime du fichier, pas date du passage",
+                ix.dater(muet, PASSAGE), ix.horodatage_fichier(muet))
+        verifie("fichier illisible → dernier repli sur la date du passage",
+                ix.dater(os.path.join(tmp, "absent_du_disque.json"), PASSAGE), PASSAGE)
 
         print("\nConstruction de l'index")
         idx = ix.construire([tmp], PASSAGE)
@@ -100,12 +109,26 @@ def main():
                                       if n.endswith((".js", ".json"))), True)
 
         # PROMESSE 3 : ne pas redater ce qu'aucun collecteur n'a produit.
-        ancien = {"muet.json": "2020-01-01T00:00:00Z"}
+        # Le fichier est plus VIEUX que sa date d'index : il n'a pas été réécrit,
+        # donc rien à remesurer, donc il garde sa date — c'est le mensonge « frais
+        # parce qu'on l'a regardé » que cette borne existe pour interdire.
+        os.utime(muet, (1_577_836_800, 1_577_836_800))   # 2020-01-01T00:00:00Z
+        ancien = {"muet.json": "2021-01-01T00:00:00Z"}
         idx = ix.construire([tmp], PASSAGE, ancien, seulement={"narratives_cache.json"})
-        verifie("fichier non produit ce passage → garde sa date d'avant",
-                idx["muet.json"], "2020-01-01T00:00:00Z")
+        verifie("fichier non réécrit → garde sa date d'avant",
+                idx["muet.json"], "2021-01-01T00:00:00Z")
         verifie("fichier produit ce passage → redaté",
                 idx["narratives_cache.json"], "2026-08-07T08:38:29Z")
+
+        # PROMESSE 4, AJOUTÉE LE 2026-08-16 : la liste `outputs` de jobs.json dérive
+        # (67 outputs déclarés n'existent pas). Un cache réellement réécrit mais absent
+        # de la liste tombait dans un angle mort et vieillissait sans borne dans
+        # l'index — la panne de tradfi_fundamentals_cache.js, daté du 14 pour un
+        # contenu du 16. Les faits sur le disque priment désormais sur la déclaration.
+        os.utime(muet, (1_786_900_000, 1_786_900_000))
+        idx = ix.construire([tmp], PASSAGE, ancien, seulement={"narratives_cache.json"})
+        verifie("fichier réécrit mais absent des outputs → remesuré quand même",
+                idx["muet.json"], ix.horodatage_fichier(muet))
 
         # Le fond de carte : ce qui n'est nulle part sur ce runner survit quand même.
         ancien = {"gros_cache_absent.json": "2026-08-01T00:00:00Z"}

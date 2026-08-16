@@ -121,9 +121,37 @@ def horodatage_contenu(chemin):
     return None
 
 
+def horodatage_fichier(chemin):
+    """Instant de dernière écriture du fichier, en ISO-Z. None si illisible.
+
+    TROISIÈME MESURE, AJOUTÉE APRÈS LA RÉCIDIVE DU 2026-08-16
+    Les deux mesures d'origine laissaient un trou : un cache dont la date interne est
+    NUE (sans fuseau) rend None, et si son nom manque à la liste `outputs` de son job,
+    `seulement` le saute — il conserve alors indéfiniment sa date précédente. Mesuré ce
+    jour : 119 fichiers sur 139 figés, dont 26 à date nue, certains de 224 h. L'index
+    par fichier — écrit précisément pour supprimer la panne du 07-08 — était donc
+    lui-même l'organe périmé, et le repli au battement global se rouvrait en silence.
+
+    Le mtime n'est pas une devinette : c'est l'instant où le collecteur a écrit, mesuré
+    par le système de fichiers, en UTC, sans vocabulaire à deviner. Il est moins précis
+    que la date interne (une réécriture identique le rajeunit) — d'où sa place en
+    DERNIER, après les deux mesures qui parlent du contenu. Mais il est toujours vrai,
+    et une date vraie à la minute près vaut mieux qu'une date fausse de neuf jours.
+    """
+    try:
+        return _canonique(os.path.getmtime(chemin))
+    except (OSError, OverflowError, ValueError):
+        return None
+
+
 def dater(chemin, defaut):
-    """Date d'un cache : son contenu s'il est explicite, sinon celle du passage."""
-    return horodatage_contenu(chemin) or defaut
+    """Date d'un cache : son contenu s'il est explicite, sinon son mtime, sinon le passage.
+
+    L'ordre encode la confiance : le contenu dit ce que le visiteur VERRA, le mtime dit
+    quand le fichier a été ÉCRIT, le passage dit seulement quand on a REGARDÉ. On ne
+    descend d'un cran que lorsque le cran du dessus refuse de répondre.
+    """
+    return horodatage_contenu(chemin) or horodatage_fichier(chemin) or defaut
 
 
 def construire(dossiers, defaut, ancien=None, seulement=None):
@@ -144,9 +172,28 @@ def construire(dossiers, defaut, ancien=None, seulement=None):
         for nom in os.listdir(dossier):
             if not nom.endswith((".js", ".json")) or nom.startswith("_"):
                 continue          # les battements ne se datent pas eux-mêmes
+            chemin = os.path.join(dossier, nom)
             if seulement is not None and nom not in seulement:
-                continue
-            index[nom] = dater(os.path.join(dossier, nom), defaut)
+                # POURQUOI CETTE ÉCHAPPATOIRE (2026-08-16)
+                # `seulement` vient des `outputs` déclarés dans jobs.json. Ces listes
+                # dérivent : 67 outputs déclarés n'existent pas, et à l'inverse des
+                # fichiers bien produits n'y figurent pas. Le fichier tombait alors
+                # dans un angle mort — jamais remesuré, sa date d'index vieillissait
+                # sans borne pendant que son contenu, lui, se rafraîchissait toutes
+                # les 6 h. C'est ainsi que tradfi_fundamentals_cache.js s'est retrouvé
+                # daté du 14 alors qu'il datait du 16.
+                #
+                # On ne fait donc plus confiance à la liste seule : si le fichier sur
+                # disque est PLUS RÉCENT que ce que l'index prétend, il a été réécrit,
+                # la déclaration est en retard sur les faits, et on remesure. Le
+                # mensonge que `seulement` protégeait contre — « frais parce qu'on
+                # l'a regardé » — reste impossible : un fichier non réécrit a un mtime
+                # inchangé, échoue ce test, et garde sa date.
+                precedent = index.get(nom)
+                courant = horodatage_fichier(chemin)
+                if not (courant and (not precedent or courant > precedent)):
+                    continue
+            index[nom] = dater(chemin, defaut)
     return index
 
 
