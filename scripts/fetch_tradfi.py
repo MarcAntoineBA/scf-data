@@ -3933,6 +3933,14 @@ def main():
     for cfg in NARRATIVES.values():
         defined_in_narratives.update(cfg.get("tickers", []))
 
+    # Actions déclarées dans un secteur mais absentes du run (quote manquante,
+    # filtre, etc.) — exposé pour le bouton "voir les actifs non pris en compte"
+    # côté badge de couverture (TradFi_Tracker.Rmd).
+    missing_stocks = [
+        {"symbol": t, "name": STOCKS.get(t, {}).get("name", t)}
+        for t in sorted(defined_in_narratives - covered)
+    ]
+
     # ─── HISTOIRES EMBARQUÉES pour recalcul JS dynamique par région ───
     # On downsample encore côté output (daily récent + hebdo au-delà de 6 mois)
     # pour limiter la taille du JSON. ~260 points × 581 tickers ≈ 2 Mo gzippé.
@@ -4039,6 +4047,7 @@ def main():
             "total_stocks_defined": len(defined_in_narratives),
             "live_pct": coverage_pct,
             "stale_filled": filled_stale,
+            "missing_stocks": missing_stocks,
         },
         "narratives": stats_list,
         "histories":  embedded_histories,
