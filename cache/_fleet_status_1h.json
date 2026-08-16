@@ -1,20 +1,20 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-08-16T19:36:39Z",
+  "ts": "2026-08-16T20:42:14Z",
   "total": 26,
   "ok": 25,
-  "secs": 224.5,
+  "secs": 309.1,
   "changed": 37,
   "versionnes": 28,
   "pieces_jointes": 9,
   "absents": 17,
   "failed": [
    {
-    "job": "tradficycle",
-    "why": "[tradfi-cycle] FATAL build: <urlopen error [Errno 104] Connection reset by peer>"
+    "job": "appariepredictifs",
+    "why": "[apparier] introuvable : prediction_markets_cache.json (ni dans le dépôt ni dans le cache)"
    }
   ]
  },
- "updated": "2026-08-16T19:36:39Z"
+ "updated": "2026-08-16T20:42:14Z"
 }
