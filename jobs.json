@@ -114,10 +114,10 @@
     "crypto_etf_cache.json",
     "crypto_pe_hist_cache.json",
     "crypto_ytd_cache.json",
-    "cycle_cache.json",
+    "cycle_cache.js",
     "earnings_calendar_cache.json",
-    "ecosysteme_indicators_cache.json",
-    "fedwatch_cache.json",
+    "ecosysteme_indicators_cache.js",
+    "fedwatch_cache.js",
     "financiarisation_cache.json",
     "fj_news_cache.json",
     "flux_physiques_cache.js",
@@ -133,23 +133,23 @@
     "levered_etf_cache.js",
     "macro_calendar_cache.json",
     "macro_corr_cache.json",
-    "macro_fred_cache.json",
+    "macro_fred_cache.js",
     "mag7_hist_cache.json",
     "market_concentration_cache.json",
     "moneyflow_cache.json",
     "narratives_cache.json",
-    "narratives_fundamentals_cache.json",
+    "narratives_fundamentals_cache.js",
     "new_listings_cache.json",
-    "pe_hist_cache.json",
+    "pe_hist_cache.js",
     "pe_hist_global_cache.json",
     "per_data_cache.json",
     "portefeuille_cache.json",
     "prediction_markets_cache.json",
     "radar_backtest_cache.js",
-    "radar_cache.json",
+    "radar_cache.js",
     "radar_v3_cache.js",
     "sentiment_index_live.js",
-    "stock_bubble_cache.json",
+    "stock_bubble_cache.js",
     "tech_debt_cache.json",
     "these_bitcoin_cache.json",
     "these_bulleia_cache.json",
@@ -161,7 +161,7 @@
     "these_web3_cache.json",
     "tradfi_cache.json",
     "tradfi_cycle_cache.json",
-    "tradfi_fundamentals_cache.json",
+    "tradfi_fundamentals_cache.js",
     "tradfi_growth_cache.json",
     "tradfi_hist_cache.json",
     "treasury_cache.json"
@@ -609,9 +609,9 @@
    "category": "public",
    "outputs": [
     "cycle_cache.js",
-    "cycle_cache.json"
+    "cycle_cache.js"
    ],
-   "witness": "cycle_cache.json"
+   "witness": "cycle_cache.js"
   },
   {
    "id": "defiengagement.refresh",
@@ -718,9 +718,9 @@
    "category": "public",
    "outputs": [
     "ecosysteme_indicators_cache.js",
-    "ecosysteme_indicators_cache.json"
+    "ecosysteme_indicators_cache.js"
    ],
-   "witness": "ecosysteme_indicators_cache.json"
+   "witness": "ecosysteme_indicators_cache.js"
   },
   {
    "id": "energymacro",
@@ -743,9 +743,9 @@
    "category": "public",
    "outputs": [
     "fedwatch_cache.js",
-    "fedwatch_cache.json"
+    "fedwatch_cache.js"
    ],
-   "witness": "fedwatch_cache.json"
+   "witness": "fedwatch_cache.js"
   },
   {
    "id": "finance_americaine",
@@ -1032,11 +1032,11 @@
    "category": "public",
    "outputs": [
     "macro_fred_cache.js",
-    "macro_fred_cache.json",
+    "macro_fred_cache.js",
     "macro_indicators_cache.js",
     "macro_indicators_cache.json"
    ],
-   "witness": "macro_fred_cache.json"
+   "witness": "macro_fred_cache.js"
   },
   {
    "id": "mag7hist",
@@ -1112,9 +1112,9 @@
    "outputs": [
     "narratives_cache.json",
     "narratives_fundamentals_cache.js",
-    "narratives_fundamentals_cache.json"
+    "narratives_fundamentals_cache.js"
    ],
-   "witness": "narratives_fundamentals_cache.json"
+   "witness": "narratives_fundamentals_cache.js"
   },
   {
    "id": "newlistings",
@@ -1127,7 +1127,7 @@
    "outputs": [
     "new_listings_cache.js",
     "new_listings_cache.json",
-    "stock_bubble_cache.json"
+    "stock_bubble_cache.js"
    ],
    "witness": "new_listings_cache.json"
   },
@@ -1175,9 +1175,9 @@
    "category": "public",
    "outputs": [
     "pe_hist_cache.js",
-    "pe_hist_cache.json"
+    "pe_hist_cache.js"
    ],
-   "witness": "pe_hist_cache.json"
+   "witness": "pe_hist_cache.js"
   },
   {
    "id": "pehistglobal",
@@ -1240,9 +1240,9 @@
    "category": "public",
    "outputs": [
     "radar_cache.js",
-    "radar_cache.json"
+    "radar_cache.js"
    ],
-   "witness": "radar_cache.json"
+   "witness": "radar_cache.js"
   },
   {
    "id": "radarv3.refresh",
@@ -1291,7 +1291,7 @@
    "category": "public",
    "outputs": [
     "stock_bubble_cache.js",
-    "stock_bubble_cache.json",
+    "stock_bubble_cache.js",
     "stock_ext_cn.js",
     "stock_ext_cn.json",
     "stock_ext_eu.js",
@@ -1303,7 +1303,7 @@
     "stock_history_cache.js",
     "stock_history_cache.json"
    ],
-   "witness": "stock_bubble_cache.json"
+   "witness": "stock_bubble_cache.js"
   },
   {
    "id": "techdebt",
@@ -1574,9 +1574,9 @@
    "outputs": [
     "tradfi_cache.json",
     "tradfi_fundamentals_cache.js",
-    "tradfi_fundamentals_cache.json"
+    "tradfi_fundamentals_cache.js"
    ],
-   "witness": "tradfi_fundamentals_cache.json"
+   "witness": "tradfi_fundamentals_cache.js"
   },
   {
    "id": "tradfihist",
@@ -1589,7 +1589,7 @@
    "cadence": "6h",
    "category": "public",
    "outputs": [
-    "tradfi_fundamentals_cache.json",
+    "tradfi_fundamentals_cache.js",
     "tradfi_hist_cache.js",
     "tradfi_hist_cache.json"
    ],
