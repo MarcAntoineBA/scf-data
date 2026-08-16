@@ -138,7 +138,17 @@ def build_volume_payload(ok, failed, prev):
     if kal_cum is None and prev_days:
         kal_cum = [(int(datetime.fromisoformat(d).replace(tzinfo=timezone.utc).timestamp()), k)
                    for d, (p, k) in prev_map.items()]
-    days = merge_cumulative(poly_cum or [], kal_cum or [])
+    # UNE SOURCE MUETTE SANS REPLI NE DOIT PAS ÊTRE PUBLIÉE COMME UN ZÉRO.
+    # Sans ce garde-fou, un premier run (ou un cache perdu) avec Kalshi KO
+    # écrivait 0 $ sur les 2143 jours : la page affichait « Kalshi — $0 » et
+    # « part Polymarket 100 % » comme une donnée normale, ce qui est faux et
+    # indétectable à l'œil. Mieux vaut ne rien publier et garder l'ancien
+    # fichier — c'est la règle appliquée partout ailleurs dans ce dépôt.
+    if poly_cum is None or kal_cum is None:
+        manque = "polymarket" if poly_cum is None else "kalshi"
+        sys.stderr.write(f"[volume] {manque} indisponible et aucun repli — publication annulée\n")
+        return None
+    days = merge_cumulative(poly_cum, kal_cum)
     if not days:
         return None
     last = days[-1]
@@ -155,7 +165,17 @@ def build_volume_payload(ok, failed, prev):
 # ════════════════════════════════════════════════════════════════════
 
 def fetch_icons(ok, failed):
+    """Balaie les events par volume et retient id→icône.
+
+    UN BALAYAGE INTERROMPU NE DOIT JAMAIS ÊTRE PUBLIÉ TEL QUEL. Si la source
+    lâche à la page 12 sur 21, on a bien ~1100 icônes valides — mais les
+    republier écraserait les 2100 du fichier précédent, et des centaines de
+    logos disparaîtraient du site jusqu'au prochain run réussi. On signale
+    donc l'interruption à l'appelant (`partial`), qui fusionnera avec le
+    cache précédent au lieu de le remplacer.
+    """
     out = {}
+    partial = False
     offset, page, max_total = 0, 100, 3000
     # La Gamma API plafonne la taille de page à 100, quel que soit le `limit`
     # demandé (observé : limit=500 -> 100 résultats). Avancer `offset` du
@@ -185,7 +205,8 @@ def fetch_icons(ok, failed):
     except Exception as e:
         sys.stderr.write(f"[icons] {e}\n")
         failed.append("gamma:icons")
-    return out or None
+        partial = bool(out)      # on a ramené quelque chose, mais pas tout
+    return (out or None), partial
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -214,23 +235,44 @@ def main():
     ok, failed = [], []
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+    # ── 1. Historique de volume ────────────────────────────────────────
     prev_vol = _read_prev(VOL_JSON)
     vol = build_volume_payload(ok, failed, prev_vol)
     if vol is None and prev_vol:
         sys.stderr.write("[GUARD volume] tout a échoué — conserve le cache précédent\n")
         vol = {k: v for k, v in prev_vol.items() if k != "meta"}
+    # `ok`/`failed` sont partagés par les deux collectes de ce script. Figer
+    # ici la part qui concerne le volume : sinon le fichier de volume, écrit
+    # AVANT le balayage d'icônes, ne pouvait jamais mentionner un échec
+    # d'icônes — et le fichier d'icônes s'attribuait les sources DefiLlama.
+    vol_ok = list(ok)
+    vol_failed = list(failed)
     if vol is not None:
-        vol["meta"] = {"updated_at": now_iso, "sources_ok": ok, "sources_failed": failed}
+        vol["meta"] = {"updated_at": now_iso, "sources_ok": vol_ok, "sources_failed": vol_failed}
         write_pair(VOL_JSON, VOL_JS, "__PM_VOLUME_HIST__", vol)
 
-    icons = fetch_icons(ok, failed)
+    # ── 2. Icônes par marché ───────────────────────────────────────────
+    icons, partial = fetch_icons(ok, failed)
     prev_icons = _read_prev(ICO_JSON)
-    if icons is None and prev_icons:
+    prev_map = {k: v for k, v in (prev_icons or {}).items() if k != "meta"}
+    if icons is None and prev_map:
         sys.stderr.write("[GUARD icons] fetch KO — conserve le cache précédent\n")
-        icons = {k: v for k, v in prev_icons.items() if k != "meta"}
+        icons = prev_map
+    elif icons is not None and partial and prev_map:
+        # Balayage interrompu : on FUSIONNE au lieu de remplacer. Les icônes
+        # fraîches gagnent, celles que le balayage n'a pas atteintes cette
+        # fois survivent. Sans ça, la couverture ne pouvait que régresser.
+        fusion = dict(prev_map)
+        fusion.update(icons)
+        sys.stderr.write(f"[GUARD icons] balayage partiel ({len(icons)}) fusionné "
+                         f"avec le cache ({len(prev_map)}) → {len(fusion)}\n")
+        icons = fusion
     if icons is not None:
         payload = dict(icons)
-        payload["meta"] = {"updated_at": now_iso, "sources_ok": ok, "sources_failed": failed}
+        ico_ok = [s for s in ok if s not in vol_ok]
+        ico_failed = [s for s in failed if s not in vol_failed]
+        payload["meta"] = {"updated_at": now_iso, "sources_ok": ico_ok,
+                           "sources_failed": ico_failed, "partial": partial}
         write_pair(ICO_JSON, ICO_JS, "__PM_ICONS__", payload)
 
     dt = time.time() - t0
