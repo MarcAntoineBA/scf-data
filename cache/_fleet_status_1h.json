@@ -1,15 +1,20 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-08-16T18:49:39Z",
+  "ts": "2026-08-16T19:36:39Z",
   "total": 26,
-  "ok": 26,
-  "secs": 198.9,
-  "changed": 39,
-  "versionnes": 29,
-  "pieces_jointes": 10,
+  "ok": 25,
+  "secs": 224.5,
+  "changed": 37,
+  "versionnes": 28,
+  "pieces_jointes": 9,
   "absents": 17,
-  "failed": []
+  "failed": [
+   {
+    "job": "tradficycle",
+    "why": "[tradfi-cycle] FATAL build: <urlopen error [Errno 104] Connection reset by peer>"
+   }
+  ]
  },
- "updated": "2026-08-16T18:49:39Z"
+ "updated": "2026-08-16T19:36:39Z"
 }
