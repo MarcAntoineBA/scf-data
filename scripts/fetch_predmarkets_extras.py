@@ -156,12 +156,17 @@ def build_volume_payload(ok, failed, prev):
 
 def fetch_icons(ok, failed):
     out = {}
-    limit = 500
+    offset, page, max_total = 0, 100, 3000
+    # La Gamma API plafonne la taille de page à 100, quel que soit le `limit`
+    # demandé (observé : limit=500 -> 100 résultats). Avancer `offset` du
+    # `limit` demandé au lieu de la taille RÉELLEMENT reçue faisait relire la
+    # même première page en boucle puis s'arrêter, croyant avoir tout balayé
+    # après 100 events sur les ~2000 du marché.
     try:
-        for offset in range(0, 2000, limit):
+        while offset < max_total:
             j = get_json(f"{GAMMA}/events", timeout=25, params={
                 "order": "volume", "ascending": "false",
-                "limit": limit, "offset": offset, "closed": "false",
+                "limit": page, "offset": offset, "closed": "false",
             })
             if not j:
                 break
@@ -170,7 +175,8 @@ def fetch_icons(ok, failed):
                 eid = ev.get("id")
                 if eid and icon:
                     out[str(eid)] = icon
-            if len(j) < limit:
+            offset += len(j)
+            if len(j) < page:
                 break
             time.sleep(0.3)
         if not out:
