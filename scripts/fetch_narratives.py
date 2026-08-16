@@ -904,6 +904,33 @@ def fetch_cg_markets(ids):
     return out
 
 
+def fetch_top_universe(max_rank=MAX_MCAP_RANK):
+    """Snapshot indépendant du top `max_rank` CoinGecko par market cap —
+    sert uniquement au calcul de couverture (classées / prix fixe / non
+    classées, cf. bouton « Couverture de l'univers »). Distinct de
+    fetch_cg_markets(), qui ne récupère que les tokens déjà curatés dans
+    NARRATIVES."""
+    out = {}
+    per_page = 250
+    pages = (max_rank + per_page - 1) // per_page
+    for page in range(1, pages + 1):
+        url = (f"{COINGECKO}/coins/markets?vs_currency=usd"
+               f"&order=market_cap_desc&per_page={per_page}&page={page}&sparkline=false"
+               "&price_change_percentage=7d,30d")
+        data = _http_json(url)
+        if not data:
+            break
+        for row in data:
+            rank = row.get("market_cap_rank")
+            if rank and rank <= max_rank:
+                out[row["id"]] = row
+        if len(data) < per_page:
+            break
+        if page < pages:
+            time.sleep(12.0)
+    return out
+
+
 def fetch_stocks(symbols):
     """Fetch US/CA equities via yfinance (no API key).
     Returns dict keyed by '$SYMBOL' to match the unified assets dict."""
@@ -1858,6 +1885,10 @@ def main():
     mkts = fetch_cg_markets(all_ids)
     print(f"[info] got prices for {len(mkts)}/{len(all_ids)} tokens")
 
+    print(f"[info] fetching CoinGecko top {MAX_MCAP_RANK} universe snapshot (couverture)…")
+    universe = fetch_top_universe(MAX_MCAP_RANK)
+    print(f"[info] universe snapshot: {len(universe)} tokens")
+
     all_stocks = sorted({s for cfg in NARRATIVES.values() for s in cfg.get("stocks", [])})
     print(f"[info] fetching yfinance quotes for {len(all_stocks)} stocks…")
     stocks_data = fetch_stocks(all_stocks)
@@ -1977,6 +2008,23 @@ def main():
             if not t.get("is_stock") and t.get("mcap_rank"):
                 covered_ids.add(t["id"])
 
+    # ── Couverture de l'univers (top MAX_MCAP_RANK = classées + prix fixe + non classées) ──
+    # Détection "prix fixe" : ni 7j ni 30j n'ont bougé au-delà du seuil → stablecoin
+    # peggé ou fonds tokenisé à valeur liquidative, rien à mesurer en momentum
+    # (cf. FAQ « Couverture de l'univers » sur Narrative_Tracker).
+    PEGGED_7D_MAX, PEGGED_30D_MAX = 0.5, 1.5
+    pegged_ids = set()
+    for tid, row in universe.items():
+        p7 = row.get("price_change_percentage_7d_in_currency")
+        p30 = row.get("price_change_percentage_30d_in_currency")
+        if p7 is not None and p30 is not None and abs(p7) < PEGGED_7D_MAX and abs(p30) < PEGGED_30D_MAX:
+            pegged_ids.add(tid)
+    unclassified_ids = set(universe) - pegged_ids - covered_ids
+    unclassified_symbols = sorted({(universe[t].get("symbol") or t).upper() for t in unclassified_ids})
+    pegged_symbols = sorted({(universe[t].get("symbol") or t).upper() for t in pegged_ids})
+    universe_size = len(universe)
+    eligible_universe = universe_size - len(pegged_ids)
+
     # ── Historique LONG de BTC (~11-12 ans) pour graphe régimes ZEN/ALPHA ──
     # Source : Yahoo Finance v8 chart (BTC-USD, daily, depuis oct. 2014).
     # CryptoCompare (racheté par CoinDesk) exige désormais une clé API → mort
@@ -2047,6 +2095,14 @@ def main():
             "max_mcap_rank": MAX_MCAP_RANK,
             "live_pct": coverage_pct,
             "stale_filled": filled_stale,
+            **({
+                "universe_size": universe_size,
+                "pegged_excluded": len(pegged_ids),
+                "unclassified_count": len(unclassified_ids),
+                "eligible_universe": eligible_universe,
+                "unclassified_symbols": unclassified_symbols,
+                "pegged_symbols": pegged_symbols,
+            } if universe_size else {}),
         },
         "narratives": stats_list,
         "btc_longhist": btc_longhist,  # ~13 ans pour graphe régimes ZEN/ALPHA
