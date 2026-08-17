@@ -1,15 +1,20 @@
 {
  "bucket": "weekly",
  "run": {
-  "ts": "2026-08-10T06:02:42Z",
+  "ts": "2026-08-17T05:20:59Z",
   "total": 3,
-  "ok": 3,
-  "secs": 37.8,
-  "changed": 2,
-  "versionnes": 2,
+  "ok": 2,
+  "secs": 3.8,
+  "changed": 0,
+  "versionnes": 0,
   "pieces_jointes": 0,
-  "absents": 30,
-  "failed": []
+  "absents": 27,
+  "failed": [
+   {
+    "job": "deskaudit",
+    "why": "script absent"
+   }
+  ]
  },
- "updated": "2026-08-10T06:02:42Z"
+ "updated": "2026-08-17T05:20:59Z"
 }
