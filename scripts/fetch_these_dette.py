@@ -301,6 +301,189 @@ def fetch_eurostat_debt(geo, unit):
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PRODUCTIVITÉ MARGINALE DE LA DETTE — crédit TOTAL (BRI)
+# ══════════════════════════════════════════════════════════════════════════════
+# Combien de PIB une économie obtient pour chaque unité de dette nouvelle :
+#
+#       MPD(t) =   PIB(t) − PIB(t−10 ans)
+#                ──────────────────────────
+#                 Dette(t) − Dette(t−10 ans)
+#
+# POURQUOI LA BRI ET PAS LA DETTE PUBLIQUE
+#   Le PIB est nourri par TOUT le crédit de l'économie, pas seulement celui de
+#   l'État. Ne regarder que la dette publique surestime massivement le rendement :
+#   VÉRIFIÉ sur les données du 06/08/2026 — États-Unis 0,78 en dette publique
+#   seule contre 0,40 en dette totale, France 0,96 contre 0,26. On calcule donc
+#   les trois périmètres et on montre l'écart au lecteur.
+#   La série BRI « credit to the non-financial sector » couvre ménages +
+#   entreprises + administrations publiques, remonte à 1947 pour les États-Unis,
+#   et exclut le secteur financier — ce qui évite de compter deux fois le même
+#   euro (une banque qui emprunte pour prêter).
+#
+# POURQUOI ON RECONSTRUIT LE PIB AU LIEU DE LE CHERCHER AILLEURS
+#   La BRI publie le même encours sous deux unités : en monnaie locale (XDC) et
+#   en % du PIB (770). Leur rapport redonne EXACTEMENT le PIB nominal que la BRI
+#   a utilisé. Numérateur et dénominateur viennent donc de la même source, avec
+#   les mêmes conventions et le même millésime — aucun risque d'assembler un PIB
+#   d'un fournisseur avec une dette d'un autre, et le taux de change n'entre
+#   jamais dans le calcul (tout est en monnaie locale).
+BIS_TC_URL = "https://stats.bis.org/api/v1/data/WS_TC"
+BIS_WINDOW_Q = 40          # 40 trimestres = 10 ans
+BIS_COUNTRIES = {
+    "US": "États-Unis", "FR": "France", "DE": "Allemagne", "IT": "Italie",
+    "ES": "Espagne", "JP": "Japon", "GB": "Royaume-Uni", "CN": "Chine",
+    "XM": "Zone euro",
+}
+# Code BRI du secteur emprunteur → clé de sortie.
+BIS_BORROWERS = {"C": "total", "G": "public", "P": "prive"}
+
+
+def _bis_q_to_iso(q):
+    """« 1957-Q4 » → « 1957-10-01 » (Plotly veut une date, pas un libellé)."""
+    y, t = q.split("-Q")
+    return f"{int(y):04d}-{(int(t) - 1) * 3 + 1:02d}-01"
+
+
+def _bis_q_index(q):
+    """« 1957-Q4 » → entier monotone, pour repérer t−40 trimestres sans trou."""
+    y, t = q.split("-Q")
+    return int(y) * 4 + int(t) - 1
+
+
+def fetch_bis_tc(borrower, unit):
+    """{pays: {trimestre: valeur}} pour un secteur emprunteur et une unité.
+
+    Un seul appel ramène les ~48 économies couvertes : 6 requêtes au total.
+    """
+    url = f"{BIS_TC_URL}/Q..{borrower}.A.M.{unit}.A/all?format=csv"
+    try:
+        txt = http_get_text(url, timeout=120, max_retries=3)
+    except Exception as e:                                       # noqa: BLE001
+        sys.stderr.write(f"[BIS {borrower}/{unit}] {e}\n")
+        return None
+    out = {}
+    for row in csv.DictReader(io.StringIO(txt)):
+        c = row.get("BORROWERS_CTY")
+        if c not in BIS_COUNTRIES:
+            continue
+        try:
+            out.setdefault(c, {})[row["TIME_PERIOD"]] = float(row["OBS_VALUE"])
+        except (TypeError, ValueError, KeyError):
+            continue
+    return out or None
+
+
+def _mpd_from_bis(xdc, pct):
+    """Séries {trimestre: valeur} d'encours → série MPD {dates, values}."""
+    gdp, debt = {}, {}
+    for q, lvl in xdc.items():
+        share = pct.get(q)
+        if not share:                     # 0 ou absent → PIB non reconstructible
+            continue
+        gdp[_bis_q_index(q)] = lvl / (share / 100.0)
+        debt[_bis_q_index(q)] = lvl
+    dates, values = [], []
+    for k in sorted(gdp):
+        prev = k - BIS_WINDOW_Q
+        if prev not in gdp:
+            continue
+        d_debt = debt[k] - debt[prev]
+        # Dénominateur nul ou négatif (désendettement net sur 10 ans) : le ratio
+        # n'a pas de sens économique, on laisse un trou plutôt qu'une valeur
+        # explosive qui écraserait l'échelle du graphe.
+        if d_debt <= 0:
+            continue
+        dates.append(_bis_q_to_iso(f"{k // 4}-Q{k % 4 + 1}"))
+        values.append(round((gdp[k] - gdp[prev]) / d_debt, 3))
+    if len(values) < 8:
+        return None
+    return {"dates": dates, "values": values,
+            "latest_date": dates[-1], "latest_value": values[-1]}
+
+
+def fetch_mpd():
+    """Bloc `mpd` complet du cache. (payload|None, liste_ok, liste_failed)."""
+    raw, ok, failed = {}, [], []
+    for b in BIS_BORROWERS:
+        for unit in ("XDC", "770"):
+            d = fetch_bis_tc(b, unit)
+            if d is None:
+                failed.append(f"BIS:WS_TC:{b}/{unit}")
+            else:
+                raw[(b, unit)] = d
+                ok.append(f"BIS:WS_TC:{b}/{unit}")
+
+    # Le périmètre TOTAL est le cœur de la section : sans lui, rien à publier.
+    if ("C", "XDC") not in raw or ("C", "770") not in raw:
+        sys.stderr.write("[BIS] crédit total indisponible — bloc mpd non produit\n")
+        return None, ok, failed
+
+    series = {}
+    for iso, label in BIS_COUNTRIES.items():
+        entry = {"label": label}
+        for b, key in BIS_BORROWERS.items():
+            xdc = (raw.get((b, "XDC")) or {}).get(iso)
+            pct = (raw.get((b, "770")) or {}).get(iso)
+            if not xdc or not pct:
+                continue
+            s = _mpd_from_bis(xdc, pct)
+            if s:
+                entry[key] = s
+        if "total" in entry:
+            series[iso] = entry
+
+    if not series:
+        return None, ok, failed
+
+    us = series.get("US", {})
+    us_tot, us_pub = us.get("total"), us.get("public")
+    kpi = {}
+    if us_tot:
+        vals, dates = us_tot["values"], us_tot["dates"]
+        kpi["us_total_now"] = vals[-1]
+        kpi["us_total_now_date"] = dates[-1]
+        # Sommet historique : la référence honnête pour dire « il en fallait X fois moins ».
+        i_max = max(range(len(vals)), key=lambda i: vals[i])
+        kpi["us_total_peak"] = vals[i_max]
+        kpi["us_total_peak_date"] = dates[i_max]
+        kpi["us_total_first"] = vals[0]
+        kpi["us_total_first_date"] = dates[0]
+    if us_pub:
+        kpi["us_public_now"] = us_pub["values"][-1]
+    fr = series.get("FR", {})
+    if fr.get("total"):
+        kpi["fr_total_now"] = fr["total"]["values"][-1]
+    if fr.get("public"):
+        kpi["fr_public_now"] = fr["public"]["values"][-1]
+    cn = series.get("CN", {})
+    if cn.get("total"):
+        cv = cn["total"]["values"]
+        kpi["cn_total_now"] = cv[-1]
+        kpi["cn_total_first"] = cv[0]
+        kpi["cn_total_first_date"] = cn["total"]["dates"][0]
+
+    return {
+        "meta": {
+            "window_quarters": BIS_WINDOW_Q,
+            "window_years": BIS_WINDOW_Q // 4,
+            "source": "BRI — Credit to the non-financial sector (WS_TC)",
+            "source_url": "https://data.bis.org/topics/TOTAL_CREDIT",
+            "api_url": f"{BIS_TC_URL}/Q.US.C.A.M.770.A/all?format=csv",
+            "perimetre": {
+                "total": "Ménages + entreprises non financières + administrations publiques",
+                "public": "Administrations publiques seules",
+                "prive": "Ménages + entreprises non financières",
+            },
+            "gdp_note": "PIB nominal reconstruit = encours en monnaie locale ÷ "
+                        "(encours en % du PIB / 100) — même source, même millésime, "
+                        "aucun taux de change dans le calcul.",
+        },
+        "kpi": kpi,
+        "series": series,
+    }, ok, failed
+
+
 def latest_point(series, default=None):
     """Helper: dernier point non-nul d'une série {dates, values}."""
     if not series or not series.get("values"):
@@ -525,6 +708,29 @@ def build_payload():
         kpi["fr_10y_pct"]  = round(v, 2) if v else None
         kpi["fr_10y_date"] = d
 
+    # ─── 7 bis. Productivité marginale de la dette (BRI, crédit total) ──
+    # Bloc optionnel : s'il tombe, la section du chapitre se met en dégradation
+    # propre (message explicite côté page) et le reste du chapitre est intact.
+    mpd_block, mpd_ok, mpd_failed = fetch_mpd()
+    ok.extend(mpd_ok)
+    failed.extend(mpd_failed)
+    if mpd_block is None and OUT_JSON.exists():
+        # Garde par source : la BRI est parfois indisponible plusieurs heures.
+        # On recopie le bloc du run précédent plutôt que d'effacer la section —
+        # les autres sources du chapitre, elles, ont bien répondu.
+        try:
+            prev = json.loads(OUT_JSON.read_text()).get("mpd")
+            if prev:
+                mpd_block = prev
+                sys.stderr.write("[BIS] indisponible — bloc mpd recopié du cache précédent\n")
+        except (ValueError, OSError) as e:
+            sys.stderr.write(f"[BIS] cache précédent illisible : {e}\n")
+    if mpd_block:
+        n_c = len(mpd_block["series"])
+        print(f"[BIS] mpd : {n_c} économies · "
+              f"US total={mpd_block['kpi'].get('us_total_now')} "
+              f"public={mpd_block['kpi'].get('us_public_now')}")
+
     # ─── 8. Assembly ──
     meta = {
         "updated_at":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -544,6 +750,7 @@ def build_payload():
         "interest":  interest_series,
         "growth":    growth_series,
         "treasury_total_debt": treasury,
+        "mpd":       mpd_block,
     }
     return payload, len(ok), len(failed)
 

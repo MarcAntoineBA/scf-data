@@ -486,10 +486,24 @@ def build_zone(zone, pool, fx, prev_stocks=None):
 # par une pseudo-barre HORS GRILLE, horodatee a l'instant de la requete, qui porte le
 # prix courant. Comptee comme une barre, elle decale toute la fenetre d'un cran (« 4h »
 # ne couvrant plus que quelques minutes). On la replie donc sur la derniere barre alignee.
+#
+# CORRECTIF 2026-08-11 (signale par le user : « en 1H/4H ca affiche des variations alors
+# que le marche est ferme »). Le seuil valait 1800 s, ce qui ne rattrapait QUE la
+# pseudo-barre des marches ouverts. Or une place FERMEE termine sa serie par une DEMI-BARRE
+# DE CLOTURE : NYSE 19:30 UTC puis 20:00 UTC, SSE 06:30 puis 07:00 — un ecart de
+# EXACTEMENT 1800 s, que `< 1800` laisse passer. Elle etait donc comptee comme une barre
+# pleine et decalait la fenetre du meme cran que la pseudo-barre. Mesure sur AAPL le
+# 2026-08-11 : « 1H » couvrait 0 minute de cotation (d'ou une carte 1H uniformement grise,
+# mediane +0,00 % sur les 100 valeurs US) et « 4H » 2 h 30 au lieu de 4 h.
+# Regle : toute derniere barre qui n'occupe pas un creneau PLEIN (ecart < le pas de grille)
+# est repliee, qu'elle soit une pseudo-barre ou une demi-barre de cloture.
+HOUR_GRID = 3600          # pas de la grille (INTRADAY_INTERVAL = « 1h »)
+
 def _normalize_hourly(pts):
-    """Replie la pseudo-barre hors grille sur la derniere barre ALIGNEE, qui porte
-    alors le prix courant. La grille horaire reste ainsi reguliere."""
-    if len(pts) >= 2 and (pts[-1][0] - pts[-2][0]) < 1800:
+    """Replie la derniere barre incomplete (pseudo-barre de marche ouvert OU demi-barre
+    de cloture) sur la derniere barre ALIGNEE, qui porte alors le prix courant.
+    La grille horaire reste ainsi reguliere."""
+    if len(pts) >= 2 and (pts[-1][0] - pts[-2][0]) < HOUR_GRID:
         return pts[:-2] + [[pts[-2][0], pts[-1][1]]]
     return pts
 

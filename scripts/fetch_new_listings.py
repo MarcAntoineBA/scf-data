@@ -888,29 +888,39 @@ def write_universe(uni):
 
 
 def bake_logos():
-    """Lance fetch_stock_logos.py --only-missing (sous-processus borné).
+    """Bake les logos des titres qui viennent d'entrer au pool.
 
-    Sous-processus et non import : le script de logos a son propre pool de threads
-    et écrit des fichiers ; un échec de sa part ne doit pas faire tomber le radar,
-    dont le travail (univers + bandeau) est déjà accompli à ce stade."""
+    DEUX étapes, dans cet ordre (2026-08-10) :
+      1. fetch_stock_logos_tv.py — pastille VECTORIELLE TradingView, qui couvre ~99 %
+         des titres cotés, toutes places confondues. C'est la source principale depuis
+         que la cascade « favicon du domaine » s'est révélée intenable hors des
+         États-Unis (domaines morts, icônes 16 px) ;
+      2. fetch_stock_logos.py --only-missing — repli pour le reste (une cotation trop
+         récente n'a pas encore de logo chez TradingView).
+
+    Sous-processus et non import : ces scripts ont leur propre pool de threads et
+    écrivent des fichiers ; leur échec ne doit pas faire tomber le radar, dont le
+    travail (univers + bandeau) est déjà accompli à ce stade."""
     import subprocess
-    script = HERE / "fetch_stock_logos.py"
-    if not script.exists():
-        log(f"  logos : {script.name} introuvable — bake ignoré")
-        return
-    log("  logos : bake des nouveaux titres…")
-    try:
-        r = subprocess.run([sys.executable, str(script), "--only-missing"],
-                           capture_output=True, text=True, timeout=1800)
-        tail = [l for l in (r.stderr or "").strip().splitlines() if l][-3:]
-        for l in tail:
-            log(f"    {l}")
-        if r.returncode != 0:
-            log(f"  logos : code retour {r.returncode} — à relancer à la main")
-    except subprocess.TimeoutExpired:
-        log("  logos : délai dépassé (15 min) — bake interrompu, relance au prochain run")
-    except Exception as e:
-        log(f"  logos : {type(e).__name__} {e}")
+    for name, args, minutes in (("fetch_stock_logos_tv.py", [], 30),
+                                ("fetch_stock_logos.py", ["--only-missing"], 30)):
+        script = HERE / name
+        if not script.exists():
+            log(f"  logos : {name} introuvable — étape ignorée")
+            continue
+        log(f"  logos : {name}…")
+        try:
+            r = subprocess.run([sys.executable, str(script), *args],
+                               capture_output=True, text=True, timeout=minutes * 60)
+            tail = [l for l in (r.stderr or "").strip().splitlines() if l][-3:]
+            for l in tail:
+                log(f"    {l}")
+            if r.returncode != 0:
+                log(f"  logos : {name} code retour {r.returncode} — à relancer à la main")
+        except subprocess.TimeoutExpired:
+            log(f"  logos : {name} délai dépassé ({minutes} min) — relance au prochain run")
+        except Exception as e:
+            log(f"  logos : {name} {type(e).__name__} {e}")
 
 
 def add_to_pool(uni, pool_zone, v):

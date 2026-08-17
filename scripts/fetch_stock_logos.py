@@ -100,6 +100,21 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
                     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 ONLY_MISSING = "--only-missing" in sys.argv
 RETRY_FAILED = "--retry-failed" in sys.argv
+FORCE_REFETCH = "--force-refetch" in sys.argv
+
+# ── Priorite a TradingView (2026-08-10) ─────────────────────────────────────
+# fetch_stock_logos_tv.py bake des pastilles VECTORIELLES 128 px pour ~99 % du pool
+# (cf son en-tete : les favicons d'entreprise s'effondrent hors des Etats-Unis).
+# Ce script-ci ne garde donc qu'un role de REPLI. Sans ce garde-fou, un run sans
+# --only-missing re-resolvait tout par la cascade favicon et remplacait une pastille
+# nette par une icone 16 px agrandie — la regression exacte qu'on vient de corriger.
+TV_SOURCED = {}
+for _p in (SITE / "stock_logos_tv.json", CACHE_DIR / "stock_logos_tv.json"):
+    try:
+        TV_SOURCED = json.loads(_p.read_text())
+        break
+    except Exception:
+        continue
 
 # ── Memoire des echecs (2026-07-29) ─────────────────────────────────────────
 # ~22 domaines corporate chinois n'exposent aucune icone exploitable. Sans
@@ -550,6 +565,8 @@ def main():
     def work(job):
         t, d, n = job
         path = OUT_DIR / (t.replace(".", "_") + ".png")
+        if t in TV_SOURCED and logo_exists(t) and not FORCE_REFETCH:
+            ok.append(t); return          # pastille TradingView deja bakee : on n'y touche pas
         if ONLY_MISSING and logo_exists(t):
             ok.append(t); return
         if ONLY_MISSING and t in failed_mem:

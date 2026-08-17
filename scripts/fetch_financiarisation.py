@@ -275,30 +275,34 @@ def main():
             [{"id": "TFAABSHNO ÷ TABSHNO", "url": fred_url("TFAABSHNO")}],
             f"{a1:.0f}% du patrimoine", pctile_val=pctile(fav, a1)))
 
-    # ══ ANCRE — Le seuil scientifique de la sur-financiarisation (BIS/FMI) ══
+    # ══ ANCRE — La montée du crédit privé (FAIT mesuré, sans seuil normatif) ══
+    # Volontairement DESCRIPTIF : pas de « seuil de nocivité » BIS/FMI ici — la thèse du
+    # chapitre ne repose pas sur un point de retournement académique mais sur la convergence
+    # des cinq actes. On montre l'ampleur et la date de la bascule, pas un verdict emprunté.
     anchor = None
-    bis = fetch_fred("QUSPAM770A", start="1950-01-01")
-    if bis:
-        b1 = bis["values"][-1]
-        thr = [100.0] * len(bis["dates"])
-        first_over = next((d[:4] for d, v in zip(bis["dates"], bis["values"]) if v >= 100), "?")
+    cred = fetch_fred("QUSPAM770A", start="1950-01-01")
+    if cred:
+        c1 = cred["values"][-1]
+        c0 = cred["values"][0]
+        y0 = cred["dates"][0][:4]
+        pk = max(cred["values"])
+        pky = cred["dates"][cred["values"].index(pk)][:4]
+        mult = c1 / c0 if c0 else 0
+        multfr = f"{mult:.1f}".replace(".", ",")   # séparateur décimal français
         anchor = panel(
-            "bis_threshold", "mono", "Le verdict de la recherche · BIS & FMI",
-            "Au-delà de ce seuil, la finance freine l'économie",
-            f"La recherche académique (BIS 2012/2015, FMI 2015) a établi une "
-            f"relation en U inversé : la finance dope la croissance… jusqu'à un "
-            f"point de retournement, situé autour de <b>80-100% de crédit privé / "
-            f"PIB</b>. Au-delà, elle la freine — en captant les talents, en "
-            f"finançant l'immobilier plutôt que la productivité, en extrayant des "
-            f"rentes. Le crédit privé américain atteint <b>{b1:.0f}% du PIB</b> et "
-            f"dépasse ce seuil de nocivité depuis {first_over}. <b>C'est la "
-            f"définition rigoureuse de la sur-financiarisation — et les États-Unis "
-            f"y sont, structurellement, depuis une génération.</b>",
+            "credit_prive", "mono", "Le fait de départ · crédit privé américain",
+            f"Le crédit privé pèse {multfr} fois plus lourd qu'en {y0}",
+            f"Le crédit au secteur privé non financier représentait <b>{c0:.0f}% du "
+            f"PIB</b> en {y0}. Il a culminé à <b>{pk:.0f}%</b> en {pky}, et s'établit "
+            f"aujourd'hui à <b>{c1:.0f}%</b> — soit <b>×{multfr}</b> le niveau de "
+            f"{y0}. Honnêteté du chiffre : il <i>recule</i> depuis {pky}, le secteur "
+            f"privé s'étant partiellement désendetté au profit de l'État. Ce n'est donc "
+            f"pas le niveau qui fait la thèse. <b>La question du chapitre est ailleurs : "
+            f"ce que ce crédit finance — capacité productive ou prix d'actifs.</b>",
             "%", "pct0",
-            [serie("Crédit privé / PIB (US)", bis["dates"], bis["values"], GOLD, "pct0"),
-             serie("Seuil de nocivité (BIS/FMI)", bis["dates"], thr, RED, "pct0", dash=True)],
+            [serie("Crédit privé / PIB (US)", cred["dates"], cred["values"], GOLD, "pct0")],
             [{"id": "QUSPAM770A", "url": fred_url("QUSPAM770A")}],
-            f"{b1:.0f}% du PIB", pctile_val=pctile(bis["values"], b1))
+            f"{c1:.0f}% du PIB", pctile_val=pctile(cred["values"], c1))
 
     # ══ PARTIE C — L'inversion : l'économie sous perfusion ══════════════════
     panelsC = []
@@ -383,25 +387,24 @@ def main():
         "paragraphs": [
             "Pris isolément, aucun de ces graphes ne « prouve » rien : un marché "
             "haut, une dette élevée, des ménages exposés peuvent toujours se "
-            "justifier. C'est leur <b>convergence</b> qui fait la démonstration. "
-            "Le critère scientifique est rempli : au-delà de ~100% de crédit privé "
-            "/ PIB, la recherche (BIS, FMI) montre que la finance freine la "
-            "croissance plutôt qu'elle ne la stimule — et les États-Unis y sont "
-            "depuis des décennies.",
-            "Surtout, la <b>causalité s'est inversée</b>. Les travaux de Mian & "
-            "Sufi (<i>House of Debt</i>) et de la BIS montrent que le cycle "
-            "financier précède désormais le cycle économique : ce sont les marchés "
-            "et le crédit qui déclenchent les récessions, plus l'inverse. La Fed "
-            "subordonne sa politique aux prix d'actifs (le « put »), l'entreprise "
-            "sert l'actionnaire avant l'investissement, et la consommation des "
-            "ménages dépend de la valeur de leur portefeuille. La finance n'est "
-            "plus au service de l'économie : l'économie est devenue dépendante de "
-            "la finance.",
+            "justifier. C'est leur <b>convergence</b> qui fait la démonstration — "
+            "et elle ne dépend d'aucun seuil : la bourse retire du capital aux "
+            "entreprises, le financement a migré hors de la cote, les ménages sont "
+            "arrimés aux marchés, et l'ensemble ne tient que parce que la banque "
+            "centrale soutient les prix d'actifs.",
+            "Surtout, la <b>hiérarchie s'est inversée</b>. Le cycle financier ne "
+            "suit plus l'économie réelle, il la commande : la Fed subordonne sa "
+            "politique aux prix d'actifs (le « put »), l'entreprise sert "
+            "l'actionnaire avant l'investissement, et la consommation des ménages "
+            "dépend de la valeur de leur portefeuille. La finance n'est plus au "
+            "service de l'économie : c'est le réel qui sert la finance.",
         ],
         "caveats": [
-            "<b>Approfondissement financier ≠ excès.</b> La finance reste un "
-            "moteur de croissance jusqu'au point de retournement. La thèse vaut "
-            "pour une économie <i>déjà</i> au-delà du seuil, pas universellement.",
+            "<b>Approfondissement financier ≠ excès.</b> Un système financier "
+            "profond reste un moteur de croissance : accès au capital, partage du "
+            "risque, liquidité. La thèse porte sur une économie déjà mûre où le "
+            "crédit finance surtout des actifs existants — pas sur la "
+            "financiarisation en général.",
             "<b>Privilège du dollar.</b> Une part de la taille financière US "
             "reflète son rôle de centre financier mondial, pas un seul excès "
             "interne (mais la part étrangère des Treasuries a baissé de 34% à 23% "
@@ -419,9 +422,7 @@ def main():
     refs = [
         {"a": "Epstein (2005)", "t": "définition canonique de la financiarisation"},
         {"a": "Krippner (2005)", "t": "profits par canaux financiers, part FIRE des profits"},
-        {"a": "BIS — Cecchetti & Kharroubi (2012, 2015)", "t": "U inversé, la finance freine la croissance au-delà du seuil"},
-        {"a": "Arcand, Berkes & Panizza — FMI (2015)", "t": "« Too Much Finance », seuil ~80-100% crédit/PIB"},
-        {"a": "Mian & Sufi (2014)", "t": "House of Debt — le cycle du crédit précède la récession"},
+        {"a": "Mian & Sufi (2014)", "t": "House of Debt — le crédit aux ménages et la profondeur des récessions"},
         {"a": "Lazonick (2014)", "t": "« Profits Without Prosperity » — rachats d'actions vs investissement"},
         {"a": "Cieslak & Vissing-Jorgensen (2021)", "t": "« The Economics of the Fed Put »"},
     ]

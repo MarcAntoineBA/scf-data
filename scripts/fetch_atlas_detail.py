@@ -2646,13 +2646,26 @@ def assemble(meta, old, args):
                     elif k in hist:
                         del hist[k]
         # unemp : IMF prioritaire, repli WB
+        prev_src = (entry.get("hist_meta") or {}).get("src") or {}
+        unemp_src = None
         if imf_ok and imf_hist.get(a3, {}).get("unemp"):
             hist["unemp"] = imf_hist[a3]["unemp"]
+            unemp_src = "IMF"
         elif wb_ok and wb_hist.get(a3, {}).get("unemp"):
             hist["unemp"] = wb_hist[a3]["unemp"]
+            unemp_src = "WB"
+        elif "unemp" in hist:
+            unemp_src = prev_src.get("unemp")   # série conservée du cache précédent
         if hist:
             entry["hist"] = hist
-            entry["hist_meta"] = {"forecast_from": forecast_from}
+            # hist_meta.src = source RÉELLEMENT retenue, quand elle varie selon le pays.
+            # Sans ce marqueur l'icône ⓘ du front pointe toujours sur le FMI, dont la
+            # série LUR ne couvre que 122 pays : les ~84 servis par le repli Banque
+            # mondiale tombaient sur une page FMI sans leur donnée.
+            hm = {"forecast_from": forecast_from}
+            if unemp_src:
+                hm["src"] = {"unemp": unemp_src}
+            entry["hist_meta"] = hm
 
         # TRADE
         trade = dict(entry.get("trade", {}))
