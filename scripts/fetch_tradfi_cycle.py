@@ -513,10 +513,12 @@ def build():
             pts.append([months, round(sp_gold[k] / base, 4)])
         secular.append({"label": lbl, "peak": pk, "data": pts})
 
-    # Or nominal : affiché À PARTIR DE 1970 (avant = étalon-or, prix fixe sans intérêt).
-    # Mensuel 1970→2000 + DAILY Yahoo 2000+ (précis & live). NB : le Pendule (S&P/Or) garde
-    # tout l'historique 1871+ pour son calcul via gold_m — seul l'AFFICHAGE du prix démarre en 1970.
-    GOLD_DISPLAY_START = "1970-01"
+    # Or nominal : affiché depuis 1871, même base de départ que le S&P 500 et le Pendule.
+    # Avant août 1971 le prix est ADMINISTRÉ par la loi (étalon-or : $19.39 → $20.67 → $35),
+    # il n'est pas coté : la courbe est un escalier plat. Le front-end trace cette portion en
+    # pointillés atténués pour ne pas la faire passer pour une cotation de marché.
+    # Mensuel 1871→2000 + DAILY Yahoo 2000+ (précis & live).
+    GOLD_DISPLAY_START = "1871-01"
     daily_cut = (min(gold_d)[:7] if gold_d else "2000-09")   # mensuel jusqu'au 1er mois daily (pas de trou)
     gold_nom_series = [[ym_to_unix(k), round(gold_m[k], 4)] for k in sorted(gold_m) if GOLD_DISPLAY_START <= k < daily_cut]
     gold_nom_series += to_series_d(gold_d)
