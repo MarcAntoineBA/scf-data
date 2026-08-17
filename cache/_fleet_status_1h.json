@@ -1,15 +1,20 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-08-17T15:41:54Z",
+  "ts": "2026-08-17T16:51:00Z",
   "total": 26,
-  "ok": 26,
-  "secs": 214.4,
-  "changed": 39,
-  "versionnes": 30,
+  "ok": 25,
+  "secs": 358.3,
+  "changed": 37,
+  "versionnes": 28,
   "pieces_jointes": 9,
   "absents": 17,
-  "failed": []
+  "failed": [
+   {
+    "job": "appariepredictifs",
+    "why": "[apparier] introuvable : prediction_markets_cache.json (ni dans le dépôt ni dans le cache)"
+   }
+  ]
  },
- "updated": "2026-08-17T15:41:54Z"
+ "updated": "2026-08-17T16:51:00Z"
 }
