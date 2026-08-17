@@ -38,6 +38,12 @@ Sources (toutes vérifiées 2026-06-17, valeurs de repli = dernières valeurs r�
   MARCHÉ DU TRAVAIL
    9. Indeed Hiring Lab  → raw.githubusercontent.com/hiring-lab (part d'offres IA)
 
+  EMPREINTE DANS LE CODE PUBLIC (l'artefact, pas la déclaration)
+  10. claudescode.dev    → payload SSR de la page (pas d'API publique)
+        commits publics signés Claude Code : série quotidienne 90 j, langages,
+        dépôts actifs, premier commit observé. Capteur mono-fournisseur
+        (Codex/Gemini/Cursor ne signent pas) → plancher d'usage, pas part de marché.
+
   CONSTANTES SOURCÉES (publications périodiques, valeurs vérifiées + lien source)
         Pew (34 % adultes US), WAU/MAU ChatGPT/Gemini/Claude, Anthropic Economic
         Index (split work/perso/études + collaboration), étude OpenAI NBER
@@ -50,6 +56,7 @@ These_BulleIA.html. Lancé par scf.ai_adoption (toutes les ~6 h).
 import csv
 import io
 import json
+import re
 import shutil
 import sys
 import time
@@ -347,6 +354,36 @@ FALLBACK = {
 # JSON embarqué (évite les soucis true/false littéraux) ; écrasé par le fetch live.
 _GEO_FALLBACK_JSON = r'''{"eurostat": {"years": ["2021", "2023", "2024", "2025"], "comparable_from": "2023", "latest_year": "2025", "adoption": [{"code": "DK", "name": "Danemark", "vals": {"2021": 23.89, "2023": 15.17, "2024": 27.58, "2025": 42.03}}, {"code": "FI", "name": "Finlande", "vals": {"2021": 15.79, "2023": 15.1, "2024": 24.37, "2025": 37.82}}, {"code": "SE", "name": "Suède", "vals": {"2021": 9.92, "2023": 10.37, "2024": 25.09, "2025": 35.04}}, {"code": "BE", "name": "Belgique", "vals": {"2021": 10.32, "2023": 13.81, "2024": 24.71, "2025": 34.54}}, {"code": "LU", "name": "Luxembourg", "vals": {"2021": 13.0, "2023": 14.45, "2024": 23.73, "2025": 33.61}}, {"code": "NL", "name": "Pays-Bas", "vals": {"2021": 13.1, "2023": 14.1, "2024": 23.06, "2025": 33.21}}, {"code": "AT", "name": "Autriche", "vals": {"2021": 8.83, "2023": 10.79, "2024": 20.27, "2025": 29.95}}, {"code": "NO", "name": "Norvège", "vals": {"2021": 10.82, "2023": 9.17, "2024": 20.77, "2025": 28.89}}, {"code": "DE", "name": "Allemagne", "vals": {"2021": 10.56, "2023": 11.55, "2024": 19.75, "2025": 25.97}}, {"code": "EE", "name": "Estonie", "vals": {"2021": 2.77, "2023": 5.19, "2024": 13.89, "2025": 23.4}}, {"code": "SI", "name": "Slovénie", "vals": {"2021": 11.73, "2023": 11.37, "2024": 20.89, "2025": 21.61}}, {"code": "MT", "name": "Malte", "vals": {"2021": 10.16, "2023": 13.17, "2024": 17.3, "2025": 21.51}}, {"code": "LT", "name": "Lituanie", "vals": {"2021": 4.45, "2023": 4.86, "2024": 8.76, "2025": 21.3}}, {"code": "ES", "name": "Espagne", "vals": {"2021": 7.67, "2023": 9.18, "2024": 11.31, "2025": 20.27}}, {"code": "IE", "name": "Irlande", "vals": {"2021": 7.88, "2023": 8.01, "2024": 14.9, "2025": 19.64}}, {"code": "FR", "name": "France", "vals": {"2021": 6.67, "2023": 5.88, "2024": 9.91, "2025": 18.16}}, {"code": "SK", "name": "Slovaquie", "vals": {"2021": 5.19, "2023": 7.04, "2024": 10.78, "2025": 18.0}}, {"code": "CZ", "name": "Tchéquie", "vals": {"2021": 4.46, "2023": 5.9, "2024": 11.26, "2025": 17.6}}, {"code": "IT", "name": "Italie", "vals": {"2021": 6.17, "2023": 5.05, "2024": 8.2, "2025": 16.4}}, {"code": "HR", "name": "Croatie", "vals": {"2021": 8.74, "2023": 7.89, "2024": 11.76, "2025": 15.19}}, {"code": "LV", "name": "Lettonie", "vals": {"2021": 3.72, "2023": 4.53, "2024": 8.83, "2025": 12.21}}, {"code": "PT", "name": "Portugal", "vals": {"2021": 7.2, "2023": 7.86, "2024": 8.63, "2025": 11.54}}, {"code": "BA", "name": "Bosnie-Herzégovine", "vals": {"2021": 2.07, "2023": 5.34, "2024": 6.36, "2025": 10.78}}, {"code": "HU", "name": "Hongrie", "vals": {"2021": 2.98, "2023": 3.68, "2024": 7.41, "2025": 10.37}}, {"code": "RS", "name": "Serbie", "vals": {"2021": 0.9, "2023": 1.82, "2024": 6.95, "2025": 10.12}}, {"code": "ME", "name": "Monténégro", "vals": {"2021": 3.34, "2023": 5.61, "2024": 7.91, "2025": 10.05}}, {"code": "CY", "name": "Chypre", "vals": {"2021": 2.59, "2023": 4.67, "2024": 7.9, "2025": 9.27}}, {"code": "AL", "name": "Albanie", "vals": {"2021": 3.67, "2024": 8.91, "2025": 8.99}}, {"code": "EL", "name": "Grèce", "vals": {"2021": 2.61, "2023": 3.98, "2024": 9.81, "2025": 8.93}}, {"code": "BG", "name": "Bulgarie", "vals": {"2021": 3.29, "2023": 3.62, "2024": 6.47, "2025": 8.55}}, {"code": "PL", "name": "Pologne", "vals": {"2021": 2.86, "2023": 3.67, "2024": 5.9, "2025": 8.36}}, {"code": "TR", "name": "Türkiye", "vals": {"2021": 2.69, "2023": 5.51, "2024": 4.42, "2025": 7.41}}, {"code": "RO", "name": "Roumanie", "vals": {"2021": 1.38, "2023": 1.51, "2024": 3.07, "2025": 5.21}}], "aggregates": {"EU27_2020": {"code": "EU27_2020", "name": "Union européenne (27)", "vals": {"2021": 7.65, "2023": 8.06, "2024": 13.48, "2025": 19.95}}, "EA": {"code": "EA", "name": "Zone euro", "vals": {"2021": 8.36, "2023": 8.84, "2024": 14.39, "2025": 21.37}}}, "generative": [{"code": "FI", "name": "Finlande", "pct": 21.55, "agg": false}, {"code": "SE", "name": "Suède", "pct": 18.67, "agg": false}, {"code": "DK", "name": "Danemark", "pct": 17.66, "agg": false}, {"code": "BE", "name": "Belgique", "pct": 17.32, "agg": false}, {"code": "NL", "name": "Pays-Bas", "pct": 14.92, "agg": false}, {"code": "LU", "name": "Luxembourg", "pct": 14.21, "agg": false}, {"code": "DE", "name": "Allemagne", "pct": 13.52, "agg": false}, {"code": "AT", "name": "Autriche", "pct": 13.08, "agg": false}, {"code": "NO", "name": "Norvège", "pct": 13.05, "agg": false}, {"code": "LT", "name": "Lituanie", "pct": 11.49, "agg": false}, {"code": "ES", "name": "Espagne", "pct": 11.38, "agg": false}, {"code": "SK", "name": "Slovaquie", "pct": 10.93, "agg": false}, {"code": "EA", "name": "Zone euro", "pct": 10.25, "agg": true}, {"code": "CZ", "name": "Tchéquie", "pct": 9.68, "agg": false}, {"code": "EU27_2020", "name": "Union européenne (27)", "pct": 9.55, "agg": true}, {"code": "FR", "name": "France", "pct": 7.5, "agg": false}, {"code": "MT", "name": "Malte", "pct": 7.13, "agg": false}, {"code": "HR", "name": "Croatie", "pct": 7.04, "agg": false}, {"code": "IT", "name": "Italie", "pct": 7.04, "agg": false}, {"code": "EE", "name": "Estonie", "pct": 6.46, "agg": false}, {"code": "SI", "name": "Slovénie", "pct": 6.05, "agg": false}, {"code": "PT", "name": "Portugal", "pct": 5.88, "agg": false}, {"code": "IE", "name": "Irlande", "pct": 5.65, "agg": false}, {"code": "LV", "name": "Lettonie", "pct": 5.48, "agg": false}, {"code": "BA", "name": "Bosnie-Herzégovine", "pct": 5.01, "agg": false}, {"code": "TR", "name": "Türkiye", "pct": 4.75, "agg": false}, {"code": "CY", "name": "Chypre", "pct": 4.68, "agg": false}, {"code": "HU", "name": "Hongrie", "pct": 4.65, "agg": false}, {"code": "BG", "name": "Bulgarie", "pct": 4.52, "agg": false}, {"code": "EL", "name": "Grèce", "pct": 4.02, "agg": false}, {"code": "RS", "name": "Serbie", "pct": 3.95, "agg": false}, {"code": "AL", "name": "Albanie", "pct": 3.53, "agg": false}, {"code": "RO", "name": "Roumanie", "pct": 3.03, "agg": false}, {"code": "PL", "name": "Pologne", "pct": 2.75, "agg": false}, {"code": "ME", "name": "Monténégro", "pct": 1.85, "agg": false}], "barriers_eu": [{"code": "E_AI_BLE", "label": "Manque d'expertise", "pct": 7.76}, {"code": "E_AI_BLEG", "label": "Flou juridique", "pct": 5.92}, {"code": "E_AI_BCDP", "label": "Craintes vie privée / RGPD", "pct": 5.82}, {"code": "E_AI_BDDT", "label": "Données insuffisantes", "pct": 4.8}, {"code": "E_AI_BINC", "label": "Incompatibilité avec l'existant", "pct": 4.59}, {"code": "E_AI_BCST", "label": "Coût trop élevé", "pct": 4.24}, {"code": "E_AI_BEC", "label": "Considérations éthiques", "pct": 2.72}, {"code": "E_AI_BNU", "label": "IA jugée inutile", "pct": 1.96}], "purposes_eu": [{"code": "E_AI_PMS", "label": "Marketing / ventes", "pct": 6.92}, {"code": "E_AI_PBAM", "label": "Administration / gestion", "pct": 6.19}, {"code": "E_AI_PFIN", "label": "Comptabilité / finance", "pct": 4.61}, {"code": "E_AI_PPP", "label": "Production", "pct": 4.14}, {"code": "E_AI_PITS", "label": "Sécurité informatique", "pct": 3.94}, {"code": "E_AI_PRDI", "label": "R&D / innovation", "pct": 3.8}, {"code": "E_AI_PLOG", "label": "Logistique", "pct": 1.21}], "unit": "PC_ENT", "size": "GE10", "src": "isoc_eb_ai"}}'''
 FALLBACK["geo"] = json.loads(_GEO_FALLBACK_JSON)
+
+# Repli « empreinte Claude Code » — instantané vérifié le 2026-08-15 (fenêtre 90 j
+# glissants du tableau de bord). Volontairement SANS la série quotidienne : une
+# courbe de repli figée se lirait comme une courbe live. Tant qu'aucune collecte
+# n'a réussi, les graphes de série disent « données indisponibles » ; les totaux,
+# eux, restent affichables parce qu'ils sont datés à l'écran.
+FALLBACK["claude_code"] = {
+    "window": "90d", "days": 90, "daily": [], "weeks": [],
+    "first_day": "2026-05-18", "last_day": "2026-08-15",
+    "totals": {
+        "commits": 37602173, "lines_added": 45438002047, "lines_deleted": 19104251790,
+        "lines_net": 26333750257, "added_per_commit": 1208, "deleted_per_commit": 508,
+        "churn_pct": 42.0, "active_repos": 2061134, "new_repos_7d": 122048,
+        "commits_per_repo": 18.2,
+    },
+    "momentum": {"wow_pct": None, "accel_pp": None, "weeks_counted": 0},
+    "languages": [
+        {"name": "TypeScript", "commits": 11444473}, {"name": "HTML", "commits": 5635718},
+        {"name": "Python", "commits": 5384549}, {"name": "JavaScript", "commits": 5078248},
+        {"name": "Inconnu", "commits": 3853309}, {"name": "Shell", "commits": 788119},
+        {"name": "Rust", "commits": 695252}, {"name": "Go", "commits": 483742},
+        {"name": "PHP", "commits": 417958}, {"name": "C#", "commits": 407837},
+        {"name": "Swift", "commits": 347214}, {"name": "Astro", "commits": 318865},
+        {"name": "Java", "commits": 301263}, {"name": "Dart", "commits": 288605},
+    ],
+    "languages_count": 424, "languages_total_commits": 37606518,
+    "first_commit": {"date": "2025-02-24", "repo": "moinmir/ClashOfCans",
+                     "sha": "904e12f69c6fda24683fbc01682adf4d22a67660"},
+    "source_url": "https://www.claudescode.dev/",
+}
 
 # ════════════════════════════════════════════════════════════════════
 #  Helpers HTTP
@@ -949,6 +986,207 @@ def fetch_eurostat_geo(ok, failed):
 
 
 # ════════════════════════════════════════════════════════════════════
+#  10. Empreinte Claude Code dans le code public (claudescode.dev)
+# ════════════════════════════════════════════════════════════════════
+#
+# Pourquoi cette source : c'est la SEULE mesure de l'IA qui ne repose ni sur
+# une déclaration (BTOS, McKinsey), ni sur un proxy de distribution (npm, ★),
+# mais sur l'ARTEFACT lui-même — un commit public, daté, dont le message porte
+# la signature de l'agent. Claude Code écrit par défaut « Co-Authored-By:
+# Claude » dans le trailer ; claudescode.dev balaie la recherche de commits
+# GitHub sur ce marqueur (+ [email protected] et author:claude[bot]) et
+# republie l'agrégat. Codex, Gemini CLI et Cursor ne signent pas → aucun
+# équivalent n'existe ailleurs : c'est un capteur mono-fournisseur, à lire
+# comme un plancher d'usage, jamais comme une part de marché.
+#
+# Rien à parser côté API : le site n'expose pas d'endpoint JSON public, mais
+# rend ses agrégats côté serveur (Next.js). On lit donc le payload SSR de la
+# page — série quotidienne, ventilation par langage, dépôts actifs, premier
+# commit observé — toutes des structures JSON simples, stables et vérifiables
+# à l'œil en ouvrant la page. Si le format change, la source tombe en échec
+# proprement (garde-fous plus bas) et la page affiche la dernière valeur
+# réellement obtenue, comme pour toutes les autres séries.
+#
+# UA navigateur obligatoire : le site est derrière Cloudflare, qui répond 403
+# à un User-Agent d'outil. On s'annonce donc comme un navigateur — une lecture,
+# pas une API, à la cadence de la collecte (2×/jour).
+CC_URL = "https://www.claudescode.dev/"
+CC_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+         "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+
+
+def _cc_weeks(daily):
+    """Semaines complètes de 7 jours, les plus récentes d'abord dans la liste finale.
+
+    Le dernier jour de la série est en cours (collecte partielle) : on l'écarte
+    du découpage, sinon la dernière semaine est mécaniquement sous-comptée et le
+    « W/W » affiché n'est qu'un artefact d'heure de collecte.
+
+    Chaque semaine porte `spike` : 1 si elle contient au moins un rattrapage
+    d'indexation. Une semaine ainsi marquée reste dans la série (on ne réécrit
+    jamais l'observation) mais elle est inutilisable pour un taux de croissance,
+    et le drapeau permet de le dire au lieu de le taire.
+    """
+    rows = daily[:-1] if len(daily) > 1 else daily[:]
+    weeks, i = [], len(rows)
+    while i - 7 >= 0:
+        seg = rows[i - 7:i]
+        weeks.append({
+            "start": seg[0]["d"], "end": seg[-1]["d"],
+            "commits": sum(x["c"] for x in seg),
+            "added": sum(x["a"] for x in seg),
+            "deleted": sum(x["r"] for x in seg),
+            "spike": 1 if any(x.get("x") for x in seg) else 0,
+        })
+        i -= 7
+    weeks.reverse()
+    return weeks
+
+
+def fetch_claude_code(ok, failed):
+    try:
+        r = requests.get(CC_URL, headers={"User-Agent": CC_UA,
+                                          "Accept": "text/html,application/xhtml+xml"},
+                         timeout=45)
+        r.raise_for_status()
+        # Le payload SSR est échappé dans des chaînes JS : on déséchappe les
+        # guillemets avant de lire les objets JSON.
+        u = r.text.replace('\\"', '"')
+
+        seen, daily = set(), []
+        for m in re.finditer(r'\{"date":"(\d{4}-\d\d-\d\d)","commits":(\d+),'
+                             r'"linesAdded":(\d+),"linesDeleted":(\d+)\}', u):
+            d = m.group(1)
+            if d in seen:
+                continue
+            seen.add(d)
+            daily.append({"d": d, "c": int(m.group(2)),
+                          "a": int(m.group(3)), "r": int(m.group(4))})
+        daily.sort(key=lambda x: x["d"])
+        # Garde-fou : sous 30 jours, c'est que le format a bougé — on préfère
+        # l'échec déclaré à une demi-série publiée comme si de rien n'était.
+        if len(daily) < 30:
+            raise ValueError(f"série quotidienne trop courte ({len(daily)} j)")
+
+        langs = []
+        for m in re.finditer(r'\{"language":"([^"]*)","commits":(\d+)\}', u):
+            name = m.group(1)
+            # « Unknown » = langage non détecté côté dépôt, pas un langage.
+            langs.append({"name": "Inconnu" if name in ("", "Unknown") else name,
+                          "commits": int(m.group(2))})
+        langs.sort(key=lambda x: -x["commits"])
+        lang_total = sum(x["commits"] for x in langs)
+
+        active_repos = window = None
+        m = re.search(r'"count":(\d+),"window":"([0-9a-z]+)"', u)
+        if m:
+            active_repos, window = int(m.group(1)), m.group(2)
+
+        new_repos_7d = None
+        i = u.find("New Repos This Week")
+        if i > 0:
+            m = re.search(r'text-3xl font-bold[^>]*>([\d,]+)<', u[i:i + 3000])
+            if m:
+                new_repos_7d = int(m.group(1).replace(",", ""))
+
+        first = None
+        m = re.search(r'"firstCommit":\{"date":"([^"]+)","repo":"([^"]+)","sha":"([^"]+)"', u)
+        if m:
+            first = {"date": m.group(1)[:10], "repo": m.group(2), "sha": m.group(3)}
+
+        m = re.search(r'"generatedAt":"([^"]+)"', u)
+        generated_at = m.group(1) if m else None
+
+        commits = sum(x["c"] for x in daily)
+        added = sum(x["a"] for x in daily)
+        deleted = sum(x["r"] for x in daily)
+        if commits <= 0 or added <= 0:
+            raise ValueError("totaux nuls")
+
+        # Rattrapages d'indexation : la collecte amont rejoue parfois un lot de
+        # commits anciens sur une seule journée (2026-06-30 : 2,76 M contre
+        # ~0,40 M en médiane, soit 7×). Ce n'est pas de l'activité, c'est du
+        # backfill. On ne le retire pas de la série — on le MARQUE, pour que le
+        # graphe puisse le distinguer et la tendance être lue sans lui.
+        # Médiane sur les jours COMPLETS : le dernier jour est en cours de collecte.
+        vals = sorted(x["c"] for x in (daily[:-1] if len(daily) > 1 else daily))
+        n = len(vals)
+        median = (vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2)
+        n_spikes = 0
+        for x in daily:
+            if median and x["c"] > 3 * median:
+                x["x"] = 1
+                n_spikes += 1
+
+        # Momentum recalculé ici plutôt que repris de la page : la définition est
+        # alors écrite noir sur blanc (7 derniers jours COMPLETS vs les 7 d'avant)
+        # et rejouable à la main sur la série publiée juste à côté.
+        #
+        # Un rattrapage d'indexation rend la semaine qui le contient INUTILISABLE
+        # pour un taux de croissance : mesuré ici, la semaine du 29/06 pèse
+        # 5,16 M contre ~2,7 M en régime — soit « +98,6 % » puis « −43,8 % » la
+        # semaine d'après, deux nombres qui ne décrivent aucun usage. La moyenne
+        # 7 jours du graphe écarte déjà ces journées ; le W/W les sommait encore,
+        # et la même page aurait affiché « le rythme ne décolle plus (+98,6 %) ».
+        # On ne bouche pas le trou par une valeur inventée : on refuse de publier
+        # le taux et on dit pourquoi (`blocked_by_spike`).
+        weeks = _cc_weeks(daily)
+        wow = accel = None
+        blocked = None
+        usable = lambda k: len(weeks) >= k and not any(w["spike"] for w in weeks[-k:])
+        if usable(2) and weeks[-2]["commits"]:
+            wow = round((weeks[-1]["commits"] / weeks[-2]["commits"] - 1) * 100, 1)
+            if usable(3) and weeks[-3]["commits"]:
+                prev = (weeks[-2]["commits"] / weeks[-3]["commits"] - 1) * 100
+                accel = round(wow - prev, 1)
+            elif len(weeks) >= 3:
+                blocked = "accel"
+        elif len(weeks) >= 2:
+            blocked = "wow"
+
+        out = {
+            "window": window or "90d",
+            "days": len(daily),
+            "first_day": daily[0]["d"],
+            "last_day": daily[-1]["d"],
+            "daily": daily,
+            "weeks": weeks,
+            "totals": {
+                "commits": commits,
+                "lines_added": added,
+                "lines_deleted": deleted,
+                "lines_net": added - deleted,
+                "added_per_commit": round(added / commits),
+                "deleted_per_commit": round(deleted / commits),
+                "churn_pct": round(100 * deleted / added, 1),
+                "active_repos": active_repos,
+                "new_repos_7d": new_repos_7d,
+                "commits_per_repo": round(commits / active_repos, 1) if active_repos else None,
+                "median_daily": int(median),
+                "spike_days": n_spikes,
+            },
+            "momentum": {"wow_pct": wow, "accel_pp": accel,
+                         "weeks_counted": len(weeks),
+                         "blocked_by_spike": blocked},
+            "languages": langs[:15],
+            "languages_count": len(langs),
+            "languages_total_commits": lang_total,
+            "first_commit": first,
+            "generated_at": generated_at,
+            "source_url": CC_URL,
+            "method": ("recherche de commits publics GitHub sur trois signatures : "
+                       "trailer « Co-Authored-By: Claude », auteur "
+                       "[email protected], auteur claude[bot]"),
+        }
+        ok.append("claudescode:dashboard")
+        return out
+    except Exception as e:
+        sys.stderr.write(f"[claudescode] {e}\n")
+        failed.append("claudescode:dashboard")
+        return None
+
+
+# ════════════════════════════════════════════════════════════════════
 #  Assemblage
 # ════════════════════════════════════════════════════════════════════
 
@@ -997,6 +1235,7 @@ def build_payload():
     personal = socle("personal")
     labor = socle("labor")
     geo = socle("geo")
+    claude_code = socle("claude_code")
 
     # NB : on fusionne par clé (update) au lieu de remplacer, pour qu'un échec
     # partiel (un seul outil) conserve la valeur de repli des autres.
@@ -1054,6 +1293,14 @@ def build_payload():
     if euro and euro.get("adoption"):
         geo["eurostat"] = euro
 
+    # Remplacement complet (pas de merge) : la série quotidienne et le classement
+    # des langages sont des instantanés cohérents entre eux ; fusionner une
+    # collecte neuve avec une ancienne fabriquerait un total qui ne correspond
+    # à aucune fenêtre réelle.
+    cc = fetch_claude_code(ok, failed)
+    if cc:
+        claude_code = cc
+
     # Date de dernier succès PAR SOURCE. « updated_at » ne dit que l'heure du passage,
     # pas l'âge de chaque série : quand une source échoue, sa valeur est reconduite et
     # seule cette horloge-ci permet à la page de dire depuis quand elle date.
@@ -1080,6 +1327,7 @@ def build_payload():
         "personal": personal,
         "labor": labor,
         "geo": geo,
+        "claude_code": claude_code,
     }
     return payload, len(ok), len(failed)
 
