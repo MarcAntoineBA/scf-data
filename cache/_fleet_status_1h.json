@@ -1,20 +1,15 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-08-17T13:55:54Z",
+  "ts": "2026-08-17T14:46:41Z",
   "total": 26,
-  "ok": 25,
-  "secs": 206.3,
-  "changed": 37,
-  "versionnes": 28,
+  "ok": 26,
+  "secs": 207.3,
+  "changed": 39,
+  "versionnes": 30,
   "pieces_jointes": 9,
   "absents": 17,
-  "failed": [
-   {
-    "job": "tradficycle",
-    "why": "[tradfi-cycle] FATAL build: HTTP Error 429: Too Many Requests"
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-08-17T13:55:54Z"
+ "updated": "2026-08-17T14:46:41Z"
 }
