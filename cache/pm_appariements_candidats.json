@@ -1,10 +1,10 @@
 {
- "generated_at": "2026-08-18T07:54:18+00:00",
+ "generated_at": "2026-08-18T08:53:54+00:00",
  "avertissement": "AUCUN de ces rapprochements n'est actif. Ce sont des questions posées à un humain, à valider dans prediction_markets_appariements.json.",
  "exhaustivite": {
-  "polymarket_examines": 359,
-  "kalshi_examines": 9017,
-  "polymarket_sans_candidat": 260,
+  "polymarket_examines": 362,
+  "kalshi_examines": 9001,
+  "polymarket_sans_candidat": 263,
   "avec_proposition": 99,
   "candidats_a_seuils_divergents": 11,
   "ecart_echeance_max_j": 3
@@ -17,7 +17,7 @@
     "prob": 0.165,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 438381.2750609996,
+    "volume": 438381.2750609999,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-bitcoin-outperform-gold-in-2026"
    },
@@ -54,7 +54,7 @@
      "kalshi": {
       "ticker": "KXINXVSGOLD-26DEC31-INXTR",
       "titre": "Will S&P 500 Total Return Index outperform Gold?",
-      "mid": 0.71,
+      "mid": 0.7,
       "ecart_carnet": 0.06,
       "volume": 12978.33,
       "echeance": "2027-01-01T04:59:00Z",
@@ -82,8 +82,8 @@
      "kalshi": {
       "ticker": "KXINXVSGOLD-26DEC31-GOLD",
       "titre": "Will Gold outperform S&P 500 Total Return Index?",
-      "mid": 0.24,
-      "ecart_carnet": 0.08,
+      "mid": 0.235,
+      "ecart_carnet": 0.07,
       "volume": 12454.05,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -221,7 +221,7 @@
     "prob": 0.065,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 427986.8334970001,
+    "volume": 427986.83349699987,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/israel-and-saudi-arabia-normalize-relations-before-2027"
    },
@@ -285,8 +285,8 @@
      "kalshi": {
       "ticker": "KXABRAHAMSA-27-JAN01-LEB",
       "titre": "Will Israel and Lebanon normalize relations before Jan 1, 2027?",
-      "mid": 0.072,
-      "ecart_carnet": 0.036,
+      "mid": 0.0745,
+      "ecart_carnet": 0.041,
       "volume": 65894.69,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
@@ -316,7 +316,7 @@
    "polymarket": {
     "id": "149882",
     "question": "How many SpaceX launches in 2026?",
-    "prob": 0.464,
+    "prob": 0.4665,
     "issue": "140-159",
     "echeance": "2026-12-31T00:00:00Z",
     "volume": 325663.809098,
@@ -418,7 +418,7 @@
     "prob": 0.595,
     "issue": "5-6",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 493114.0673040001,
+    "volume": 493114.067304,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/how-many-spacex-starship-launches-reach-space-in-2026"
    },
@@ -481,8 +481,8 @@
      "kalshi": {
       "ticker": "KXSTARSHIPSPACE-26-5.0",
       "titre": "Will  exactly 5 Starship launches reach space in 2026?",
-      "mid": 0.5,
-      "ecart_carnet": 0.04,
+      "mid": 0.505,
+      "ecart_carnet": 0.03,
       "volume": 11860.14,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
@@ -514,7 +514,7 @@
     "prob": 0.685,
     "issue": "S&P 500",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 885137.8525830001,
+    "volume": 885137.8525829996,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/bitcoin-vs-gold-vs-sp-500-in-2026"
    },
@@ -551,7 +551,7 @@
      "kalshi": {
       "ticker": "KXINXVSGOLD-26DEC31-INXTR",
       "titre": "Will S&P 500 Total Return Index outperform Gold?",
-      "mid": 0.71,
+      "mid": 0.7,
       "ecart_carnet": 0.06,
       "volume": 12978.33,
       "echeance": "2027-01-01T04:59:00Z",
@@ -580,8 +580,8 @@
      "kalshi": {
       "ticker": "KXINXVSGOLD-26DEC31-GOLD",
       "titre": "Will Gold outperform S&P 500 Total Return Index?",
-      "mid": 0.24,
-      "ecart_carnet": 0.08,
+      "mid": 0.235,
+      "ecart_carnet": 0.07,
       "volume": 12454.05,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -615,7 +615,7 @@
     "prob": 0.0405,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 627298.5378029998,
+    "volume": 627298.5378030001,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-recognizes-reza-pahlavi-as-leader-of-iran-in2026"
    },
@@ -690,7 +690,7 @@
     "prob": 0.685,
     "issue": "Anthropic",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 694053.458563,
+    "volume": 695794.068563,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/which-company-has-best-ai-model-end-of-2026"
    },
@@ -956,7 +956,7 @@
     "prob": 0.055,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 1018461.8170259999,
+    "volume": 1018461.8170259998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/new-pandemic-in-2026"
    },
@@ -995,10 +995,10 @@
    "polymarket": {
     "id": "864824",
     "question": "WTI Crude Oil (WTI) Up or Down on August 18?",
-    "prob": 0.575,
+    "prob": 0.565,
     "issue": "Oui",
     "echeance": "2026-08-18T21:00:00Z",
-    "volume": 1735.272005,
+    "volume": 1735.2720050000003,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/wti-up-or-down-on-august-18-2026"
    },
@@ -1007,9 +1007,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T82.99",
       "titre": "Will the WTI crude oil settlement price be above 82.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.875,
-      "ecart_carnet": 0.01,
-      "volume": 23505.89,
+      "mid": 0.85,
+      "ecart_carnet": 0.02,
+      "volume": 23798.06,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1034,9 +1034,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T83.99",
       "titre": "Will the WTI crude oil settlement price be above 83.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.615,
+      "mid": 0.565,
       "ecart_carnet": 0.01,
-      "volume": 22446.01,
+      "volume": 23411.95,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1061,9 +1061,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T84.99",
       "titre": "Will the WTI crude oil settlement price be above 84.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.35,
+      "mid": 0.28,
       "ecart_carnet": 0.02,
-      "volume": 18232.33,
+      "volume": 21429.53,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1094,7 +1094,7 @@
     "prob": 0.9805,
     "issue": "$77",
     "echeance": "2026-08-18T21:00:00Z",
-    "volume": 3509.710597,
+    "volume": 3784.416478,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/wti-closes-above-on-august-18-2026"
    },
@@ -1103,9 +1103,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T82.99",
       "titre": "Will the WTI crude oil settlement price be above 82.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.875,
-      "ecart_carnet": 0.01,
-      "volume": 23505.89,
+      "mid": 0.85,
+      "ecart_carnet": 0.02,
+      "volume": 23798.06,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1130,9 +1130,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T83.99",
       "titre": "Will the WTI crude oil settlement price be above 83.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.615,
+      "mid": 0.565,
       "ecart_carnet": 0.01,
-      "volume": 22446.01,
+      "volume": 23411.95,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1157,9 +1157,9 @@
      "kalshi": {
       "ticker": "KXWTI-26AUG1814-T84.99",
       "titre": "Will the WTI crude oil settlement price be above 84.99 USD/Bbl on Aug 18, 2026?",
-      "mid": 0.35,
+      "mid": 0.28,
       "ecart_carnet": 0.02,
-      "volume": 18232.33,
+      "volume": 21429.53,
       "echeance": "2026-08-18T18:30:00Z",
       "sources_reglement": [
        "ICE"
@@ -1190,7 +1190,7 @@
     "prob": 0.845,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 275916.407971,
+    "volume": 275916.40797099995,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/will-apple-release-a-foldable-iphone-before-2027"
    },
@@ -1199,9 +1199,9 @@
      "kalshi": {
       "ticker": "KXIPHONERELEASE-IPHONE18-27JAN01",
       "titre": "Will Apple Inc. release iPhone 18 before Jan 1, 2027?",
-      "mid": 0.13,
-      "ecart_carnet": 0.02,
-      "volume": 679976.0,
+      "mid": 0.135,
+      "ecart_carnet": 0.03,
+      "volume": 679982.68,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "company",
@@ -1254,8 +1254,8 @@
      "kalshi": {
       "ticker": "KXMACCELL-27",
       "titre": "Will Apple release a Mac with cellular connectivity before 2027?",
-      "mid": 0.045,
-      "ecart_carnet": 0.01,
+      "mid": 0.05,
+      "ecart_carnet": 0.02,
       "volume": 40019.6,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
@@ -1287,7 +1287,7 @@
     "prob": 0.983,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 173146.29762399997,
+    "volume": 173146.2976240001,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/will-apple-release-iphone-18-in-2026"
    },
@@ -1296,9 +1296,9 @@
      "kalshi": {
       "ticker": "KXIPHONERELEASE-IPHONE18-27JAN01",
       "titre": "Will Apple Inc. release iPhone 18 before Jan 1, 2027?",
-      "mid": 0.13,
-      "ecart_carnet": 0.02,
-      "volume": 679976.0,
+      "mid": 0.135,
+      "ecart_carnet": 0.03,
+      "volume": 679982.68,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "company",
@@ -1327,10 +1327,10 @@
    "polymarket": {
     "id": "80773",
     "question": "How high will inflation get in 2026?",
-    "prob": 0.095,
+    "prob": 0.105,
     "issue": "Above 4.5%",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 1382612.1783379961,
+    "volume": 1382907.6783379961,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/how-high-will-inflation-get-in-2026"
    },
@@ -1423,10 +1423,10 @@
    "polymarket": {
     "id": "79104",
     "question": "How high will 10-year Treasury yield go before 2027?",
-    "prob": 0.69,
+    "prob": 0.71,
     "issue": "4.8%",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 286323.69208199997,
+    "volume": 286344.00208199996,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/how-high-will-10-year-treasury-yield-go-before-2027"
    },
@@ -1435,8 +1435,8 @@
      "kalshi": {
       "ticker": "KXNOTE10Y-26DEC31-T5.14",
       "titre": "Will the yield of 10-year U.S. treasury notes be above 5.14 on Dec 31, 2026?",
-      "mid": 0.17,
-      "ecart_carnet": 0.18,
+      "mid": 0.165,
+      "ecart_carnet": 0.17,
       "volume": 5888.98,
       "echeance": "2026-12-31T19:00:00Z",
       "sources_reglement": [
@@ -1462,8 +1462,8 @@
      "kalshi": {
       "ticker": "KXNOTE10Y-26DEC31-T4.99",
       "titre": "Will the yield of 10-year U.S. treasury notes be above 4.99 on Dec 31, 2026?",
-      "mid": 0.265,
-      "ecart_carnet": 0.17,
+      "mid": 0.26,
+      "ecart_carnet": 0.16,
       "volume": 4363.48,
       "echeance": "2026-12-31T19:00:00Z",
       "sources_reglement": [
@@ -1519,10 +1519,10 @@
    "polymarket": {
     "id": "861968",
     "question": "What will WTI Crude Oil (WTI) hit Week of August 17 2026?",
-    "prob": 0.24,
+    "prob": 0.29,
     "issue": "↓ $80",
     "echeance": "2026-08-21T21:00:00Z",
-    "volume": 49596.071654,
+    "volume": 49881.071654,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-wti-hit-week-of-august-17-2026"
    },
@@ -1531,8 +1531,8 @@
      "kalshi": {
       "ticker": "KXWTIW-26AUG2114-T93.99",
       "titre": "Will the WTI crude oil settlement price be above 93.99 USD/Bbl on Aug 21, 2026?",
-      "mid": 0.03,
-      "ecart_carnet": 0.02,
+      "mid": 0.035,
+      "ecart_carnet": 0.01,
       "volume": 1821.34,
       "echeance": "2026-08-21T18:30:00Z",
       "sources_reglement": [
@@ -1585,7 +1585,7 @@
      "kalshi": {
       "ticker": "KXWTIW-26AUG2114-B83.50",
       "titre": "Will the WTI crude oil settlement price be between 83.00 and 83.99 USD/Bbl on Aug 21, 2026?",
-      "mid": 0.105,
+      "mid": 0.125,
       "ecart_carnet": 0.01,
       "volume": 6373.77,
       "echeance": "2026-08-21T18:30:00Z",
@@ -1618,7 +1618,7 @@
     "prob": 0.0295,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 11702209.922784014,
+    "volume": 11702209.922783997,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/will-reza-pahlavi-lead-iran-in-2026"
    },
@@ -1732,8 +1732,8 @@
      "kalshi": {
       "ticker": "KXTRUMPMEETING-27JAN01-NVPUT",
       "titre": "Will Donald Trump meet in person Vladimir Putin before Jan 1, 2027?",
-      "mid": 0.435,
-      "ecart_carnet": 0.09,
+      "mid": 0.44,
+      "ecart_carnet": 0.1,
       "volume": 24142.3,
       "echeance": "2027-01-01T14:59:00Z",
       "sources_reglement": [
@@ -1777,8 +1777,8 @@
      "kalshi": {
       "ticker": "KXNOTE10Y-26DEC31-T5.14",
       "titre": "Will the yield of 10-year U.S. treasury notes be above 5.14 on Dec 31, 2026?",
-      "mid": 0.17,
-      "ecart_carnet": 0.18,
+      "mid": 0.165,
+      "ecart_carnet": 0.17,
       "volume": 5888.98,
       "echeance": "2026-12-31T19:00:00Z",
       "sources_reglement": [
@@ -1804,8 +1804,8 @@
      "kalshi": {
       "ticker": "KXNOTE10Y-26DEC31-T4.99",
       "titre": "Will the yield of 10-year U.S. treasury notes be above 4.99 on Dec 31, 2026?",
-      "mid": 0.265,
-      "ecart_carnet": 0.17,
+      "mid": 0.26,
+      "ecart_carnet": 0.16,
       "volume": 4363.48,
       "echeance": "2026-12-31T19:00:00Z",
       "sources_reglement": [
@@ -1864,7 +1864,7 @@
     "prob": 0.18,
     "issue": "Belgium",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 756738.266486,
+    "volume": 756738.2664859999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/which-countries-will-recognize-palestine-before-2027"
    },
@@ -1969,7 +1969,7 @@
     "prob": 0.475,
     "issue": "Oui",
     "echeance": "2026-12-09T00:00:00Z",
-    "volume": 7603658.151920001,
+    "volume": 7603691.078407999,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
@@ -2062,10 +2062,10 @@
    "polymarket": {
     "id": "118172",
     "question": "Will Trump acquire Greenland before 2027?",
-    "prob": 0.034,
+    "prob": 0.0335,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 35301955.43839717,
+    "volume": 35301984.85015996,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-trump-acquire-greenland-before-2027"
    },
@@ -2107,7 +2107,7 @@
     "prob": 0.8515,
     "issue": "0 (0 bps)",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 48926157.251337,
+    "volume": 48926442.30088,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2026"
    },
@@ -2354,8 +2354,8 @@
      "kalshi": {
       "ticker": "KXCABILLIONAIRETAX-26NOV03",
       "titre": "Will a one-time tax on billionaires be held in California before Nov 3, 2026?",
-      "mid": 0.9195,
-      "ecart_carnet": 0.027,
+      "mid": 0.9185,
+      "ecart_carnet": 0.025,
       "volume": 320155.02,
       "echeance": "2026-11-03T04:59:00Z",
       "sources_reglement": [
@@ -2387,10 +2387,10 @@
    "polymarket": {
     "id": "206787",
     "question": "Which company's AI will first hit 1550 on Chatbot Arena in 2026?",
-    "prob": 0.805,
+    "prob": 0.8,
     "issue": "None in 2026",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 114223.48089099998,
+    "volume": 114223.480891,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/which-companys-ai-will-first-hit-1550-on-chatbot-arena-in-2026"
    },
@@ -2483,10 +2483,10 @@
    "polymarket": {
     "id": "208023",
     "question": "Will Xi Jinping visit US before 2027?",
-    "prob": 0.9685,
+    "prob": 0.968,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 669714.9148099999,
+    "volume": 681286.4748100002,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-xi-jinping-visit-us-before-2027"
    },
@@ -2589,7 +2589,7 @@
     "prob": 0.54,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 120570.28068099996,
+    "volume": 120570.28068099997,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/spacex-starship-fully-reusable-before-2027"
    },
@@ -2663,7 +2663,7 @@
     "prob": 0.8255,
     "issue": "Mojtaba Khamenei",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 38657379.154426,
+    "volume": 38657388.824425995,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-leader-end-of-2026"
    },
@@ -2762,8 +2762,8 @@
      "kalshi": {
       "ticker": "KXTRDBAN-25DEC31-27",
       "titre": "Will a Congressional stock trading ban become law by December 31, 2026?",
-      "mid": 0.0665,
-      "ecart_carnet": 0.025,
+      "mid": 0.064,
+      "ecart_carnet": 0.014,
       "volume": 104368.58,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2847,7 +2847,7 @@
     "prob": 0.0115,
     "issue": "Oui",
     "echeance": "2026-09-30T00:00:00Z",
-    "volume": 1933853.548748,
+    "volume": 1933853.5487479998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-china-invade-taiwan-by-september-30-2026"
    },
@@ -2943,10 +2943,10 @@
    "polymarket": {
     "id": "103418",
     "question": "Will Apple release a new product line before 2027?",
-    "prob": 0.29,
+    "prob": 0.295,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 303811.05430300004,
+    "volume": 303811.0543029999,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/will-apple-release-a-new-product-line-before-2027"
    },
@@ -2955,9 +2955,9 @@
      "kalshi": {
       "ticker": "KXIPHONERELEASE-IPHONE18-27JAN01",
       "titre": "Will Apple Inc. release iPhone 18 before Jan 1, 2027?",
-      "mid": 0.13,
-      "ecart_carnet": 0.02,
-      "volume": 679976.0,
+      "mid": 0.135,
+      "ecart_carnet": 0.03,
+      "volume": 679982.68,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "company",
@@ -3085,7 +3085,7 @@
     "prob": 0.7605,
     "issue": "4",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 7391078.776046998,
+    "volume": 7391078.776046997,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/how-many-different-countries-will-israel-strike-in-2026"
    },
@@ -3181,10 +3181,10 @@
    "polymarket": {
     "id": "73105",
     "question": "How many Gold Cards will Trump sell in 2026?",
-    "prob": 0.825,
+    "prob": 0.8255,
     "issue": "1-100",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 290273.973139,
+    "volume": 290544.673139,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/how-many-gold-cards-will-trump-sell-in-2026"
    },
@@ -3292,8 +3292,8 @@
      "kalshi": {
       "ticker": "KXVENEZDEFACTO-27JAN01-DROD",
       "titre": "Will Delcy Rodríguez de facto hold head of state of Venezuela at the end of 2026?",
-      "mid": 0.915,
-      "ecart_carnet": 0.07,
+      "mid": 0.91,
+      "ecart_carnet": 0.04,
       "volume": 14935.33,
       "echeance": "2027-01-02T04:59:00Z",
       "sources_reglement": [
@@ -3388,7 +3388,7 @@
     "prob": 0.085,
     "issue": "Oui",
     "echeance": "2027-06-30T00:00:00Z",
-    "volume": 419870.0595240001,
+    "volume": 421188.7395240002,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-china-invade-taiwan-by-june-30-2027"
    },
@@ -3428,10 +3428,10 @@
    "polymarket": {
     "id": "746379",
     "question": "What will WTI Crude Oil (WTI) hit in August 2026?",
-    "prob": 0.445,
+    "prob": 0.46,
     "issue": "↑ $90",
     "echeance": "2026-09-01T03:59:59.999Z",
-    "volume": 7282598.724807,
+    "volume": 7300441.080126999,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/what-price-will-wti-hit-in-august-2026"
    },
@@ -3467,7 +3467,7 @@
      "kalshi": {
       "ticker": "KXBRENTMON-26AUG3117-T86.99",
       "titre": "Will the brent crude oil close price be above 86.99 USD/Bbl on August 31, 2026 at 5:00 PM EDT?",
-      "mid": 0.605,
+      "mid": 0.595,
       "ecart_carnet": 0.03,
       "volume": 8871.11,
       "echeance": "2026-08-31T21:00:00Z",
@@ -3494,7 +3494,7 @@
      "kalshi": {
       "ticker": "KXBRENTMON-26AUG3117-T82.99",
       "titre": "Will the brent crude oil close price be above 82.99 USD/Bbl on August 31, 2026 at 5:00 PM EDT?",
-      "mid": 0.81,
+      "mid": 0.8,
       "ecart_carnet": 0.02,
       "volume": 8508.33,
       "echeance": "2026-08-31T21:00:00Z",
@@ -3527,7 +3527,7 @@
     "prob": 0.9545,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 349933.21732000005,
+    "volume": 349933.2173199999,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/will-the-2026-midterm-elections-happen-as-scheduled"
    },
@@ -3620,10 +3620,10 @@
    "polymarket": {
     "id": "159954",
     "question": "What will the Fed rate be at the end of 2026?",
-    "prob": 0.3925,
+    "prob": 0.3895,
     "issue": "3.75%",
     "echeance": "2026-12-09T00:00:00Z",
-    "volume": 6763250.387245,
+    "volume": 6763287.666895,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/what-will-the-fed-rate-be-at-the-end-of-2026"
    },
@@ -3716,10 +3716,10 @@
    "polymarket": {
     "id": "330222",
     "question": "Pete Hegseth out as Secretary of Defense by December 31?",
-    "prob": 0.23,
+    "prob": 0.225,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 329093.35284199996,
+    "volume": 329093.352842,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/pete-hegseth-out-as-secretary-of-defense-by-december-31"
    },
@@ -3760,7 +3760,7 @@
       "titre": "Will Pete Hegseth leaves Secretary of Defense in before 2027?",
       "mid": 0.275,
       "ecart_carnet": 0.01,
-      "volume": 904063.12,
+      "volume": 904073.12,
       "echeance": "2027-01-01T14:59:00Z",
       "sources_reglement": [
        "ABC News Australia",
@@ -3792,7 +3792,7 @@
     "prob": 0.17,
     "issue": "Clip-on device for clothing",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 410621.60782300006,
+    "volume": 410634.36782300007,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/what-kind-of-product-will-openai-announce-in-2026"
    },
@@ -3901,7 +3901,7 @@
       "titre": "Tesla Optimus on sale before 2027?",
       "mid": 0.095,
       "ecart_carnet": 0.01,
-      "volume": 347873.18,
+      "volume": 347876.18,
       "echeance": "2026-12-31T04:59:00Z",
       "sources_reglement": [
        "Tesla"
@@ -3956,10 +3956,10 @@
    "polymarket": {
     "id": "868897",
     "question": "What price will Bitcoin hit on August 18?",
-    "prob": 0.665,
+    "prob": 0.795,
     "issue": "↓ 64,000",
     "echeance": "2026-08-19T04:00:00Z",
-    "volume": 3448.44452,
+    "volume": 5389.219182999999,
     "theme": "Prix crypto",
     "url": "https://polymarket.com/event/what-price-will-bitcoin-hit-on-august-18-2026"
    },
@@ -3968,9 +3968,9 @@
      "kalshi": {
       "ticker": "KXBTCD-26AUG1817-T63499.99",
       "titre": "Bitcoin price on Aug 18, 2026?",
-      "mid": 0.855,
-      "ecart_carnet": 0.01,
-      "volume": 93580.55,
+      "mid": 0.89,
+      "ecart_carnet": 0.02,
+      "volume": 96335.05,
       "echeance": "2026-08-18T21:00:00Z",
       "sources_reglement": [
        "CF Benchmarks"
@@ -3995,9 +3995,9 @@
      "kalshi": {
       "ticker": "KXBTCD-26AUG1817-T64249.99",
       "titre": "Bitcoin price on Aug 18, 2026?",
-      "mid": 0.42,
+      "mid": 0.48,
       "ecart_carnet": 0.02,
-      "volume": 62166.95,
+      "volume": 68432.87,
       "echeance": "2026-08-18T21:00:00Z",
       "sources_reglement": [
        "CF Benchmarks"
@@ -4022,9 +4022,9 @@
      "kalshi": {
       "ticker": "KXBTCD-26AUG1817-T63999.99",
       "titre": "Bitcoin price on Aug 18, 2026?",
-      "mid": 0.605,
+      "mid": 0.665,
       "ecart_carnet": 0.01,
-      "volume": 56383.23,
+      "volume": 59517.55,
       "echeance": "2026-08-18T21:00:00Z",
       "sources_reglement": [
        "CF Benchmarks"
@@ -4055,7 +4055,7 @@
     "prob": 0.632,
     "issue": "8",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 1634399.036569,
+    "volume": 1634399.0365689998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/how-many-different-countries-will-the-us-strike-in-2026"
    },
@@ -4255,7 +4255,7 @@
     "prob": 0.055,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 401857.3023290001,
+    "volume": 401857.30232899997,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-russia-invade-another-country-in-2026"
    },
@@ -4300,7 +4300,7 @@
     "prob": 0.825,
     "issue": "December 31, 2026",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 1396105.5266559992,
+    "volume": 1396197.4966559992,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/gpt-6-released-by"
    },
@@ -4342,7 +4342,7 @@
     "prob": 0.0165,
     "issue": "Oui",
     "echeance": "2026-09-30T00:00:00Z",
-    "volume": 1627329.8809140003,
+    "volume": 1627329.8809139999,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/will-the-iranian-regime-fall-by-september-30-20260629143335077"
    },
@@ -4435,10 +4435,10 @@
    "polymarket": {
     "id": "862998",
     "question": "What price will Bitcoin hit August 17-23?",
-    "prob": 0.395,
+    "prob": 0.355,
     "issue": "↑ 66,000",
     "echeance": "2026-08-24T04:00:00Z",
-    "volume": 144449.988272,
+    "volume": 144504.48827200002,
     "theme": "Prix crypto",
     "url": "https://polymarket.com/event/what-price-will-bitcoin-hit-august-17-23-2026"
    },
@@ -4503,8 +4503,8 @@
      "kalshi": {
       "ticker": "KXHORMUZWEEKLY-26AUG23-T20",
       "titre": "Will there be more than 20 transit calls through the Strait of Hormuz from Aug 17, 2026 to Aug 23, 2026?",
-      "mid": 0.72,
-      "ecart_carnet": 0.16,
+      "mid": 0.7,
+      "ecart_carnet": 0.2,
       "volume": 4451.9,
       "echeance": "2026-08-25T13:00:00Z",
       "sources_reglement": [
@@ -4537,7 +4537,7 @@
     "prob": 0.045,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 248604.12841899993,
+    "volume": 248604.1284189999,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-nuclear-test-before-2027"
    },
@@ -4626,7 +4626,7 @@
     "prob": 0.0285,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 2559739.4546799995,
+    "volume": 2559739.454679999,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/is-jeffrey-epstein-alive-498"
    },
@@ -4728,10 +4728,10 @@
    "polymarket": {
     "id": "660109",
     "question": "Strait of Hormuz traffic returns to normal by September 30?",
-    "prob": 0.095,
+    "prob": 0.085,
     "issue": "Oui",
     "echeance": "2026-09-30T00:00:00Z",
-    "volume": 4055062.766776998,
+    "volume": 4059535.2267769966,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/strait-of-hormuz-traffic-returns-to-normal-by-september-30-20260702154339440"
    },
@@ -4866,10 +4866,10 @@
    "polymarket": {
     "id": "73183",
     "question": "Will North Korea invade South Korea before 2027?",
-    "prob": 0.0365,
+    "prob": 0.0325,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 439137.579027,
+    "volume": 439276.58902700007,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-north-korea-invade-south-korea-before-2027"
    },
@@ -4971,10 +4971,10 @@
    "polymarket": {
     "id": "861966",
     "question": "What will Gold (XAUUSD) hit Week of August 17 2026?",
-    "prob": 0.635,
-    "issue": "↓ $4,350",
+    "prob": 0.61,
+    "issue": "↑ $4,450",
     "echeance": "2026-08-21T21:00:00Z",
-    "volume": 11906.37972,
+    "volume": 11909.41972,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-xauusd-hit-week-of-august-17-2026"
    },
@@ -5073,7 +5073,7 @@
     "prob": 0.0245,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 16315.136346999998,
+    "volume": 16315.136346999996,
     "theme": "Risques extrêmes",
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
@@ -5112,10 +5112,10 @@
    "polymarket": {
     "id": "628311",
     "question": "US-Iran 60 day negotiation period extended?",
-    "prob": 0.038,
+    "prob": 0.0335,
     "issue": "Oui",
     "echeance": "2026-08-20T23:59:00Z",
-    "volume": 2429597.3132880027,
+    "volume": 2437416.9667580044,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-iran-60-day-negotiation-period-extended-20260624044855448"
    },
@@ -5154,7 +5154,7 @@
    "polymarket": {
     "id": "16183",
     "question": "Kraken IPO by ___ ?",
-    "prob": 0.125,
+    "prob": 0.12,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
     "volume": 1597344.4387679999,
@@ -5370,10 +5370,10 @@
    "polymarket": {
     "id": "205029",
     "question": "Brazil Presidential Election First Round: Margin of Victory",
-    "prob": 0.4,
+    "prob": 0.39,
     "issue": "Lula da Silva 5-10%",
     "echeance": "2026-10-04T00:00:00Z",
-    "volume": 323385.98606400006,
+    "volume": 323385.986064,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/brazil-presidential-election-first-round-margin-of-victory"
    },
@@ -5457,10 +5457,10 @@
    "polymarket": {
     "id": "769339",
     "question": "Next Google Gemini Pro Model released on...?",
-    "prob": 0.9055,
+    "prob": 0.906,
     "issue": "No release by August 31",
     "echeance": "2026-08-31T23:59:00Z",
-    "volume": 270009.845773,
+    "volume": 270171.735773,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/next-google-gemini-pro-model-released-onptptpt-20260729182045875"
    },
@@ -5499,7 +5499,7 @@
     "prob": 0.075,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 2818079.931562001,
+    "volume": 2818079.931562,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-gamestop-acquire-ebay"
    },
@@ -5566,7 +5566,7 @@
     "prob": 0.87,
     "issue": "October 31",
     "echeance": "2026-10-31T23:59:00Z",
-    "volume": 211430.081231,
+    "volume": 211714.973064,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/openais-astra-released-by-20260801214557729"
    },
@@ -5641,8 +5641,8 @@
      "kalshi": {
       "ticker": "KXVENEZDEFACTO-27JAN01-MMAC",
       "titre": "Will María Corina Machado de facto hold head of state of Venezuela at the end of 2026?",
-      "mid": 0.035,
-      "ecart_carnet": 0.05,
+      "mid": 0.03,
+      "ecart_carnet": 0.04,
       "volume": 4804.65,
       "echeance": "2027-01-02T04:59:00Z",
       "sources_reglement": [
@@ -6016,7 +6016,7 @@
    "polymarket": {
     "id": "769510",
     "question": "Which Senators will vote for the Clarity Act?",
-    "prob": 0.545,
+    "prob": 0.585,
     "issue": "Jacky Rosen",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 45063.652858,
@@ -6056,7 +6056,7 @@
    "polymarket": {
     "id": "212877",
     "question": "Will Samuel Alito announce his retirement by...?",
-    "prob": 0.335,
+    "prob": 0.34,
     "issue": "June 30, 2027",
     "echeance": "2027-06-30T23:59:00Z",
     "volume": 3458474.824580001,
@@ -6099,7 +6099,7 @@
     "prob": 0.735,
     "issue": "25 bps increase",
     "echeance": "2026-09-18T15:59:00Z",
-    "volume": 303778.67053500004,
+    "volume": 303798.6705350001,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/bank-of-japan-decision-in-september-20260616002734979"
    },
@@ -6110,7 +6110,7 @@
       "titre": "Will the Bank of Japan Hike 25bps at the September 2026 Monetary Policy Meeting?",
       "mid": 0.745,
       "ecart_carnet": 0.01,
-      "volume": 31795.43,
+      "volume": 31810.43,
       "echeance": "2026-09-18T02:29:00Z",
       "sources_reglement": [
        "Trading Economics"
@@ -6156,8 +6156,8 @@
      "kalshi": {
       "ticker": "KXCBDECISIONJAPAN-26SEP17-HOLD",
       "titre": "Will the Bank of Japan Maintain current rate at the September 2026 Monetary Policy Meeting?",
-      "mid": 0.245,
-      "ecart_carnet": 0.03,
+      "mid": 0.235,
+      "ecart_carnet": 0.01,
       "volume": 11435.75,
       "echeance": "2026-09-18T02:29:00Z",
       "sources_reglement": [
@@ -6183,8 +6183,8 @@
    "polymarket": {
     "id": "769594",
     "question": "How many Senators will vote for the Clarity Act?",
-    "prob": 0.39,
-    "issue": "Above 58",
+    "prob": 0.365,
+    "issue": "Above 55",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 9826.236889,
     "theme": "Régulation crypto US",
@@ -6268,7 +6268,7 @@
     "prob": 0.49,
     "issue": "Tom Begich",
     "echeance": "2026-11-03T00:00:00Z",
-    "volume": 1150194.22046,
+    "volume": 1150194.2204600002,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/alaska-governor-election-winner"
    },
@@ -6278,7 +6278,7 @@
       "ticker": "KXGOVAKPRIMARY-26-TTAY",
       "titre": "Who will win Alaska's top-four primary for Governor?",
       "mid": 0.275,
-      "ecart_carnet": 0.07,
+      "ecart_carnet": 0.05,
       "volume": 29735.29,
       "echeance": "2026-11-03T15:00:00Z",
       "sources_reglement": [
@@ -6304,8 +6304,8 @@
      "kalshi": {
       "ticker": "KXGOVAKPRIMARY-26-TBEG",
       "titre": "Who will win Alaska's top-four primary for Governor?",
-      "mid": 0.986,
-      "ecart_carnet": 0.008,
+      "mid": 0.9855,
+      "ecart_carnet": 0.009,
       "volume": 22728.64,
       "echeance": "2026-11-03T15:00:00Z",
       "sources_reglement": [
@@ -6333,7 +6333,7 @@
       "titre": "Who will win Alaska's top-four primary for Governor?",
       "mid": 0.9665,
       "ecart_carnet": 0.001,
-      "volume": 17815.52,
+      "volume": 17817.52,
       "echeance": "2026-11-03T15:00:00Z",
       "sources_reglement": [
        "The Source Agencies are",
@@ -6439,9 +6439,9 @@
      "kalshi": {
       "ticker": "KXPAHLAVIVISITA-27JAN01",
       "titre": "Will Reza Pahlavi visit Iran before Jan 1, 2027?",
-      "mid": 0.0575,
-      "ecart_carnet": 0.003,
-      "volume": 1585504.23,
+      "mid": 0.058,
+      "ecart_carnet": 0.002,
+      "volume": 1585536.37,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
        "The Guardian",
@@ -6472,7 +6472,7 @@
     "prob": 0.745,
     "issue": "September 30",
     "echeance": "2026-09-30T00:00:00Z",
-    "volume": 121451.59524200001,
+    "volume": 121451.595242,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
    },
@@ -6511,7 +6511,7 @@
     "prob": 0.945,
     "issue": "December 31",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 324076.61665999994,
+    "volume": 324076.61666,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-netanyahu-visit-new-york-city-byptptpt-20260722053445708"
    },
@@ -6598,7 +6598,7 @@
     "prob": 0.39,
     "issue": "October Meeting",
     "echeance": "2026-12-09T00:00:00Z",
-    "volume": 2288215.778072,
+    "volume": 2288231.6582049998,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/fed-rate-hike-by"
    },
@@ -6637,7 +6637,7 @@
     "prob": 0.605,
     "issue": "December 31, 2027",
     "echeance": "2027-12-31T00:00:00Z",
-    "volume": 59654.78604399999,
+    "volume": 59654.786044,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/two-spacex-starships-dock-together-by"
    },
@@ -6679,7 +6679,7 @@
     "prob": 0.085,
     "issue": "December 31",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 8382561.186089948,
+    "volume": 8382572.306089947,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/israel-withdraws-from-lebanon-by"
    },
@@ -6688,8 +6688,8 @@
      "kalshi": {
       "ticker": "KXABRAHAMSA-27-JAN01-LEB",
       "titre": "Will Israel and Lebanon normalize relations before Jan 1, 2027?",
-      "mid": 0.072,
-      "ecart_carnet": 0.036,
+      "mid": 0.0745,
+      "ecart_carnet": 0.041,
       "volume": 65894.69,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
@@ -6716,10 +6716,10 @@
    "polymarket": {
     "id": "425728",
     "question": "Israeli Legislative Election Winner",
-    "prob": 0.515,
+    "prob": 0.52,
     "issue": "Likud",
     "echeance": "2026-10-27T00:00:00Z",
-    "volume": 233245.53680500004,
+    "volume": 233375.23810000002,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/israeli-legislative-election-winner"
    },
@@ -6827,7 +6827,7 @@
     "prob": 0.9835,
     "issue": "Texas",
     "echeance": "2026-11-03T00:00:00Z",
-    "volume": 395332.124392,
+    "volume": 395375.83439200005,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/which-states-will-use-new-congressional-maps-in-the-midterms"
    },
@@ -6965,7 +6965,7 @@
     "prob": 0.055,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 10556255.61187599,
+    "volume": 10556255.611875985,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-the-us-acquire-any-part-of-greenland-in-2026"
    },
@@ -7002,10 +7002,10 @@
    "polymarket": {
     "id": "414520",
     "question": "Lee Jae-myung out as president of South Korea in 2026?",
-    "prob": 0.0865,
+    "prob": 0.0945,
     "issue": "Oui",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 246580.67472399995,
+    "volume": 249598.939091,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/lee-jae-myung-out-as-president-of-south-korea-in-2026"
    },
@@ -7073,10 +7073,10 @@
    "polymarket": {
     "id": "36173",
     "question": "When will Bitcoin hit $150k?",
-    "prob": 0.0205,
+    "prob": 0.0075,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 27150644.61709501,
+    "volume": 27172808.617571007,
     "theme": "Prix crypto",
     "url": "https://polymarket.com/event/when-will-bitcoin-hit-150k"
    },
@@ -7113,10 +7113,10 @@
    "polymarket": {
     "id": "770175",
     "question": "Who will visit Ukraine by December 31?",
-    "prob": 0.92,
+    "prob": 0.915,
     "issue": "Maia Sandu",
     "echeance": "2026-12-31T23:59:00Z",
-    "volume": 304620.53369300003,
+    "volume": 304633.03369300003,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/who-will-visit-ukraine-by-december-31-20260729205841876"
    },
@@ -7159,7 +7159,7 @@
     "prob": 0.6,
     "issue": "No meeting by December 31",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 498369.200553,
+    "volume": 498369.2005529999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/where-will-trump-and-putin-meet-next-678"
    },
@@ -7168,8 +7168,8 @@
      "kalshi": {
       "ticker": "KXTRUMPMEETING-27JAN01-NVPUT",
       "titre": "Will Donald Trump meet in person Vladimir Putin before Jan 1, 2027?",
-      "mid": 0.435,
-      "ecart_carnet": 0.09,
+      "mid": 0.44,
+      "ecart_carnet": 0.1,
       "volume": 24142.3,
       "echeance": "2027-01-01T14:59:00Z",
       "sources_reglement": [
