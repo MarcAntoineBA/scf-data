@@ -142,8 +142,8 @@
       "name": "KOSPI",
       "currency": "KRW",
       "region": "Asie",
-      "pe": 16.8,
-      "pb": 2.0,
+      "pe": 16.7,
+      "pb": 1.9,
       "div_yield": 1.25,
       "rev_growth": null,
       "eps_growth": null,
@@ -190,7 +190,8 @@
       "perf_ytd": 15.0,
       "perf_1y": 31.3,
       "perf_3y": 85.3,
-      "perf_5y": 83.9
+      "perf_5y": 83.9,
+      "_stale": true
     },
     {
       "country": "Australie",
@@ -229,7 +230,8 @@
       "perf_ytd": 56.2,
       "perf_1y": 87.3,
       "perf_3y": 179.9,
-      "perf_5y": 161.6
+      "perf_5y": 161.6,
+      "_stale": true
     },
     {
       "country": "Hong Kong",
@@ -267,7 +269,8 @@
       "perf_ytd": 18.1,
       "perf_1y": 25.7,
       "perf_3y": 91.5,
-      "perf_5y": 122.3
+      "perf_5y": 122.3,
+      "_stale": true
     },
     {
       "country": "Espagne",
@@ -346,7 +349,7 @@
     "perf_3y": 79.7,
     "perf_5y": 80.1
   },
-  "updated": "18/08/2026 16:49",
+  "updated": "18/08/2026 17:43",
   "sources": {
     "fundamentals": "Yahoo Finance (ETF info: SPY, EWJ, MCHI, INDA, etc.)",
     "performance": "Yahoo Finance (index historical prices)",
