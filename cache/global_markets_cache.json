@@ -7,7 +7,7 @@
       "name": "S&P 500",
       "currency": "USD",
       "region": "Amérique",
-      "pe": 25.9,
+      "pe": 26.0,
       "pb": 1.8,
       "div_yield": 1.01,
       "rev_growth": null,
@@ -74,7 +74,8 @@
       "perf_ytd": 30.2,
       "perf_1y": 54.9,
       "perf_3y": 113.7,
-      "perf_5y": 144.9
+      "perf_5y": 144.9,
+      "_stale": true
     },
     {
       "country": "Allemagne",
@@ -112,7 +113,8 @@
       "perf_ytd": 3.8,
       "perf_1y": 6.6,
       "perf_3y": 18.2,
-      "perf_5y": 31.6
+      "perf_5y": 31.6,
+      "_stale": true
     },
     {
       "country": "Royaume-Uni",
@@ -131,7 +133,8 @@
       "perf_ytd": 7.8,
       "perf_1y": 16.7,
       "perf_3y": 47.8,
-      "perf_5y": 53.3
+      "perf_5y": 53.3,
+      "_stale": true
     },
     {
       "country": "Corée du Sud",
@@ -140,7 +143,7 @@
       "name": "KOSPI",
       "currency": "KRW",
       "region": "Asie",
-      "pe": 17.1,
+      "pe": 17.0,
       "pb": 2.0,
       "div_yield": 1.25,
       "rev_growth": null,
@@ -150,7 +153,8 @@
       "perf_ytd": 59.4,
       "perf_1y": 118.0,
       "perf_3y": 173.8,
-      "perf_5y": 113.6
+      "perf_5y": 113.6,
+      "_stale": true
     },
     {
       "country": "Brésil",
@@ -159,8 +163,8 @@
       "name": "Bovespa",
       "currency": "BRL",
       "region": "Amérique",
-      "pe": 11.0,
-      "pb": 1.0,
+      "pe": 10.9,
+      "pb": 0.9,
       "div_yield": 4.0,
       "rev_growth": null,
       "eps_growth": null,
@@ -178,7 +182,7 @@
       "name": "TSX Composite",
       "currency": "CAD",
       "region": "Amérique",
-      "pe": 21.6,
+      "pe": 21.5,
       "pb": 1.9,
       "div_yield": 1.27,
       "rev_growth": null,
@@ -188,7 +192,8 @@
       "perf_ytd": 14.1,
       "perf_1y": 30.7,
       "perf_3y": 83.8,
-      "perf_5y": 80.8
+      "perf_5y": 80.8,
+      "_stale": true
     },
     {
       "country": "Australie",
@@ -207,7 +212,8 @@
       "perf_ytd": 3.9,
       "perf_1y": 2.0,
       "perf_3y": 27.5,
-      "perf_5y": 24.1
+      "perf_5y": 24.1,
+      "_stale": true
     },
     {
       "country": "Taïwan",
@@ -226,7 +232,8 @@
       "perf_ytd": 54.4,
       "perf_1y": 86.0,
       "perf_3y": 176.6,
-      "perf_5y": 159.5
+      "perf_5y": 159.5,
+      "_stale": true
     },
     {
       "country": "Hong Kong",
@@ -254,7 +261,7 @@
       "name": "FTSE MIB",
       "currency": "EUR",
       "region": "Europe",
-      "pe": 15.7,
+      "pe": 15.6,
       "pb": 1.9,
       "div_yield": 3.05,
       "rev_growth": null,
@@ -264,7 +271,8 @@
       "perf_ytd": 16.8,
       "perf_1y": 23.2,
       "perf_3y": 89.4,
-      "perf_5y": 114.9
+      "perf_5y": 114.9,
+      "_stale": true
     },
     {
       "country": "Espagne",
@@ -292,7 +300,7 @@
       "name": "SMI",
       "currency": "CHF",
       "region": "Europe",
-      "pe": 26.2,
+      "pe": 26.3,
       "pb": 1.5,
       "div_yield": 1.73,
       "rev_growth": null,
@@ -343,7 +351,7 @@
     "perf_3y": 78.2,
     "perf_5y": 76.7
   },
-  "updated": "19/08/2026 13:58",
+  "updated": "19/08/2026 14:54",
   "sources": {
     "fundamentals": "Yahoo Finance (ETF info: SPY, EWJ, MCHI, INDA, etc.)",
     "performance": "Yahoo Finance (index historical prices)",
