@@ -10,8 +10,8 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0475,
-    "volume": 4821904.990129002,
-    "liquidite": 95411.00175,
+    "volume": 4822110.406794003,
+    "liquidite": 95007.90592,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -33,6 +33,38 @@
    }
   },
   {
+   "id": "clarity-act-58-senateurs",
+   "libelle": "Plus de 58 sénateurs votent pour la loi crypto",
+   "equivalence": "forte",
+   "note_reglement": "MÊME SEUIL CHIFFRÉ (58) et même critère : nombre de sénateurs votant « Yea » sur le premier vote de passage d'une loi de structure de marché crypto avant le 1er janvier 2027. Kalshi nomme sa source (Library of Congress), Polymarket ne la nomme pas — sur un vote du Sénat, le décompte officiel ne prête pas à deux lectures. ⚠ L'issue Polymarket « Above 58 » est la FAVORITE d'un marché à issues multiples : si elle change, l'agrégation se suspend d'elle-même.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "769594",
+    "question": "How many Senators will vote for the Clarity Act?",
+    "prob": 0.48,
+    "volume": 9826.236889,
+    "liquidite": 1952.89776,
+    "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
+   },
+   "kalshi": {
+    "ticker": "KXVOTECLARITY-26MAY16-T58",
+    "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
+    "mid": 0.33,
+    "bid": 0.3,
+    "ask": 0.36,
+    "volume": 1575.17
+   },
+   "mesures": {
+    "consensus_pondere_volume": 0.4593,
+    "ecart_points": -15.0,
+    "sens": "Polymarket plus haut",
+    "cout_execution_kalshi_points": 6.0,
+    "ecart_net_de_cout_points": 9.0,
+    "actionnable": true,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
+  },
+  {
    "id": "mythos-avant-octobre",
    "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
    "equivalence": "forte",
@@ -42,24 +74,24 @@
     "id": "578305",
     "question": "Next Mythos-Class Model released by…?",
     "prob": 0.765,
-    "volume": 127334.46774600001,
-    "liquidite": 5970.2386,
+    "volume": 127372.46774599998,
+    "liquidite": 6908.9947,
     "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
    },
    "kalshi": {
     "ticker": "KXCLAUDE-NXTMYTH-26OCT01",
     "titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
-    "mid": 0.695,
-    "bid": 0.57,
+    "mid": 0.68,
+    "bid": 0.54,
     "ask": 0.82,
     "volume": 31293.79
    },
    "mesures": {
-    "consensus_pondere_volume": 0.7512,
-    "ecart_points": -7.0,
+    "consensus_pondere_volume": 0.7482,
+    "ecart_points": -8.5,
     "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 25.0,
-    "ecart_net_de_cout_points": -18.0,
+    "cout_execution_kalshi_points": 28.0,
+    "ecart_net_de_cout_points": -19.5,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -75,7 +107,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.027,
     "volume": 16315.136347000003,
-    "liquidite": 2407.72674,
+    "liquidite": 2409.77786,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -98,9 +130,9 @@
    "polymarket": {
     "id": "101936",
     "question": "Fed rate hike in 2026?",
-    "prob": 0.505,
-    "volume": 7644993.322288001,
-    "liquidite": 214531.8174,
+    "prob": 0.495,
+    "volume": 7656007.832288001,
+    "liquidite": 197471.7289,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -125,7 +157,7 @@
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
     "prob": 0.825,
     "volume": 50730.25307099999,
-    "liquidite": 2331.937,
+    "liquidite": 2019.3098,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -140,9 +172,7 @@
    "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
   }
  ],
- "lacunes": [
-  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 55 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
- ],
- "generated_at": "2026-08-19T13:09:02+00:00",
+ "lacunes": [],
+ "generated_at": "2026-08-19T13:58:39+00:00",
  "paires_declarees": 6
 }
