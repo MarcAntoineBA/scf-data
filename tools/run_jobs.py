@@ -22,7 +22,9 @@ TROIS PRINCIPES
 
 import argparse
 import concurrent.futures as cf
+import email.utils
 import filecmp
+import glob
 import json
 import os
 import shutil
@@ -46,6 +48,27 @@ CACHE_OUT = os.path.join(ROOT, "cache")
 GIT_SIZE_LIMIT = 1_000_000
 RELEASE_OUT = os.path.join(ROOT, "release")
 MANIFEST = os.path.join(ROOT, "cache_manifest.txt")
+
+# ── QUAND CHAQUE CACHE A ÉTÉ ÉCRIT POUR LA DERNIÈRE FOIS ─────────────────────
+# POURQUOI CE REGISTRE EXISTE — LA PANNE DU 2026-08-04, VUE LE 2026-08-20
+# Un clone est neuf : tous ses fichiers portent la date du clone. Or la moitié des
+# collecteurs décident de travailler en regardant l'âge de leur cache précédent
+# (« moins de 4 h : rien à faire »). Depuis qu'on leur restitue ce cache — ce qui
+# leur rendait leur base de fusion, et c'était juste — ils le reçoivent daté de
+# MAINTENANT : la garde se referme toujours, le collecteur sort en SUCCÈS sans
+# avoir rien écrit, et le fichier publié se fige. Mesuré : 17 caches gelés pendant
+# seize jours, dont la valorisation L1 et les news, avec un bilan à 26/26 OK.
+#
+# Une date d'écriture ne peut venir ni du clone (superficiel : `git log` n'a qu'un
+# commit), ni du contenu (la moitié du parc n'y met pas de date lisible). On la
+# TRANSPORTE donc : chaque passage note ce qu'il a réellement écrit, le registre
+# voyage avec les données, et le passage suivant rend aux caches restitués leur âge
+# véritable. Un fichier inconnu du registre garde la date de sa copie — un nouveau
+# cache est réellement neuf.
+#
+# Un fichier par cadence, pour la même raison que les bilans : sept cadences qui
+# réécriraient le même fichier s'annuleraient l'une l'autre au moment de publier.
+ECRITS_PREFIXE = "_ecrits_"
 JOBS = os.path.join(ROOT, "jobs.json")
 
 # Les pièces jointes de la release, telles que le site les lit lui aussi. `release/`
@@ -165,14 +188,84 @@ def rapatrier_pieces_jointes(noms):
         try:
             with urllib.request.urlopen(RELEASE_URL + name, timeout=120) as r:
                 contenu = r.read()
+                # La date d'envoi de la pièce jointe est la seule trace de son âge
+                # réel : sans elle, le fichier redescend daté de maintenant et fait
+                # croire à son collecteur qu'il vient de travailler.
+                envoi = r.headers.get("Last-Modified")
         except Exception:
             continue          # 404 ou réseau muet : le collecteur repartira de zéro
         if not contenu:
             continue          # un fichier vide serait pire qu'absent : il ferait base
-        with open(os.path.join(RELEASE_OUT, name), "wb") as f:
+        destination = os.path.join(RELEASE_OUT, name)
+        with open(destination, "wb") as f:
             f.write(contenu)
+        if envoi:
+            try:
+                quand = email.utils.parsedate_to_datetime(envoi).timestamp()
+                os.utime(destination, (quand, quand))
+            except (TypeError, ValueError, OverflowError, OSError):
+                pass          # en-tête illisible : on garde la date de téléchargement
         repris += 1
     return repris
+
+
+def lire_ecrits():
+    """Fusionne les registres de toutes les cadences : { nom : epoch }.
+
+    On prend la date la PLUS RÉCENTE quand deux cadences ont écrit le même fichier :
+    c'est l'âge que le collecteur aurait constaté sur la machine d'origine, où les
+    deux écritures tombent dans le même dossier.
+    """
+    fusion = {}
+    for chemin in sorted(glob.glob(os.path.join(CACHE_OUT, ECRITS_PREFIXE + "*.json"))):
+        try:
+            with open(chemin, encoding="utf-8") as f:
+                lot = json.load(f)
+        except (OSError, ValueError):
+            continue          # registre illisible : on s'en passe, jamais on ne casse
+        if not isinstance(lot, dict):
+            continue
+        for nom, quand in lot.items():
+            if isinstance(quand, (int, float)) and quand > 0:
+                fusion[nom] = max(fusion.get(nom, 0), float(quand))
+    return fusion
+
+
+def ecrire_ecrits(bucket, noms, quand):
+    """Note ce que CE passage a écrit, sans effacer ce qu'il n'a pas mesuré."""
+    chemin = os.path.join(CACHE_OUT, f"{ECRITS_PREFIXE}{bucket}.json")
+    registre = {}
+    try:
+        with open(chemin, encoding="utf-8") as f:
+            charge = json.load(f)
+        if isinstance(charge, dict):
+            registre = {k: v for k, v in charge.items()
+                        if isinstance(v, (int, float))}
+    except (OSError, ValueError):
+        registre = {}
+    for nom in noms:
+        registre[nom] = round(quand)
+    with open(chemin, "w", encoding="utf-8") as f:
+        json.dump(registre, f, indent=0, sort_keys=True)
+    return os.path.basename(chemin)
+
+
+def ecrits_depuis(instant, noms):
+    """Les fichiers de `noms` que quelqu'un a RÉELLEMENT écrits depuis `instant`.
+
+    C'est la seule question qui distingue un collecteur qui a travaillé d'un
+    collecteur qui a répondu. Un fichier réécrit à l'identique compte comme écrit :
+    la donnée est vérifiée fraîche, elle n'a simplement pas changé.
+    """
+    faits = set()
+    for nom in noms:
+        chemin = os.path.join(CACHE_DIR, nom)
+        try:
+            if os.path.getmtime(chemin) >= instant - 1:
+                faits.add(nom)
+        except OSError:
+            continue
+    return faits
 
 
 def prepare_env(attendus=()):
@@ -199,7 +292,8 @@ def prepare_env(attendus=()):
     # préservation en cas d'échec partiel). Sans cette copie, chaque exécution repartirait
     # de zéro et perdrait l'historique accumulé — et un collecteur dont la source est
     # momentanément muette écraserait ses données au lieu de les conserver.
-    restored = 0
+    ecrits = lire_ecrits()
+    restored, redates = 0, 0
     for source in (CACHE_OUT, RELEASE_OUT):
         if not os.path.isdir(source):
             continue
@@ -207,8 +301,10 @@ def prepare_env(attendus=()):
             src = os.path.join(source, name)
             if not os.path.isfile(src):
                 continue
+            copies = []
             if not os.path.exists(os.path.join(CACHE_DIR, name)):
                 shutil.copy2(src, os.path.join(CACHE_DIR, name))
+                copies.append(os.path.join(CACHE_DIR, name))
                 restored += 1
             # Sur la machine d'origine, plusieurs collecteurs relisent leur cache
             # précédent À CÔTÉ D'EUX, pas dans le dossier des caches (les deux copies
@@ -218,7 +314,18 @@ def prepare_env(attendus=()):
             jumeau = os.path.join(SCRIPTS, name)
             if not os.path.exists(jumeau):
                 shutil.copy2(src, jumeau)
-    return restored, repris
+                copies.append(jumeau)
+            # L'âge que le collecteur va lire. Sans cette ligne il lit la date du
+            # clone, conclut « déjà frais » et ne collecte plus jamais rien.
+            quand = ecrits.get(name)
+            if quand and copies:
+                for chemin in copies:
+                    try:
+                        os.utime(chemin, (quand, quand))
+                    except OSError:
+                        pass
+                redates += 1
+    return restored, repris, redates
 
 
 def _sans_chemin_perso(msg):
@@ -386,11 +493,12 @@ def main():
     # Ce que les collecteurs de cette cadence vont réécrire : ce sont exactement les
     # fichiers dont ils relisent la version précédente pour la fusionner.
     attendus = {n for j in due for n in j.get("outputs", [])} & set(manifest)
-    restored, repris = prepare_env(attendus)
+    restored, repris, redates = prepare_env(attendus)
     timeout = timeout_of(args.bucket)
 
     print(f"cadence « {args.bucket} » · {len(due)} collecteurs · plafond {timeout//60} min "
-          f"· {restored} cache(s) restauré(s) dont {repris} pièce(s) jointe(s)\n")
+          f"· {restored} cache(s) restauré(s) dont {repris} pièce(s) jointe(s), "
+          f"{redates} rendu(s) à leur âge réel\n")
 
     # Deux vagues : d'abord ce dont un autre collecteur dépend, ensuite le reste.
     attendus = {d for deps in DEPENDANCES.values() for d in deps}
@@ -408,6 +516,18 @@ def main():
 
     small, big, absent, retires, fondus = collect(manifest)
     changed = small + big
+
+    # ── QUI A TRAVAILLÉ, QUI S'EST CONTENTÉ DE RÉPONDRE ───────────────────────
+    # « Succès » veut dire « sorti sans erreur », pas « a collecté ». Un collecteur
+    # dont la garde de fraîcheur se referme sort en succès sans rien écrire — et
+    # c'est ainsi que 17 caches sont restés figés seize jours derrière un bilan à
+    # 26/26 OK. On mesure donc l'écriture elle-même, et on NOMME les muets.
+    surveilles = {n for j in due for n in j.get("outputs", [])} | set(manifest)
+    ecrits = ecrits_depuis(t0, surveilles)
+    aboutis = {r["job"] for r in results if r["ok"]}
+    muets = [j["id"] for j in due
+             if j["id"] in aboutis and (j.get("outputs") or [])
+             and not (set(j["outputs"]) & ecrits)]
 
     ko = [r for r in results if not r["ok"]]
     for r in sorted(results, key=lambda r: (r["ok"], -r["secs"])):
@@ -428,6 +548,12 @@ def main():
         print(f"  ! {len(fondus)} fichier(s) ont FONDU d'un tiers ou plus — base de "
               f"fusion probablement perdue : " + ", ".join(fondus[:6])
               + (" …" if len(fondus) > 6 else ""))
+    if muets:
+        # Sorti en succès, n'a rien écrit. Ni erreur ni collecte : exactement la
+        # forme que prend une panne quand personne ne la regarde.
+        print(f"  ! {len(muets)} collecteur(s) MUETS — succès sans écriture, leur "
+              f"cache publié se fige : " + ", ".join(muets[:8])
+              + (" …" if len(muets) > 8 else ""))
 
     # Bilan cumulatif : on garde l'état des cadences qui n'ont pas tourné cette fois-ci,
     # sinon chaque passage effacerait la vue d'ensemble du parc.
@@ -440,7 +566,8 @@ def main():
         ts=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         total=len(results), ok=len(results) - len(ko), secs=elapsed,
         changed=len(changed), versionnes=len(small), pieces_jointes=len(big),
-        absents=len(absent), failed=[dict(job=r["job"], why=r["why"]) for r in ko])
+        absents=len(absent), muets=muets,
+        failed=[dict(job=r["job"], why=r["why"]) for r in ko])
     status["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with open(status_path, "w") as f:
         json.dump(status, f, indent=1, ensure_ascii=False)
@@ -456,20 +583,32 @@ def main():
     # On ne redate QUE les sorties des collecteurs qui ont abouti : un collecteur en
     # échec laisse son cache précédent en place, et le redater le ferait passer pour
     # frais — la panne muette que cet index existe pour rendre visible.
+    # Un collecteur qui aboutit sans écrire ne date rien : c'est le mensonge que
+    # l'index existe pour supprimer, et il se rejouait ici sous une autre forme —
+    # « frais parce que le collecteur est sorti en succès ». On croise donc la
+    # réussite avec l'écriture réelle, mesurée sur le disque.
     produits = {n for j in due for n in j.get("outputs", [])
-                if any(r["job"] == j["id"] and r["ok"] for r in results)}
+                if any(r["job"] == j["id"] and r["ok"] for r in results)
+                and n in ecrits}
     index_path = os.path.join(CACHE_OUT, "_fichiers.json")
     datés = index_fraicheur.ecrire(index_path, [CACHE_OUT, RELEASE_OUT],
                                    status["updated"], produits)
     print(f"  index de fraîcheur : {datés} fichier(s) datés "
           f"({len(produits)} redaté(s) par ce passage)")
 
+    # Le registre voyage avec les données : c'est lui qui rendra leur âge véritable
+    # aux caches restitués au passage suivant, sur une machine qui n'a aucun moyen
+    # de le deviner autrement.
+    registre_nom = ecrire_ecrits(args.bucket, ecrits, time.time())
+    print(f"  registre d'écriture : {len(ecrits)} fichier(s) écrits ce passage")
+
     # Liste EXACTE des fichiers à publier. Sans elle, la publication stockait tout
     # le dossier : les fichiers qu'une autre cadence venait d'ajouter étaient absents
     # de CE poste de travail, donc enregistrés comme des suppressions. Résultat mesuré :
     # sur sept bilans publiés, un seul survivait — chaque cadence annulait les autres.
     with open(os.path.join(ROOT, ".publish_list"), "w") as f:
-        for nom in small + [os.path.basename(status_path), os.path.basename(index_path)]:
+        for nom in small + [os.path.basename(status_path),
+                            os.path.basename(index_path), registre_nom]:
             f.write(f"cache/{nom}\n")
         for nom in retires:
             f.write(f"cache/{nom}\n")

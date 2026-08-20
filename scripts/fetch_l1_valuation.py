@@ -15,6 +15,7 @@ Run by launchd (scf.l1valuation) every 4h.
 Run manually: python3 fetch_l1_valuation.py [--force]
 """
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -936,11 +937,45 @@ def resolve_staking(tok):
     return None, None, "unavailable"
 
 
-def is_fresh():
+def _cache_age_hours():
+    """Âge de la donnée, lu DANS le cache — et seulement à défaut sur le fichier.
+
+    POURQUOI PAS LA DATE DU FICHIER (panne du 2026-08-04, vue le 2026-08-20)
+    Depuis que la collecte tourne sur un serveur neuf à chaque passage, le cache
+    précédent y est RESTITUÉ avant l'exécution — ce qui est juste, c'est la base de
+    fusion du collecteur. Mais il arrive avec la date de sa copie. La garde
+    « moins de 4 h » se refermait donc à chaque fois : ce collecteur est sorti en
+    succès sans écrire pendant seize jours, et le site a servi un P/S figé au 04/08
+    sous une étiquette « à jour ». La date écrite DANS le fichier, elle, voyage avec
+    lui : c'est celle que le visiteur voit, donc celle qui doit décider.
+    """
     if not CACHE_JSON.exists():
-        return False
-    age_hours = (time.time() - CACHE_JSON.stat().st_mtime) / 3600
-    return age_hours < CACHE_MAX_HOURS
+        return None
+    try:
+        with open(CACHE_JSON, "rb") as f:
+            tete = f.read(65536).decode("utf-8", "replace")
+    except OSError:
+        tete = ""
+    m = re.search(r'"updated_unix"\s*:\s*(\d{9,13})', tete)
+    if m:
+        return (time.time() - float(m.group(1))) / 3600
+    m = re.search(r'"updated_iso"\s*:\s*"([^"]{10,40})"', tete)
+    if m:
+        try:
+            return (time.time() - datetime.fromisoformat(m.group(1)).timestamp()) / 3600
+        except ValueError:
+            pass
+    # Aucune date lisible (cache d'avant ce correctif) : la date du fichier reste
+    # un repli honnête sur la machine d'origine, où le fichier n'est jamais déplacé.
+    try:
+        return (time.time() - CACHE_JSON.stat().st_mtime) / 3600
+    except OSError:
+        return None
+
+
+def is_fresh():
+    age_hours = _cache_age_hours()
+    return age_hours is not None and age_hours < CACHE_MAX_HOURS
 
 
 PRESERVE_FIELDS = ("fees_m", "tvl_b", "active_addresses_7d_avg",
@@ -954,8 +989,8 @@ def _load_previous_cache():
     """
     if not CACHE_JSON.exists():
         return {}
-    age_hours = (time.time() - CACHE_JSON.stat().st_mtime) / 3600
-    if age_hours > PRESERVE_MAX_HOURS:
+    age_hours = _cache_age_hours()
+    if age_hours is None or age_hours > PRESERVE_MAX_HOURS:
         sys.stderr.write(f"[L1] Previous cache too stale ({age_hours:.1f}h > {PRESERVE_MAX_HOURS}h), not used for fallback\n")
         return {}
     try:
@@ -1109,11 +1144,19 @@ def main():
         time.sleep(0.3)
 
 
+    # Les dates passent en TÊTE du cache, et une epoch les rejoint.
+    # Deux mécanismes ne lisent que le DÉBUT d'un cache : la garde de fraîcheur
+    # ci-dessus, et l'index qui dit au site laquelle de ses deux copies est la plus
+    # fraîche. Reléguées derrière `tokens` (1,2 Mo), ces dates étaient hors de leur
+    # portée : le site datait ce fichier au passage du collecteur — donc « frais » —
+    # pendant que son contenu était gelé depuis seize jours. L'epoch, elle, ne se
+    # lit pas de deux façons selon le fuseau de la machine.
+    maintenant = datetime.now()
     payload = {
-        "tokens":   tokens_out,
+        "updated":  maintenant.strftime("%d/%m/%Y %H:%M"),
+        "updated_iso": maintenant.isoformat(),
+        "updated_unix": int(time.time()),
         "universe": [t[0] for t in TOKENS],
-        "updated":  datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "updated_iso": datetime.now().isoformat(),
         "staking_snapshot_date": STAKING_SNAPSHOT_DATE,
         "sources": {
             "mcap_fdv_price_vol": "CoinGecko /coins/markets (free tier)",
@@ -1128,7 +1171,8 @@ def main():
             "defillama":     "https://defillama.com/chains",
             "defillama_fees": "https://defillama.com/fees/chains",
             "stakingrewards": "https://www.stakingrewards.com/",
-        }
+        },
+        "tokens":   tokens_out,
     }
 
     with open(CACHE_JSON, "w", encoding="utf-8") as f:
