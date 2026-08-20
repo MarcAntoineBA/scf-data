@@ -99,6 +99,25 @@ def main():
         verifie("B. le cache d'un collecteur muet reste hors du registre",
                 "gele_cache.js" in ecrits, False)
 
+        # ── B bis. Muet ≠ en avance ──────────────────────────────────────────
+        # Dans une cadence rejouée trois fois par exécution, un collecteur qui a
+        # écrit il y a quatre minutes et dont la source n'a rien publié depuis est
+        # sain. Le nommer à chaque passage transformerait l'alerte en décor — et
+        # c'est un décor qu'on regarde sans voir, donc la panne d'origine.
+        emploi = [{"id": "recent", "outputs": ["neuf_cache.js"]},
+                  {"id": "gele",   "outputs": ["gele_cache.js"]}]
+        vieux = time.time() - 16 * 86400
+        os.utime(os.path.join(cache_dir, "gele_cache.js"), (vieux, vieux))
+        muets = rj.collecteurs_muets(emploi, {"recent", "gele"}, set(), 2 * 3600)
+        verifie("B bis. le collecteur au cache frais n'est pas signalé",
+                any(m.startswith("recent") for m in muets), False)
+        verifie("B bis. le collecteur au cache gelé est signalé avec son âge",
+                [m.split(" (")[0] for m in muets], ["gele"])
+        verifie("B bis. l'âge annoncé est celui de la donnée",
+                round(float(muets[0].split("(")[1].split(" h")[0]) / 24), 16)
+        verifie("B bis. un collecteur qui vient d'écrire n'est jamais muet",
+                rj.collecteurs_muets(emploi, {"gele"}, {"gele_cache.js"}, 2 * 3600), [])
+
         # Un fichier réécrit à l'identique COMPTE comme écrit : la donnée a été
         # vérifiée fraîche, elle n'a simplement pas changé. Le distinguer d'un
         # collecteur muet est tout l'objet de la mesure.

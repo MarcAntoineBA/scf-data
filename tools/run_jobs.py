@@ -69,6 +69,15 @@ MANIFEST = os.path.join(ROOT, "cache_manifest.txt")
 # Un fichier par cadence, pour la même raison que les bilans : sept cadences qui
 # réécriraient le même fichier s'annuleraient l'une l'autre au moment de publier.
 ECRITS_PREFIXE = "_ecrits_"
+
+# Durée nominale de chaque cadence, en secondes. Sert à juger si un collecteur qui
+# n'a rien écrit est en panne ou simplement en avance : dans une cadence de 5 min
+# rejouée trois fois dans la même exécution, un collecteur qui a écrit il y a
+# quatre minutes et dont la source n'a rien publié depuis est parfaitement sain.
+# Ne signaler que ce qui dépasse DEUX tours : une alerte permanente n'est plus une
+# alerte, c'est un décor — et c'est exactement ce qui a laissé passer seize jours.
+PERIODES = {"5min": 300, "10min": 600, "1h": 3600,
+            "6h": 21600, "daily": 86400, "weekly": 604800}
 JOBS = os.path.join(ROOT, "jobs.json")
 
 # Les pièces jointes de la release, telles que le site les lit lui aussi. `release/`
@@ -248,6 +257,40 @@ def ecrire_ecrits(bucket, noms, quand):
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump(registre, f, indent=0, sort_keys=True)
     return os.path.basename(chemin)
+
+
+def age_des_sorties(noms):
+    """Âge, en secondes, de la sortie la PLUS RÉCENTE. None si aucune n'existe."""
+    ages = []
+    for nom in noms:
+        try:
+            ages.append(time.time() - os.path.getmtime(os.path.join(CACHE_DIR, nom)))
+        except OSError:
+            continue
+    return min(ages) if ages else None
+
+
+def collecteurs_muets(jobs, aboutis, ecrits, seuil_gel):
+    """Les collecteurs sortis en succès dont le cache se fige, avec son âge.
+
+    Trois cas ne sont PAS des pannes et ne doivent pas encombrer le bilan :
+    un collecteur qui a écrit ; un collecteur en échec (il est déjà nommé
+    ailleurs) ; un collecteur dont la sortie est récente — sa garde de fraîcheur a
+    joué son rôle, la source n'a rien publié depuis. Reste ce qui compte : un
+    succès, aucune écriture, et une donnée plus vieille que deux tours de cadence.
+    """
+    muets = []
+    for j in jobs:
+        if j["id"] not in aboutis or not (j.get("outputs") or []):
+            continue
+        if set(j["outputs"]) & ecrits:
+            continue
+        age = age_des_sorties(j["outputs"])
+        if age is None:
+            continue                      # rien sur le disque : c'est « absents »
+        if age > seuil_gel:
+            muets.append(f"{j['id']} ({age / 3600:.1f} h)")
+    return muets
 
 
 def ecrits_depuis(instant, noms):
@@ -525,9 +568,8 @@ def main():
     surveilles = {n for j in due for n in j.get("outputs", [])} | set(manifest)
     ecrits = ecrits_depuis(t0, surveilles)
     aboutis = {r["job"] for r in results if r["ok"]}
-    muets = [j["id"] for j in due
-             if j["id"] in aboutis and (j.get("outputs") or [])
-             and not (set(j["outputs"]) & ecrits)]
+    muets = collecteurs_muets(due, aboutis, ecrits,
+                              2 * PERIODES.get(args.bucket, 3600))
 
     ko = [r for r in results if not r["ok"]]
     for r in sorted(results, key=lambda r: (r["ok"], -r["secs"])):
@@ -551,8 +593,8 @@ def main():
     if muets:
         # Sorti en succès, n'a rien écrit. Ni erreur ni collecte : exactement la
         # forme que prend une panne quand personne ne la regarde.
-        print(f"  ! {len(muets)} collecteur(s) MUETS — succès sans écriture, leur "
-              f"cache publié se fige : " + ", ".join(muets[:8])
+        print(f"  ! {len(muets)} collecteur(s) MUETS — succès sans écriture depuis "
+              f"plus de deux tours, leur cache publié se fige : " + ", ".join(muets[:8])
               + (" …" if len(muets) > 8 else ""))
 
     # Bilan cumulatif : on garde l'état des cadences qui n'ont pas tourné cette fois-ci,
