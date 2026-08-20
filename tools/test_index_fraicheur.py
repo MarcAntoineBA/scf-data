@@ -108,15 +108,22 @@ def main():
                 sorted(idx) == sorted(n for n in os.listdir(tmp)
                                       if n.endswith((".js", ".json"))), True)
 
-        # PROMESSE 3 : ne pas redater ce qu'aucun collecteur n'a produit.
-        # Le fichier est plus VIEUX que sa date d'index : il n'a pas été réécrit,
-        # donc rien à remesurer, donc il garde sa date — c'est le mensonge « frais
-        # parce qu'on l'a regardé » que cette borne existe pour interdire.
+        # PROMESSE 3 : ne JAMAIS dater du passage ce qu'aucun collecteur n'a produit.
+        # C'est ça, le mensonge « frais parce qu'on l'a regardé » — et c'est la seule
+        # chose interdite ici. Corrigé le 2026-08-20 : la version d'origine ne
+        # remesurait que VERS LE HAUT (« si le fichier est plus récent que ma date, je
+        # me corrige »), donc une date d'index trop FRAÎCHE pour un fichier figé ne
+        # rencontrait plus jamais de démenti. Vécu : l1_valuation_cache.js annoncé
+        # « il y a 4 minutes » avec un contenu du 4 août, et le site servait cette
+        # copie-là plutôt que celle, fraîche, du déploiement. La mesure fait foi dans
+        # les deux sens ; à défaut de mesure, on garde ce qu'on avait.
         os.utime(muet, (1_577_836_800, 1_577_836_800))   # 2020-01-01T00:00:00Z
         ancien = {"muet.json": "2021-01-01T00:00:00Z"}
         idx = ix.construire([tmp], PASSAGE, ancien, seulement={"narratives_cache.json"})
-        verifie("fichier non réécrit → garde sa date d'avant",
-                idx["muet.json"], "2021-01-01T00:00:00Z")
+        verifie("fichier figé sous une date d'index trop fraîche → remis à son âge",
+                idx["muet.json"], ix.horodatage_fichier(muet))
+        verifie("fichier non produit → jamais la date du passage",
+                idx["muet.json"] != PASSAGE, True)
         verifie("fichier produit ce passage → redaté",
                 idx["narratives_cache.json"], "2026-08-07T08:38:29Z")
 

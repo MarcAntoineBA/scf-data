@@ -174,7 +174,7 @@ def construire(dossiers, defaut, ancien=None, seulement=None):
                 continue          # les battements ne se datent pas eux-mêmes
             chemin = os.path.join(dossier, nom)
             if seulement is not None and nom not in seulement:
-                # POURQUOI CETTE ÉCHAPPATOIRE (2026-08-16)
+                # POURQUOI ON REMESURE QUAND MÊME (2026-08-16, corrigé le 2026-08-20)
                 # `seulement` vient des `outputs` déclarés dans jobs.json. Ces listes
                 # dérivent : 67 outputs déclarés n'existent pas, et à l'inverse des
                 # fichiers bien produits n'y figurent pas. Le fichier tombait alors
@@ -183,16 +183,22 @@ def construire(dossiers, defaut, ancien=None, seulement=None):
                 # les 6 h. C'est ainsi que tradfi_fundamentals_cache.js s'est retrouvé
                 # daté du 14 alors qu'il datait du 16.
                 #
-                # On ne fait donc plus confiance à la liste seule : si le fichier sur
-                # disque est PLUS RÉCENT que ce que l'index prétend, il a été réécrit,
-                # la déclaration est en retard sur les faits, et on remesure. Le
-                # mensonge que `seulement` protégeait contre — « frais parce qu'on
-                # l'a regardé » — reste impossible : un fichier non réécrit a un mtime
-                # inchangé, échoue ce test, et garde sa date.
-                precedent = index.get(nom)
-                courant = horodatage_fichier(chemin)
-                if not (courant and (not precedent or courant > precedent)):
-                    continue
+                # La première version ne remesurait que VERS LE HAUT : « si le fichier
+                # est plus récent que ce que je prétends, je me corrige ». Elle laissait
+                # donc intact le mensonge inverse — une date d'index trop FRAÎCHE pour
+                # un fichier figé, qu'aucune mesure ne venait plus contredire. Vécu le
+                # 2026-08-20 : l1_valuation_cache.js annoncé « il y a 4 minutes » avec
+                # un contenu du 4 août, et le site préférait cette copie à celle,
+                # fraîche, du déploiement.
+                #
+                # On remesure donc dans les deux sens, avec une seule interdiction : ne
+                # jamais retomber sur la date du PASSAGE pour un fichier qu'on n'a pas
+                # produit — c'est elle, et elle seule, qui ferait « frais parce qu'on
+                # l'a regardé ». Sans mesure possible, on garde ce qu'on avait.
+                mesure = horodatage_contenu(chemin) or horodatage_fichier(chemin)
+                if mesure:
+                    index[nom] = mesure
+                continue
             index[nom] = dater(chemin, defaut)
     return index
 
