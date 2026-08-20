@@ -335,8 +335,33 @@ def prepare_env(attendus=()):
     # préservation en cas d'échec partiel). Sans cette copie, chaque exécution repartirait
     # de zéro et perdrait l'historique accumulé — et un collecteur dont la source est
     # momentanément muette écraserait ses données au lieu de les conserver.
+    # ── RENDRE LEUR ÂGE AUX FICHIERS DU DÉPÔT, AVANT TOUTE COPIE ─────────────
+    # Un clone donne à tout le monde la date du clone. Deux mécanismes s'y trompent,
+    # pas un seul : la garde de fraîcheur des collecteurs (via la copie qu'on leur
+    # rend) ET l'index qui dit au site quelle origine est la plus fraîche — celui-ci
+    # lit les fichiers du DÉPÔT et remesure tout fichier dont la date de fichier
+    # dépasse celle qu'il avait notée, ce qui est vrai de tous après un clone. C'est
+    # pourquoi le premier correctif n'avait pas suffi : l1_valuation_cache.js restait
+    # daté « il y a 4 minutes » avec un contenu du 4 août.
+    # On date donc la SOURCE ; les copies suivantes héritent (copy2 conserve la date).
     ecrits = lire_ecrits()
-    restored, redates = 0, 0
+    redates = 0
+    for dossier in (CACHE_OUT, RELEASE_OUT):
+        if not os.path.isdir(dossier):
+            continue
+        for name in os.listdir(dossier):
+            quand = ecrits.get(name)
+            chemin = os.path.join(dossier, name)
+            if not quand or not os.path.isfile(chemin):
+                continue
+            try:
+                if abs(os.path.getmtime(chemin) - quand) > 2:
+                    os.utime(chemin, (quand, quand))
+                    redates += 1
+            except OSError:
+                pass
+
+    restored = 0
     for source in (CACHE_OUT, RELEASE_OUT):
         if not os.path.isdir(source):
             continue
@@ -344,10 +369,8 @@ def prepare_env(attendus=()):
             src = os.path.join(source, name)
             if not os.path.isfile(src):
                 continue
-            copies = []
             if not os.path.exists(os.path.join(CACHE_DIR, name)):
                 shutil.copy2(src, os.path.join(CACHE_DIR, name))
-                copies.append(os.path.join(CACHE_DIR, name))
                 restored += 1
             # Sur la machine d'origine, plusieurs collecteurs relisent leur cache
             # précédent À CÔTÉ D'EUX, pas dans le dossier des caches (les deux copies
@@ -357,17 +380,6 @@ def prepare_env(attendus=()):
             jumeau = os.path.join(SCRIPTS, name)
             if not os.path.exists(jumeau):
                 shutil.copy2(src, jumeau)
-                copies.append(jumeau)
-            # L'âge que le collecteur va lire. Sans cette ligne il lit la date du
-            # clone, conclut « déjà frais » et ne collecte plus jamais rien.
-            quand = ecrits.get(name)
-            if quand and copies:
-                for chemin in copies:
-                    try:
-                        os.utime(chemin, (quand, quand))
-                    except OSError:
-                        pass
-                redates += 1
     return restored, repris, redates
 
 

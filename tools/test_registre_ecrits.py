@@ -88,6 +88,17 @@ def main():
         verifie("A. un cache inconnu du registre reste neuf (il l'est vraiment)",
                 age_neuf < 1, True)
 
+        # A bis. LA COPIE NE SUFFIT PAS — c'est ce qui a fait échouer le premier
+        # correctif. L'index qui dit au site quelle origine servir lit les fichiers
+        # du DÉPÔT, pas la copie rendue aux collecteurs : il remesure tout fichier
+        # dont la date dépasse celle qu'il avait notée, ce qui est vrai de tous
+        # après un clone. Un cache gelé au 4 août restait donc annoncé « il y a
+        # 4 minutes ». La source doit être datée, pas seulement sa copie.
+        age_depot = (time.time() - os.path.getmtime(
+            os.path.join(cache_out, "gele_cache.js"))) / 3600
+        verifie("A bis. le fichier du DÉPÔT porte lui aussi ses 16 jours",
+                round(age_depot / 24), 16)
+
         # ── B. Ce qui n'a pas été écrit n'est pas daté ────────────────────────
         debut = time.time()
         time.sleep(0.01)
