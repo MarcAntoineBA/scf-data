@@ -902,6 +902,14 @@ def sanity(p):
     assert p["meta"]["n_price_points"] > 1000, "trop peu de points prix"
     assert p["meta"]["price_now"] > 1000, "prix BTC absurde"
     assert len(p["price_weekly"]) > 100, "price_weekly vide"
+    # La décimation ne doit JAMAIS amputer la fin de série. Le 2026-08-20, `decim` partait
+    # de l'origine de l'histoire : les graphes s'arrêtaient au 16 août quand la donnée
+    # allait au 19 — un décalage muet, sans erreur, que seule une comparaison à l'œil
+    # avec la jauge révélait. Le dernier point hebdo DOIT porter la date du dernier prix.
+    asof = p["meta"].get("price_asof")
+    if asof and p["price_weekly"]:
+        last_w = datetime.fromtimestamp(p["price_weekly"][-1][0], timezone.utc).strftime("%Y-%m-%d")
+        assert last_w == asof, f"price_weekly s'arrête au {last_w} alors que le prix va au {asof}"
     assert p["rainbow"]["r2"] > 0.8, f"rainbow R² faible ({p['rainbow']['r2']})"
     assert any(r["value"] is not None for r in p["table"]), "table entièrement vide"
     # MVRV Z-Score full history : la série doit couvrir >10 ans et rester dans une
