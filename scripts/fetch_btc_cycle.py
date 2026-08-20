@@ -193,9 +193,20 @@ def sma(v, n):
 
 
 def decim(dates, *series, step):
-    """Décime des séries alignées (1 point / step). Retourne lignes [unixTs, *vals]."""
+    """Décime des séries alignées (1 point / step). Retourne lignes [unixTs, *vals].
+
+    Le DERNIER point réel est toujours inclus, même s'il ne tombe pas sur un multiple
+    de `step`. Sans ça la décimation part de l'origine de l'histoire et les jours de la
+    fin sont purement SUPPRIMÉS : le 2026-08-20 les graphes hebdo s'arrêtaient au 16 août
+    à 62 818 $ alors que la donnée allait au 19 août à 69 268 $ (+7 % invisibles), et le
+    tableau affichait Mayer 1,004 quand la courbe finissait à 0,907. Le dernier intervalle
+    est simplement plus court que les autres — c'est le prix à payer pour une fin à J-1.
+    """
+    idx = list(range(0, len(dates), step))
+    if idx and idx[-1] != len(dates) - 1:
+        idx.append(len(dates) - 1)
     rows = []
-    for i in range(0, len(dates), step):
+    for i in idx:
         ts = int(datetime.strptime(dates[i], "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
         vals = []
         ok = True
