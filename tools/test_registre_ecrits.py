@@ -129,6 +129,22 @@ def main():
         verifie("B bis. un collecteur qui vient d'écrire n'est jamais muet",
                 rj.collecteurs_muets(emploi, {"gele"}, {"gele_cache.js"}, 2 * 3600), [])
 
+        # B ter. Le plancher de deux heures. Plusieurs collecteurs portent une garde
+        # interne PLUS LONGUE que la cadence qui les appelle : les news sont réveillées
+        # toutes les 5 min et ne se réécrivent qu'à l'heure. Deux tours de cadence
+        # suffiraient à les nommer 55 minutes sur 60, et une alerte permanente
+        # n'alerte plus personne — c'est ainsi qu'on ne voit plus rien.
+        seuil = max(2 * rj.PERIODES["5min"], 7200)
+        une_heure = time.time() - 3600
+        os.utime(os.path.join(cache_dir, "gele_cache.js"), (une_heure, une_heure))
+        verifie("B ter. cadence 5 min, cache d'une heure : on se tait",
+                rj.collecteurs_muets(emploi, {"gele"}, set(), seuil), [])
+        trois_heures = time.time() - 3 * 3600
+        os.utime(os.path.join(cache_dir, "gele_cache.js"), (trois_heures, trois_heures))
+        verifie("B ter. cadence 5 min, cache de trois heures : on parle",
+                [m.split(" (")[0] for m in
+                 rj.collecteurs_muets(emploi, {"gele"}, set(), seuil)], ["gele"])
+
         # Un fichier réécrit à l'identique COMPTE comme écrit : la donnée a été
         # vérifiée fraîche, elle n'a simplement pas changé. Le distinguer d'un
         # collecteur muet est tout l'objet de la mesure.

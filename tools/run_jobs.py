@@ -580,8 +580,13 @@ def main():
     surveilles = {n for j in due for n in j.get("outputs", [])} | set(manifest)
     ecrits = ecrits_depuis(t0, surveilles)
     aboutis = {r["job"] for r in results if r["ok"]}
+    # Deux tours de cadence, avec un plancher de deux heures : plusieurs collecteurs
+    # portent une garde interne PLUS LONGUE que la cadence qui les appelle (les news
+    # sont réveillées toutes les 5 min mais ne se réécrivent qu'à l'heure). Sans ce
+    # plancher, la sonde les nommerait 55 minutes sur 60 — et une alerte permanente
+    # n'alerte plus personne. Un gel de seize jours, lui, reste vu au premier passage.
     muets = collecteurs_muets(due, aboutis, ecrits,
-                              2 * PERIODES.get(args.bucket, 3600))
+                              max(2 * PERIODES.get(args.bucket, 3600), 7200))
 
     ko = [r for r in results if not r["ok"]]
     for r in sorted(results, key=lambda r: (r["ok"], -r["secs"])):
