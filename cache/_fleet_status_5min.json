@@ -1,20 +1,24 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-08-20T09:56:55Z",
+  "ts": "2026-08-20T10:02:31Z",
   "total": 6,
-  "ok": 5,
-  "secs": 83.5,
-  "changed": 6,
-  "versionnes": 6,
+  "ok": 4,
+  "secs": 120.0,
+  "changed": 8,
+  "versionnes": 8,
   "pieces_jointes": 0,
   "absents": 28,
   "failed": [
+   {
+    "job": "earningscal",
+    "why": "dépassement du plafond (2 min)"
+   },
    {
     "job": "hlflow",
     "why": "script absent"
    }
   ]
  },
- "updated": "2026-08-20T09:56:55Z"
+ "updated": "2026-08-20T10:02:31Z"
 }
