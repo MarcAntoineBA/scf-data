@@ -1001,6 +1001,17 @@ def _load_previous_cache():
         return {}
 
 
+def doit_refuser(n_marche, n_avant):
+    """Faut-il refuser d'écrire ce cache ? (règle isolée pour être éprouvée seule)
+
+    Deux refus, un seul motif : ne jamais remplacer une donnée par son absence.
+      · aucune capitalisation du tout — la source n'a rien rendu ;
+      · la moitié du parc perdue d'un coup, alors qu'on en avait au moins cinq —
+        un plafond d'appels atteint en cours de route, pas un marché qui bouge.
+    """
+    return n_marche == 0 or (n_avant >= 5 and n_marche < n_avant / 2)
+
+
 def main():
     force = "--force" in sys.argv
     if is_fresh() and not force:
@@ -1175,6 +1186,23 @@ def main():
         "tokens":   tokens_out,
     }
 
+    # ── ON N'ÉCRASE PAS UNE DONNÉE COMPLÈTE PAR UNE DONNÉE VIDE ──────────────
+    # CoinGecko en tarif gratuit répond 429 dès qu'on le sollicite deux fois en
+    # quelques minutes. Le collecteur poursuivait alors sa route et écrivait un cache
+    # SANS AUCUNE capitalisation : la page suivante mourait au rendu (« moins d'un
+    # élément » sur le meilleur P/S), et si elle avait survécu elle aurait affiché
+    # quinze N/A sous un horodatage tout frais. Vu en vrai le 2026-08-20 à 22 h 37.
+    # Un cache d'il y a quatre heures vaut infiniment mieux qu'un cache vide daté de
+    # maintenant : on refuse l'écriture et on sort en échec, pour que ça se voie.
+    n_marche = sum(1 for v in tokens_out.values() if v.get("mcap_b"))
+    n_avant = sum(1 for v in prev_tokens.values() if v.get("mcap_b"))
+    if doit_refuser(n_marche, n_avant):
+        sys.stderr.write(
+            f"[L1] REFUS d'écrire : {n_marche}/{len(tokens_out)} tokens avec MCap "
+            f"(cache précédent : {n_avant}) — source muette ou plafond d'appels "
+            f"atteint. Le cache précédent est conservé.\n")
+        return 1
+
     with open(CACHE_JSON, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     sys.stderr.write(f"[L1] Wrote {CACHE_JSON}\n")
@@ -1188,4 +1216,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)
