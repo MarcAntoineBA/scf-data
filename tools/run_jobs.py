@@ -139,10 +139,17 @@ DEPENDANCES = {
 # un usage légitime en gaspillage.
 REPETITIONS = {
     "macrocal": 80,      # secondes entre deux passages
-    "news": 80,
     "fjnews": 80,
     "earningscal": 80,
 }
+# POURQUOI « news » N'EST PLUS DANS CETTE LISTE (21/08/2026)
+# La rafale n'a jamais rien apporte a ce collecteur : sa garde de fraicheur se
+# refermait derriere le premier passage, les deux suivants sortaient aussitot — mais
+# la boucle, elle, dormait quand meme 80 s entre chacun. Deux minutes et demie de
+# serveur immobilise a chaque execution, toutes les cinq minutes, pour zero depeche
+# supplementaire. Le besoin reel est de quelques rafraichissements par heure, pas
+# d'un delai de 80 s : c'est la garde du collecteur qui le regle desormais, et un
+# seul passage par execution suffit a l'ouvrir.
 # Échéance volontairement basse : au-delà, le temps de mise en place du serveur
 # (~60 s) ferait déborder la fenêtre de 5 min et deux exécutions se mettraient en
 # file d'attente au lieu de se suivre.

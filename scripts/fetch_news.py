@@ -13,7 +13,20 @@ CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_FILE = CACHE_DIR / "news_cache.json"
 HTML_FILE  = Path(os.path.expanduser("~/Desktop/Site_Crypto_Finance/News_Crypto.html"))
-CACHE_MAX_HOURS = 1  # actu = refresh frequent
+# GARDE DE FRAICHEUR — le collecteur ne travaille que si son cache a depasse cet age.
+# MESURE DU 21/08/2026, qui a corrige le reglage : le seau 5min passe REELLEMENT
+# toutes les 5 minutes (mediane relevee sur fj_news, qui n'a aucune garde), mais
+# cette valeur a 1 h ne laissait ecrire qu'UNE fois par heure. Releve des ecritures
+# publiees : 05:46, 06:49, 07:49, 08:52, 09:53, 10:57, 11:57, 12:59 — une par heure,
+# pendant que la collecte tournait douze fois plus souvent. Le site servait donc de
+# l'actualite vieille d'une heure sans qu'aucun passage n'ait echoue.
+# A 10 minutes, la garde s'ouvre un passage sur deux : environ 6 ecritures par heure.
+# C'est le reglage demande — inutile de descendre a la minute, une depeche ne perd
+# pas sa valeur en dix minutes, et vingt flux RSS interroges toutes les cinq minutes
+# seraient un gaspillage pour des sources qui ne publient pas plus vite.
+# Sans effet sur la machine d'origine : son enveloppe launchd passe --force, qui
+# traverse la garde.
+CACHE_MAX_HOURS = 10 / 60.0   # 10 minutes
 
 CRYPTO_SOURCES = [
     ("https://cointelegraph.com/rss",                   "CoinTelegraph"),
