@@ -1,16 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-21T03:41:12Z",
+  "ts": "2026-08-21T09:18:05Z",
   "total": 25,
-  "ok": 25,
-  "secs": 3770.9,
-  "changed": 40,
-  "versionnes": 30,
-  "pieces_jointes": 10,
-  "absents": 17,
+  "ok": 24,
+  "secs": 4598.9,
+  "changed": 36,
+  "versionnes": 29,
+  "pieces_jointes": 7,
+  "absents": 18,
   "muets": [],
-  "failed": []
+  "failed": [
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   }
+  ]
  },
- "updated": "2026-08-21T03:41:12Z"
+ "updated": "2026-08-21T09:18:05Z"
 }
