@@ -1,18 +1,15 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-08-21T02:05:18Z",
+  "ts": "2026-08-21T03:05:15Z",
   "total": 6,
   "ok": 5,
-  "secs": 83.5,
-  "changed": 6,
-  "versionnes": 6,
+  "secs": 112.7,
+  "changed": 12,
+  "versionnes": 12,
   "pieces_jointes": 0,
   "absents": 28,
-  "muets": [
-   "earningscal (5.6 h)",
-   "macrocal (5.6 h)"
-  ],
+  "muets": [],
   "failed": [
    {
     "job": "hlflow",
@@ -20,5 +17,5 @@
    }
   ]
  },
- "updated": "2026-08-21T02:05:18Z"
+ "updated": "2026-08-21T03:05:15Z"
 }
