@@ -1,23 +1,16 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-08-21T02:01:12Z",
+  "ts": "2026-08-21T03:19:58Z",
   "total": 26,
-  "ok": 25,
-  "secs": 255.5,
+  "ok": 26,
+  "secs": 265.2,
   "changed": 43,
-  "versionnes": 33,
-  "pieces_jointes": 10,
+  "versionnes": 32,
+  "pieces_jointes": 11,
   "absents": 17,
-  "muets": [
-   "crypto-pe-hist (5.2 h)"
-  ],
-  "failed": [
-   {
-    "job": "l1valuation",
-    "why": "[L1] REFUS d'écrire : 0/15 tokens avec MCap (cache précédent : 15) — source muette ou plafond d'appels atteint. Le cache précédent est conservé."
-   }
-  ]
+  "muets": [],
+  "failed": []
  },
- "updated": "2026-08-21T02:01:12Z"
+ "updated": "2026-08-21T03:19:58Z"
 }
