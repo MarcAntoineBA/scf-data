@@ -11,23 +11,23 @@
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0475,
     "volume": 4840764.935235001,
-    "liquidite": 93184.37067,
+    "liquidite": 92708.37067,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
     "mid": 0.055,
-    "bid": 0.04,
-    "ask": 0.07,
-    "volume": 193518.72
+    "bid": 0.05,
+    "ask": 0.06,
+    "volume": 193523.83
    },
    "mesures": {
     "consensus_pondere_volume": 0.0478,
     "ecart_points": 0.75,
     "sens": "Kalshi plus haut",
-    "cout_execution_kalshi_points": 3.0,
-    "ecart_net_de_cout_points": -2.25,
+    "cout_execution_kalshi_points": 1.0,
+    "ecart_net_de_cout_points": -0.25,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -43,7 +43,7 @@
     "question": "How many Senators will vote for the Clarity Act?",
     "prob": 0.495,
     "volume": 10219.274482,
-    "liquidite": 26710.43617,
+    "liquidite": 2431.27397,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
@@ -65,38 +65,6 @@
    }
   },
   {
-   "id": "mythos-avant-octobre",
-   "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
-   "equivalence": "forte",
-   "note_reglement": "« by September 30 » et « before Oct 1, 2026 » désignent la même borne. Les deux textes excluent explicitement Claude Fable 5 (sorti le 9 juin 2026) et visent la mise à disposition au public du modèle SUIVANT. Source de règlement identique : Anthropic.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "578305",
-    "question": "Next Mythos-Class Model released by…?",
-    "prob": 0.585,
-    "volume": 190781.21143,
-    "liquidite": 20813.4047,
-    "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
-   },
-   "kalshi": {
-    "ticker": "KXCLAUDE-NXTMYTH-26OCT01",
-    "titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
-    "mid": 0.515,
-    "bid": 0.51,
-    "ask": 0.52,
-    "volume": 44925.8
-   },
-   "mesures": {
-    "consensus_pondere_volume": 0.5717,
-    "ecart_points": -7.0,
-    "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 6.0,
-    "actionnable": true,
-    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
-   }
-  },
-  {
    "id": "defaut-us-2026",
    "libelle": "Défaut de paiement des États-Unis avant 2027",
    "equivalence": "partielle",
@@ -107,7 +75,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.026,
     "volume": 16315.136347000003,
-    "liquidite": 3435.55318,
+    "liquidite": 2949.90473,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -132,15 +100,15 @@
     "question": "Fed rate hike in 2026?",
     "prob": 0.555,
     "volume": 7876686.197976999,
-    "liquidite": 358103.4213,
+    "liquidite": 345834.9169,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
     "ticker": "KXFED-26DEC-T3.50",
     "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
-    "mid": 0.87,
-    "bid": 0.86,
-    "ask": 0.88,
+    "mid": 0.84,
+    "bid": 0.83,
+    "ask": 0.85,
     "volume": 24706.23
    },
    "mesures": null,
@@ -155,9 +123,9 @@
    "polymarket": {
     "id": "197683",
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
-    "prob": 0.84,
+    "prob": 0.845,
     "volume": 50761.169735999996,
-    "liquidite": 1708.1409,
+    "liquidite": 1708.7705,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -172,7 +140,9 @@
    "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
   }
  ],
- "lacunes": [],
- "generated_at": "2026-08-22T13:46:04+00:00",
+ "lacunes": [
+  "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Kalshi a disparu du cache (expiré, réglé ou renommé) — non agrégée"
+ ],
+ "generated_at": "2026-08-22T14:38:19+00:00",
  "paires_declarees": 6
 }
