@@ -1,27 +1,23 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-08-22T11:52:51Z",
+  "ts": "2026-08-22T11:57:14Z",
   "total": 6,
-  "ok": 4,
-  "secs": 120.1,
-  "changed": 10,
-  "versionnes": 10,
+  "ok": 5,
+  "secs": 82.9,
+  "changed": 6,
+  "versionnes": 6,
   "pieces_jointes": 0,
   "absents": 28,
   "muets": [
-   "earningscal (2.3 h)"
+   "earningscal (2.4 h)"
   ],
   "failed": [
    {
     "job": "hlflow",
     "why": "script absent"
-   },
-   {
-    "job": "macrocal",
-    "why": "dépassement du plafond (2 min)"
    }
   ]
  },
- "updated": "2026-08-22T11:52:51Z"
+ "updated": "2026-08-22T11:57:14Z"
 }
