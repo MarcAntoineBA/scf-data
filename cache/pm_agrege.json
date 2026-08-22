@@ -1,6 +1,38 @@
 {
  "paires": [
   {
+   "id": "satoshi-bouge-2026",
+   "libelle": "Satoshi déplace des bitcoins avant 2027",
+   "equivalence": "forte",
+   "note_reglement": "Les DEUX textes citent la même source et le même déclencheur : un portefeuille étiqueté Satoshi Nakamoto sur Arkham Intel Explorer présentant une transaction « Outflow » ou « Swaps ». Même borne de fin (1er janvier 2027). Seule différence : Polymarket ouvre sa fenêtre au 9 janvier 2026, Kalshi ne précise pas de début — sans effet, aucun mouvement n'a eu lieu depuis.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "153719",
+    "question": "Will Satoshi move any Bitcoin in 2026?",
+    "prob": 0.048,
+    "volume": 4848728.693871999,
+    "liquidite": 87940.35203,
+    "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
+   },
+   "kalshi": {
+    "ticker": "KXSATOSHIBTCYEAR-27",
+    "titre": "Will Satoshi move any Bitcoin by 2027?",
+    "mid": 0.06,
+    "bid": 0.04,
+    "ask": 0.08,
+    "volume": 193921.64
+   },
+   "mesures": {
+    "consensus_pondere_volume": 0.0485,
+    "ecart_points": 1.2,
+    "sens": "Kalshi plus haut",
+    "cout_execution_kalshi_points": 4.0,
+    "ecart_net_de_cout_points": -2.8,
+    "actionnable": false,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
+  },
+  {
    "id": "mythos-avant-octobre",
    "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
    "equivalence": "forte",
@@ -11,7 +43,7 @@
     "question": "Next Mythos-Class Model released by…?",
     "prob": 0.585,
     "volume": 191473.004485,
-    "liquidite": 18975.4587,
+    "liquidite": 19459.1444,
     "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
    },
    "kalshi": {
@@ -43,7 +75,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.026,
     "volume": 16315.136347000003,
-    "liquidite": 3435.72919,
+    "liquidite": 3435.92919,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -67,8 +99,8 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.555,
-    "volume": 7876875.077888998,
-    "liquidite": 395920.1033,
+    "volume": 7876927.433442999,
+    "liquidite": 399466.2396,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -93,7 +125,7 @@
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
     "prob": 0.84,
     "volume": 50761.169735999996,
-    "liquidite": 1853.2668,
+    "liquidite": 1828.1054,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -109,9 +141,8 @@
   }
  ],
  "lacunes": [
-  "paire « Satoshi déplace des bitcoins avant 2027 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 50 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-08-22T19:35:25+00:00",
+ "generated_at": "2026-08-22T20:40:23+00:00",
  "paires_declarees": 6
 }
