@@ -9,25 +9,25 @@
    "polymarket": {
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
-    "prob": 0.047,
-    "volume": 4855807.228634001,
-    "liquidite": 89666.65299,
+    "prob": 0.0475,
+    "volume": 4857747.006700998,
+    "liquidite": 94356.89269,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.05,
-    "bid": 0.03,
-    "ask": 0.07,
+    "mid": 0.04,
+    "bid": 0.02,
+    "ask": 0.06,
     "volume": 194090.49
    },
    "mesures": {
-    "consensus_pondere_volume": 0.0471,
-    "ecart_points": 0.3,
-    "sens": "Kalshi plus haut",
+    "consensus_pondere_volume": 0.0472,
+    "ecart_points": -0.75,
+    "sens": "Polymarket plus haut",
     "cout_execution_kalshi_points": 4.0,
-    "ecart_net_de_cout_points": -3.7,
+    "ecart_net_de_cout_points": -3.25,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -41,9 +41,9 @@
    "polymarket": {
     "id": "578305",
     "question": "Next Mythos-Class Model released by…?",
-    "prob": 0.6,
-    "volume": 203485.22945099996,
-    "liquidite": 14989.5714,
+    "prob": 0.595,
+    "volume": 204239.229451,
+    "liquidite": 17171.5056,
     "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
    },
    "kalshi": {
@@ -55,11 +55,11 @@
     "volume": 44925.8
    },
    "mesures": {
-    "consensus_pondere_volume": 0.5846,
-    "ecart_points": -8.5,
+    "consensus_pondere_volume": 0.5806,
+    "ecart_points": -8.0,
     "sens": "Polymarket plus haut",
     "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 7.5,
+    "ecart_net_de_cout_points": 7.0,
     "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -75,7 +75,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.026,
     "volume": 16315.136347000003,
-    "liquidite": 3435.72919,
+    "liquidite": 3435.92919,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -99,8 +99,8 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.555,
-    "volume": 7877937.390108001,
-    "liquidite": 197324.8413,
+    "volume": 7877947.8001080025,
+    "liquidite": 201568.0643,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -125,15 +125,15 @@
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
     "prob": 0.84,
     "volume": 50761.169735999996,
-    "liquidite": 1757.809,
+    "liquidite": 1758.3141,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
     "ticker": "KXFM30YMTG-26DEC31-T5.75",
     "titre": "Will any 2026 Freddie Mac Primary Mortgage Market Survey (PMMS) report a 30-Year Fixed-Rate Mortgage rate below 5.75%?",
-    "mid": 0.08,
+    "mid": 0.075,
     "bid": 0.04,
-    "ask": 0.12,
+    "ask": 0.11,
     "volume": 42125.26
    },
    "mesures": null,
@@ -143,6 +143,6 @@
  "lacunes": [
   "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 50 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-08-23T09:43:55+00:00",
+ "generated_at": "2026-08-23T10:40:00+00:00",
  "paires_declarees": 6
 }
