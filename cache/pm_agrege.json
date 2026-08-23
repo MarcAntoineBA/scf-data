@@ -1,70 +1,6 @@
 {
  "paires": [
   {
-   "id": "satoshi-bouge-2026",
-   "libelle": "Satoshi déplace des bitcoins avant 2027",
-   "equivalence": "forte",
-   "note_reglement": "Les DEUX textes citent la même source et le même déclencheur : un portefeuille étiqueté Satoshi Nakamoto sur Arkham Intel Explorer présentant une transaction « Outflow » ou « Swaps ». Même borne de fin (1er janvier 2027). Seule différence : Polymarket ouvre sa fenêtre au 9 janvier 2026, Kalshi ne précise pas de début — sans effet, aucun mouvement n'a eu lieu depuis.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "153719",
-    "question": "Will Satoshi move any Bitcoin in 2026?",
-    "prob": 0.0465,
-    "volume": 4857853.332831999,
-    "liquidite": 89557.6137,
-    "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
-   },
-   "kalshi": {
-    "ticker": "KXSATOSHIBTCYEAR-27",
-    "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.045,
-    "bid": 0.03,
-    "ask": 0.06,
-    "volume": 194090.5
-   },
-   "mesures": {
-    "consensus_pondere_volume": 0.0464,
-    "ecart_points": -0.15,
-    "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 3.0,
-    "ecart_net_de_cout_points": -2.85,
-    "actionnable": false,
-    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
-   }
-  },
-  {
-   "id": "mythos-avant-octobre",
-   "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
-   "equivalence": "forte",
-   "note_reglement": "« by September 30 » et « before Oct 1, 2026 » désignent la même borne. Les deux textes excluent explicitement Claude Fable 5 (sorti le 9 juin 2026) et visent la mise à disposition au public du modèle SUIVANT. Source de règlement identique : Anthropic.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "578305",
-    "question": "Next Mythos-Class Model released by…?",
-    "prob": 0.595,
-    "volume": 204340.229451,
-    "liquidite": 16843.7373,
-    "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
-   },
-   "kalshi": {
-    "ticker": "KXCLAUDE-NXTMYTH-26OCT01",
-    "titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
-    "mid": 0.515,
-    "bid": 0.51,
-    "ask": 0.52,
-    "volume": 44925.8
-   },
-   "mesures": {
-    "consensus_pondere_volume": 0.5806,
-    "ecart_points": -8.0,
-    "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 7.0,
-    "actionnable": true,
-    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
-   }
-  },
-  {
    "id": "defaut-us-2026",
    "libelle": "Défaut de paiement des États-Unis avant 2027",
    "equivalence": "partielle",
@@ -99,8 +35,8 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.545,
-    "volume": 7881750.378995002,
-    "liquidite": 170563.6196,
+    "volume": 7881761.248558998,
+    "liquidite": 150006.8216,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -125,7 +61,7 @@
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
     "prob": 0.84,
     "volume": 50761.169735999996,
-    "liquidite": 1802.0314,
+    "liquidite": 1823.6232,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -141,8 +77,10 @@
   }
  ],
  "lacunes": [
-  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 50 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
+  "paire « Satoshi déplace des bitcoins avant 2027 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
+  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 50 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
+  "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : l'issue cotée sur Polymarket est passée de « September 30 » (déclarée) à « October 31 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-08-23T13:51:34+00:00",
+ "generated_at": "2026-08-23T14:39:42+00:00",
  "paires_declarees": 6
 }
