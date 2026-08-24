@@ -1,14 +1,15 @@
 {
  "bucket": "weekly",
  "run": {
-  "ts": "2026-08-17T05:20:59Z",
+  "ts": "2026-08-24T05:24:17Z",
   "total": 3,
   "ok": 2,
-  "secs": 3.8,
+  "secs": 3.2,
   "changed": 0,
   "versionnes": 0,
   "pieces_jointes": 0,
-  "absents": 27,
+  "absents": 28,
+  "muets": [],
   "failed": [
    {
     "job": "deskaudit",
@@ -16,5 +17,5 @@
    }
   ]
  },
- "updated": "2026-08-17T05:20:59Z"
+ "updated": "2026-08-24T05:24:17Z"
 }
