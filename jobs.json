@@ -1728,6 +1728,20 @@
         "gerants_13f_cache.json"
       ],
       "witness": "gerants_13f_cache.json"
+    },
+    {
+      "id": "crypto_raises",
+      "script": "fetch_crypto_raises.py",
+      "args": [],
+      "schedule": "1 créneau(x)/jour",
+      "per_day": 1.0,
+      "cadence": "daily",
+      "category": "public",
+      "outputs": [
+        "crypto_raises_cache.js",
+        "crypto_raises_cache.json"
+      ],
+      "witness": "crypto_raises_cache.json"
     }
   ]
 }
