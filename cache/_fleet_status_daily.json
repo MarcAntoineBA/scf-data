@@ -1,16 +1,22 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-24T05:46:10Z",
+  "ts": "2026-08-25T05:24:15Z",
   "total": 28,
-  "ok": 24,
-  "secs": 1491.6,
-  "changed": 44,
-  "versionnes": 42,
-  "pieces_jointes": 2,
+  "ok": 23,
+  "secs": 970.8,
+  "changed": 43,
+  "versionnes": 40,
+  "pieces_jointes": 3,
   "absents": 25,
-  "muets": [],
+  "muets": [
+   "gtrends.serpapi (48.1 h)"
+  ],
   "failed": [
+   {
+    "job": "atlasquarterly",
+    "why": "[ABORT] garde-fou de référence en échec — rien écrit."
+   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -29,5 +35,5 @@
    }
   ]
  },
- "updated": "2026-08-24T05:46:10Z"
+ "updated": "2026-08-25T05:24:15Z"
 }
