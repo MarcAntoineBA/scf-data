@@ -45,6 +45,7 @@ GARDE-FOUS (deux pannes déjà vues ailleurs dans le parc)
 Sortie : crypto_raises_cache.json + .js (window.__CRYPTO_RAISES__), ~90 Ko.
 """
 
+import base64
 import json
 import re
 import shutil
@@ -115,6 +116,48 @@ def fetch(url, timeout=60):
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", "replace")
+
+
+# ── Logos de chaînes ─────────────────────────────────────────────────────────
+# EMBARQUÉS EN data: URI dans le cache, pas référencés par URL. Deux raisons, et
+# les deux sont des règles maison payées par des incidents :
+#   · « logo local ou rien » — un service d'icônes externe qui ne connaît pas un
+#     nom peut répondre 200 avec un placeholder générique, et la page affiche un
+#     globe en croyant montrer une marque. Ici on vérifie le code ET la taille à
+#     la COLLECTE : ce qui entre dans le cache a été vu.
+#   · « ne jamais demander un fichier absent » — sur Cloudflare Pages un chemin
+#     inconnu renvoie 200 + la page d'accueil (~540 Ko). Un logo manquant coûterait
+#     un demi-mégaoctet avant même que `onerror` ne se déclenche. Embarqué, il n'y
+#     a aucune requête à l'affichage, donc aucun trou possible.
+# Coût mesuré : 10 chaînes ≈ 25 Ko de base64. Couverture mesurée : 10/10.
+# (Les logos de PROJETS ont été écartés : 4 sur 25 seulement existent chez
+# DefiLlama — les startups fraîchement financées n'y sont pas encore des
+# protocoles. Une liste dont 21 lignes sur 25 tombent en repli n'est pas un
+# ornement, c'est un défaut visible.)
+def _slug(name):
+    s = (name or "").lower().strip()
+    s = re.sub(r"\s*\(.*?\)\s*", " ", s)
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s
+
+
+def chain_logo(name):
+    url = "https://icons.llamao.fi/icons/chains/rsz_%s?w=48&h=48" % _slug(name)
+    try:
+        req = urllib.request.Request(url, headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=20) as r:
+            if r.status != 200:
+                return ""
+            ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+            if not ctype.startswith("image/"):
+                return ""
+            raw = r.read()
+            # Un « logo » de 40 octets n'est pas un logo : plancher explicite.
+            if len(raw) < 100 or len(raw) > 60000:
+                return ""
+            return "data:%s;base64,%s" % (ctype, base64.b64encode(raw).decode("ascii"))
+    except Exception:
+        return ""
 
 
 def load_raises():
@@ -337,6 +380,9 @@ def build_payload(rows):
             o["n"] += 1
     chains = sorted(({"name": k, "usd_12m": round(v["usd"]), "n_12m": v["n"]}
                      for k, v in ch.items()), key=lambda x: -x["n_12m"])[:TOP_CHAINS]
+    for c in chains:
+        c["logo"] = chain_logo(c["name"])
+    n_logos = sum(1 for c in chains if c["logo"])
 
     # ── Dernières levées ──────────────────────────────────────────────────────
     latest = [{
@@ -354,6 +400,7 @@ def build_payload(rows):
             "source": "DefiLlama — page publique /raises",
             "source_url": PAGE,
             "deals_total": len(clean),
+            "chain_logos": n_logos,
             "investors_total": len(inv),
             "last_deal": datetime.fromtimestamp(last_ts, timezone.utc).strftime("%Y-%m-%d") if last_ts else "",
             "note": ("Montants DIVULGUÉS uniquement : environ deux tours sur trois ne "
