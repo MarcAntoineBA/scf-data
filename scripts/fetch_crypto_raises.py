@@ -378,17 +378,22 @@ def write_outputs(payload):
         % (payload["meta"]["updated_at"],
            json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
     )
+    # COPIE, jamais de lien symbolique — contrairement à d'autres collecteurs du
+    # dépôt. Ces deux fichiers sont VERSIONNÉS dans Site_Crypto_Finance (comme
+    # narratives_fundamentals_cache.js et ses voisins). Un symlink posé à leur
+    # place fait basculer git en « typechange », et `auto_sync.sh`, qui committe
+    # tout ce qu'il trouve toutes les 5 minutes, publierait un fichier de 72
+    # octets à la place du cache. Mesuré le 2026-08-25 sur ce collecteur même.
     site_dir = Path.home() / "Desktop" / "Site_Crypto_Finance"
     if site_dir.exists():
         for name in ("crypto_raises_cache.json", "crypto_raises_cache.js"):
-            link, target = site_dir / name, CACHE_DIR / name
+            dest, target = site_dir / name, CACHE_DIR / name
             try:
-                if link.is_symlink() or link.exists():
-                    link.unlink()
-                link.symlink_to(target)
+                if dest.is_symlink():
+                    dest.unlink()
+                shutil.copy2(target, dest)
             except OSError as e:
-                sys.stderr.write("[SYMLINK %s] %s, copie de secours\n" % (name, e))
-                shutil.copy2(target, link)
+                sys.stderr.write("[COPIE %s] %s\n" % (name, e))
 
 
 def main():
