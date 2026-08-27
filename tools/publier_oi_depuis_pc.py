@@ -46,9 +46,16 @@ from datetime import datetime, timezone
 
 HOME = os.path.expanduser("~")
 CACHE = os.path.join(HOME, "Library", "Caches", "site_crypto_finance")
-CLONE = os.path.join(HOME, ".cache", "scf_oi_publication")
 DEPOT = "https://github.com/MarcAntoineBA/scf-data.git"
 A_BLANC = "--a-blanc" in sys.argv
+
+# ⚠ PAS DE CLONE SUPERFICIEL. Mesuré le 2026-08-27 : `git clone --depth 1` puis push
+# de soixante fichiers reste bloqué plus de quinze minutes sans rien transmettre —
+# le serveur doit renégocier ce que le clone ne connaît pas. Et sur ce PC, le
+# `fetch --unshallow` de rattrapage casse en cours de route (« unexpected disconnect
+# while reading sideband packet ») : la connexion ne tient pas un pack de cette
+# taille. On travaille donc dans le clone COMPLET, qui pousse en quelques secondes.
+CLONE = os.path.join(HOME, "scf-data-work")
 
 
 def lancer(cmd, cwd=None, minutes=10):
@@ -113,20 +120,33 @@ def main():
         return 0
 
     if not os.path.isdir(os.path.join(CLONE, ".git")):
-        os.makedirs(os.path.dirname(CLONE), exist_ok=True)
-        code, sortie = lancer(["git", "clone", "--depth", "1", "-b", "main", DEPOT, CLONE],
-                              minutes=20)
+        code, sortie = lancer(["git", "clone", "-b", "main", DEPOT, CLONE], minutes=40)
         if code != 0:
             print("clone impossible : " + sortie[-300:], file=sys.stderr)
             return 1
-
-    code, _ = lancer(["git", "fetch", "-q", "--depth", "1", "origin", "main"], CLONE, 10)
-    if code != 0:
-        print("fetch impossible", file=sys.stderr)
+    code, sortie = lancer(["git", "rev-parse", "--is-shallow-repository"], CLONE, 2)
+    if "true" in sortie:
+        print("le dépôt %s est superficiel : la publication y resterait bloquée. "
+              "Le compléter (git fetch --unshallow) ou en cloner un entier." % CLONE,
+              file=sys.stderr)
+        return 1
+    # Un arbre sale ferait échouer le rebase à mi-chemin : on refuse avant d'écrire.
+    code, sortie = lancer(["git", "status", "--porcelain", "--untracked-files=no"], CLONE, 5)
+    if sortie.strip():
+        print("des modifications suivies traînent dans %s :\n%s"
+              % (CLONE, sortie.strip()[:400]), file=sys.stderr)
         return 1
 
     for essai in range(1, 7):
-        lancer(["git", "reset", "-q", "--hard", "origin/main"], CLONE, 5)
+        # `rebase` et non `reset --hard` : ce dépôt est aussi un plan de travail, et
+        # une remise à plat y effacerait ce qui n'a pas encore été poussé. Le
+        # recalage sur origin/main reste indispensable — sept cadences GitHub
+        # poussent en permanence, et sans lui notre commit annulerait les leurs.
+        code, _ = lancer(["git", "fetch", "-q", "origin", "main"], CLONE, 10)
+        if code != 0:
+            print("fetch impossible", file=sys.stderr)
+            return 1
+        lancer(["git", "rebase", "-q", "origin/main"], CLONE, 10)
         dossier = os.path.join(CLONE, "cache")
         pousses = []
         for nom in noms:
