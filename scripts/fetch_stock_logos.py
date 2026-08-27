@@ -756,8 +756,31 @@ def _ecarter_placeholders(by_hash):
     if not noms:
         log("[StockLogos] identites de marche indisponibles -> aucun ecart automatique")
         return
+    if not doms:
+        # Sans domaines, il ne reste qu'un signal sur deux — et c'est exactement
+        # la situation qui a condamne le groupe Tata. On signale au lieu de juger.
+        log("[StockLogos] la collecte de marche ne porte pas de domaines "
+            "(site_web) : un seul signal sur deux, on ne supprime rien")
+        return
+    # Au-dela de ce nombre, la regle s'est trompee sur son ENTREE, pas sur les
+    # donnees : une regle qui se met a supprimer en masse doit s'arreter.
+    PLAFOND_ECARTS = 20
+
     efface = 0
+    a_ecarter = []
     for h, v in groupes.items():
+        # ── « Je ne sais pas » n'est pas « je sais que non » ──
+        # La regle a condamne les cinq logos du groupe Tata parce que le cache
+        # venait d'etre restaure depuis une sauvegarde sans domaines, et qu'un
+        # des cinq symboles n'y figurait pas du tout. Elle s'est prononcee sur
+        # une information partielle. On exige donc de CONNAITRE au moins les
+        # trois quarts des porteurs avant de trancher.
+        connus = sum(1 for t in v if noms.get(t) or doms.get(t))
+        if connus < 0.75 * len(v):
+            log(f"  ? {h[:12]} porte par {len(v)} societes dont {connus} connues "
+                f"— identite trop incomplete pour juger, on ne touche a rien")
+            continue
+
         ens = [_mots_nom(noms.get(t)) for t in v if noms.get(t)]
         compte = {}
         for e in ens:
@@ -768,6 +791,16 @@ def _ecarter_placeholders(by_hash):
         par_dom = _racine_commune([_racine_domaine(doms.get(t)) for t in v])
         if par_nom or par_dom:
             continue
+        a_ecarter.append((h, v))
+
+    if len(a_ecarter) > PLAFOND_ECARTS:
+        log(f"[StockLogos] {len(a_ecarter)} groupes seraient ecartes, au-dela du "
+            f"plafond de {PLAFOND_ECARTS} : c'est l'ENTREE qui est douteuse, pas "
+            f"les donnees. AUCUNE suppression. Verifier que la collecte de marche "
+            f"porte bien les noms ET les domaines.")
+        return
+
+    for h, v in a_ecarter:
         log(f"  PLACEHOLDER {h[:12]} porte par {len(v)} societes sans lien : "
             f"{', '.join((noms.get(t) or t)[:18] for t in v[:5])}")
         for t in v:

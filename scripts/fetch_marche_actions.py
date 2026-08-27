@@ -224,6 +224,13 @@ def _cle_fragment(mot):
 # Les « devises » qui n'en sont pas : des sous-unités, comme le pence de Londres.
 # Une place qui cote en sous-unité multiplie toutes ses capitalisations par cent
 # ou par mille, et le seul signe est le code à trois lettres.
+# Les places américaines. Une société ÉTRANGÈRE qui y est cotée l'est par un
+# certificat de dépôt : son cours est celui du certificat, son nombre d'actions
+# celui du titre local, et leur produit ne veut rien dire. Mesuré : 4 665 lignes
+# sur 38 075, dont Taiwan Semiconductor, Banco Santander-Chile et LATAM Airlines.
+PLACES_US = {"NYSE", "NASDAQ", "NYSEAMERICAN", "NYSE American", "NYSE Arca",
+             "OTCMKTS", "Cboe BZX"}
+
 SOUS_UNITES = {
     "GBX": ("GBP", 100.0),    # pence, Londres
     "ILA": ("ILS", 100.0),    # agorot, Tel-Aviv
@@ -415,6 +422,28 @@ def _nettoyer(v, champs_pence, compte):
     return out
 
 
+def _lignes_brutes_precedent(cache):
+    """Combien de lignes BRUTES le passage précédent avait reçues de la source.
+
+    C'est le signal le plus stable dont on dispose : l'univers de la source,
+    avant tous nos filtres. Le compte FINAL dépend d'un seuil de capitalisation,
+    des taux de change disponibles et de nos règles d'exclusion — il varie
+    légitimement. Le brut, non : une place de cotation ne double pas du jour au
+    lendemain.
+    """
+    import glob as _g
+    for f in sorted(_g.glob(str(cache / "marche_[0-9]*.json"))):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+            n = d.get("lignes_brutes")
+            if isinstance(n, int) and n > 0:
+                return n
+        except Exception:
+            pass
+    return 0
+
+
 def _publie_precedemment(cache):
     """Combien de sociétés la collecte précédente avait publiées.
 
@@ -432,7 +461,8 @@ def _publie_precedemment(cache):
     return n
 
 
-def _refuser_effondrement(avant, maintenant, muets, appels):
+def _refuser_effondrement(avant, maintenant, muets, appels,
+                          brutes_avant=0, brutes=0):
     """Refuse d'écrire une collecte manifestement amputée.
 
     Écrit après avoir vu, sur cette machine, une collecte bridée écraser 37 986
@@ -440,13 +470,26 @@ def _refuser_effondrement(avant, maintenant, muets, appels):
     Mieux vaut la donnée de la veille, qui est datée, que celle d'aujourd'hui
     amputée d'un tiers, qui est fausse.
     """
-    if appels and len(muets) > max(3, appels // 10):
+    # Zéro pays muet sur un run sain. Le seuil d'un dixième — huit pays sur
+    # quatre-vingt-six — laissait passer une collecte déjà amputée.
+    if appels and len(muets) > 2:
         raise SystemExit(
             "[fatal] %d pays sur %d n'ont pas répondu (%s...). La source bride "
             "ou est en panne : on ne réécrit pas les fragments avec un "
             "échantillon. Relancer plus tard."
             % (len(muets), appels, ", ".join(sorted(muets)[:8])))
-    if avant and maintenant < avant * 0.75:
+    # Le compte BRUT d'abord : c'est l'univers de la source, pas notre filtrage.
+    # Un run bridé a publié 34 525 au lieu de 38 075 — neuf pour cent de moins —
+    # et le seuil d'un quart ne s'est pas déclenché. Sur le brut, l'écart aurait
+    # crevé les yeux.
+    if brutes_avant and brutes and brutes < brutes_avant * 0.92:
+        raise SystemExit(
+            "[fatal] %d lignes reçues de la source contre %d au passage "
+            "précédent, soit %.0f %% de moins. L'univers de la source ne varie "
+            "pas ainsi : c'est un bridage ou une panne. On garde les fragments "
+            "existants."
+            % (brutes, brutes_avant, 100.0 * (1 - brutes / float(brutes_avant))))
+    if avant and maintenant < avant * 0.90:
         raise SystemExit(
             "[fatal] %d sociétés collectées contre %d au passage précédent, soit "
             "%.0f %% de moins. Aucune cause normale — jour férié, place fermée — "
@@ -541,6 +584,7 @@ def main():
     # qu'elle annonce, et combien on n'a pas pu vérifier.
     _capi_incoherentes = [0]
     _capi_non_verifiables = [0]
+    _capi_depot = [0]
 
     def capi_usd(v):
         """La capitalisation en dollars — recalculée quand on peut la vérifier.
@@ -566,6 +610,24 @@ def main():
 
         mc = v.get("marketCap")
         px, sh = v.get("price"), v.get("sharesOut")
+
+        # ── Un certificat de dépôt ne se calcule pas ainsi ──
+        # Le `price` est celui du CERTIFICAT, `sharesOut` compte les actions
+        # LOCALES. Leur produit ne décrit rien. Mesuré : Taiwan Semiconductor
+        # 5,6 fois trop haut, Banco Santander-Chile 400, LATAM Airlines 1 932 —
+        # exactement les ratios de conversion de leurs certificats.
+        #
+        # Un seuil sur l'écart ne trancherait pas : 400 est aussi bien un ratio
+        # de certificat qu'un taux de change. Le discriminant est ce QU'EST la
+        # ligne — une société étrangère cotée sur une place américaine.
+        pl = (v.get("exchange") or "").strip()
+        pays = (v.get("country") or "").strip()
+        if pl in PLACES_US and pays and pays != "United States":
+            _capi_depot[0] += 1
+            if isinstance(mc, (int, float)):
+                return mc * r
+            return 0.0
+
         verifiable = (isinstance(px, (int, float)) and isinstance(sh, (int, float))
                       and px > 0 and sh > 0)
         if verifiable:
@@ -595,17 +657,18 @@ def main():
           % (len(retenus), suivis_retenus, ecartes,
              int(SEUIL_CAPI_USD / 1e6), seuil_capi))
     print("[ok] capitalisations : %d recalculées depuis cours x actions, dont %d "
-          "que la source donnait dans une autre devise ; %d non vérifiables "
-          "(pas de nombre d'actions)"
-          % (len(lignes) - _capi_non_verifiables[0], _capi_incoherentes[0],
-             _capi_non_verifiables[0]))
+          "que la source donnait dans une autre devise ; %d certificats de dépôt "
+          "laissés à la source ; %d non vérifiables (pas de nombre d'actions)"
+          % (len(lignes) - _capi_non_verifiables[0] - _capi_depot[0],
+             _capi_incoherentes[0], _capi_depot[0], _capi_non_verifiables[0]))
     if sans_taux:
         print("[ok] devises sans taux, sociétés non publiées faute de comparaison : %s"
               % ", ".join(sorted(x for x in sans_taux if x)))
 
     # ── On ne réécrit pas les fragments avec un échantillon ──
     _refuser_effondrement(_publie_precedemment(CACHE_DIR), len(retenus),
-                          muets, len(appels))
+                          muets, len(appels),
+                          _lignes_brutes_precedent(CACHE_DIR), len(brut))
 
     frag = {}
     for sym, v in retenus:
@@ -615,7 +678,7 @@ def main():
     poids = []
     for cle, contenu in sorted(frag.items()):
         f = OUT_DIR / ("marche_%s.json" % cle)
-        f.write_text(json.dumps({"genere_le": horo, "champs": ordre,
+        f.write_text(json.dumps({"lignes_brutes": len(brut), "genere_le": horo, "champs": ordre,
                                  "societes": contenu},
                                 ensure_ascii=False, separators=(",", ":")),
                      encoding="utf-8")

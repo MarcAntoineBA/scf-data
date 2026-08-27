@@ -426,7 +426,30 @@ def fetch_stooq_snapshot(yahoo_sym):
 
 
 HIST_DAYS = 1825            # 5 ans
-HIST_TOP_N_PER_NARRATIVE = 3
+
+# ⚠ Constante conservée pour mémoire, et INUTILISÉE depuis le 28/08/2026.
+# Elle bornait à trois le nombre de titres servant au momentum long — la jambe
+# qui pèse cinquante-cinq pour cent du score composite. Vérifié : elle n'a plus
+# aucun autre consommateur dans ce fichier. On la garde nommée plutôt que de la
+# supprimer, pour que quiconque relira l'historique comprenne ce qui a changé.
+HIST_TOP_N_PER_NARRATIVE = 3   # inutilisé — voir HIST_TOP_N_MOMENTUM
+
+# Combien en servent à CALCULER son momentum. Tous.
+#
+# Ce nombre valait trois, et cette jambe pèse cinquante-cinq pour cent du score
+# composite. Mesuré : cent dix-sept titres sur huit cents portaient 55 % du
+# score. Pour « Banques », les trois retenus — JPMorgan, Bank of America, HSBC —
+# pèsent 18,6 % de la capitalisation d'un panier de soixante-sept ; pour
+# « Industriels » 26,7 %, pour « Assurance » 31,4 %.
+#
+# Pire : la COURBE affichée est construite sur tout le panier, avec
+# rééquilibrage dynamique. Le lecteur voyait une courbe décrivant soixante-sept
+# banques et, à côté, un score en décrivant trois — sans que rien ne le dise.
+#
+# Le plafond existait pour économiser des requêtes d'historique. Il n'économise
+# plus rien : `histories` porte déjà huit cent un tickers, médiane quatre cent
+# quarante-neuf points. Il jetait ce qu'on avait déjà payé.
+HIST_TOP_N_MOMENTUM = None      # None = tout le panier
 HIST_CACHE_TTL_HOURS = 24
 
 # ── Currency detection from Yahoo exchange suffix ──
@@ -3539,7 +3562,11 @@ def augment_with_momentum_metrics(stats_list, histories):
     sp_180d = _perf_over_days(spy_hist, 180) if spy_hist else None
 
     for s in stats_list:
-        tokens = s["tokens"][:HIST_TOP_N_PER_NARRATIVE]
+        # Tout le panier, et non les trois premiers titres : cette boucle
+        # alimente le momentum relatif, qui pèse 55 % du score composite, et
+        # la largeur, qui en pèse 22,5 %. Les deux se calculaient sur trois.
+        tokens = (s["tokens"] if HIST_TOP_N_MOMENTUM is None
+                  else s["tokens"][:HIST_TOP_N_MOMENTUM])
 
         # ── Momentum long terme (mcap-weighted, via histories) ──
         num90 = den90 = num180 = den180 = 0.0

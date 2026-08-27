@@ -368,6 +368,52 @@ def bulk_fetch_growth_cy(all_syms, chunk=40):
     return {"eps": eps_out, "rev": rev_out}
 
 
+_CROISSANCES_CACHE = {}
+
+
+def _croissances_marche():
+    """Les croissances du chiffre d'affaires, depuis la collecte de marche.
+
+    La source d'origine — la table « Revenue Estimate » de Yahoo, lue par
+    yahooquery — rend desormais 401 « Invalid Crumb ». Yahoo l'a fermee, et le
+    champ tombait a 56 lignes sur 826.
+
+    La collecte de marche sert la meme famille pour 38 061 societes :
+        croissance_ca_pct           constatee, douze derniers mois   97,1 %
+        croissance_ca_exercice_pct  attendue, exercice en cours      39,1 %
+
+    Sur les 783 titres du tracker retrouves dans cette collecte, 774 ont la
+    croissance constatee et 757 l'attendue.
+    """
+    if _CROISSANCES_CACHE:
+        return _CROISSANCES_CACHE
+    import glob as _g
+    for f in sorted(_g.glob(str(CACHE_DIR / "marche_[0-9]*.json"))):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        ch = d.get("champs") or []
+        i_c = ch.index("croissance_ca_pct") if "croissance_ca_pct" in ch else None
+        i_e = (ch.index("croissance_ca_exercice_pct")
+               if "croissance_ca_exercice_pct" in ch else None)
+        if i_c is None and i_e is None:
+            continue
+        for sym, a in (d.get("societes") or {}).items():
+            _CROISSANCES_CACHE[sym] = (
+                a[i_c] if (i_c is not None and i_c < len(a)) else None,
+                a[i_e] if (i_e is not None and i_e < len(a)) else None,
+            )
+    if _CROISSANCES_CACHE:
+        print("[info] croissances du CA : %d societes lues dans la collecte de "
+              "marche" % len(_CROISSANCES_CACHE))
+    else:
+        print("[warn] collecte de marche introuvable : la croissance du chiffre "
+              "d'affaires restera vide", file=sys.stderr)
+    return _CROISSANCES_CACHE
+
+
 def fetch_stock_fundamentals(symbol, fx_rates, tracker_quotes=None, growth_cy_map=None):
     """Fetch fundamentals for a single stock via yfinance.
 
@@ -476,7 +522,20 @@ def fetch_stock_fundamentals(symbol, fx_rates, tracker_quotes=None, growth_cy_ma
     # from /analysis Revenue Estimate table. No fallback to info["revenueGrowth"]:
     # that field is quarterly YoY (different metric, different page) — would silently
     # mismatch the audit link. Better to show "—" than a wrong number.
-    rev_growth_ttm = yahoo_rev_growth_cy
+    # ── La croissance du chiffre d'affaires ──
+    # Ce champ s'appelle « ttm » — douze mois glissants — et contenait une
+    # ESTIMATION de l'exercice en cours. Le nom mentait avant meme que la source
+    # ne meure. Il prend desormais la croissance CONSTATEE, qui est ce que son
+    # nom annonce, ce que le libelle de la page laisse attendre, et la mieux
+    # servie : 774 titres suivis sur 783 contre 56 par l'ancienne voie.
+    _cr = _croissances_marche().get(symbol) or (None, None)
+    rev_growth_ttm = _safe(_cr[0], maximum=500)
+    rev_growth_fwd = _safe(_cr[1], maximum=500)
+    if rev_growth_ttm is None:
+        # Faute de mieux, l'ancienne voie — quand elle repond encore.
+        rev_growth_ttm = yahoo_rev_growth_cy
+    if rev_growth_fwd is None:
+        rev_growth_fwd = yahoo_rev_growth_cy
     roe = _safe(info.get("returnOnEquity"))
     if roe is not None:
         roe *= 100
@@ -620,6 +679,7 @@ def fetch_stock_fundamentals(symbol, fx_rates, tracker_quotes=None, growth_cy_ma
         "div_yield": div_yield,
         "eps_growth_fwd": eps_growth_fwd,
         "rev_growth_ttm": rev_growth_ttm,
+        "rev_growth_fwd": rev_growth_fwd,
         "roe": roe,
         "fcf_yield": fcf_yield,
         "beta": beta,
@@ -1081,10 +1141,28 @@ def main():
         # is almost certainly an FX bug like the IDR fiasco).
         if mcap_total_b > 200_000:
             print(f"[ANOMALY] {narrative}: mcap_total_b={mcap_total_b:.0f} B (>200,000B implausible — likely FX bug for non-USD tickers)", file=sys.stderr)
-        # Per-metric n (most consistent count across the metrics where we
-        # report a weighted mean). Used by the frontend to render "—" on
-        # cells with poor coverage.
-        n_max_coverage = max(coverage.values()) if coverage else 0
+        # ── Combien de societes derriere une metrique de ce secteur ? ──
+        # Ce nombre valait `max(coverage.values())` : l'effectif de la metrique
+        # la MIEUX servie, presente comme l'effectif du secteur. Mesure : « Big
+        # Tech & Electronique » annoncait 13 alors que la croissance du chiffre
+        # d'affaires n'y etait connue que pour TROIS titres.
+        #
+        # Un maximum repond a « combien au mieux », un effectif a « combien ».
+        # Les confondre flatte systematiquement la couverture, jamais l'inverse.
+        #
+        # On publie donc la MEDIANE — ce que vaut une metrique typique — et on
+        # garde le maximum et le minimum sous leurs propres noms. La mediane
+        # plutot que la moyenne : une seule metrique tres bien servie ne doit pas
+        # relever le chiffre a elle seule, c'est le defaut qu'on corrige.
+        _cov = sorted(coverage.values()) if coverage else []
+        if _cov:
+            _m = len(_cov) // 2
+            n_median_coverage = (_cov[_m] if len(_cov) % 2
+                                 else (_cov[_m - 1] + _cov[_m]) // 2)
+        else:
+            n_median_coverage = 0
+        n_max_coverage = _cov[-1] if _cov else 0
+        n_min_coverage = _cov[0] if _cov else 0
         # Cross-merge: momentum metrics from the tracker for this sector
         mom = tracker_momentum.get(narrative, {})
         sectors_out.append({
@@ -1092,7 +1170,9 @@ def main():
             "icon": meta.get("icon", ""),
             "color": meta.get("color", "#9ca3af"),
             "n_stocks": len(tickers),
-            "n_with_data": n_max_coverage,
+            "n_with_data": n_median_coverage,
+            "n_couverture_max": n_max_coverage,
+            "n_couverture_min": n_min_coverage,
             "coverage": coverage,         # {metric: count_with_data} for frontend gating
             "mcap_total_b": mcap_total_b,
             **summary,
