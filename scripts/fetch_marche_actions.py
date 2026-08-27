@@ -415,6 +415,46 @@ def _nettoyer(v, champs_pence, compte):
     return out
 
 
+def _publie_precedemment(cache):
+    """Combien de sociétés la collecte précédente avait publiées.
+
+    On relit les fragments déjà sur le disque. S'il n'y en a pas, on rend zéro
+    et le garde-fou se tait : un premier run n'a rien à quoi se comparer.
+    """
+    import glob as _g
+    n = 0
+    for f in _g.glob(str(cache / "marche_[0-9]*.json")):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                n += len(json.load(fh).get("societes") or {})
+        except Exception:
+            pass
+    return n
+
+
+def _refuser_effondrement(avant, maintenant, muets, appels):
+    """Refuse d'écrire une collecte manifestement amputée.
+
+    Écrit après avoir vu, sur cette machine, une collecte bridée écraser 37 986
+    sociétés par 24 435 — vingt-sept pays muets — et se terminer par « [ok] ».
+    Mieux vaut la donnée de la veille, qui est datée, que celle d'aujourd'hui
+    amputée d'un tiers, qui est fausse.
+    """
+    if appels and len(muets) > max(3, appels // 10):
+        raise SystemExit(
+            "[fatal] %d pays sur %d n'ont pas répondu (%s...). La source bride "
+            "ou est en panne : on ne réécrit pas les fragments avec un "
+            "échantillon. Relancer plus tard."
+            % (len(muets), appels, ", ".join(sorted(muets)[:8])))
+    if avant and maintenant < avant * 0.75:
+        raise SystemExit(
+            "[fatal] %d sociétés collectées contre %d au passage précédent, soit "
+            "%.0f %% de moins. Aucune cause normale — jour férié, place fermée — "
+            "ne fait perdre un quart de l'univers. On garde les fragments "
+            "existants."
+            % (maintenant, avant, 100.0 * (1 - maintenant / float(avant))))
+
+
 def main():
     t0 = time.time()
     champs = SOLIDES + PARTIELS
@@ -497,14 +537,47 @@ def main():
     taux = charger_taux()
     sans_taux = set()
 
+    # Combien de lignes la source donnait dans une AUTRE devise que celle
+    # qu'elle annonce, et combien on n'a pas pu vérifier.
+    _capi_incoherentes = [0]
+    _capi_non_verifiables = [0]
+
     def capi_usd(v):
-        mc = v.get("marketCap")
-        if not isinstance(mc, (int, float)):
-            return 0.0
+        """La capitalisation en dollars — recalculée quand on peut la vérifier.
+
+        `priceCurrency` est la devise du COURS. `marketCap`, lui, est parfois
+        dans la devise de PUBLICATION de la société. Mesuré sur Grupo Argos,
+        coté à Santiago : cours 6,792 USD, capitalisation 3,85 × 10¹² en pesos
+        colombiens. Multiplier par le taux du dollar publiait un holding
+        colombien à 3 850 milliards de dollars.
+
+        Le contrôle est interne à la ligne : `marketCap` doit valoir
+        `price × sharesOut`, les deux étant dans la devise du cours. Mesuré sur
+        les 20 031 cotations principales — `sharesOut` en couvre 93,5 %, et
+        98,6 % des vérifiables concordent. On recalcule donc à partir du cours
+        et du nombre d'actions, ce qui est cohérent PAR CONSTRUCTION : les
+        justes ne bougent pas, les 258 fausses deviennent justes.
+        """
         dev = (v.get("priceCurrency") or "USD").upper()
         r = taux.get(dev)
         if r is None:
             sans_taux.add(dev)
+            return 0.0
+
+        mc = v.get("marketCap")
+        px, sh = v.get("price"), v.get("sharesOut")
+        verifiable = (isinstance(px, (int, float)) and isinstance(sh, (int, float))
+                      and px > 0 and sh > 0)
+        if verifiable:
+            calculee = px * sh
+            if isinstance(mc, (int, float)) and mc > 0:
+                rapport = mc / calculee
+                if rapport < 0.8 or rapport > 1.25:
+                    _capi_incoherentes[0] += 1
+            return calculee * r
+
+        _capi_non_verifiables[0] += 1
+        if not isinstance(mc, (int, float)):
             return 0.0
         return mc * r
 
@@ -521,9 +594,18 @@ def main():
           "plus petite capitalisation retenue %s"
           % (len(retenus), suivis_retenus, ecartes,
              int(SEUIL_CAPI_USD / 1e6), seuil_capi))
+    print("[ok] capitalisations : %d recalculées depuis cours x actions, dont %d "
+          "que la source donnait dans une autre devise ; %d non vérifiables "
+          "(pas de nombre d'actions)"
+          % (len(lignes) - _capi_non_verifiables[0], _capi_incoherentes[0],
+             _capi_non_verifiables[0]))
     if sans_taux:
         print("[ok] devises sans taux, sociétés non publiées faute de comparaison : %s"
               % ", ".join(sorted(x for x in sans_taux if x)))
+
+    # ── On ne réécrit pas les fragments avec un échantillon ──
+    _refuser_effondrement(_publie_precedemment(CACHE_DIR), len(retenus),
+                          muets, len(appels))
 
     frag = {}
     for sym, v in retenus:
