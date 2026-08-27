@@ -36,7 +36,12 @@ comparer serait comparer des taux de change.
 
 SORTIES
   · univers_actions.json — la liste complète, avec sa date et son compte rendu
-  · univers_actions.js   — le jumeau `window.__UNIVERS__`
+  · univers_<CLÉ>.json   — les fragments de recherche, un par première lettre
+
+Pas de jumeau `.js` : la convention du dépôt veut qu'un cache existe aussi en
+`window.__X__ = …` pour être chargé par la page. Elle suppose que la page charge
+le cache entier. Ici elle ne le fait jamais — elle prend un fragment — et le
+jumeau ferait vingt-deux mégaoctets déposés chaque jour pour rien.
   · univers_actions_light.json — les seuls champs dont la recherche a besoin
 """
 import signal as _signal
@@ -593,9 +598,6 @@ def main():
 
     (OUT_DIR / "univers_actions.json").write_text(
         json.dumps(charge, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    (OUT_DIR / "univers_actions.js").write_text(
-        "window.__UNIVERS__ = " + json.dumps(charge, ensure_ascii=False,
-                                             separators=(",", ":")) + ";\n", encoding="utf-8")
 
     # La version légère est celle que la page charge : le strict nécessaire pour
     # trouver un titre et l'afficher en une ligne.
