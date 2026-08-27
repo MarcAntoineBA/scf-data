@@ -38,9 +38,9 @@ SEC déjà en place (`fetch_13f.py`, `fetch_sec_inities.py`, `fetch_sec_rachats.
 SORTIES
   · sec_fundamentals_index.{json,js} — un résumé par société (dernier exercice,
     croissances, scores). Léger, chargé par la page.
-  · sec/<TICKER>.json — la série annuelle complète d'une société. Chargé au clic.
-    Le découpage n'est pas un détail : le dépôt porte déjà la trace d'un incident
-    où 14,5 Mo chargés d'un coup ont mis 30 s à s'afficher.
+  · sec_detail_<INITIALE>.json — les séries annuelles complètes, regroupées par
+    initiale du ticker, chargées au clic. Le découpage n'est pas un détail : le
+    dépôt porte la trace d'un incident où 14,5 Mo chargés d'un coup ont mis 30 s.
 """
 # ── Garde-fou de durée, comme les autres collecteurs : un script bloqué sur une
 #    I/O réseau ne doit pas monopoliser le créneau du suivant.
@@ -70,8 +70,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-SEC_DIR = CACHE_DIR / "sec"
-SEC_DIR.mkdir(parents=True, exist_ok=True)
+OUT_DIR = CACHE_DIR
 
 OUT_JSON = CACHE_DIR / "sec_fundamentals_index.json"
 OUT_JS = CACHE_DIR / "sec_fundamentals_index.js"
@@ -824,6 +823,14 @@ def charger_cik():
     return out
 
 
+def _initiale(sym):
+    """Le paquet où ranger une société. Un ticker commençant par un chiffre va
+    dans « 0 » : trente-six paquets suffisent, et le nom de fichier reste sûr
+    pour le filtre de la fonction qui les sert."""
+    c = (sym or "?")[0].upper()
+    return c if "A" <= c <= "Z" else "0"
+
+
 def _options(argv):
     """--tickers NVDA,AAPL    n'en traiter que ceux-là (mise au point, contrôle)
        --limit 20             s'arrêter après N sociétés
@@ -844,15 +851,14 @@ def _options(argv):
 
 
 def main():
-    global OUT_JSON, OUT_JS, SEC_DIR
+    global OUT_JSON, OUT_JS, OUT_DIR
     t0 = time.time()
     opts = _options(sys.argv[1:])
     if opts["sortie"]:
         opts["sortie"].mkdir(parents=True, exist_ok=True)
         OUT_JSON = opts["sortie"] / "sec_fundamentals_index.json"
         OUT_JS = opts["sortie"] / "sec_fundamentals_index.js"
-        SEC_DIR = opts["sortie"] / "sec"
-        SEC_DIR.mkdir(parents=True, exist_ok=True)
+        OUT_DIR = opts["sortie"]
         print(f"[info] sortie détournée vers {opts['sortie']}")
 
     univers = charger_univers()
@@ -867,6 +873,7 @@ def main():
     print(f"[info] correspondance SEC : {len(cik_par_ticker)} tickers")
 
     index = {}
+    paquets = {}
     ok = sans_cik = echecs = 0
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
         cik = cik_par_ticker.get(sym.upper())
@@ -893,19 +900,26 @@ def main():
             echecs += 1
             continue
 
-        # Un fichier par société — chargé au clic, jamais au chargement de page.
+        # Le détail est REGROUPÉ PAR INITIALE, pas écrit un fichier par société.
+        # Deux raisons, l'une technique et l'autre humaine :
+        #   · la publication du dépôt de collecte marche sur une liste EXACTE de
+        #     fichiers ; trois cent cinquante entrées y seraient ingérables ;
+        #   · la fonction qui sert les données n'accepte pas de sous-dossier —
+        #     son filtre de sécurité refuse tout nom contenant une barre oblique.
+        # Trente-six paquets d'environ 400 Ko, chargés au clic. La localité est
+        # bonne : ouvrir NVDA charge aussi NFLX, NKE et NOW, les clics suivants
+        # probables. Le tout reste très en dessous des caches déjà servis par le
+        # site (743 Ko pour le seul tracker).
         detail = {
             "symbole": sym,
             "cik": cik,
             "nom_sec": facts_doc.get("entityName"),
             "nom": meta.get("nom"),
-            "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "source": "SEC EDGAR — API XBRL companyfacts (10-K / 20-F / 40-F)",
             "exercices": bati["exercices"],
             "resume": bati["resume"],
         }
-        with (SEC_DIR / f"{sym}.json").open("w", encoding="utf-8") as f:
-            json.dump(detail, f, ensure_ascii=False, separators=(",", ":"))
+        paquets.setdefault(_initiale(sym), {})[sym] = detail
 
         r = dict(bati["resume"])
         r.pop("piotroski_detail", None)
@@ -936,6 +950,7 @@ def main():
             "L'XBRL commence vers 2009 ; les exercices antérieurs n'existent pas dans cette source.",
             "Banques, assurances et foncières ne publient pas les mêmes lignes : marge brute et %CAPEX y sont souvent vides.",
         ],
+        "paquets": sorted(paquets.keys()),
         "societes": index,
     }
     with OUT_JSON.open("w", encoding="utf-8") as f:
@@ -943,9 +958,21 @@ def main():
     with OUT_JS.open("w", encoding="utf-8") as f:
         f.write("window.__SEC_FUNDA__ = " + json.dumps(charge, ensure_ascii=False, separators=(",", ":")) + ";\n")
 
+    horodatage = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    poids = []
+    for lettre, contenu in sorted(paquets.items()):
+        chemin = OUT_DIR / f"sec_detail_{lettre}.json"
+        with chemin.open("w", encoding="utf-8") as f:
+            json.dump({"genere_le": horodatage, "societes": contenu},
+                      f, ensure_ascii=False, separators=(",", ":"))
+        poids.append(chemin.stat().st_size)
+
     print(f"[ok] {ok} sociétés — {sans_cik} sans CIK, {echecs} échecs — "
           f"{round(time.time() - t0, 1)} s")
-    print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko · détails : {SEC_DIR}")
+    print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko")
+    if poids:
+        print(f"[ok] {len(poids)} paquet(s) de détail — "
+              f"plus gros {max(poids) // 1024} Ko, total {sum(poids) // 1024} Ko")
     return 0
 
 
