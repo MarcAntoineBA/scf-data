@@ -223,12 +223,53 @@ def _sa_financial_data(path, quarterly=False):
         raise RuntimeError(f"SCHEMA stockanalysis change ({path}): financialData keys={list(fd)[:8] if isinstance(fd,dict) else fd}")
     return fd
 
+_CHEMINS_UNIVERS = None
+
+
+def _chemin_resolu(ticker):
+    """Le chemin de la societe chez la source, tel que l'univers l'a RESOLU.
+
+    La table SA_EXCHANGE ci-dessus est juste, mais elle ne porte que trente et
+    une places, ecrites a la main pour les huit cent douze titres suivis
+    (couverture mesuree : 100 %, zero trou). Les chemins resolus, eux, en
+    portent quatre-vingt-quatorze — et sur l'univers etendu vers lequel le
+    chantier avance, 23,5 % des societes tombent hors de la table : onze mille
+    cent trente, sans historique, SANS UN MOT, parce que fetch_intl rend None
+    quand le suffixe est inconnu.
+
+    Ces chemins sont deja resolus, deja verifies, deja sur le disque. On cesse
+    de deviner ce qu'on sait.
+    """
+    global _CHEMINS_UNIVERS
+    if _CHEMINS_UNIVERS is None:
+        _CHEMINS_UNIVERS = {}
+        f = CACHES / "univers_actions.json"
+        try:
+            with f.open(encoding="utf-8") as fh:
+                u = json.load(fh)
+            for t in u.get("titres", []):
+                sym = t.get("yahoo") or t.get("sa")
+                if sym and t.get("principal") and t.get("sa"):
+                    _CHEMINS_UNIVERS[sym.upper()] = t["sa"]
+        except Exception:
+            # Pas de fichier d'univers : on retombe sur la table, qui a
+            # l'avantage de fonctionner seule.
+            _CHEMINS_UNIVERS = {}
+    return _CHEMINS_UNIVERS.get(str(ticker).upper())
+
+
 def fetch_intl(ticker, suffix):
-    exch = SA_EXCHANGE.get(suffix)
+    # Le chemin resolu d'abord, la table ensuite : l'un couvre quatre-vingt-
+    # quatorze places, l'autre trente et une.
+    chemin = _chemin_resolu(ticker)
+    if chemin and "/" in chemin:
+        exch, base_resolu = chemin.split("/", 1)
+    else:
+        exch, base_resolu = SA_EXCHANGE.get(suffix), None
     if not exch: return None
     # stockanalysis utilise un point pour les class-shares nordiques (VOLV-B -> VOLV.B,
     # ATCO-A -> ATCO.A, NDA-FI -> NDA.FI). Le symbole univers (Yahoo) garde le tiret.
-    base_tkr = ticker.split(".")[0].replace("-", ".")
+    base_tkr = base_resolu or ticker.split(".")[0].replace("-", ".")
     qpath = f"quote/{exch}/{base_tkr}/financials"
     # income statement (revenue, eps) — quarterly d'abord (densite ~20 pts), fallback annuel
     fd = None
