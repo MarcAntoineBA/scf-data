@@ -28,6 +28,53 @@ A relancer apres chaque regeneration du pool (build_stock_universe.py).
 """
 import io, json, re, sys, urllib.parse, warnings
 from concurrent.futures import ThreadPoolExecutor
+
+# ── Un cache devant la resolution de noms ────────────────────────────────
+# La cascade interroge, pour CHAQUE societe : icons.duckduckgo.com, le domaine,
+# son parent, puis wikidata.org — souvent deux fois. Sur onze mille six cents
+# societes cela fait plus de cinquante mille resolutions, dont l'ecrasante
+# majorite portent sur trois noms d'hote identiques.
+#
+# Sous WSL le resolveur est un relais NAT vers l'hote Windows. Mesure du
+# 27/08/2026, a vingt-quatre fils PUIS a huit : `getent hosts` finit par
+# echouer et le collecteur s'arrete vers deux mille pastilles EN SILENCE, parce
+# qu'un echec de resolution est indiscernable d'un domaine sans favicon.
+#
+# Ce n'est pas un contournement de la limite : c'est cesser de poser cinquante
+# mille fois une question dont on a deja la reponse.
+import socket as _socket
+import threading as _threading
+import time as _time
+
+_CACHE_DNS = {}
+_VERROU_DNS = _threading.Lock()
+_TTL_DNS = 900.0        # une reponse valide sert quinze minutes
+_TTL_DNS_NEG = 120.0    # un echec n'en condamne pas le domaine pour tout le run
+_getaddrinfo_reel = _socket.getaddrinfo
+
+
+def _getaddrinfo_cache(host, port, *a, **kw):
+    cle = (host, port, a, tuple(sorted(kw.items())))
+    maintenant = _time.time()
+    with _VERROU_DNS:
+        e = _CACHE_DNS.get(cle)
+        if e and maintenant < e[0]:
+            if e[1] is None:
+                raise _socket.gaierror(_socket.EAI_NONAME, "cache negatif : " + str(host))
+            return e[1]
+    try:
+        r = _getaddrinfo_reel(host, port, *a, **kw)
+    except Exception:
+        with _VERROU_DNS:
+            _CACHE_DNS[cle] = (maintenant + _TTL_DNS_NEG, None)
+        raise
+    with _VERROU_DNS:
+        _CACHE_DNS[cle] = (maintenant + _TTL_DNS, r)
+    return r
+
+
+_socket.getaddrinfo = _getaddrinfo_cache
+
 from pathlib import Path
 
 from curl_cffi import requests   # TLS Chrome : les sites corporate (CF & co) bloquent python-requests
@@ -191,6 +238,11 @@ def parent_domain(dom):
 # automatique ne voyait. Le signal qui l'a demasque : deux domaines SANS RAPPORT
 # aboutissant a des octets identiques (cf. rapport de fin de run).
 BAD_HASHES = {
+    # Relevés le 27/08/2026 sur le parc mondial : icônes par défaut de
+    # gestionnaires de contenu, servies pour des societes sans aucun rapport.
+    "d47dc2bc3e8d",  # Knight-Swift, Tidewater, InMode, Camil, Gokul Agro
+    "f5fe4dfa85b6",  # Sterling Infra, Guoco, Guardian, Caltagirone
+
     "b1afaf0d51399d22615951babd47bed6",   # icone "document" generique (CMS)
 }
 
@@ -226,9 +278,14 @@ def valid_image(data):
     except Exception:
         return None
 
+# Mode masse : une seule source, un delai court. Voir resolve().
+RAPIDE = "--rapide" in sys.argv
+DELAI = 6 if RAPIDE else 15
+
+
 def get(url, **kw):
     try:
-        return requests.get(url, headers=UA, timeout=15, verify=False,
+        return requests.get(url, headers=UA, timeout=DELAI, verify=False,
                             impersonate="chrome120", **kw)
     except Exception:
         return None
@@ -453,6 +510,16 @@ def apply_aliases():
 UNTRUSTED_SITE_FAVICON = {"YUMC", "0288.HK"}
 
 def resolve(ticker, dom, name=""):
+    if RAPIDE:
+        # La masse d'abord : DuckDuckGo repond pour la grande majorite des
+        # societes reelles, et c'est UNE requete. Ce qu'on ne trouve pas ici
+        # part dans la memoire des echecs — un run ulterieur SANS --rapide lui
+        # appliquera la cascade complete, sur une liste devenue courte.
+        im = try_ddg(dom)
+        if im:
+            return im
+        par = parent_domain(dom)
+        return try_ddg(par) if par else None
     if ticker in UNTRUSTED_SITE_FAVICON:
         im = try_ddg(dom)
         if im: return im
@@ -597,6 +664,123 @@ def jobs_marche():
     return [(t, d, n) for _, t, d, n in out]
 
 
+
+# ── Ecarter les placeholders, sans emporter les fratries ─────────────────
+# Une image identique sur plusieurs societes est SOUVENT legitime : les neuf
+# Caisses regionales du Credit Agricole, les huit entites Brookfield, les cinq
+# Tata, les quatre SK, les trois filiales CNOOC. Elle est parfois l'icone par
+# defaut d'un gestionnaire de contenu, servie a des societes sans rapport.
+#
+# LE CRITERE, mesure sur ce parc : une fratrie laisse une trace, dans les NOMS
+# ou dans les DOMAINES. Il faut les DEUX signaux — sur le seul nom, SK Telecom
+# (deux lettres), LG Chem (deux lettres) et les trois filiales CNOOC (aucun mot
+# commun) etaient condamnees a tort.
+#
+# Le doute profite au monogramme : a deux porteurs seulement on ne touche a rien,
+# et un monogramme n'affirme rien de faux tandis qu'un logo emprunte, si.
+_MOTS_VIDES = {
+    "group", "groupe", "holding", "holdings", "limited", "ltd", "inc", "corp",
+    "corporation", "company", "compagnie", "plc", "sa", "nv", "ag", "se", "spa",
+    "as", "asa", "oyj", "ab", "co", "the", "and", "de", "du", "des", "la", "le",
+    "les", "of", "for", "international", "global", "national", "industries",
+    "industrial", "technologies", "technology", "tech", "systems", "solutions",
+    "services", "capital", "financial", "finance", "bank", "banco", "banca",
+    "insurance", "energy", "power", "resources", "mining", "properties",
+    "property", "realty", "reit", "trust", "fund", "investment", "investments",
+    "development", "enterprises", "electric", "electronics", "pharmaceutical",
+    "pharmaceuticals", "pharma", "chemical", "chemicals", "motor", "motors",
+    "bancorp", "first", "new", "united", "general", "public", "joint", "stock",
+    "class", "ordinary", "shares", "share", "com", "www", "net", "org",
+}
+_TLD = re.compile(
+    r"\.(com|net|org|co|io|ai|fr|de|jp|cn|hk|kr|tw|in|br|au|ca|ch|nl|se|no|fi"
+    r"|dk|it|es|pt|be|at|pl|tr|za|mx|sg|my|th|id|ph|vn|ae|sa|il|ru|gr|cz|hu|ro"
+    r"|ie|nz|cl|ar|pe|kz|ua|eu|uk|us|biz|info)(\.[a-z]{2})?$")
+
+
+def _identite_marche():
+    """(nom, domaine) par nom de fichier, depuis la collecte de marche."""
+    import glob as _g
+    noms, doms = {}, {}
+    for f in sorted(_g.glob(str(CACHE_DIR / "marche_[0-9]*.json"))):
+        try:
+            d = json.loads(Path(f).read_text())
+        except Exception:
+            continue
+        ch = d.get("champs") or []
+        i_n = ch.index("name") if "name" in ch else None
+        i_w = ch.index("site_web") if "site_web" in ch else None
+        for sym, arr in (d.get("societes") or {}).items():
+            k = _nom_fichier(sym)
+            if i_n is not None and i_n < len(arr) and arr[i_n]:
+                noms[k] = arr[i_n]
+            if i_w is not None and i_w < len(arr) and arr[i_w]:
+                doms[k] = arr[i_w]
+    return noms, doms
+
+
+def _mots_nom(nom):
+    import unicodedata as _u
+    t = _u.normalize("NFKD", str(nom or "")).encode("ascii", "ignore").decode()
+    t = re.sub(r"[^a-zA-Z0-9 ]", " ", t).lower()
+    # Deux lettres suffisent : « SK » et « LG » sont de vrais noms de groupe.
+    return {m for m in t.split() if len(m) > 1 and m not in _MOTS_VIDES}
+
+
+def _racine_domaine(dom):
+    d = str(dom or "").lower().strip()
+    d = re.sub(r"^https?://", "", d).split("/")[0].split(":")[0]
+    d = re.sub(r"^www\d?\.", "", d)
+    return re.sub(r"[^a-z0-9]", "", _TLD.sub("", d))
+
+
+def _racine_commune(racines):
+    racines = [r for r in racines if len(r) >= 4]
+    if len(racines) < 2:
+        return None
+    besoin = max(2, len(racines) / 2.0)
+    for r in racines:
+        for n in range(len(r), 3, -1):
+            for i in range(len(r) - n + 1):
+                frag = r[i:i + n]
+                if sum(1 for x in racines if frag in x) >= besoin:
+                    return frag
+    return None
+
+
+def _ecarter_placeholders(by_hash):
+    groupes = {h: v for h, v in by_hash.items() if len(v) > 2}
+    if not groupes:
+        return
+    noms, doms = _identite_marche()
+    if not noms:
+        log("[StockLogos] identites de marche indisponibles -> aucun ecart automatique")
+        return
+    efface = 0
+    for h, v in groupes.items():
+        ens = [_mots_nom(noms.get(t)) for t in v if noms.get(t)]
+        compte = {}
+        for e in ens:
+            for m in e:
+                compte[m] = compte.get(m, 0) + 1
+        par_nom = ([m for m, n in compte.items() if n >= max(2, len(ens) / 2.0)]
+                   if len(ens) >= 2 else [])
+        par_dom = _racine_commune([_racine_domaine(doms.get(t)) for t in v])
+        if par_nom or par_dom:
+            continue
+        log(f"  PLACEHOLDER {h[:12]} porte par {len(v)} societes sans lien : "
+            f"{', '.join((noms.get(t) or t)[:18] for t in v[:5])}")
+        for t in v:
+            for base in (OUT_DIR, REPO_DIR):
+                f = base / (t + ".png")
+                if f.exists():
+                    f.unlink()
+                    efface += 1
+    if efface:
+        log(f"[StockLogos] {efface} pastille(s) ecartee(s) : image partagee par des "
+            f"societes sans lien de nom NI de domaine")
+
+
 def main():
     uni = json.loads(UNIVERSE.read_text())
     jobs = []                                          # (ticker, domaine, nom)
@@ -675,9 +859,19 @@ def main():
         else:
             ko.append((t, d))
 
-    # Douze bras suffisaient pour mille cinq cents titres. Pour onze mille, le
-    # cout est le RESEAU, pas le calcul : on en met plus quand la liste le vaut.
-    with ThreadPoolExecutor(max_workers=(24 if len(jobs) > 3000 else 12)) as ex:
+    # Douze bras suffisaient pour mille cinq cents titres. Pour onze mille, la
+    # tentation est d'en mettre plus — le cout est le reseau, pas le calcul.
+    # Mesure du 27/08/2026 sous WSL : a vingt-quatre fils, le resolveur NAT
+    # (172.22.240.1) rend la main, `getent hosts` echoue, et le collecteur
+    # s'arrete a deux mille pastilles SANS RIEN DIRE — chaque echec de
+    # resolution ressemble a un domaine sans favicon. Le run stoppe, la
+    # resolution revient dans la seconde. On descend donc a huit : plus lent,
+    # mais il va au bout, et un run qui s'arrete en silence ne vaut rien.
+    # En mode masse chaque societe coute UNE requete a un seul hote, dont
+    # l'adresse est en cache : le resolveur ne voit presque plus rien passer,
+    # et on peut remonter. La cascade complete reste a huit fils.
+    _bras = 20 if RAPIDE else (8 if len(jobs) > 3000 else 12)
+    with ThreadPoolExecutor(max_workers=_bras) as ex:
         list(ex.map(work, jobs))
 
     # Manifest = UNIQUEMENT les PNG reellement presents sur disque. Les tickers du
@@ -723,6 +917,7 @@ def main():
         if f.exists():
             by_hash[hashlib.md5(f.read_bytes()).hexdigest()].append(t)
     shared = {h: v for h, v in by_hash.items() if len(v) > 1}
+    _ecarter_placeholders(by_hash)
     if shared:
         log(f"[StockLogos] {len(shared)} image(s) partagee(s) par plusieurs titres "
             f"(normal en groupe, SUSPECT sinon) :")
