@@ -127,6 +127,10 @@ DEPENDANCES = {
     # QUELLES sociétés approfondir et par quel chemin les atteindre. Sans cette
     # ligne il partait en même temps qu'elle et travaillait sur la veille.
     "intlfunda": ["marche"],
+    # Les médianes par industrie sont calculées EN RELISANT la collecte de
+    # marché : aucune requête réseau, cinq secondes — mais rien du tout si
+    # elle n'a pas encore écrit.
+    "medianesind": ["marche"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
