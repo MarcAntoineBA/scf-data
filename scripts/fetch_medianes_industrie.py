@@ -118,6 +118,22 @@ def _centile(tri, q):
     return tri[bas] + (tri[haut] - tri[bas]) * (k - bas)
 
 
+# Vingt et un quantiles suffisent à situer une valeur par interpolation, sans
+# transporter les 37 986 valeurs. En dessous de vingt valeurs, on ne publie rien :
+# le percentile sauterait de cinq points d'un cran à l'autre et prétendrait à une
+# précision qu'il n'a pas.
+MINIMUM_QUANTILES = 20
+PAS = 21
+
+
+def _quantiles(vals):
+    t = sorted(v for v in vals
+               if isinstance(v, (int, float)) and v == v and abs(v) != float("inf"))
+    if len(t) < MINIMUM_QUANTILES:
+        return None
+    return [round(_centile(t, i / (PAS - 1.0)), 4) for i in range(PAS)]
+
+
 def _stats(vals):
     """[p05, q1, médiane, q3, p95, effectif] — ou None si l'effectif ne suffit pas.
 
@@ -182,28 +198,43 @@ def main():
           % (n_soc, len(frags), sans_industrie, 100.0 * sans_industrie / max(1, n_soc)))
     print("[ok] %d industries, %d secteurs" % (len(par_industrie), len(par_secteur)))
 
-    def replier(brut):
+    def replier(brut, avec_quantiles=False):
         out, publiees, muettes = {}, 0, 0
         for nom, gs in brut.items():
             bloc = {}
+            qs = {}
             for g, vals in gs.items():
                 st = _stats(vals)
                 if st:
                     bloc[g] = st
                     publiees += 1
+                    if avec_quantiles:
+                        q = _quantiles(vals)
+                        if q:
+                            qs[g] = q
                 else:
                     muettes += 1
+            if qs:
+                bloc["_q"] = qs
             if bloc:
                 # L'effectif de l'industrie : le plus grand effectif observé,
                 # celui du champ le mieux rempli.
-                bloc["n"] = max(v[5] for k, v in bloc.items() if k != "n")
+                bloc["n"] = max(v[5] for k, v in bloc.items()
+                                if k not in ("n", "_q"))
                 out[nom] = bloc
         return out, publiees, muettes
 
-    industries, pub_i, mut_i = replier(par_industrie)
-    secteurs, pub_s, mut_s = replier(par_secteur)
+    industries, pub_i, mut_i = replier(par_industrie, avec_quantiles=True)
+    secteurs, pub_s, mut_s = replier(par_secteur, avec_quantiles=True)
     glob_stats = {g: s for g in GRANDEURS
                   for s in [_stats(tout[g])] if s}
+    # Les quantiles mondiaux servent de repli quand une industrie est trop
+    # petite pour avoir les siens — et pour le profil « percentile de l'univers »,
+    # qui se calculait jusqu'ici sur sept cent quatre-vingt-trois actions.
+    glob_q = {g: q for g in GRANDEURS for q in [_quantiles(tout[g])] if q}
+    print("[ok] quantiles  : %d grandeurs au niveau mondial, %d industries en "
+          "portent" % (len(glob_q),
+                       sum(1 for b in industries.values() if b.get("_q"))))
 
     print("[ok] industries : %d médianes publiées, %d écartées faute d'effectif "
           "(minimum %d)" % (pub_i, mut_i, MINIMUM))
@@ -227,6 +258,9 @@ def main():
         "effectifs": {nom: b["n"] for nom, b in industries.items()},
         "secteurs": secteurs,
         "global": glob_stats,
+        "global_q": glob_q,
+        "pas_quantiles": PAS,
+        "minimum_quantiles": MINIMUM_QUANTILES,
     }
     SORTIE_JSON.write_text(json.dumps(index, ensure_ascii=False,
                                       separators=(",", ":")), encoding="utf-8")
