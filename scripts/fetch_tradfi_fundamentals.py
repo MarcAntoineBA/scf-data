@@ -230,6 +230,66 @@ def _safe(v, maximum=None, positive=False):
         return None
 
 
+# ─── PEA eligibility ────────────────────────────────────────────────────
+# The legal test is the COMPANY'S REGISTERED SEAT being in the European
+# Economic Area — not where the share happens to be listed. Deriving it from
+# the exchange (the shortcut every competitor takes) is wrong in both
+# directions: a Paris listing does not make a company European, and a company
+# can be European while trading elsewhere.
+#
+# yfinance's `country` is the address on Yahoo's profile — the OPERATIONAL
+# headquarters. That is right far more often than the exchange, and wrong in a
+# known, small, enumerable set of cases: companies incorporated in one country
+# and run from another. Those get an explicit override below, each with its
+# reason, so the exception is auditable rather than folded invisibly into a
+# heuristic. When the override list and reality diverge, the fix is one line
+# here, not a rewrite.
+_EEA_COUNTRIES = {
+    # 27 EU member states
+    "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic",
+    "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece",
+    "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta",
+    "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia",
+    "Spain", "Sweden",
+    # EEA, non-EU
+    "Iceland", "Liechtenstein", "Norway",
+}
+
+# symbol -> (eligible, reason). Reviewed 2026-08-27.
+_PEA_OVERRIDES = {
+    # Registered in the Netherlands, run from Geneva. Yahoo says Switzerland.
+    # This is the textbook case — the competitor documents it as a known error
+    # in his own help pages and ships it anyway.
+    "STM.PA":  (True,  "STMicroelectronics N.V., société de droit néerlandais (siège opérationnel à Genève)"),
+    "STM":     (True,  "STMicroelectronics N.V., société de droit néerlandais"),
+    # Dutch-incorporated groups whose Yahoo profile shows the operating country.
+    "RACE.MI": (True,  "Ferrari N.V., société de droit néerlandais"),
+    "RACE":    (True,  "Ferrari N.V., société de droit néerlandais"),
+    "STLAM.MI": (True, "Stellantis N.V., société de droit néerlandais"),
+    "STLA":    (True,  "Stellantis N.V., société de droit néerlandais"),
+    "AIR.PA":  (True,  "Airbus SE, société de droit néerlandais"),
+    # Listed in Amsterdam / Paris but incorporated outside the EEA.
+    "CNHI":    (False, "CNH Industrial N.V. a transféré son siège au Royaume-Uni en 2024"),
+}
+
+
+def pea_eligible(symbol, country):
+    """(bool | None, reason). None means 'unknown' — never guessed.
+
+    Returning None rather than False when the country is missing matters: a
+    company shown as "non éligible" because Yahoo had no address is a wrong
+    answer wearing the clothes of a right one. The page renders "—" instead.
+    """
+    ov = _PEA_OVERRIDES.get(symbol)
+    if ov is not None:
+        return ov[0], ov[1]
+    if not country:
+        return None, "pays du siège inconnu"
+    if country in _EEA_COUNTRIES:
+        return True, f"siège en {country}, dans l'Espace économique européen"
+    return False, f"siège en {country}, hors Espace économique européen"
+
+
 def _cur_fy_glitched(pe_cur, pe_next, pe_ttm):
     """True when Yahoo's current-FY figure (priceEpsCurrentYear / epsCurrentYear)
     is a currency/scale glitch: it dwarfs BOTH the trailing and next-FY P/E (>3x the
@@ -451,6 +511,101 @@ def fetch_stock_fundamentals(symbol, fx_rates, tracker_quotes=None, growth_cy_ma
     # Use longName for display if available
     name = info.get("longName") or info.get("shortName") or symbol
 
+    # ── CHAMPS DÉJÀ TÉLÉCHARGÉS, JUSQU'ICI JETÉS (2026-08-27) ────────────
+    # `t.info` est un dict complet : tout ce qui suit arrive dans la MÊME réponse
+    # réseau que les onze ratios historiques. Les extraire coûte zéro requête,
+    # zéro seconde, zéro quota — seulement quelques kilo-octets de cache. Ils
+    # débloquent la fiche société (marges, santé financière), le screener
+    # (classification, PEA) et la note quantitative.
+    #
+    # Discipline reprise du reste du fichier : un plafond économiquement plausible
+    # sur chaque ratio, et « rien » plutôt qu'un chiffre douteux.
+
+    def _pct(key, maximum=None):
+        """yfinance rend les marges et taux en FRACTION (0,724 = 72,4 %)."""
+        v = _safe(info.get(key), maximum=maximum)
+        return v * 100 if v is not None else None
+
+    # Classification. Yahoo publie 11 secteurs et ~145 industries — c'est la
+    # taxonomie qui manquait au site, qui n'avait que ses 39 narratifs
+    # thématiques (lesquels mêlent secteurs et thèmes, cf. volet D du plan).
+    sector_std = (info.get("sector") or "").strip() or None
+    industry   = (info.get("industry") or "").strip() or None
+    country    = (info.get("country") or "").strip() or None
+    pea_ok, pea_why = pea_eligible(symbol, country)
+
+    # Valorisation d'entreprise. EV/EBITDA est le multiple qui reste lisible là
+    # où le P/E ne l'est plus : il neutralise la structure de dette et les
+    # rachats d'actions qui écrasent les capitaux propres (le P/B d'Apple à 42
+    # ne dit pas « 42 fois trop cher », il dit « fonds propres rachetés »).
+    ev_ebitda = _safe(info.get("enterpriseToEbitda"), maximum=200)
+    ev_rev    = _safe(info.get("enterpriseToRevenue"), maximum=100)
+    ev_usd    = apply_fx(_safe(info.get("enterpriseValue"), maximum=1e15), ccy, fx_rates)
+
+    # Marges. Plafond à 1 (100 %) AVANT conversion : une marge au-delà relève de
+    # l'erreur de source, pas de l'entreprise exceptionnelle.
+    gross_margin = _pct("grossMargins", maximum=1.0)
+    op_margin    = _pct("operatingMargins", maximum=1.0)
+    net_margin   = _pct("profitMargins", maximum=2.0)   # net > CA possible (cession)
+    ebitda_margin = _pct("ebitdaMargins", maximum=1.5)
+    roa          = _pct("returnOnAssets", maximum=1.5)
+
+    # Santé financière. `debtToEquity` est DÉJÀ en points de pourcentage chez
+    # yfinance (150,5 = 150,5 %) — ne pas le multiplier une seconde fois.
+    debt_to_equity = _safe(info.get("debtToEquity"), maximum=2000)
+    current_ratio  = _safe(info.get("currentRatio"), maximum=50)
+    quick_ratio    = _safe(info.get("quickRatio"), maximum=50)
+    total_debt_usd = apply_fx(_safe(info.get("totalDebt"), maximum=1e15), ccy, fx_rates)
+    total_cash_usd = apply_fx(_safe(info.get("totalCash"), maximum=1e15), ccy, fx_rates)
+    net_debt_usd = None
+    if total_debt_usd is not None and total_cash_usd is not None:
+        net_debt_usd = total_debt_usd - total_cash_usd
+    ebitda_usd = apply_fx(_safe(info.get("ebitda"), maximum=1e15), ccy, fx_rates)
+    debt_ebitda = None
+    if net_debt_usd is not None and ebitda_usd and ebitda_usd > 0:
+        # Dette NETTE sur EBITDA. Le barème du concurrent prend la dette totale ;
+        # on garde les deux, le champ dit lequel est lequel.
+        debt_ebitda = round(net_debt_usd / ebitda_usd, 3)
+    debt_ebitda_brut = None
+    if total_debt_usd is not None and ebitda_usd and ebitda_usd > 0:
+        debt_ebitda_brut = round(total_debt_usd / ebitda_usd, 3)
+
+    # Distribution. Un payout > 100 % existe (on distribue plus qu'on ne gagne) ;
+    # au-delà de 500 % c'est du bruit.
+    payout_ratio = _pct("payoutRatio", maximum=5.0)
+
+    # Détention. Sert l'onglet Société de la fiche en attendant le pivot 13F.
+    held_inst    = _pct("heldPercentInstitutions", maximum=1.5)
+    held_insider = _pct("heldPercentInsiders", maximum=1.0)
+
+    # Croissance TRIMESTRIELLE glissante. Métrique DIFFÉRENTE de
+    # `rev_growth_ttm` (qui vient de la table « Revenue Estimate » de la page
+    # /analysis) : elle compare le dernier trimestre publié à celui d'un an plus
+    # tôt. Elle est stockée sous son propre nom, jamais fondue dans l'autre —
+    # c'est la règle déjà posée plus haut dans ce fichier : mieux vaut « — »
+    # qu'un nombre juste au mauvais endroit. Elle sert de FILET quand le scraping
+    # de /analysis tombe, et la fiche indique alors laquelle des deux elle montre.
+    rev_growth_yoy_q = _pct("revenueGrowth", maximum=20.0)
+    eps_growth_yoy_q = _pct("earningsGrowth", maximum=20.0)
+
+    employees = _safe(info.get("fullTimeEmployees"), maximum=5e6)
+    book_value = _safe(info.get("bookValue"))
+    rev_per_share = _safe(info.get("revenuePerShare"))
+    revenue_usd = apply_fx(_safe(info.get("totalRevenue"), maximum=1e15), ccy, fx_rates)
+    ocf_usd = apply_fx(_safe(info.get("operatingCashflow"), maximum=1e15), ccy, fx_rates)
+
+    # PAS de %CAPEX ici. La tentation était d'écrire (OCF − FCF) / OCF : c'est
+    # l'identité comptable, et c'est faux avec CES deux nombres-là. Mesuré le
+    # 2026-08-27 sur NVDA : OCF 125,7 Md$, FCF yfinance 46,3 Md$ → la formule
+    # rend 63 % de CAPEX, quand le dépôt 10-K en donne ~6 %. Le `freeCashflow`
+    # de yfinance retranche davantage que les seuls investissements corporels et
+    # ne couvre pas la même période. Deux nombres justes séparément peuvent
+    # produire un troisième absurde.
+    # Le vrai %CAPEX viendra du XBRL de la SEC
+    # (PaymentsToAcquirePropertyPlantAndEquipment sur
+    # NetCashProvidedByUsedInOperatingActivities), où les deux termes sont du
+    # même exercice et de la même définition.
+
     return {
         "symbol": symbol,
         "name": name,
@@ -470,18 +625,64 @@ def fetch_stock_fundamentals(symbol, fx_rates, tracker_quotes=None, growth_cy_ma
         "beta": beta,
         "perf_1y": perf_1y,
         "_mcap_source": "tracker" if mcap_usd_from_tracker else "info_or_fast_info",
+
+        # ── ajouts du 2026-08-27, même réponse réseau ──
+        "sector_std": sector_std,
+        "industry": industry,
+        "country": country,
+        "pea": pea_ok,
+        "pea_why": pea_why,
+        "ev_ebitda": ev_ebitda,
+        "ev_rev": ev_rev,
+        "ev_usd": round(ev_usd) if ev_usd is not None else None,
+        "gross_margin": gross_margin,
+        "op_margin": op_margin,
+        "net_margin": net_margin,
+        "ebitda_margin": ebitda_margin,
+        "roa": roa,
+        "debt_to_equity": debt_to_equity,
+        "current_ratio": current_ratio,
+        "quick_ratio": quick_ratio,
+        "total_debt_usd": round(total_debt_usd) if total_debt_usd is not None else None,
+        "total_cash_usd": round(total_cash_usd) if total_cash_usd is not None else None,
+        "net_debt_usd": round(net_debt_usd) if net_debt_usd is not None else None,
+        "ebitda_usd": round(ebitda_usd) if ebitda_usd is not None else None,
+        "debt_ebitda": debt_ebitda,
+        "debt_ebitda_brut": debt_ebitda_brut,
+        "payout_ratio": payout_ratio,
+        "held_inst": held_inst,
+        "held_insider": held_insider,
+        "rev_growth_yoy_q": rev_growth_yoy_q,
+        "eps_growth_yoy_q": eps_growth_yoy_q,
+        "employees": int(employees) if employees is not None else None,
+        "book_value": book_value,
+        "rev_per_share": rev_per_share,
+        "revenue_usd": round(revenue_usd) if revenue_usd is not None else None,
+        "ocf_usd": round(ocf_usd) if ocf_usd is not None else None,
+
     }
 
 
 # ─── Aggregation helpers ────────────────────────────────────────────────
+# Toutes les métriques par action ne sont PAS agrégées. Chaque entrée de cette
+# liste produit sept clés par secteur (valeur pondérée, médiane, min, max, n, et
+# les deux bornes de winsorisation) : y verser les trente champs du titre ferait
+# grossir le cache sans que personne ne lise la médiane sectorielle du nombre
+# d'employés. On n'agrège que ce qui sert à SITUER un titre dans son secteur.
 _METRIC_KEYS = [
     "pe_ttm", "pe_fwd", "pb", "ps", "div_yield",
     "eps_growth_fwd", "rev_growth_ttm", "roe", "fcf_yield", "beta", "perf_1y",
+    # ajouts 2026-08-27
+    "ev_ebitda", "gross_margin", "op_margin", "net_margin", "roa",
+    "payout_ratio", "debt_ebitda",
 ]
 
 # Ratios de valorisation : un P/E ou P/B négatif n'a aucun sens économique
 # (earnings/book négatifs) et polluerait la moyenne pondérée du secteur.
-_POSITIVE_ONLY = {"pe_ttm", "pe_fwd", "pb", "ps"}
+# EV/EBITDA rejoint la liste pour la même raison : un EBITDA négatif rend le
+# multiple ininterprétable, et sa valeur négative tirerait la médiane du secteur
+# vers le bas comme si l'entreprise était bon marché.
+_POSITIVE_ONLY = {"pe_ttm", "pe_fwd", "pb", "ps", "ev_ebitda"}
 
 # Métriques sensibles aux outliers extrêmes (single-stock blow-ups Yahoo)
 # qu'on winsorise (capping aux percentiles p_low/p_high) AVANT moyenne pondérée.
@@ -497,6 +698,16 @@ _WINSOR_METRICS = {
     "perf_1y":        (5, 95),
     "fcf_yield":      (5, 95),
     "roe":            (5, 95),
+    # ajouts 2026-08-27 — mêmes causes, même traitement. `debt_ebitda` en
+    # particulier : une société sans dette nette sort un ratio très négatif
+    # (trésorerie > dette) qui écraserait la moyenne pondérée du secteur.
+    "ev_ebitda":      (5, 95),
+    "gross_margin":   (5, 95),
+    "op_margin":      (5, 95),
+    "net_margin":     (5, 95),
+    "roa":            (5, 95),
+    "payout_ratio":   (5, 95),
+    "debt_ebitda":    (5, 95),
 }
 
 # Couverture minimale (n_with_data / n_total) en dessous de laquelle une
