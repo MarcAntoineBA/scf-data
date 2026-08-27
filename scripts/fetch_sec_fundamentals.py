@@ -149,7 +149,24 @@ CONCEPTS = {
     "pretax": ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
                "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
     "tax": ["IncomeTaxExpenseBenefit"],
-    "net_income": ["NetIncomeLoss", "ProfitLoss"],
+    # ⚠ `NetIncomeLoss` désigne DÉJÀ la part du groupe en norme américaine ;
+    # `ProfitLoss` désigne le TOTAL, minoritaires compris. Les empiler dans la
+    # même liste de replis change la définition du mot selon la société.
+    #
+    # Mesuré sur Freeport-McMoRan, qui ne dépose PAS `NetIncomeLoss` : le
+    # collecteur prenait 4 399 M$ (le total) et le divisait par 17 581 M$ de
+    # capitaux propres part du groupe, publiant un ROE de 25,67 % là où le vrai
+    # est 10,99 %. Quatre-vingt-douze sociétés divergeaient ainsi de l'autre
+    # collecteur, jusqu'à 440 %.
+    #
+    # La part du groupe se RECONSTRUIT plus bas quand elle manque : total moins
+    # minoritaires. Une soustraction, pas une substitution.
+    "net_income": ["NetIncomeLoss"],
+    "net_income_total": ["ProfitLoss"],
+    "interets_minoritaires_resultat": [
+        "NetIncomeLossAttributableToNoncontrollingInterest",
+        "ProfitLossAttributableToNoncontrollingInterest"],
+    "net_income_common": ["NetIncomeLossAvailableToCommonStockholdersBasic"],
     "interest_expense": ["InterestExpense", "InterestExpenseDebt",
                          "InterestExpenseNonoperating"],
     "eps_diluted": ["EarningsPerShareDiluted"],
@@ -422,6 +439,19 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
             e["gross_profit"] = e["revenue"] - e["cogs"]
         if e["sga"] is None and (e["ga"] is not None or e["sm"] is not None):
             e["sga"] = (e["ga"] or 0) + (e["sm"] or 0)
+            # ── La part du groupe, reconstruite quand elle n'est pas déposée ──
+        # Freeport ne dépose pas `NetIncomeLoss` : il publie le total puis les
+        # minoritaires séparément. Prendre le total reviendrait à attribuer aux
+        # actionnaires un bénéfice qui ne leur revient pas — et c'est ce que
+        # faisait le repli muet vers `ProfitLoss`. Mesuré : ROE publié 25,67 %
+        # là où le vrai est 10,99 %.
+        if e.get("net_income") is None:
+            tot = e.get("net_income_total")
+            mino = e.get("interets_minoritaires_resultat")
+            if tot is not None:
+                e["net_income"] = tot - (mino or 0.0)
+                e["net_income_reconstruit"] = True
+
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
 
@@ -754,6 +784,82 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
 # ─────────────────────────────────────────────────────────────────────────
 # Univers et correspondance ticker → CIK
 # ─────────────────────────────────────────────────────────────────────────
+def univers_marche(tranche=None):
+    """Les cotations américaines PRINCIPALES de la collecte de marché.
+
+    Dans cette nomenclature, un ticker sans suffixe de place est américain
+    (« NVDA » contre « MC.PA »). On ne garde que les cotations principales :
+    sans ce filtre, Apple apparaîtrait cinq fois, et surtout les cotations
+    secondaires portent des capitalisations dans la monnaie de leur place —
+    mesuré, 231 lignes affichaient des montants impossibles.
+
+    `tranche` vaut (i, n) : une société sur n, celles dont le RANG de
+    capitalisation modulo n vaut i. Sur le rang, et non sur une empreinte, pour
+    que chaque tranche porte un échantillon de toutes les tailles.
+    """
+    import glob as _glob
+    f = CACHE_DIR / "univers_actions.json"
+    if not f.exists():
+        print("[fatal] univers_actions.json absent : impossible de savoir quelle "
+              "cotation est la principale.", file=sys.stderr)
+        return {}
+    with f.open(encoding="utf-8") as fh:
+        u = json.load(fh)
+    principales = set()
+    for t in u.get("titres", []):
+        sym = t.get("yahoo") or t.get("sa")
+        if sym and t.get("principal"):
+            principales.add(sym)
+
+    lignes = []
+    for pth in _glob.glob(str(CACHE_DIR / "marche_[0-9]*.json")):
+        try:
+            with open(pth, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        ch = d.get("champs") or []
+        try:
+            i_nom, i_capi = ch.index("name"), ch.index("marketCapUsd")
+        except ValueError:
+            continue
+        i_ind = ch.index("industry") if "industry" in ch else None
+        for sym, v in (d.get("societes") or {}).items():
+            # Un ticker à suffixe n'est pas américain ; un chemin non plus.
+            if "." in sym or "/" in sym or sym not in principales:
+                continue
+            lignes.append((v[i_capi] or 0, sym, v[i_nom],
+                           v[i_ind] if i_ind is not None else None))
+    lignes.sort(reverse=True)
+    if tranche:
+        i, n = tranche
+        lignes = [x for k, x in enumerate(lignes) if k % n == i]
+
+    out = {}
+    for capi, sym, nom, ind in lignes:
+        out[sym] = {"nom": nom, "mcap": capi, "secteur_suivi": ind}
+
+    # Le bêta, comme pour l'univers suivi : sans lui, pas de coût des fonds
+    # propres, donc pas de WACC — et on préfère un champ vide à un bêta supposé,
+    # qui servirait ensuite à juger si la société crée de la valeur.
+    fb = CACHE_DIR / "tradfi_fundamentals_cache.json"
+    if fb.exists():
+        try:
+            with fb.open(encoding="utf-8") as fh:
+                tf = json.load(fh)
+            n_beta = 0
+            for sec in tf.get("sectors", []):
+                for st in sec.get("stocks", []):
+                    sym = st.get("symbol")
+                    if sym in out and st.get("beta") is not None:
+                        out[sym]["beta"] = st["beta"]
+                        n_beta += 1
+            print("[info] bêta connu pour %d sociétés" % n_beta)
+        except Exception as e:
+            print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
+    return out
+
+
 def charger_univers():
     """Les symboles suivis par le tracker qui ont une chance d'être déposants SEC.
 
@@ -809,24 +915,63 @@ def charger_cik():
     return out
 
 
+# Cinq cent douze paquets, comme le jeu international. Le nombre n'est pas
+# arbitraire : c'est celui qui donnait des paquets réguliers là-bas, et les deux
+# collectes servent la même fiche.
+PAQUETS_SEC = 512
+
+
 def _initiale(sym):
-    """Le paquet où ranger une société. Un ticker commençant par un chiffre va
-    dans « 0 » : trente-six paquets suffisent, et le nom de fichier reste sûr
-    pour le filtre de la fonction qui les sert."""
-    c = (sym or "?")[0].upper()
-    return c if "A" <= c <= "Z" else "0"
+    """Le paquet où ranger une société : une EMPREINTE, pas une initiale.
+
+    Vingt-six lettres suffisaient pour trois cent quinze sociétés — un
+    mégaoctet au plus. L'univers passe à trois mille sept cent quatre-vingt-dix,
+    et le plus gros paquet par lettre atteindrait quatorze mégaoctets pour
+    afficher UNE société.
+
+    Le jeu international a déjà payé cette leçon : un préfixe d'une lettre
+    mettait 3,9 Mo dans « A », deux caractères en laissaient 3 dans « 60 »,
+    parce que tous les codes de Shanghai commencent par là.
+
+    ⚠ La fiche connaît la MÊME empreinte, dans `paquetDe()`. Elle est primitive
+    exprès : une empreinte savante qui divergerait entre Python et JavaScript
+    produirait des fiches vides sans le moindre message d'erreur.
+    """
+    t = (sym or "?").upper()
+    h = 0
+    for c in t:
+        h = (h * 31 + ord(c)) % 4294967296
+    return "%03d" % (h % PAQUETS_SEC)
 
 
 def _options(argv):
     """--tickers NVDA,AAPL    n'en traiter que ceux-là (mise au point, contrôle)
        --limit 20             s'arrêter après N sociétés
        --sortie <dossier>     écrire ailleurs que dans le cache partagé
+       --source marche        prendre l'univers dans la collecte de marché
+                              (3 790 sociétés avec un CIK) au lieu du tracker
+                              des trente-neuf narratifs (315)
+       --tranche auto         un septième de l'univers par jour, découpé sur le
+                              RANG de capitalisation pour que chaque tranche
+                              porte un échantillon de toutes les tailles
 
     `--sortie` existe pour une raison précise : le cache est synchronisé en
     continu avec l'autre machine. Un essai lancé sur le PC écrirait chez elle.
     """
-    o = {"tickers": None, "limit": None, "sortie": None}
+    o = {"tickers": None, "limit": None, "sortie": None,
+         "source": "suivi", "tranche": None}
     for i, a in enumerate(argv):
+        if a == "--source" and i + 1 < len(argv):
+            o["source"] = argv[i + 1]
+        elif a == "--tranche" and i + 1 < len(argv):
+            v = argv[i + 1]
+            if v == "auto":
+                # Le jour de la semaine : lundi 0, dimanche 6. L'univers entier
+                # est parcouru en sept jours, sans registre à tenir.
+                o["tranche"] = (datetime.now(timezone.utc).weekday(), 7)
+            else:
+                a2, b2 = v.split("/")
+                o["tranche"] = (int(a2), int(b2))
         if a == "--tickers" and i + 1 < len(argv):
             o["tickers"] = {t.strip().upper() for t in argv[i + 1].split(",") if t.strip()}
         elif a == "--limit" and i + 1 < len(argv):
@@ -834,6 +979,66 @@ def _options(argv):
         elif a == "--sortie" and i + 1 < len(argv):
             o["sortie"] = Path(argv[i + 1]).expanduser()
     return o
+
+
+def _fusionner_sec(index, paquets):
+    """Ajoute ce qu'on vient de collecter à ce qui existe déjà.
+
+    INCONDITIONNEL, et pas par précaution excessive : le collecteur
+    international s'est fait mordre exactement ici — un passage sur quatre cents
+    sociétés avait effacé les quatre cent trente-cinq paquets des passages
+    précédents. Un collecteur qui écrase est dangereux même quand personne ne lui
+    a demandé de découper son univers.
+
+    Ce qu'on vient de collecter PRIME sur ce qui existait : c'est plus récent.
+    """
+    import glob as _glob
+
+    repris_i = repris_p = 0
+    if OUT_JSON.exists():
+        try:
+            with OUT_JSON.open(encoding="utf-8") as fh:
+                ancien = json.load(fh)
+            for sym, v in (ancien.get("societes") or {}).items():
+                if sym not in index:
+                    index[sym] = v
+                    repris_i += 1
+        except Exception as e:
+            print("[warn] index précédent illisible, non fusionné : %s" % e,
+                  file=sys.stderr)
+
+    # On RE-RANGE selon la règle courante au lieu de croire le nom du fichier :
+    # c'est ce qui fait migrer les anciens paquets par lettre vers les nouveaux
+    # paquets par empreinte, sans traitement séparé.
+    anciens = []
+    for chemin in _glob.glob(str(OUT_DIR / "sec_detail_*.json")):
+        cle = Path(chemin).stem.split("_")[-1]
+        if not (len(cle) == 3 and cle.isdigit()):
+            anciens.append(chemin)
+        try:
+            with open(chemin, encoding="utf-8") as fh:
+                vieux = (json.load(fh) or {}).get("societes") or {}
+        except Exception:
+            continue
+        for sym, v in vieux.items():
+            cible = paquets.setdefault(_initiale(sym), {})
+            if sym not in cible:
+                cible[sym] = v
+                repris_p += 1
+    if anciens:
+        # Les laisser servirait des données périmées à qui les demanderait.
+        for chemin in anciens:
+            try:
+                Path(chemin).unlink()
+            except Exception:
+                pass
+        print("[ok] migration : %d ancien(s) paquet(s) par lettre retiré(s)"
+              % len(anciens))
+
+    if repris_i or repris_p:
+        print("[ok] fusion : %d sociétés reprises de l'index précédent, "
+              "%d des paquets" % (repris_i, repris_p))
+    return index, paquets
 
 
 def main():
@@ -847,9 +1052,25 @@ def main():
         OUT_DIR = opts["sortie"]
         print(f"[info] sortie détournée vers {opts['sortie']}")
 
-    univers = charger_univers()
-    if not univers:
-        return 1
+    if opts["source"] == "marche":
+        univers = univers_marche(opts["tranche"])
+        if not univers:
+            # Un univers vide n'est pas un résultat, c'est une panne. Sans ce
+            # refus, le collecteur parcourrait zéro société, n'écrirait rien, et
+            # sortirait en SUCCÈS. Ce dépôt connaît déjà ce silence.
+            print("[fatal] univers de marché demandé mais vide : "
+                  "univers_actions.json ou marche_NN.json manquent.",
+                  file=sys.stderr)
+            return 1
+        quoi = "collecte de marché, cotations américaines principales"
+        if opts["tranche"]:
+            quoi += " — tranche %d sur %d" % (opts["tranche"][0] + 1,
+                                              opts["tranche"][1])
+        print("[info] %s" % quoi)
+    else:
+        univers = charger_univers()
+        if not univers:
+            return 1
     if opts["tickers"]:
         univers = {k: v for k, v in univers.items() if k.upper() in opts["tickers"]}
         print(f"[info] restreint à {len(univers)} symbole(s) demandé(s)")
@@ -937,6 +1158,9 @@ def main():
         if opts["limit"] and ok >= opts["limit"]:
             print(f"[info] arrêt demandé après {ok} sociétés")
             break
+
+    # Ce qui vient d'être collecté s'AJOUTE à ce qui existe.
+    index, paquets = _fusionner_sec(index, paquets)
 
     charge = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),

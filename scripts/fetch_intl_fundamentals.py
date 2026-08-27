@@ -300,7 +300,17 @@ CHAMPS = {
     "operating_income":  ("resultat", ["opinc"]),
     "pretax":            ("resultat", ["pretax", "ebtExcl"]),
     "tax":               ("resultat", ["taxexp"]),
-    "net_income":        ("resultat", ["netinccmn", "netinc"]),
+    # `netinccmn` est le résultat PART DU COMMUN, `netinc` le total. Les
+    # empiler donnait un champ juste par accident de l'ordre — il faut que ce
+    # soit juste par intention, et que le total reste lisible sous son nom.
+    #
+    # Ce que cet ordre préserve : `net_income` s'accorde avec `equity`, qui
+    # prend `totalCommonEquity` en premier. Numérateur et dénominateur parlent
+    # du même monde. Le collecteur SEC, lui, tombait sur le total quand une
+    # société ne déposait pas la part du groupe — ROE de Freeport publié à
+    # 25,67 % là où le vrai est 10,99 %.
+    "net_income":        ("resultat", ["netinccmn"]),
+    "net_income_total":  ("resultat", ["netinc"]),
     "interest_expense":  ("resultat", ["interestExpense"]),
     "eps_diluted":       ("resultat", ["epsdil"]),
     "eps_basic":         ("resultat", ["epsBasic"]),
@@ -410,6 +420,12 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
 
         e["marge_brute"] = _pct(e["gross_profit"], e["revenue"])
         e["marge_ope"] = _pct(e["operating_income"], e["revenue"])
+        # Faute de part du commun, le total vaut mieux que rien — mais on le
+        # DIT, au lieu de le laisser passer pour ce qu'il n'est pas.
+        if e.get("net_income") is None and e.get("net_income_total") is not None:
+            e["net_income"] = e["net_income_total"]
+            e["net_income_est_total"] = True
+
         e["marge_nette"] = _pct(e["net_income"], e["revenue"])
         e["marge_fcf"] = _pct(e["fcf"], e["revenue"])
 

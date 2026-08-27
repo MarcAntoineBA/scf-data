@@ -1803,7 +1803,12 @@
     {
       "id": "secfunda",
       "script": "fetch_sec_fundamentals.py",
-      "args": [],
+      "args": [
+        "--source",
+        "marche",
+        "--tranche",
+        "auto"
+      ],
       "schedule": "toutes les 24 h",
       "per_day": 1.0,
       "cadence": "daily",
@@ -2593,6 +2598,22 @@
         "medianes_ind_31.json"
       ],
       "witness": "medianes_industrie.json"
+    },
+    {
+      "id": "screener",
+      "script": "fetch_screener.py",
+      "args": [],
+      "schedule": "toutes les 24 h",
+      "per_day": 1.0,
+      "cadence": "daily",
+      "category": "public",
+      "outputs": [
+        "screener_index.js",
+        "screener_index.json",
+        "screener_1.json",
+        "screener_2.json"
+      ],
+      "witness": "screener_index.json"
     }
   ]
 }

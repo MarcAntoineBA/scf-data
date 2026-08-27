@@ -131,6 +131,14 @@ DEPENDANCES = {
     # marché : aucune requête réseau, cinq secondes — mais rien du tout si
     # elle n'a pas encore écrit.
     "medianesind": ["marche"],
+    # Le screener relit la collecte de marché ET l'univers — le second
+    # pour savoir quelle cotation est la principale, sans quoi il
+    # listerait Apple cinq fois. Aucune requête réseau, trois secondes.
+    "screener": ["marche", "univers"],
+    # Depuis le 27/08/2026, le collecteur SEC prend son univers dans la
+    # collecte de marché : les cotations américaines PRINCIPALES, soit
+    # 3 790 sociétés avec un CIK contre 315 auparavant.
+    "secfunda": ["marche", "univers"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
