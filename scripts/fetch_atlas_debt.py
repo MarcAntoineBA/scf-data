@@ -302,6 +302,54 @@ def fetch_bench():
     return bench, us_daily
 
 
+def _weo_vide(x):
+    """Un champ WEO reduit a du vide (le fetcher ecrit des null quand le FMI ne repond pas)."""
+    if x is None:
+        return True
+    if isinstance(x, dict):
+        return x.get("v") is None and x.get("hist") is None
+    return False
+
+
+def _reprendre_weo(countries, prev):
+    """SAFEGUARD WEO — meme famille que les deux garde-fous de write_out et build_live.
+
+    Le DataMapper du FMI tombe regulierement (503 « under maintenance »), et imf_weo()
+    avale l'erreur en renvoyant {} : le run continue et ecrit des null partout.
+
+    Mesure le 2026-08-27 : le run de 09:41 a remplace dette/PIB, charge d'interets,
+    solde, cout moyen, roulement et besoin de financement des 27 pays par des null,
+    alors que le cache de 00:41 les avait tous (France : 118,4 % du PIB). Meme
+    effacement les 24/08 a 10:17 et 18:05, repare tout seul au run suivant.
+
+    Vu du site : le panneau d'un pays perd 6 de ses 8 chiffres et son graphe de dette
+    devient un cadre muet — l'utilisateur croit le site casse, alors que la donnee
+    etait la une heure plus tot. On reprend donc la derniere valeur connue au lieu
+    d'ecrire du vide, exactement comme le mode live le fait deja pour un taux non
+    rafraichi.
+    """
+    prev_c = (prev or {}).get("countries") or {}
+    if not prev_c:
+        return 0
+    champs = ("debt_gdp", "int_gdp", "cost_avg", "fiscal", "rollover_pct", "gfn_gdp")
+    repris, pays = 0, set()
+    for a3, e in countries.items():
+        p = prev_c.get(a3)
+        if not p:
+            continue
+        for f in champs:
+            if not _weo_vide(e.get(f)) or _weo_vide(p.get(f)):
+                continue
+            e[f] = json.loads(json.dumps(p[f]))
+            repris += 1
+            pays.add(a3)
+    if repris:
+        sys.stderr.write(
+            "[WARN] WEO indisponible (FMI) : {} champ(s) sur {} pays repris du cache "
+            "precedent plutot qu'ecrases par des null{}".format(repris, len(pays), chr(10)))
+    return repris
+
+
 def build_full(prev):
     print("→ Taux 10 ans quotidiens (US FRED, euro BCE)…")
     bench, us_daily = fetch_bench()
@@ -405,6 +453,10 @@ def build_full(prev):
         }
         countries[a3] = entry
         print(f"  {a3} {nm}: 10a {cur[1]}% ({cur[0]}) spread {spread}pb · dette {r1(dv)}%PIB · coût moy {cost_avg} vs marg {cost_marg}")
+
+    # Le FMI peut avoir refuse de repondre pendant tout le run : on ne publie pas
+    # du vide a la place de chiffres qu'on avait deja (voir _reprendre_weo).
+    _reprendre_weo(countries, prev)
 
     out = {
         "meta": stamp_meta(countries, len(fresh), "full", int(time.time())),
