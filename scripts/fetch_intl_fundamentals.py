@@ -303,7 +303,7 @@ def _nombre(v):
         return None
 
 
-def construire(brut, mcap_usd=None, beta=None, cours=None):
+def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=None):
     res = brut["resultat"]
     dates = res.get("datekey") or []
     # La ligne « TTM » n'est pas un exercice : c'est un cumul glissant. La
@@ -437,12 +437,12 @@ def construire(brut, mcap_usd=None, beta=None, cours=None):
         # de clôture, comme côté SEC. Elle est en devise de COTATION, la dette en
         # devise des ÉTATS — on ne les mélange que si les deux coïncident.
         mc = None
-        if cours and e.get("shares_diluted") and brut.get("_devises_alignees"):
-            px = _cours_au(cours, e["fin"])
+        if cours and e.get("shares_diluted"):
+            px = _en_devise_etats(_cours_au(cours, e["fin"]), e["fin"], fx_dev, devise)
             if px:
                 mc = px * e["shares_diluted"]
-        if mc is None and i == len(exercices) - 1 and brut.get("_devises_alignees"):
-            mc = mcap_usd
+        if mc is None and i == len(exercices) - 1:
+            mc = _en_devise_etats(mcap_usd, None, fx_dev, devise)
         e["mcap_estime"] = round(mc) if mc else None
         e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
                           e.get("taux_impot"), beta)
@@ -461,8 +461,10 @@ def construire(brut, mcap_usd=None, beta=None, cours=None):
     piotroski = piotroski_detail = altman = altman_detail = None
     if len(exercices) >= 2:
         piotroski, piotroski_detail = _piotroski(exercices[-1], exercices[-2])
-    if exercices and brut.get("_devises_alignees"):
-        altman, altman_detail = _altman_z(exercices[-1], mcap_usd)
+    if exercices:
+        # Le score d'Altman met en rapport la capitalisation et le passif : les
+        # deux doivent être dans la même devise, ce qui est désormais le cas.
+        altman, altman_detail = _altman_z(exercices[-1], exercices[-1].get("mcap_estime"))
 
     def pa(cle):
         return [(e["annee"], e.get(cle)) for e in exercices]
@@ -538,6 +540,48 @@ def construire(brut, mcap_usd=None, beta=None, cours=None):
     return {"exercices": exercices, "resume": resume}
 
 
+def _dernier_cours(serie):
+    """Le dernier cours de la série, en devise de COTATION, avec sa date.
+
+    La fiche affiche un cours converti en dollars ; les états d'une société
+    européenne sont en euros. Un prix juste calculé sur un BPA en euros puis
+    comparé à un cours en dollars ne mesure pas une décote, il mesure un taux
+    de change. D'où ce point de comparaison, dans la devise des états — quand
+    les deux devises coïncident, ce que le collecteur vérifie par ailleurs.
+    """
+    if not serie:
+        return None, None
+    px = quand = None
+    for p in serie:
+        try:
+            t, c = p[0], p[1]
+        except Exception:
+            continue
+        if c is None:
+            continue
+        if t > 1e11:
+            t = t / 1000.0
+        if quand is None or t > quand:
+            quand, px = t, c
+    if px is None:
+        return None, None
+    return px, datetime.fromtimestamp(quand, timezone.utc).strftime("%Y-%m-%d")
+
+
+def _en_devise_etats(px_usd, date_iso, fx_dev, devise):
+    """Un montant en dollars, ramené à la devise des états, au taux de sa date.
+
+    Retourne None si le taux est inconnu : mieux vaut une case vide qu'un
+    multiple faux d'un facteur cent cinquante.
+    """
+    if px_usd is None:
+        return None
+    if not devise or devise == "USD":
+        return px_usd
+    t = _taux(fx_dev, date_iso)
+    return (px_usd / t) if (t and t > 0) else None
+
+
 def _cours_au(serie, fin_iso):
     if not serie:
         return None
@@ -557,6 +601,44 @@ def _cours_au(serie, fin_iso):
         if ecart is None or d < ecart:
             ecart, best = d, c
     return None if (ecart is None or ecart > 45 * 86400) else best
+
+
+def charger_fx():
+    """{DEVISE: {AAAA-MM-JJ: valeur d'UNE unité en dollars}} — déjà dans le cache."""
+    for nom in ("fx_rates_cache.json", "tradfi_fx_cache.json"):
+        f = CACHE_DIR / nom
+        if not f.exists():
+            continue
+        try:
+            with f.open(encoding="utf-8") as fh:
+                d = json.load(fh)
+            if isinstance(d, dict) and d:
+                return d
+        except Exception:
+            continue
+    return {}
+
+
+def _taux(par_jour, date_iso):
+    """Le taux à cette date, ou le dernier connu AVANT elle.
+
+    Jamais un taux postérieur : on ne convertit pas le passé avec le change
+    d'aujourd'hui. Si la date demandée précède toute la série, on prend le plus
+    ancien taux connu — la seule approximation acceptable ici, et elle ne
+    concerne que des exercices antérieurs à 2003.
+    """
+    if not par_jour:
+        return None
+    if date_iso is None:
+        d = max(par_jour)
+        return par_jour.get(d)
+    t = par_jour.get(date_iso)
+    if t:
+        return t
+    avant = [d for d in par_jour if d <= date_iso]
+    if avant:
+        return par_jour[max(avant)]
+    return par_jour[min(par_jour)]
 
 
 def charger_cours():
@@ -658,6 +740,7 @@ def main():
         return 1
     print("[info] univers non américain : %d titres" % len(univers))
     cours = charger_cours()
+    fx = charger_fx()
 
     index, paquets = {}, {}
     ok = sans_place = echecs = 0
@@ -682,14 +765,19 @@ def main():
         ctx = brut.get("contexte") or {}
         devise_etats = (ctx.get("currency") or "").upper() or None
         devise_cot = (meta.get("devise_cotation") or "").upper() or None
-        # On n'autorise un calcul qui croise un montant d'état et un cours QUE si
-        # les deux devises coïncident. Shell cote en pence et publie en dollars ;
-        # un ratio bâti là-dessus se trompe d'un facteur cent quarante avant même
-        # la conversion de change.
+        # Information, non plus garde-fou. Elle l'a été : tant que la
+        # capitalisation restait en dollars, tout rapprochement avec un montant
+        # d'état publié dans une autre devise était faux, et on l'interdisait —
+        # au prix de quatre-vingts sociétés privées de coût du capital. Depuis que
+        # le cours est ramené à la devise des états au taux de SA date, la
+        # divergence n'empêche plus rien ; elle reste affichée parce qu'elle dit
+        # au lecteur que deux devises sont en jeu (Shell cote en pence à Londres
+        # et publie en dollars).
         brut["_devises_alignees"] = bool(devise_etats and devise_cot and devise_etats == devise_cot)
 
         try:
-            bati = construire(brut, meta.get("mcap"), meta.get("beta"), cours.get(sym))
+            bati = construire(brut, meta.get("mcap"), meta.get("beta"), cours.get(sym),
+                              fx_dev=fx.get(devise_etats), devise=devise_etats)
         except Exception as e:
             print("[warn] %s : %s" % (sym, e), file=sys.stderr)
             echecs += 1
@@ -700,6 +788,9 @@ def main():
 
         r = bati["resume"]
         r["devise"] = devise_etats
+        r["cours_natif"], r["cours_natif_le"] = _dernier_cours(cours.get(sym))
+        r["cours_natif"] = _en_devise_etats(r["cours_natif"], r["cours_natif_le"],
+                                           fx.get(devise_etats), devise_etats)
         r["devise_cotation"] = devise_cot
         r["devises_alignees"] = brut["_devises_alignees"]
         r["frequence_publication"] = ctx.get("reportingFrequency")

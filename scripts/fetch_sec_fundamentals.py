@@ -338,6 +338,34 @@ def charger_cours():
     return {}
 
 
+def _dernier_cours(serie):
+    """Le dernier cours de la série, en devise de COTATION, avec sa date.
+
+    La fiche affiche un cours converti en dollars ; les états d'une société
+    européenne sont en euros. Un prix juste calculé sur un BPA en euros puis
+    comparé à un cours en dollars ne mesure pas une décote, il mesure un taux
+    de change. D'où ce point de comparaison, dans la devise des états — quand
+    les deux devises coïncident, ce que le collecteur vérifie par ailleurs.
+    """
+    if not serie:
+        return None, None
+    px = quand = None
+    for p in serie:
+        try:
+            t, c = p[0], p[1]
+        except Exception:
+            continue
+        if c is None:
+            continue
+        if t > 1e11:
+            t = t / 1000.0
+        if quand is None or t > quand:
+            quand, px = t, c
+    if px is None:
+        return None, None
+    return px, datetime.fromtimestamp(quand, timezone.utc).strftime("%Y-%m-%d")
+
+
 def _cours_au(serie, fin_iso):
     """Le cours de clôture le plus proche d'une date d'arrêté, à 45 jours près.
 
@@ -839,6 +867,10 @@ def main():
         if not bati:
             echecs += 1
             continue
+
+        bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
+            _dernier_cours(cours.get(sym))
+        bati["resume"]["devise"] = "USD"
 
         # Le détail est REGROUPÉ PAR INITIALE, pas écrit un fichier par société.
         # Deux raisons, l'une technique et l'autre humaine :
