@@ -143,7 +143,8 @@ CONCEPTS = {
     "sga": ["SellingGeneralAndAdministrativeExpense"],
     "ga": ["GeneralAndAdministrativeExpense"],
     "sm": ["SellingAndMarketingExpense"],
-    "opex": ["OperatingExpenses", "CostsAndExpenses"],
+    "opex": ["OperatingExpenses", "CostsAndExpenses", "OperatingCostsAndExpenses"],
+    "autres_non_ope": ["OtherNonoperatingIncomeExpense", "NonoperatingIncomeExpense"],
     "operating_income": ["OperatingIncomeLoss"],
     "pretax": ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
                "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
@@ -199,10 +200,12 @@ CONCEPTS = {
               "PaymentsToAcquireOtherPropertyPlantAndEquipment",
               "PaymentsForCapitalImprovements"],
     "sbc": ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"],
-    "dividends_paid": ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends"],
+    "dividends_paid": ["PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends",
+                       "PaymentsOfDividends"],
     "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
     "dna": ["DepreciationDepletionAndAmortization",
-            "DepreciationAmortizationAndAccretionNet", "Depreciation"],
+            "DepreciationAmortizationAndAccretionNet",
+            "DepreciationAndAmortization", "Depreciation"],
     "dps": ["CommonStockDividendsPerShareDeclared",
             "CommonStockDividendsPerShareCashPaid"],
 }
@@ -312,6 +315,186 @@ def _r(v, n=2):
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# La note quantitative sur 20
+# ─────────────────────────────────────────────────────────────────────────
+# Le barème est celui du concurrent, relevé mot pour mot sur son propre centre
+# d'aide public : vingt critères, six catégories, un point au seuil haut, un
+# demi-point au seuil bas, zéro sinon. On le reproduit À L'IDENTIQUE — c'est ce
+# qui permet de dire au lecteur « voici votre note, recalculée depuis les dépôts
+# officiels, avec le détail du calcul », plutôt que de lui proposer une
+# n-ième note maison qu'il ne saurait pas comparer.
+#
+# `sens` vaut "haut" quand plus c'est grand mieux c'est, "bas" dans le cas
+# inverse (les dépenses d'investissement, l'endettement, la distribution).
+_BAREME = [
+    # (catégorie, clé du résumé, libellé, seuil du point, seuil du demi-point, sens)
+    ("Rentabilité", "roic_1a",  "ROIC 1 an",                 20, 10, "haut"),
+    ("Rentabilité", "roic_5a",  "ROIC médian 5 ans",         20, 10, "haut"),
+    ("Rentabilité", "roic_10a", "ROIC médian 10 ans",        20, 10, "haut"),
+
+    ("Profits", "marge_brute", "Marge brute",                50, 30, "haut"),
+    ("Profits", "marge_ope",   "Marge d’exploitation",       20, 10, "haut"),
+    ("Profits", "marge_nette", "Marge nette",                20, 10, "haut"),
+    ("Profits", "capex_ocf",   "Investissements / cash",     20, 40, "bas"),
+
+    ("Croissance", "croissance_ca_1a",  "Chiffre d’affaires par action, 1 an",   10, 5, "haut"),
+    ("Croissance", "croissance_ca_5a",  "Chiffre d’affaires par action, 5 ans",  10, 5, "haut"),
+    ("Croissance", "croissance_ca_10a", "Chiffre d’affaires par action, 10 ans", 10, 5, "haut"),
+    ("Croissance", "predictibilite",    "Prédictibilité du chiffre d’affaires",  90, 50, "haut"),
+
+    ("Bénéfices", "croissance_fcf_1a",  "Cash libre par action, 1 an",   10, 5, "haut"),
+    ("Bénéfices", "croissance_fcf_5a",  "Cash libre par action, 5 ans",  10, 5, "haut"),
+    ("Bénéfices", "croissance_fcf_10a", "Cash libre par action, 10 ans", 10, 5, "haut"),
+
+    ("Dividende", "croissance_div_1a",  "Dividende par action, 1 an",   10, 5, "haut"),
+    ("Dividende", "croissance_div_5a",  "Dividende par action, 5 ans",  10, 5, "haut"),
+    ("Dividende", "croissance_div_10a", "Dividende par action, 10 ans", 10, 5, "haut"),
+    ("Dividende", "annees_hausse_dividende", "Années de hausse consécutive", 8, 4, "haut"),
+
+    ("Santé", "dette_ebitda_brut", "Dette brute / EBITDA", 1.5, 2.5, "bas"),
+    ("Santé", "payout_benefices",  "Taux de distribution", 30, 50, "bas"),
+]
+
+# Les catégories qui n'ont pas de sens pour une banque, un assureur ou une
+# foncière : elles ne publient ni coût des ventes ni investissements corporels
+# comparables. Le concurrent le reconnaît dans son aide — « la note n'est pas
+# faite pour noter ces entreprises » — et la calcule quand même.
+_CRITERES_INDUSTRIELS = {"marge_brute", "capex_ocf"}
+
+
+def _noter_critere(v, haut, bas, sens):
+    if v is None:
+        return None
+    if sens == "haut":
+        return 1.0 if v >= haut else (0.5 if v >= bas else 0.0)
+    return 1.0 if v <= haut else (0.5 if v <= bas else 0.0)
+
+
+def note_quantitative(r):
+    """La note du concurrent, plus ce qu'il ne donne pas.
+
+    DEUX ABSENCES QUI N'ONT RIEN À VOIR, ET QU'IL CONFOND.
+    Un critère peut être vide pour deux raisons opposées :
+
+      · LE FAIT. Une société qui ne distribue pas n'a pas de croissance du
+        dividende. Ce n'est pas une donnée manquante, c'est une donnée nulle :
+        elle vaut zéro point, et c'est juste.
+
+      · LE SILENCE DU DÉPÔT. Une banque ne publie pas de marge brute — la notion
+        n'a pas de sens pour elle. Lui donner zéro revient à la punir de son
+        modèle d'affaires. Mesuré sur les 315 sociétés collectées : 37 % n'ont
+        pas de marge brute déposée, 27 % pas de dette sur EBITDA, 21 % pas de
+        ROIC. En comptant zéro partout, la note médiane tombe à 8/20 et la
+        moitié de l'univers passe pour médiocre — ce qui ne dit plus rien de
+        personne.
+
+    On rend donc DEUX notes :
+      · `note` — le barème du concurrent à l'identique, absences comptées zéro.
+        Elle sert la comparaison avec lui, et rien d'autre.
+      · `note_ramenee` — le même score, rapporté aux seuls critères que la
+        société pouvait obtenir, remis sur 20. Ce n'est PAS plus généreux : une
+        société qui distribue peu garde ses zéros, parce que c'est un fait
+        mesuré. Seul le silence du dépôt est neutralisé.
+    """
+    plat = dict(r)
+    c = r.get("croissances") or {}
+    for nom, cle in (("ca", "croissance_ca"), ("fcf", "croissance_fcf"), ("div", "croissance_div")):
+        bloc = c.get(nom) or {}
+        for periode in ("1a", "5a", "10a"):
+            plat[cle + "_" + periode] = bloc.get(periode)
+
+    verse = bool(r.get("verse_dividende"))
+
+    details, par_categorie = [], {}
+    total = 0.0
+    notables = 0
+    muets, nuls = [], []
+
+    for cat, cle, libelle, haut, bas, sens in _BAREME:
+        v = plat.get(cle)
+        pt = _noter_critere(v, haut, bas, sens)
+
+        # Un critère de dividende sur une société qui n'en verse pas : c'est un
+        # fait, pas un trou. Zéro point, et il compte dans le dénominateur.
+        fait_nul = (pt is None and cat == "Dividende" and not verse)
+        if fait_nul:
+            pt = 0.0
+
+        # Le taux de distribution d'une société qui ne distribue rien vaut ZÉRO,
+        # pas « inconnu » — et zéro est en dessous du seuil, donc le point est
+        # acquis. Le concurrent le documente ainsi dans son propre barème ; sans
+        # cette règle, 121 sociétés sur 315 perdaient le critère par simple
+        # absence de ligne alors que la réponse est évidente.
+        if pt is None and cle == "payout_benefices" and not verse:
+            pt = 1.0
+            fait_nul = True
+
+        if pt is None:
+            statut = "muet"          # le dépôt ne publie pas la ligne
+            muets.append(cle)
+        elif fait_nul:
+            statut = "nul_par_nature"
+            nuls.append(cle)
+            total += pt
+            notables += 1
+        else:
+            statut = "note"
+            total += pt
+            notables += 1
+
+        details.append({
+            "categorie": cat, "cle": cle, "libelle": libelle,
+            "valeur": v, "seuil_haut": haut, "seuil_bas": bas, "sens": sens,
+            "point": pt, "statut": statut,
+        })
+        d = par_categorie.setdefault(cat, {"obtenu": 0.0, "possible": 0, "notables": 0})
+        d["possible"] += 1
+        if pt is not None:
+            d["obtenu"] += pt
+            d["notables"] += 1
+
+    # Profil : ce qu'on OBSERVE, pas un secteur qu'on devine. « Sans marge brute
+    # publiée » est un fait vérifiable ; « c'est une banque » serait une
+    # inférence, et elle serait fausse pour les industriels qui ne publient pas
+    # cette ligne non plus.
+    sans_marge = plat.get("marge_brute") is None
+    if sans_marge and plat.get("roic_1a") is None:
+        profil = "sans_marge_ni_capital_investi"
+    elif sans_marge:
+        profil = "sans_marge_brute_publiee"
+    elif not verse:
+        profil = "sans_dividende"
+    elif len(muets) > 4:
+        profil = "donnees_partielles"
+    else:
+        profil = "standard"
+
+    note_ramenee = round(20 * total / notables, 1) if notables >= 10 else None
+
+    def _lire(x):
+        if x is None: return None
+        if x >= 14: return "excellente"
+        if x >= 12: return "de qualité"
+        if x >= 8: return "moyenne"
+        return "médiocre"
+
+    return {
+        "note": round(total, 1),
+        "sur": 20,
+        "note_ramenee": note_ramenee,
+        "criteres_notables": notables,
+        "criteres_muets": muets,
+        "criteres_nuls_par_nature": nuls,
+        "lecture": _lire(note_ramenee if note_ramenee is not None else total),
+        "lecture_bareme_concurrent": _lire(round(total, 1)),
+        "profil": profil,
+        "par_categorie": {k: {"obtenu": round(v["obtenu"], 1), "possible": v["possible"],
+                              "notables": v["notables"]} for k, v in par_categorie.items()},
+        "details": details,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Croissances, prédictibilité, scores
 # ─────────────────────────────────────────────────────────────────────────
 def _croissance_annuelle(series):
@@ -380,6 +563,31 @@ def _predictibilite(series):
         return None
     r2 = (sxy * sxy) / (sxx * syy)
     return round(max(0.0, min(1.0, r2)) * 100, 1)
+
+
+def _serie_sans_baisse_dividende(dps_par_annee):
+    """Années consécutives SANS BAISSE du dividende par action.
+
+    Deux comptages coexistent dans la profession, et ils ne disent pas la même
+    chose. « Années de hausse » exige une augmentation chaque année : c'est la
+    définition des aristocrates du dividende, la plus exigeante. « Années sans
+    baisse » tolère le gel : c'est celle qu'emploient la plupart des sociétés
+    américaines dans leurs communiqués.
+    L'écart n'est pas théorique — mesuré sur NVIDIA le 2026-08-27 : 2 ans de
+    hausse contre 13 ans sans baisse, parce que le dividende a été gelé quatre
+    exercices d'affilée. Le concurrent affiche 13 sans dire lequel des deux il
+    compte ; on rend les deux, nommés.
+    """
+    vals = [v for _, v in dps_par_annee if v is not None]
+    if len(vals) < 2:
+        return 0
+    streak = 0
+    for i in range(len(vals) - 1, 0, -1):
+        if vals[i] >= vals[i - 1] and vals[i] > 0:
+            streak += 1
+        else:
+            break
+    return streak
 
 
 def _serie_hausses_dividende(dps_par_annee):
@@ -583,6 +791,34 @@ def construire(facts, mcap_usd=None):
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
 
+        # ── RECONSTRUIRE LE RÉSULTAT D'EXPLOITATION QUAND IL N'EST PAS DÉPOSÉ ──
+        # Beaucoup de sociétés cessent d'étiqueter `OperatingIncomeLoss` : leur
+        # compte de résultat publié n'a tout simplement pas de ligne « résultat
+        # d'exploitation ». Mesuré sur Johnson & Johnson le 2026-08-27 : la
+        # balise s'arrête en 2014, et son absence coûtait SIX critères de la note
+        # sur vingt — la marge d'exploitation, les trois ROIC, la dette sur
+        # EBITDA et la distribution — par simple cascade. Une société de qualité
+        # notée 7/20 pour cause de balise manquante, c'est une note fausse.
+        #
+        # Trois reconstructions, de la plus sûre à la plus indirecte. On note
+        # laquelle a servi : un chiffre reconstruit doit pouvoir être distingué
+        # d'un chiffre déposé.
+        if e["operating_income"] is None:
+            if e["gross_profit"] is not None and e["opex"] is not None:
+                e["operating_income"] = e["gross_profit"] - e["opex"]
+                e["_ope_source"] = "brut moins charges d’exploitation"
+            elif e["gross_profit"] is not None and (e["rd"] is not None or e["sga"] is not None):
+                e["operating_income"] = e["gross_profit"] - (e["rd"] or 0) - (e["sga"] or 0)
+                e["_ope_source"] = "brut moins R&D et frais généraux"
+            elif e["pretax"] is not None and e["autres_non_ope"] is not None:
+                # Le résultat avant impôt comprend le non-opérationnel : on le
+                # retire pour revenir à l'exploitation.
+                e["operating_income"] = e["pretax"] - e["autres_non_ope"]
+                e["_ope_source"] = "avant impôt moins non opérationnel"
+        else:
+            e["_ope_source"] = "déposé"
+
+
         # Le capex est déposé en montant POSITIF de décaissement. On le garde
         # positif : « investissements de l'année », pas « flux négatif ».
         if e["capex"] is not None:
@@ -738,6 +974,55 @@ def construire(facts, mcap_usd=None):
     def med(cle, n):
         return _mediane([e.get(cle) for e in exercices[-n:]])
 
+    # ── Les entrées du barème, calculables sur une série TRONQUÉE ────────────
+    # Extraites dans leur propre fonction pour une raison précise : elles servent
+    # deux fois. Une fois sur la série complète, pour la note d'aujourd'hui ; et
+    # une fois par exercice passé, pour la note TELLE QU'ELLE ÉTAIT cette
+    # année-là. Le concurrent n'affiche qu'un instantané ; avec dix-neuf
+    # exercices en main, « 16/20 en 2019, 11/20 aujourd'hui » est une phrase
+    # qu'on peut écrire et lui non.
+    def entrees_bareme(exs):
+        if not exs:
+            return {}
+        d = exs[-1]
+        pa = lambda cle: [(e["annee"], e.get(cle)) for e in exs]
+        m = lambda cle, n: _mediane([e.get(cle) for e in exs[-n:]])
+        return {
+            "roic_1a": d.get("roic"), "roic_5a": m("roic", 5), "roic_10a": m("roic", 10),
+            "marge_brute": d.get("marge_brute"),
+            "marge_ope": d.get("marge_ope"),
+            "marge_nette": d.get("marge_nette"),
+            "capex_ocf": d.get("capex_ocf"),
+            "predictibilite": _predictibilite(pa("revenue")),
+            "annees_hausse_dividende": _serie_hausses_dividende(pa("dps")),
+            "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(pa("dps")),
+            "dette_ebitda_brut": d.get("dette_ebitda_brut"),
+            "payout_benefices": d.get("payout_benefices"),
+            "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
+            "croissances": {
+                "ca":  _croissances(pa("ca_par_action")),
+                "fcf": _croissances(pa("fcf_par_action")),
+                "div": _croissances(pa("dps")),
+            },
+        }
+
+    # La note de chaque exercice, en ne connaissant que ce qu'on savait alors.
+    # On s'arrête aux dix derniers : au-delà, la série est trop courte pour que
+    # les médianes à cinq et dix ans veuillent dire quelque chose, et une note
+    # calculée sur trois exercices se compare mal à une note calculée sur dix.
+    note_historique = []
+    for i in range(len(exercices)):
+        if i < 4:
+            continue
+        n = note_quantitative(entrees_bareme(exercices[:i + 1]))
+        note_historique.append({
+            "annee": exercices[i]["annee"],
+            "note": n["note"],
+            "note_ramenee": n["note_ramenee"],
+            "criteres_notables": n["criteres_notables"],
+        })
+    note_historique = note_historique[-12:]
+
     dernier = exercices[-1]
     resume = {
         "n_exercices": len(exercices),
@@ -764,6 +1049,7 @@ def construire(facts, mcap_usd=None):
         "croissances": croissances,
         "predictibilite": _predictibilite(par_annee("revenue")),
         "annees_hausse_dividende": _serie_hausses_dividende(par_annee("dps")),
+        "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(par_annee("dps")),
 
         "dette_ebitda": dernier.get("dette_ebitda"),
         "dette_ebitda_brut": dernier.get("dette_ebitda_brut"),
@@ -782,6 +1068,11 @@ def construire(facts, mcap_usd=None):
         # correction muette est une correction qu'on ne peut pas contester.
         "divisions_action": divisions,
     }
+
+    # La note se calcule EN DERNIER : elle lit le résumé qu'on vient de bâtir.
+    resume["note_q"] = note_quantitative(resume)
+    resume["note_historique"] = note_historique
+
     return {"exercices": exercices, "resume": resume}
 
 
