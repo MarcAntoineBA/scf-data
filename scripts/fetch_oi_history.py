@@ -193,14 +193,40 @@ def actifs_cotes(archives):
             print(f"  {len(gardes)} perpétuels USDT cotés (sur {len(dispo)} archivés)")
             return sorted(gardes)
     except Exception as e:                                            # noqa: BLE001
-        print(f"  liste des cotations indisponible ({type(e).__name__}) — "
-              f"on s'en tient à ce qui est déjà archivé")
-    connus = []
+        print(f"  liste des cotations indisponible ({type(e).__name__})")
+
+    # REPLI : `cache_manifest.txt`, pas l'index de l'archive.
+    # Le manifeste est la liste des fichiers que ce dépôt publie — donc la liste
+    # des actifs qu'on VEUT archiver, indépendamment de ceux déjà rapatriés. Se
+    # replier sur l'index serait circulaire : un runner n'entretiendrait que ce
+    # qui existe déjà et n'ouvrirait jamais un actif de plus, si bien que les
+    # quatre cents actifs restants n'arriveraient jamais. Le défaut serait muet —
+    # le collecteur sortirait en succès à chaque passage.
+    manifeste = Path(__file__).resolve().parent.parent / "cache_manifest.txt"
+    voulus = []
     try:
-        connus = [a["s"] for a in json.loads(INDEX.read_text()).get("actifs", [])]
+        for l in manifeste.read_text().splitlines():
+            l = l.strip()
+            if l.startswith("oi_hist_") and l.endswith(".json") and l != "oi_hist_index.json":
+                voulus.append(l[len("oi_hist_"):-len(".json")])
     except Exception:                                                 # noqa: BLE001
         pass
-    return sorted(set(connus) & dispo) or sorted(dispo)
+    gardes = sorted(set(voulus) & dispo)
+    if gardes:
+        print(f"  repli sur le manifeste : {len(gardes)} actifs")
+        return gardes
+
+    # Dernier recours : ce qui est déjà archivé. On n'ouvre pas de chantier sur
+    # les huit cent cinquante symboles de l'archive — dont trois cents délistés —
+    # sur la foi d'un manifeste illisible.
+    try:
+        connus = [a["s"] for a in json.loads(INDEX.read_text()).get("actifs", [])]
+        if connus:
+            print(f"  repli sur l'index : {len(connus)} actifs déjà archivés")
+            return sorted(set(connus) & dispo)
+    except Exception:                                                 # noqa: BLE001
+        pass
+    return sorted(dispo)
 
 
 def jours_publies(sym):
