@@ -57,7 +57,7 @@ def _global_timeout_handler(signum, frame):
     _sys.exit(2)
 try:
     _signal.signal(_signal.SIGALRM, _global_timeout_handler)
-    _signal.alarm(25 * 60)
+    _signal.alarm(90 * 60)
 except Exception:
     pass
 
@@ -727,26 +727,124 @@ def charger_univers():
     return u
 
 
-def _initiale(sym):
-    """Le paquet où ranger une société.
+def univers_marche(tranche=None, plafond=None):
+    """L'univers de la collecte de marché, trié par capitalisation en dollars.
 
-    Une lettre suffit pour les tickers alphabétiques. Elle ne suffit PAS pour
-    les places asiatiques, où les codes sont numériques : Hong Kong, Tokyo,
-    Séoul et Shanghai réunis mettaient 165 sociétés dans un seul paquet de
-    2,5 Mo — que le visiteur aurait téléchargé pour en lire une. Sur un ticker
-    numérique on prend donc les DEUX premiers chiffres, ce qui suit d'ailleurs
-    la logique des places : 00xx et 07xx à Hong Kong, 72xx à Tokyo, 60xx à
-    Shanghai.
+    On y prend le symbole, le nom et le chemin chez la source — ce dernier est
+    déjà résolu par le collecteur d'univers, donc pas une seule requête de
+    recherche à refaire ici.
+
+    `tranche` vaut (i, n) : on ne garde qu'une société sur n, celles dont le
+    rang modulo n vaut i. Le découpage se fait sur le RANG et non sur une
+    empreinte, pour que chaque tranche contienne un échantillon de toutes les
+    tailles — sinon la tranche du lundi ne verrait que des mégacapitalisations
+    et celle du dimanche que des microcaps, et une panne un jour donné aurait
+    des conséquences très différentes selon le jour.
     """
-    s = (sym or "?").upper()
-    c = s[0]
-    if "A" <= c <= "Z":
-        return c
-    return s[:2] if len(s) >= 2 and s[1].isdigit() else "0"
+    f = CACHE_DIR / "univers_actions.json"
+    if not f.exists():
+        return {}
+    with f.open(encoding="utf-8") as fh:
+        u = json.load(fh)
+    # Le chemin de la source, par symbole.
+    chemins = {}
+    for t in u.get("titres", []):
+        sym = t.get("yahoo") or t.get("sa")
+        if sym and t.get("principal"):
+            chemins[sym] = t.get("sa")
+
+    import glob as _glob
+    lignes = []
+    for p in _glob.glob(str(CACHE_DIR / "marche_[0-9][0-9].json")):
+        try:
+            with open(p, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        ch = d.get("champs") or []
+        try:
+            i_nom = ch.index("name")
+            i_capi = ch.index("marketCapUsd")
+        except ValueError:
+            continue
+        for sym, v in (d.get("societes") or {}).items():
+            if sym not in chemins:
+                continue
+            lignes.append((v[i_capi] or 0, sym, v[i_nom]))
+    lignes.sort(reverse=True)
+    if plafond:
+        lignes = lignes[:plafond]
+    if tranche:
+        i, n = tranche
+        lignes = [x for k, x in enumerate(lignes) if k % n == i]
+    out = {}
+    for capi, sym, nom in lignes:
+        out[sym] = {"nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym)}
+    return out
+
+
+def fusionner_paquets(paquets):
+    """Ajoute la tranche du jour aux paquets déjà écrits.
+
+    Sans cette fusion, chaque passage effacerait les six autres tranches : le
+    collecteur écrit un fichier par initiale, et une tranche n'en contient qu'un
+    septième. On relit donc l'existant, on remplace les sociétés qu'on vient de
+    collecter, on garde les autres.
+    """
+    import glob as _glob
+    fusionnes, repris = {}, 0
+    # Tous les paquets existants, pas seulement ceux que la tranche touche :
+    # sinon un fichier qu'aucune société du jour ne concerne serait absent de
+    # la sortie et resterait figé au dernier passage qui l'a écrit.
+    for p in _glob.glob(str(OUT_DIR / "intl_detail_*.json")):
+        lettre = Path(p).stem.replace("intl_detail_", "")
+        paquets.setdefault(lettre, {})
+    for lettre, contenu in paquets.items():
+        chemin = OUT_DIR / ("intl_detail_%s.json" % lettre)
+        ancien = {}
+        if chemin.exists():
+            try:
+                with chemin.open(encoding="utf-8") as fh:
+                    ancien = (json.load(fh) or {}).get("societes") or {}
+            except Exception:
+                ancien = {}
+        garde = {k: v for k, v in ancien.items() if k not in contenu}
+        repris += len(garde)
+        garde.update(contenu)
+        fusionnes[lettre] = garde
+    # Les paquets qu'aucune société de la tranche ne touche restent tels quels.
+    return fusionnes, repris
+
+
+PAQUETS_INTL = 512
+
+
+def _initiale(sym):
+    """Le paquet où ranger une société : une EMPREINTE, pas un préfixe.
+
+    Découper sur les premiers caractères suit la langue et non la donnée. Une
+    lettre mettait 3,9 Mo dans le paquet « A » ; deux caractères en laissaient
+    3 dans « 60 », parce que tous les codes de Shanghai commencent par là. Un
+    troisième déplacerait le problème sans le résoudre.
+
+    Modulo cinq cent douze, les paquets sont réguliers quelle que soit la place :
+    cent dix kilo-octets à quatre mille sociétés, trois cent cinquante à douze
+    mille.
+
+    ⚠ La fiche connaît la MÊME empreinte, dans `paquetDe()`. Elle est primitive
+    exprès : une empreinte savante qui divergerait entre Python et JavaScript
+    produirait des fiches vides sans le moindre message d'erreur.
+    """
+    t = (sym or "?").upper()
+    h = 0
+    for c in t:
+        h = (h * 31 + ord(c)) % 4294967296
+    return "%03d" % (h % PAQUETS_INTL)
 
 
 def _options(argv):
-    o = {"tickers": None, "limit": None, "sortie": None}
+    o = {"tickers": None, "limit": None, "sortie": None, "source": "suivi",
+         "tranche": None, "parallele": 1, "plafond": None}
     for i, a in enumerate(argv):
         if a == "--tickers" and i + 1 < len(argv):
             o["tickers"] = {t.strip().upper() for t in argv[i + 1].split(",") if t.strip()}
@@ -754,7 +852,72 @@ def _options(argv):
             o["limit"] = int(argv[i + 1])
         elif a == "--sortie" and i + 1 < len(argv):
             o["sortie"] = Path(argv[i + 1]).expanduser()
+        elif a == "--source" and i + 1 < len(argv):
+            o["source"] = argv[i + 1]
+        elif a == "--parallele" and i + 1 < len(argv):
+            o["parallele"] = max(1, min(12, int(argv[i + 1])))
+        elif a == "--plafond" and i + 1 < len(argv):
+            o["plafond"] = int(argv[i + 1])
+        elif a == "--tranche" and i + 1 < len(argv):
+            v = argv[i + 1]
+            if v == "auto":
+                # Le jour de la semaine : lundi 0, dimanche 6. L'univers entier
+                # est donc parcouru en sept jours, sans registre à tenir.
+                o["tranche"] = (datetime.now(timezone.utc).weekday(), 7)
+            else:
+                a2, b2 = v.split("/")
+                o["tranche"] = (int(a2), int(b2))
     return o
+
+
+def precharger(univers, parallele):
+    """Va chercher les états de tout le monde, en parallèle, puis rend un dict.
+
+    Le réseau est le seul goulot : construire les exercices prend quelques
+    millisecondes, télécharger quatre pages en prend presque une seconde. On
+    parallélise donc la seule descente, et la construction reste séquentielle —
+    elle touche des états partagés et ne gagnerait rien à être concurrente.
+
+    Le débit de politesse global est levé pendant cette phase : ce sont les huit
+    fils en vol qui bornent la cadence, à une trentaine de requêtes par seconde.
+    """
+    import concurrent.futures as _cf
+    global DEBIT
+    ancien_debit = DEBIT
+    if parallele > 1:
+        DEBIT = 0.0
+
+    def un(item):
+        sym, meta = item
+        chemin = meta.get("chemin_sa")
+        if chemin and not chemin.startswith("quote/") and "/" in chemin:
+            chemin = "quote/" + chemin
+        elif chemin and "/" not in chemin:
+            chemin = "stocks/" + chemin
+        if not chemin:
+            chemin = chemin_du_titre(sym)
+        brut = etats(chemin) if chemin else None
+        trouve_par_recherche = False
+        if brut is None:
+            autre = chercher_chemin(sym, meta.get("nom"))
+            if autre and autre != chemin:
+                brut = etats(autre)
+                if brut is not None:
+                    chemin = autre
+                    trouve_par_recherche = True
+        return sym, brut, chemin, trouve_par_recherche
+
+    out = {}
+    items = sorted(univers.items())
+    try:
+        with _cf.ThreadPoolExecutor(max_workers=parallele) as ex:
+            for k, r in enumerate(ex.map(un, items), 1):
+                out[r[0]] = r[1:]
+                if k % 500 == 0:
+                    print("[info] %d/%d descendues" % (k, len(items)))
+    finally:
+        DEBIT = ancien_debit
+    return out
 
 
 def main():
@@ -768,28 +931,37 @@ def main():
         OUT_JS = OUT_DIR / "intl_fundamentals_index.js"
         print("[info] sortie détournée vers %s" % OUT_DIR)
 
-    univers = charger_univers()
+    if opts["source"] == "marche":
+        univers = univers_marche(opts["tranche"], opts["plafond"])
+        quoi = "collecte de marché"
+        if opts["tranche"]:
+            quoi += " — tranche %d sur %d" % (opts["tranche"][0] + 1, opts["tranche"][1])
+    else:
+        univers = charger_univers()
+        quoi = "univers suivi, non américain"
     if opts["tickers"]:
         univers = {k: v for k, v in univers.items() if k.upper() in opts["tickers"]}
+    if opts["limit"]:
+        univers = dict(sorted(univers.items())[: opts["limit"]])
     if not univers:
         return 1
-    print("[info] univers non américain : %d titres" % len(univers))
+    print("[info] %s : %d titres" % (quoi, len(univers)))
     cours = charger_cours()
     fx = charger_fx()
+
+    # Le réseau d'abord, tout entier, en parallèle. La construction ensuite,
+    # séquentielle : elle ne gagnerait rien à être concurrente et touche des
+    # états partagés.
+    precharges = precharger(univers, opts["parallele"])
+    print("[info] descente finie en %.1f s" % (time.time() - t0))
 
     index, paquets = {}, {}
     ok = sans_place = echecs = 0
     par_recherche = 0
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
-        chemin = chemin_du_titre(sym)
-        brut = etats(chemin) if chemin else None
-        if brut is None:
-            autre = chercher_chemin(sym, meta.get("nom"))
-            if autre and autre != chemin:
-                brut = etats(autre)
-                if brut is not None:
-                    chemin = autre
-                    par_recherche += 1
+        brut, chemin, trouve = precharges.get(sym, (None, None, False))
+        if trouve:
+            par_recherche += 1
         if brut is None:
             if chemin is None:
                 sans_place += 1
@@ -830,6 +1002,11 @@ def main():
         r["devises_alignees"] = brut["_devises_alignees"]
         r["frequence_publication"] = ctx.get("reportingFrequency")
         r["source_url"] = BASE + "/" + chemin + "/financials/"
+        # Une tranche par jour veut dire qu'une donnée peut avoir six jours.
+        # Ce n'est pas un défaut — un état financier change une fois par
+        # trimestre — mais il faut que ça se VOIE, sinon une ligne vieille de
+        # trois semaines se confond avec une fraîche.
+        r["collecte_le"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         r["source"] = "stockanalysis.com (données S&P Global Market Intelligence)"
 
         paquets.setdefault(_initiale(sym), {})[sym] = {
@@ -873,12 +1050,31 @@ def main():
         "paquets": sorted(paquets.keys()),
         "societes": index,
     }
+    if OUT_JSON.exists():
+        # Même raison que pour les paquets : l'index porte tout l'univers, la
+        # tranche n'en connaît qu'un septième.
+        try:
+            with OUT_JSON.open(encoding="utf-8") as fh:
+                anciens = (json.load(fh) or {}).get("societes") or {}
+            for k, v in anciens.items():
+                charge["societes"].setdefault(k, v)
+            print("[ok] index fusionné : %d sociétés au total" % len(charge["societes"]))
+        except Exception as e:
+            print("[warn] fusion de l'index impossible : %s" % e, file=sys.stderr)
     with OUT_JSON.open("w", encoding="utf-8") as f:
         json.dump(charge, f, ensure_ascii=False, indent=1)
     with OUT_JS.open("w", encoding="utf-8") as f:
         f.write("window.__INTL_FUNDA__ = " + json.dumps(charge, ensure_ascii=False,
                                                         separators=(",", ":")) + ";\n")
     horo = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    # Une tranche ne contient qu'un septième de l'univers : sans fusion, chaque
+    # passage effacerait les six autres jours.
+    # INCONDITIONNELLE. Un passage ne connaît jamais tout l'univers — ni la
+    # tranche du jour, ni le sous-ensemble suivi — et le collecteur écrit un
+    # fichier par initiale. Sans fusion, chaque passage efface tous les autres.
+    paquets, repris = fusionner_paquets(paquets)
+    if repris:
+        print("[ok] fusion : %d sociétés reprises des passages précédents" % repris)
     poids = []
     for lettre, contenu in sorted(paquets.items()):
         c = OUT_DIR / ("intl_detail_%s.json" % lettre)

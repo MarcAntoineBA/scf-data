@@ -624,6 +624,7 @@ def main():
         poids.append((c, len(rows), f.stat().st_size))
     (OUT_DIR / "univers_actions_light.json").write_text(
         json.dumps({"updated": horo, "champs": champs,
+                    "total": len(leger),
                     "fragments": {c: n for c, n, _ in poids},
                     "titres": leger[:2000]}, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8")
