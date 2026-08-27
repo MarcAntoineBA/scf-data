@@ -10,24 +10,24 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0465,
-    "volume": 4865612.967429998,
-    "liquidite": 83439.22041,
+    "volume": 4865803.768619998,
+    "liquidite": 81513.39682,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.025,
-    "bid": 0.01,
-    "ask": 0.04,
-    "volume": 197062.68
+    "mid": 0.045,
+    "bid": 0.03,
+    "ask": 0.06,
+    "volume": 198300.82
    },
    "mesures": {
-    "consensus_pondere_volume": 0.0457,
-    "ecart_points": -2.15,
+    "consensus_pondere_volume": 0.0464,
+    "ecart_points": -0.15,
     "sens": "Polymarket plus haut",
     "cout_execution_kalshi_points": 3.0,
-    "ecart_net_de_cout_points": -0.85,
+    "ecart_net_de_cout_points": -2.85,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -43,7 +43,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.027,
     "volume": 16693.606347,
-    "liquidite": 3870.81963,
+    "liquidite": 3914.63867,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -66,18 +66,18 @@
    "polymarket": {
     "id": "101936",
     "question": "Fed rate hike in 2026?",
-    "prob": 0.585,
-    "volume": 7986483.764192,
-    "liquidite": 141291.6097,
+    "prob": 0.565,
+    "volume": 8001375.30383,
+    "liquidite": 129107.3077,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
     "ticker": "KXFED-26DEC-T3.50",
     "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
-    "mid": 0.85,
-    "bid": 0.83,
-    "ask": 0.87,
-    "volume": 24842.3
+    "mid": 0.855,
+    "bid": 0.85,
+    "ask": 0.86,
+    "volume": 24952.61
    },
    "mesures": null,
    "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
@@ -91,9 +91,9 @@
    "polymarket": {
     "id": "197683",
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
-    "prob": 0.83,
+    "prob": 0.835,
     "volume": 50792.07973599999,
-    "liquidite": 1853.939,
+    "liquidite": 1630.1106,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
@@ -109,9 +109,9 @@
   }
  ],
  "lacunes": [
-  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 50 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
+  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 60 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
   "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Kalshi a disparu du cache (expiré, réglé ou renommé) — non agrégée"
  ],
- "generated_at": "2026-08-27T09:48:29+00:00",
+ "generated_at": "2026-08-27T20:30:07+00:00",
  "paires_declarees": 6
 }
