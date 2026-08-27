@@ -1,16 +1,16 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-26T05:24:00Z",
-  "total": 29,
-  "ok": 25,
-  "secs": 963.2,
-  "changed": 47,
-  "versionnes": 44,
-  "pieces_jointes": 3,
-  "absents": 25,
+  "ts": "2026-08-27T15:40:45Z",
+  "total": 33,
+  "ok": 27,
+  "secs": 862.7,
+  "changed": 270,
+  "versionnes": 261,
+  "pieces_jointes": 9,
+  "absents": 431,
   "muets": [
-   "gtrends.serpapi (72.1 h)"
+   "gtrends.serpapi (106.4 h)"
   ],
   "failed": [
    {
@@ -26,10 +26,18 @@
     "why": "script absent"
    },
    {
+    "job": "intlfunda",
+    "why": "[fatal] ~/Library/Caches/site_crypto_finance/tradfi_cache.json absent"
+   },
+   {
     "job": "savoirbake",
     "why": "script absent"
+   },
+   {
+    "job": "secfunda",
+    "why": "[fatal] ~/Library/Caches/site_crypto_finance/tradfi_cache.json absent — lancer fetch_tradfi.py d'abord"
    }
   ]
  },
- "updated": "2026-08-26T05:24:00Z"
+ "updated": "2026-08-27T15:40:45Z"
 }
