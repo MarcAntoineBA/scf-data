@@ -715,6 +715,15 @@ def main():
         allege = dict(r)
         allege.pop("piotroski_detail", None)
         allege.pop("altman_detail", None)
+        # Le détail des vingt critères et l'historique de la note restent dans le
+        # paquet de détail, que la fiche charge de toute façon à l'ouverture.
+        # Les laisser ici coûtait 3 Ko par société, soit 2,7 Mo d'index pour une
+        # information lue ailleurs. L'index ne garde que de quoi TRIER et FILTRER.
+        allege.pop("note_historique", None)
+        if isinstance(allege.get("note_q"), dict):
+            allege["note_q"] = {k: v for k, v in allege["note_q"].items()
+                            if k not in ("details", "criteres_muets", "criteres_nuls_par_nature")}
+
         index[sym] = allege
         ok += 1
         if i % 50 == 0:

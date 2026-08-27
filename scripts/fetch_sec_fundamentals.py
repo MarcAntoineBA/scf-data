@@ -864,6 +864,15 @@ def main():
         r = dict(bati["resume"])
         r.pop("piotroski_detail", None)
         r.pop("altman_detail", None)
+        # Le détail des vingt critères et l'historique de la note restent dans le
+        # paquet de détail, que la fiche charge de toute façon à l'ouverture.
+        # Les laisser ici coûtait 3 Ko par société, soit 2,7 Mo d'index pour une
+        # information lue ailleurs. L'index ne garde que de quoi TRIER et FILTRER.
+        r.pop("note_historique", None)
+        if isinstance(r.get("note_q"), dict):
+            r["note_q"] = {k: v for k, v in r["note_q"].items()
+                            if k not in ("details", "criteres_muets", "criteres_nuls_par_nature")}
+
         r["cik"] = cik
         r["nom_sec"] = facts_doc.get("entityName")
         index[sym] = r
