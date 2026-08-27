@@ -151,8 +151,25 @@ PLACES = {
 }
 
 
+# Les adresses que la règle générale ne peut pas deviner. Ce ne sont pas des
+# variantes de format mais des conventions de place, chacune vérifiée en
+# appelant la page : Roche rend 370,31 CHF sur 18 analystes sous swx/ROP,
+# Maybank 11,77 MYR sur 19 sous klse/MAYBANK. Sans cette table, cinq sociétés
+# de l'univers passaient pour absentes de la source alors qu'elle les servait.
+EXCEPTIONS_CHEMIN = {
+    "ROG.SW":        "quote/swx/ROP",        # Roche, action au porteur
+    "BAJAJ-AUTO.NS": "quote/nse/BAJAJ_AUTO", # souligné, pas point
+    "EMIRATESNBD.AE": "quote/dfm/EMIRATESNBD",  # cotée à Dubaï, pas à Abu Dhabi
+    "GMEXICOB.MX":   "quote/bmv/GMEXICO.B",  # le point sépare la classe d'action
+    "1155.KL":       "quote/klse/MAYBANK",   # code alphabétique, pas numérique
+}
+
+
 def chemin_du_titre(symbole):
     """« MC.PA » → « quote/epa/MC ». None si la place est inconnue."""
+    exc = EXCEPTIONS_CHEMIN.get((symbole or "").upper())
+    if exc:
+        return exc
     if "." not in symbole:
         return None
     ticker, suffixe = symbole.rsplit(".", 1)
