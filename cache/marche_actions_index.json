@@ -1,12 +1,14 @@
 {
- "updated": "2026-08-27 16:11 UTC",
+ "updated": "2026-08-27 16:19 UTC",
  "source": "stockanalysis.com — point d'entrée du screener",
- "duree_s": 102.0,
+ "duree_s": 108.7,
  "methode": [
   "Une requête par pays, 86 au total, 94 champs demandés.",
   "Le point d'entrée accepte N'IMPORTE QUEL identifiant et le renvoie à null — il sert docilement « nombreDeChats ». Le seul critère retenu est le taux de remplissage, mesuré sur quatre univers avant d'écrire la liste des champs.",
   "priceCurrency est la devise du COURS ; currency est celle des états et vaut null partout hors États-Unis. Londres cote en pence : les grandeurs de cours y sont divisées par cent, et la ligne le dit.",
   "On ne publie pas les quatre-vingt-trois mille lignes : les titres suivis en profondeur, plus les dix mille plus grosses capitalisations. Le reste ferait vingt et un gigaoctets par an dans un dépôt git, pour des sociétés que personne n'ouvre.",
+  "Au-delà de mille pour cent, une croissance n'est plus une prévision mais un rapport sur une base proche de zéro : elle est écartée, et le compte des écartées est publié.",
+  "priceTargetChange ne mesure PAS une variation dans le temps : dans 98,3 % des cas il vaut l'écart entre l'objectif et le cours. Renommé ecart_objectif_pct.",
   "Cinq champs portent un nom de NIVEAU et contiennent un TAUX (revenueThisYear vaut 89,4 pour NVIDIA, soit +89,4 %). Ils sont renommés croissance_*_pct."
  ],
  "exhaustivite": {
@@ -16,6 +18,8 @@
   "rattachees": 68181,
   "sans_correspondance": 13658,
   "converties_de_pence": 1175,
+  "croissances_ecartees": 3620,
+  "plafond_croissance_pct": 1000.0,
   "publiees": 10750,
   "ecartees": 57431,
   "plafond": 10000,
@@ -42,7 +46,7 @@
   "tangibleBookValue": 97.5,
   "earningsYield": 97.5,
   "netCash": 97.3,
-  "volume": 96.8,
+  "volume": 96.7,
   "pbRatio": 96.6,
   "founded": 95.8,
   "ma50": 95.5,
@@ -116,7 +120,7 @@
   "analystCount": 16.5,
   "priceTarget": 16.5,
   "analystRatings": 16.4,
-  "priceTargetChange": 16.4,
+  "ecart_objectif_pct": 16.4,
   "pegRatio": 6.2,
   "ocf": 0.0
  }

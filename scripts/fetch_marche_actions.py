@@ -134,6 +134,12 @@ RENOMMAGES = {
     "epsGrowthQ": "croissance_bpa_trim_pct",
     "dividendGrowth": "croissance_dividende_pct",
     "netCashGrowth": "croissance_tresorerie_nette_pct",
+    # Ce champ ne mesure PAS une variation de l'objectif dans le temps.
+    # Mesuré sur les 3 774 sociétés qui portent les trois champs : dans
+    # 98,3 % des cas il vaut exactement l'écart entre l'objectif et le
+    # cours. Le garder sous son nom d'origine faisait afficher deux fois le
+    # même nombre, dont une fois sous un libellé faux.
+    "priceTargetChange": "ecart_objectif_pct",
 }
 
 # Les 85 codes qui servent des titres, relevés en balayant l'ISO 3166 le
@@ -277,7 +283,15 @@ def charger_univers():
     return par_sa, meta
 
 
-def _nettoyer(v, champs_pence):
+# Au-delà de ce seuil, une « croissance » n'est plus une prévision mais un
+# rapport sur une base proche de zéro. PT Merdeka Gold Resources ressort à
+# 360 268 %, Helixmith à 55 517 % : une société qui passe de mille à deux
+# millions de chiffre d'affaires affiche deux cent mille pour cent, et le nombre
+# n'apprend rien. Il écrase en revanche toutes les jauges de la page.
+PLAFOND_CROISSANCE = 1000.0
+
+
+def _nettoyer(v, champs_pence, compte):
     """Une ligne brute devient une ligne publiable."""
     out = {}
     pence = (v.get("priceCurrency") == "GBX")
@@ -288,7 +302,12 @@ def _nettoyer(v, champs_pence):
         # publier un cours cent fois trop grand à côté d'un bénéfice en livres.
         if pence and k in champs_pence and isinstance(val, (int, float)):
             val = val / 100.0
-        out[RENOMMAGES.get(k, k)] = val
+        cle = RENOMMAGES.get(k, k)
+        if cle.startswith("croissance_") and isinstance(val, (int, float)):
+            if abs(val) > PLAFOND_CROISSANCE:
+                compte[0] += 1
+                continue
+        out[cle] = val
     if pence:
         out["priceCurrency"] = "GBP"
         out["_converti_de"] = "GBX"
@@ -337,6 +356,7 @@ def main():
 
     # ── Jointure sur nos symboles ──
     lignes, sans_symbole = {}, 0
+    croissances_ecartees = [0]
     for k, v in brut.items():
         sym = par_sa.get(k) or par_sa.get(k.split("/")[-1]) or par_sa.get(k.lower())
         if not sym:
@@ -344,13 +364,15 @@ def main():
             continue
         if sym in lignes:
             continue
-        lignes[sym] = _nettoyer(v, champs_pence)
+        lignes[sym] = _nettoyer(v, champs_pence, croissances_ecartees)
 
     print("[ok] %d lignes rattachées à un symbole, %d sans correspondance"
           % (len(lignes), sans_symbole))
 
     pence = sum(1 for v in lignes.values() if v.get("_converti_de") == "GBX")
     print("[ok] %d cotations converties de pence en livres" % pence)
+    print("[ok] %d croissances écartées pour invraisemblance (au-delà de %d %%)"
+          % (croissances_ecartees[0], int(PLAFOND_CROISSANCE)))
 
     # ── Découpage ──
     # Une ligne est un TABLEAU, pas un objet : répéter « operatingMargin » sur
@@ -423,6 +445,12 @@ def main():
             "suivis en profondeur, plus les dix mille plus grosses "
             "capitalisations. Le reste ferait vingt et un gigaoctets par an dans "
             "un dépôt git, pour des sociétés que personne n'ouvre.",
+            "Au-delà de mille pour cent, une croissance n'est plus une "
+            "prévision mais un rapport sur une base proche de zéro : elle est "
+            "écartée, et le compte des écartées est publié.",
+            "priceTargetChange ne mesure PAS une variation dans le temps : dans "
+            "98,3 % des cas il vaut l'écart entre l'objectif et le cours. "
+            "Renommé ecart_objectif_pct.",
             "Cinq champs portent un nom de NIVEAU et contiennent un TAUX "
             "(revenueThisYear vaut 89,4 pour NVIDIA, soit +89,4 %). Ils sont "
             "renommés croissance_*_pct.",
@@ -434,6 +462,8 @@ def main():
             "rattachees": len(lignes),
             "sans_correspondance": sans_symbole,
             "converties_de_pence": pence,
+            "croissances_ecartees": croissances_ecartees[0],
+            "plafond_croissance_pct": PLAFOND_CROISSANCE,
             "publiees": len(retenus),
             "ecartees": ecartes,
             "plafond": PLAFOND_PUBLIE,

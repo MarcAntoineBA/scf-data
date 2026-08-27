@@ -1,0 +1,178 @@
+{
+ "paires": [
+  {
+   "id": "satoshi-bouge-2026",
+   "libelle": "Satoshi déplace des bitcoins avant 2027",
+   "equivalence": "forte",
+   "note_reglement": "Les DEUX textes citent la même source et le même déclencheur : un portefeuille étiqueté Satoshi Nakamoto sur Arkham Intel Explorer présentant une transaction « Outflow » ou « Swaps ». Même borne de fin (1er janvier 2027). Seule différence : Polymarket ouvre sa fenêtre au 9 janvier 2026, Kalshi ne précise pas de début — sans effet, aucun mouvement n'a eu lieu depuis.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "153719",
+    "question": "Will Satoshi move any Bitcoin in 2026?",
+    "prob": 0.0465,
+    "volume": 4799832.9399080025,
+    "liquidite": 102883.48423,
+    "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
+   },
+   "kalshi": {
+    "ticker": "KXSATOSHIBTCYEAR-27",
+    "titre": "Will Satoshi move any Bitcoin by 2027?",
+    "mid": 0.045,
+    "bid": 0.04,
+    "ask": 0.05,
+    "volume": 184022.94
+   },
+   "mesures": {
+    "consensus_pondere_volume": 0.0464,
+    "ecart_points": -0.15,
+    "sens": "Polymarket plus haut",
+    "cout_execution_kalshi_points": 1.0,
+    "ecart_net_de_cout_points": -0.85,
+    "actionnable": false,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
+  },
+  {
+   "id": "clarity-act-58-senateurs",
+   "libelle": "Plus de 58 sénateurs votent pour la loi crypto",
+   "equivalence": "forte",
+   "note_reglement": "MÊME SEUIL CHIFFRÉ (58) et même critère : nombre de sénateurs votant « Yea » sur le premier vote de passage d'une loi de structure de marché crypto avant le 1er janvier 2027. Kalshi nomme sa source (Library of Congress), Polymarket ne la nomme pas — sur un vote du Sénat, le décompte officiel ne prête pas à deux lectures. ⚠ L'issue Polymarket « Above 58 » est la FAVORITE d'un marché à issues multiples : si elle change, l'agrégation se suspend d'elle-même.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "769594",
+    "question": "How many Senators will vote for the Clarity Act?",
+    "prob": 0.435,
+    "volume": 9548.028324,
+    "liquidite": 26615.74382,
+    "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
+   },
+   "kalshi": {
+    "ticker": "KXVOTECLARITY-26MAY16-T58",
+    "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
+    "mid": 0.33,
+    "bid": 0.3,
+    "ask": 0.36,
+    "volume": 1575.17
+   },
+   "mesures": {
+    "consensus_pondere_volume": 0.4201,
+    "ecart_points": -10.5,
+    "sens": "Polymarket plus haut",
+    "cout_execution_kalshi_points": 6.0,
+    "ecart_net_de_cout_points": 4.5,
+    "actionnable": true,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
+  },
+  {
+   "id": "mythos-avant-octobre",
+   "libelle": "Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026",
+   "equivalence": "forte",
+   "note_reglement": "« by September 30 » et « before Oct 1, 2026 » désignent la même borne. Les deux textes excluent explicitement Claude Fable 5 (sorti le 9 juin 2026) et visent la mise à disposition au public du modèle SUIVANT. Source de règlement identique : Anthropic.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "578305",
+    "question": "Next Mythos-Class Model released by…?",
+    "prob": 0.755,
+    "volume": 120641.795242,
+    "liquidite": 8228.7119,
+    "url": "https://polymarket.com/event/next-mythos-class-model-released-by"
+   },
+   "kalshi": {
+    "ticker": "KXCLAUDE-NXTMYTH-26OCT01",
+    "titre": "Will Anthropic release next Mythos-Class model before Oct 1, 2026?",
+    "mid": 0.68,
+    "bid": 0.52,
+    "ask": 0.84,
+    "volume": 30788.79
+   },
+   "mesures": {
+    "consensus_pondere_volume": 0.7398,
+    "ecart_points": -7.5,
+    "sens": "Polymarket plus haut",
+    "cout_execution_kalshi_points": 32.0,
+    "ecart_net_de_cout_points": -24.5,
+    "actionnable": false,
+    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
+   }
+  },
+  {
+   "id": "defaut-us-2026",
+   "libelle": "Défaut de paiement des États-Unis avant 2027",
+   "equivalence": "partielle",
+   "note_reglement": "PIÈGE : les titres sont jumeaux, les contrats ne le sont pas. Polymarket ne reconnaît QU'UN déclencheur — un paiement programmé non honoré. Kalshi en reconnaît DEUX : le paiement manqué OU la désignation en défaut par l'une des trois grandes agences de notation. Kalshi devrait donc coter PLUS HAUT mécaniquement ; il cote plus bas. Cet écart n'est pas une opinion, c'est une différence de contrat — aucun consensus ne sera calculé.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "73331",
+    "question": "US defaults on debt by 2027?",
+    "prob": 0.0245,
+    "volume": 16315.136346999998,
+    "liquidite": 2719.49636,
+    "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
+   },
+   "kalshi": {
+    "ticker": "KXDEFAULT-26DEC31",
+    "titre": "Will the US default on its debt by Dec 31, 2026?",
+    "mid": 0.0225,
+    "bid": 0.011,
+    "ask": 0.034,
+    "volume": 1310.26
+   },
+   "mesures": null,
+   "pourquoi_pas_de_consensus": "équivalence déclarée « partielle » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
+  },
+  {
+   "id": "fed-hausse-vs-niveau-2026",
+   "libelle": "Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi)",
+   "equivalence": "juxtaposition",
+   "note_reglement": "Ces deux marchés ne posent PAS la même question et l'écart apparent de ~30 points n'a aucun sens. Polymarket demande s'il y aura une HAUSSE en 2026 ; Kalshi demande si le NIVEAU dépassera 3,50 % après la réunion du 9 décembre. Un taux peut finir au-dessus de 3,50 % sans aucune hausse. Juxtaposés parce qu'ils éclairent le même sujet, jamais comparés.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "101936",
+    "question": "Fed rate hike in 2026?",
+    "prob": 0.465,
+    "volume": 7549572.970428001,
+    "liquidite": 172009.167,
+    "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
+   },
+   "kalshi": {
+    "ticker": "KXFED-26DEC-T3.50",
+    "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
+    "mid": 0.835,
+    "bid": 0.83,
+    "ask": 0.84,
+    "volume": 24542.74
+   },
+   "mesures": null,
+   "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
+  },
+  {
+   "id": "hypotheque-30-ans-2026",
+   "libelle": "Taux hypothécaire 30 ans en 2026 (sens opposés)",
+   "equivalence": "juxtaposition",
+   "note_reglement": "Même source (enquête PMMS de Freddie Mac) mais SENS OPPOSÉS et seuils différents : Polymarket cote « atteint ou dépasse 6,75 % », Kalshi cote « passe sous 5,75 % ». Les deux peuvent être vrais la même année. Rapprocher leurs prix n'aurait aucun sens ; on les montre ensemble parce qu'ils bornent le même intervalle.",
+   "declare_le": "2026-08-13",
+   "polymarket": {
+    "id": "197683",
+    "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
+    "prob": 0.825,
+    "volume": 50730.25307099999,
+    "liquidite": 2170.0925,
+    "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
+   },
+   "kalshi": {
+    "ticker": "KXFM30YMTG-26DEC31-T5.75",
+    "titre": "Will any 2026 Freddie Mac Primary Mortgage Market Survey (PMMS) report a 30-Year Fixed-Rate Mortgage rate below 5.75%?",
+    "mid": 0.08,
+    "bid": 0.04,
+    "ask": 0.12,
+    "volume": 41866.22
+   },
+   "mesures": null,
+   "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
+  }
+ ],
+ "lacunes": [],
+ "generated_at": "2026-08-17T18:58:06+00:00",
+ "paires_declarees": 6
+}
