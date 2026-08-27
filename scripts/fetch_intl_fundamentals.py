@@ -103,6 +103,12 @@ RETRIES = 3
 _last = [0.0]
 
 
+# Combien de fois la source nous a dit « trop vite » ET qu'on a fini par
+# abandonner. Un plafond de débit n'est pas une page inexistante : les confondre
+# fait passer une collecte bridée pour une collecte finie.
+_bridages = [0]
+
+
 def _get(url, accept_404=True):
     for essai in range(RETRIES):
         d = time.time() - _last[0]
@@ -122,6 +128,22 @@ def _get(url, accept_404=True):
         except urllib.error.HTTPError as e:
             if e.code in (404, 403, 410):
                 return None            # la page n'existe pas, insister ne sert à rien
+            if e.code == 429:
+                # Un plafond de débit ne se force pas, il s'attend. Mille deux
+                # cents millisecondes n'ont jamais suffi ; on part de cinq
+                # secondes et on double, ou on suit l'en-tête quand il est là.
+                if essai == RETRIES - 1:
+                    _bridages[0] += 1
+                    return None
+                pause = 5.0 * (2 ** essai)
+                try:
+                    ra = e.headers.get("Retry-After")
+                    if ra:
+                        pause = max(pause, float(ra))
+                except Exception:
+                    pass
+                time.sleep(min(pause, 60.0))
+                continue
             if essai == RETRIES - 1:
                 return None
             time.sleep(1.2 * (essai + 1))
@@ -1101,6 +1123,21 @@ def main():
     print("[ok] index %d Ko · %d paquets, plus gros %d Ko, total %d Ko"
           % (OUT_JSON.stat().st_size // 1024, len(poids),
              (max(poids) // 1024) if poids else 0, (sum(poids) // 1024) if poids else 0))
+
+    # ── Une collecte bridée ne se fait pas passer pour une collecte finie ──
+    # `_get` rendait None sur un 429 comme sur une page inexistante, et la
+    # société était comptée « sans états déposés ». Un après-midi de bridage
+    # aurait produit une collecte vide, en SUCCÈS, et réécrit l'index avec ce
+    # qu'on n'avait pas pu récupérer.
+    if _bridages[0]:
+        part = 100.0 * _bridages[0] / max(1, len(univers))
+        print("[!] %d requête(s) abandonnée(s) sur plafond de débit (%.1f %% de "
+              "l'univers visé)" % (_bridages[0], part))
+        if part > 5.0:
+            raise SystemExit(
+                "[fatal] la source a bridé plus de cinq pour cent des requêtes : "
+                "la collecte est incomplète et ne doit pas passer pour finie. "
+                "Relancer plus tard, ou augmenter DEBIT.")
     return 0
 
 
