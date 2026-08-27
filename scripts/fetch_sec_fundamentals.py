@@ -45,9 +45,27 @@ SORTIES
 # ── Garde-fou de durée, comme les autres collecteurs : un script bloqué sur une
 #    I/O réseau ne doit pas monopoliser le créneau du suivant.
 import signal as _signal, sys as _sys
+
+
+class DelaiGlobalAtteint(Exception):
+    """Le délai est écoulé — on écrit ce qu'on a et on s'arrête.
+
+    Une exception ORDINAIRE, et non SystemExit : celle-ci traverse les
+    `except Exception` sans être vue, c'est son rôle. Ici on veut au contraire
+    être rattrapé par la boucle de collecte, pour que le code d'écriture
+    s'exécute avec ce qui a été construit.
+
+    Mesuré le 28/08/2026 : un run de vingt-cinq minutes avait construit six cent
+    dix sociétés sur trois mille huit cent cinquante-six, puis `sys.exit(2)` les
+    a toutes jetées. La fusion étant inconditionnelle, écrire six cent dix
+    laisse un cache MEILLEUR qu'avant — et le passage suivant continue.
+    """
+
+
 def _global_timeout_handler(signum, frame):
-    print("[fatal] délai global (25 min) atteint — abandon.", file=_sys.stderr)
-    _sys.exit(2)
+    raise DelaiGlobalAtteint()
+
+
 try:
     _signal.signal(_signal.SIGALRM, _global_timeout_handler)
     _signal.alarm(25 * 60)
@@ -1086,7 +1104,10 @@ def main():
     index = {}
     paquets = {}
     ok = sans_cik = echecs = 0
+    interrompu = False
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
+        if interrompu:
+            break
         cik = cik_par_ticker.get(sym.upper())
         if not cik:
             sans_cik += 1
@@ -1094,6 +1115,13 @@ def main():
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
         try:
             facts_doc = _get(url, accept_404=True)
+        except DelaiGlobalAtteint:
+            print("[!] délai global atteint après %d sociétés — on écrit ce qui "
+                  "a été construit et on s'arrête. La fusion étant "
+                  "inconditionnelle, le passage suivant continuera." % ok,
+                  file=sys.stderr)
+            interrompu = True
+            break
         except Exception as e:
             print(f"[warn] {sym} : {e}", file=sys.stderr)
             echecs += 1
@@ -1195,6 +1223,9 @@ def main():
                       f, ensure_ascii=False, separators=(",", ":"))
         poids.append(chemin.stat().st_size)
 
+    if interrompu:
+        print("[!] COLLECTE INCOMPLÈTE : arrêtée par le délai global. Ce qui suit "
+              "décrit ce qui a été écrit, pas l'univers visé.", file=sys.stderr)
     print(f"[ok] {ok} sociétés — {sans_cik} sans CIK, {echecs} échecs — "
           f"{round(time.time() - t0, 1)} s")
     print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko")

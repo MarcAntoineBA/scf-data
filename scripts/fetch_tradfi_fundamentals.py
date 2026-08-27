@@ -49,6 +49,7 @@ except Exception:
 
 import json
 import sys
+import threading
 import time
 import random
 import warnings
@@ -369,6 +370,12 @@ def bulk_fetch_growth_cy(all_syms, chunk=40):
 
 
 _CROISSANCES_CACHE = {}
+# Le drapeau est SÉPARÉ du contenu, et c'est tout l'objet de la correction : un
+# dictionnaire non vide n'est pas un dictionnaire complet. Sans cette
+# distinction, un fil arrivant pendant le remplissage repartait avec un
+# soixante-quatrième de la carte — mesuré, 328 titres servis au lieu de 774.
+_CROISSANCES_PRET = [False]
+_CROISSANCES_VERROU = threading.Lock()
 
 
 def _croissances_marche():
@@ -385,8 +392,16 @@ def _croissances_marche():
     Sur les 783 titres du tracker retrouves dans cette collecte, 774 ont la
     croissance constatee et 757 l'attendue.
     """
-    if _CROISSANCES_CACHE:
+    if _CROISSANCES_PRET[0]:
         return _CROISSANCES_CACHE
+    with _CROISSANCES_VERROU:
+        if _CROISSANCES_PRET[0]:
+            return _CROISSANCES_CACHE
+        return _remplir_croissances()
+
+
+def _remplir_croissances():
+    """Remplit la carte une fois pour toutes. Appelé sous verrou."""
     import glob as _g
     for f in sorted(_g.glob(str(CACHE_DIR / "marche_[0-9]*.json"))):
         try:
@@ -405,6 +420,7 @@ def _croissances_marche():
                 a[i_c] if (i_c is not None and i_c < len(a)) else None,
                 a[i_e] if (i_e is not None and i_e < len(a)) else None,
             )
+    _CROISSANCES_PRET[0] = True
     if _CROISSANCES_CACHE:
         print("[info] croissances du CA : %d societes lues dans la collecte de "
               "marche" % len(_CROISSANCES_CACHE))
