@@ -81,11 +81,19 @@ OUT_DIR = CACHE_DIR
 BASE = "https://stockanalysis.com/_api/endpoints/screener/data-points"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " \
      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-# Combien de sociétés on PUBLIE. Le point d'entrée en sert quatre-vingt-trois
-# mille ; les publier toutes ferait vingt et un gigaoctets par an dans un
-# dépôt git. On garde les plus grosses capitalisations, plus les titres
-# suivis en profondeur quelle que soit leur taille.
-PLAFOND_PUBLIE = 10000
+# Ce qu'on PUBLIE. Le point d'entrée sert quatre-vingt-trois mille lignes ;
+# les publier toutes ferait vingt et un gigaoctets par an dans un dépôt git.
+#
+# Le critère est un SEUIL DE CAPITALISATION EN DOLLARS, pas un rang. « Toutes
+# les sociétés au-dessus de deux cents millions de dollars » se comprend et se
+# vérifie ; « les dix mille premières » ne dit rien à personne et dépend de qui
+# d'autre est coté ce jour-là.
+#
+# ⚠ EN DOLLARS, et c'est tout le correctif. Trier `marketCap` tel qu'il arrive
+# revient à comparer des wons à des euros : Eramet, 1,28 milliard d'euros, était
+# écartée alors que le seuil descendait à 139 — les dix mille premières places
+# étaient trustées par le yen, le won et le rupiah.
+SEUIL_CAPI_USD = 200e6
 
 DEBIT = 0.35
 TIMEOUT = 180
@@ -207,6 +215,89 @@ def _cle_fragment(mot):
 
 
 
+# Les « devises » qui n'en sont pas : des sous-unités, comme le pence de Londres.
+# Une place qui cote en sous-unité multiplie toutes ses capitalisations par cent
+# ou par mille, et le seul signe est le code à trois lettres.
+SOUS_UNITES = {
+    "GBX": ("GBP", 100.0),    # pence, Londres
+    "ILA": ("ILS", 100.0),    # agorot, Tel-Aviv
+    "ZAC": ("ZAR", 100.0),    # cents, Johannesburg
+    "KWF": ("KWD", 1000.0),   # fils, Koweït
+}
+
+
+def taux_bce():
+    """Les taux de référence quotidiens de la BCE, gratuits et sans clé.
+
+    Trente et une devises que le cache du dépôt n'a pas — zloty, couronne
+    tchèque, forint, leu, livre turque, shekel, dollar néo-zélandais, couronne
+    islandaise. Sans elles, des pays entiers disparaissent du classement.
+
+    ⚠ La BCE cote PAR EURO. Il faut retourner le taux et le composer avec
+    l'euro-dollar, qui est dans la même réponse.
+    """
+    import re
+    import urllib.request
+    url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            xml = r.read().decode("utf-8", "replace")
+    except Exception as e:
+        print("[warn] taux BCE indisponibles : %s" % e, file=sys.stderr)
+        return {}
+    par_euro = {}
+    for m in re.finditer(r"currency=.([A-Z]{3}).\s+rate=.([0-9.]+).", xml):
+        try:
+            par_euro[m.group(1)] = float(m.group(2))
+        except Exception:
+            pass
+    eur_usd = par_euro.get("USD")
+    if not eur_usd:
+        return {}
+    # 1 devise = (1 / taux_par_euro) euros = (eur_usd / taux_par_euro) dollars
+    out = {"EUR": eur_usd}
+    for dev, t in par_euro.items():
+        if t > 0:
+            out[dev] = eur_usd / t
+    return out
+
+
+def charger_taux():
+    """{DEVISE: valeur d'une unité en dollars}, au dernier jour connu.
+
+    Le même cache que celui du collecteur d'univers : vingt-trois devises. Une
+    devise absente vaut zéro capitalisation en dollars — donc la société n'est
+    pas publiée, ce qui est préférable à un classement au hasard.
+    """
+    for nom in ("fx_rates_cache.json", "tradfi_fx_cache.json"):
+        f = CACHE_DIR / nom
+        if not f.exists():
+            continue
+        try:
+            with f.open(encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        out = {"USD": 1.0}
+        for dev, par_jour in d.items():
+            if isinstance(par_jour, dict) and par_jour:
+                out[dev] = par_jour[max(par_jour)]
+        # La BCE complète, elle n'écrase pas : le cache du dépôt est daté et
+        # aligné sur les séries de cours, la BCE ne sert qu'à boucher les trous.
+        bce = taux_bce()
+        for dev, t in bce.items():
+            out.setdefault(dev, t)
+        print("[info] taux : %d du cache, %d ajoutés par la BCE"
+              % (len(out) - len(bce) + sum(1 for d2 in bce if d2 in out), len(bce)))
+        # Les sous-unités se déduisent de leur devise mère.
+        for sous, (mere, div) in SOUS_UNITES.items():
+            if mere in out:
+                out.setdefault(sous, out[mere] / div)
+        return out
+    return {"USD": 1.0}
+
+
 def charger_suivis():
     """Les symboles dont on collecte déjà les états financiers.
 
@@ -294,14 +385,18 @@ PLAFOND_CROISSANCE = 1000.0
 def _nettoyer(v, champs_pence, compte):
     """Une ligne brute devient une ligne publiable."""
     out = {}
-    pence = (v.get("priceCurrency") == "GBX")
+    # Londres cote en pence, Tel-Aviv en agorot, Johannesburg en cents, Koweït
+    # en fils. Quatre places, un seul mécanisme : la cotation est dans une
+    # sous-unité de la devise, et tout ce qui est un COURS doit être ramené.
+    su = SOUS_UNITES.get(v.get("priceCurrency"))
+    pence = su is not None
     for k, val in v.items():
         if val is None:
             continue
         # Londres cote en pence. Diviser par cent et le dire vaut mieux que
         # publier un cours cent fois trop grand à côté d'un bénéfice en livres.
         if pence and k in champs_pence and isinstance(val, (int, float)):
-            val = val / 100.0
+            val = val / su[1]
         cle = RENOMMAGES.get(k, k)
         if cle.startswith("croissance_") and isinstance(val, (int, float)):
             if abs(val) > PLAFOND_CROISSANCE:
@@ -309,8 +404,8 @@ def _nettoyer(v, champs_pence, compte):
                 continue
         out[cle] = val
     if pence:
-        out["priceCurrency"] = "GBP"
-        out["_converti_de"] = "GBX"
+        out["_converti_de"] = v.get("priceCurrency")
+        out["priceCurrency"] = su[0]
     return out
 
 
@@ -385,7 +480,7 @@ def main():
     # déjà fait son travail dans l'univers. Une lettre unique mettait douze
     # mégaoctets dans un seul fragment.
     horo = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    ordre = [RENOMMAGES.get(c, c) for c in champs] + ["_converti_de"]
+    ordre = [RENOMMAGES.get(c, c) for c in champs] + ["_converti_de", "marketCapUsd"]
 
     # ── Ce qu'on publie ──
     # Les titres suivis en profondeur d'abord, sans condition. Puis les plus
@@ -393,26 +488,36 @@ def main():
     # de travail : une société hors liste garde sa fiche légère, et la fiche le
     # dit plutôt que d'afficher des cases vides.
     suivis = charger_suivis()
-    par_taille = sorted(lignes.items(),
-                        key=lambda kv: -(kv[1].get("marketCap") or 0))
-    retenus, vus = [], set()
-    for sym, v in par_taille:
-        if sym in suivis:
-            retenus.append((sym, v))
-            vus.add(sym)
-    for sym, v in par_taille:
-        if sym in vus:
-            continue
-        if len(retenus) >= PLAFOND_PUBLIE + len(suivis):
-            break
-        retenus.append((sym, v))
-        vus.add(sym)
-    seuil_capi = min((v.get("marketCap") or 0) for _, v in retenus) if retenus else None
+    taux = charger_taux()
+    sans_taux = set()
+
+    def capi_usd(v):
+        mc = v.get("marketCap")
+        if not isinstance(mc, (int, float)):
+            return 0.0
+        dev = (v.get("priceCurrency") or "USD").upper()
+        r = taux.get(dev)
+        if r is None:
+            sans_taux.add(dev)
+            return 0.0
+        return mc * r
+
+    for sym, v in lignes.items():
+        v["marketCapUsd"] = round(capi_usd(v))
+
+    retenus = [(sym, v) for sym, v in lignes.items()
+               if sym in suivis or v["marketCapUsd"] >= SEUIL_CAPI_USD]
+    retenus.sort(key=lambda kv: -kv[1]["marketCapUsd"])
+    seuil_capi = min((v["marketCapUsd"] for _, v in retenus), default=None)
     ecartes = len(lignes) - len(retenus)
     suivis_retenus = sum(1 for sym, _ in retenus if sym in suivis)
-    print("[ok] %d publiés (%d suivis en profondeur), %d écartés — "
-          "plus petite capitalisation retenue : %s"
-          % (len(retenus), suivis_retenus, ecartes, seuil_capi))
+    print("[ok] %d publiés (%d suivis en profondeur), %d écartés — seuil %d M$, "
+          "plus petite capitalisation retenue %s"
+          % (len(retenus), suivis_retenus, ecartes,
+             int(SEUIL_CAPI_USD / 1e6), seuil_capi))
+    if sans_taux:
+        print("[ok] devises sans taux, sociétés non publiées faute de comparaison : %s"
+              % ", ".join(sorted(x for x in sans_taux if x)))
 
     frag = {}
     for sym, v in retenus:
@@ -442,9 +547,11 @@ def main():
             "et vaut null partout hors États-Unis. Londres cote en pence : les "
             "grandeurs de cours y sont divisées par cent, et la ligne le dit.",
             "On ne publie pas les quatre-vingt-trois mille lignes : les titres "
-            "suivis en profondeur, plus les dix mille plus grosses "
-            "capitalisations. Le reste ferait vingt et un gigaoctets par an dans "
-            "un dépôt git, pour des sociétés que personne n'ouvre.",
+            "suivis en profondeur, plus toute société pesant au moins deux cents "
+            "millions de DOLLARS. Le seuil est en dollars et non en devise "
+            "locale : trier marketCap tel qu'il arrive revient à comparer des "
+            "wons à des euros, et écartait Eramet, 1,28 milliard d'euros, quand "
+            "le seuil brut descendait à 139.",
             "Au-delà de mille pour cent, une croissance n'est plus une "
             "prévision mais un rapport sur une base proche de zéro : elle est "
             "écartée, et le compte des écartées est publié.",
@@ -466,8 +573,9 @@ def main():
             "plafond_croissance_pct": PLAFOND_CROISSANCE,
             "publiees": len(retenus),
             "ecartees": ecartes,
-            "plafond": PLAFOND_PUBLIE,
-            "plus_petite_capitalisation_publiee": seuil_capi,
+            "seuil_capitalisation_usd": SEUIL_CAPI_USD,
+            "plus_petite_capitalisation_usd_publiee": seuil_capi,
+            "devises_sans_taux": sorted(x for x in sans_taux if x),
             "suivis_en_profondeur_publies": suivis_retenus,
             "fragments": len(poids),
             "format": "une ligne = un tableau, la liste des champs est en tête "
