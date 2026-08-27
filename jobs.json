@@ -1,2033 +1,2046 @@
 {
-  "jobs": [
-    {
-      "id": "backtest.refresh",
-      "script": "refresh_backtest.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "bulleai.refresh",
-      "script": "refresh_bulle_ia.sh",
-      "args": [],
-      "schedule": "3 créneau(x)/jour",
-      "per_day": 3.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "ai_adoption_cache.js",
-        "ai_models_cache.js",
-        "ai_models_cache.json",
-        "ai_research_cache.json",
-        "bulle_ia_render/Bulle_IA.html",
-        "cycle_cache.js",
-        "mag7_hist_cache.js",
-        "nvda_hist_cache.js",
-        "pe_hist_cache.js"
-      ],
-      "witness": "bulle_ia_render/Bulle_IA.html"
-    },
-    {
-      "id": "cfdeploy",
-      "script": "deploy_public_wrangler.sh",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "advisor_cache.js",
-        "treasury_alert_live.js"
-      ],
-      "witness": null
-    },
-    {
-      "id": "cfwatchdog",
-      "script": "watchdog_public_deploy.sh",
-      "args": [],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "fj_news_cache.json",
-        "treasury_alert_live.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "correlations.refresh",
-      "script": "refresh_correlations.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "ecosysteme.refresh",
-      "script": "refresh_ecosysteme.sh",
-      "args": [],
-      "schedule": "3 créneau(x)/jour",
-      "per_day": 3.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "fastpublish",
-      "script": "fast_publish.sh",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "freshness.watchdog",
-      "script": "watchdog_freshness.py",
-      "args": [],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "ai_adoption_cache.json",
-        "ai_models_cache.json",
-        "atlas_debt_cache.json",
-        "atlas_detail_cache.json",
-        "atlas_econ_cache.json",
-        "atlas_maritime_cache.json",
-        "atlas_quarterly_cache.json",
-        "btc_cycle_cache.json",
-        "buffett_cash_cache.json",
-        "crypto_etf_cache.json",
-        "crypto_pe_hist_cache.json",
-        "crypto_ytd_cache.json",
-        "cycle_cache.js",
-        "earnings_calendar_cache.json",
-        "ecosysteme_indicators_cache.js",
-        "fedwatch_cache.js",
-        "financiarisation_cache.json",
-        "fj_news_cache.json",
-        "flux_physiques_cache.js",
-        "fred_stress_indicators_cache.js",
-        "global_hist_cache.json",
-        "global_markets_cache.json",
-        "gtrends_cache.json",
-        "gtrends_hype_cache.json",
-        "hydro_cache.json",
-        "ipo_calendar_cache.json",
-        "l1_history_cache.json",
-        "l1_valuation_cache.json",
-        "levered_etf_cache.js",
-        "macro_calendar_cache.json",
-        "macro_corr_cache.json",
-        "macro_fred_cache.js",
-        "mag7_hist_cache.json",
-        "market_concentration_cache.json",
-        "moneyflow_cache.json",
-        "narratives_cache.json",
-        "narratives_fundamentals_cache.js",
-        "new_listings_cache.json",
-        "pe_hist_cache.js",
-        "pe_hist_global_cache.json",
-        "per_data_cache.json",
-        "portefeuille_cache.json",
-        "prediction_markets_cache.json",
-        "radar_backtest_cache.js",
-        "radar_cache.js",
-        "radar_v3_cache.js",
-        "sentiment_index_live.js",
-        "stock_bubble_cache.js",
-        "tech_debt_cache.json",
-        "these_bitcoin_cache.json",
-        "these_bulleia_cache.json",
-        "these_dette_cache.json",
-        "these_dollar_cache.json",
-        "these_effondrement_cache.json",
-        "these_energie_cache.json",
-        "these_stagnation_cache.json",
-        "these_web3_cache.json",
-        "tradfi_cache.json",
-        "tradfi_cycle_cache.json",
-        "tradfi_fundamentals_cache.js",
-        "tradfi_growth_cache.json",
-        "tradfi_hist_cache.json",
-        "treasury_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "gtrends.refresh",
-      "script": "refresh_gtrends.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "gtrends_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "macrotrends.refresh",
-      "script": "refresh_macro_trends.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "modelesvalo.refresh",
-      "script": "refresh_modeles_valo.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "savoir",
-      "script": "",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "siteserver",
-      "script": "",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "snapshot",
-      "script": "snapshot_site.sh",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [
-        "xxx_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "souv_carte",
-      "script": "carte.sh",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "souv_grind",
-      "script": "grind.sh",
-      "args": [
-        "25"
-      ],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "souv_links",
-      "script": "links_runner.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "syncprod",
-      "script": "sync_prod_branch.sh",
-      "args": [],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "syncthing",
-      "script": "",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "syncthing.watchdog",
-      "script": "syncthing_watchdog.sh",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "wakekicker",
-      "script": "wake_kicker.py",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "locale",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "advisor",
-      "script": "trigger_advisor.sh",
-      "args": [],
-      "schedule": "5 créneau(x)/jour",
-      "per_day": 5.0,
-      "cadence": null,
-      "category": "perso",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "advisor.flows",
-      "script": "refresh_flows.sh",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": null,
-      "category": "perso",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "advisor.server",
-      "script": "advisor_server.py",
-      "args": [],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "perso",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "portefeuille",
-      "script": "fetch_portefeuille_prices.py",
-      "args": [],
-      "schedule": "toutes les 2 h",
-      "per_day": 12.0,
-      "cadence": null,
-      "category": "perso",
-      "outputs": [
-        "history_cache.json",
-        "intraday_cache.json",
-        "portefeuille_cache.js",
-        "portefeuille_cache.json"
-      ],
-      "witness": "portefeuille_cache.json"
-    },
-    {
-      "id": "ai_adoption",
-      "script": "fetch_ai_adoption.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "ai_adoption_cache.js",
-        "ai_adoption_cache.json"
-      ],
-      "witness": "ai_adoption_cache.json"
-    },
-    {
-      "id": "atlasbudget",
-      "script": "fetch_atlas_budget.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "atlasdebt",
-      "script": "fetch_atlas_debt.py",
-      "args": [
-        "--auto"
-      ],
-      "schedule": "toutes les 2 h",
-      "per_day": 12.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "atlas_debt_cache.json"
-      ],
-      "witness": "atlas_debt_cache.json"
-    },
-    {
-      "id": "atlasdetail",
-      "script": "fetch_atlas_detail.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "atlas_detail_cache.js",
-        "atlas_detail_cache.json"
-      ],
-      "witness": "atlas_detail_cache.json"
-    },
-    {
-      "id": "atlaseco",
-      "script": "fetch_atlas_econ.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "atlas_econ_cache.js",
-        "atlas_econ_cache.json"
-      ],
-      "witness": "atlas_econ_cache.json"
-    },
-    {
-      "id": "atlasmaritime",
-      "script": "fetch_atlas_maritime.py",
-      "args": [],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "atlas_maritime_cache.js",
-        "atlas_maritime_cache.json"
-      ],
-      "witness": "atlas_maritime_cache.json"
-    },
-    {
-      "id": "atlasquarterly",
-      "script": "fetch_atlas_quarterly.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "atlas_quarterly_cache.json"
-      ],
-      "witness": "atlas_quarterly_cache.json"
-    },
-    {
-      "id": "backtestradar",
-      "script": "backtest_radar.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "gtrends_cache.json",
-        "radar_backtest_cache.js"
-      ],
-      "witness": "radar_backtest_cache.js"
-    },
-    {
-      "id": "btccycle",
-      "script": "fetch_btc_cycle.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "3 créneau(x)/jour",
-      "per_day": 3.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        ".btc_cycle_light.tmp.js",
-        "btc_cycle_cache.js",
-        "btc_cycle_cache.json",
-        "btc_cycle_light.js"
-      ],
-      "witness": "btc_cycle_cache.json"
-    },
-    {
-      "id": "btccycle.live",
-      "script": "fetch_btc_cycle.py",
-      "args": [
-        "--force",
-        "--no-onchain"
-      ],
-      "schedule": "4 créneau(x)/jour",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        ".btc_cycle_light.tmp.js",
-        "btc_cycle_cache.js",
-        "btc_cycle_cache.json",
-        "btc_cycle_light.js"
-      ],
-      "witness": null
-    },
-    {
-      "id": "buffettcash",
-      "script": "fetch_buffett_cash.py",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "buffett_cash_cache.js",
-        "buffett_cash_cache.json"
-      ],
-      "witness": "buffett_cash_cache.json"
-    },
-    {
-      "id": "creditprive",
-      "script": "fetch_credit_prive.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "credit_prive_cache.js",
-        "credit_prive_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "crypto-pe-hist",
-      "script": "fetch_crypto_pe_hist.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "crypto_pe_hist_cache.json"
-      ],
-      "witness": "crypto_pe_hist_cache.json"
-    },
-    {
-      "id": "crypto.options",
-      "script": "fetch_options_multi.py",
-      "args": [],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "crypto_options_cache.js",
-        "crypto_options_cache.json"
-      ],
-      "witness": "crypto_options_cache.json"
-    },
-    {
-      "id": "cryptoetf",
-      "script": "fetch_crypto_etf_flows.py",
-      "args": [],
-      "schedule": "12 créneau(x)/jour",
-      "per_day": 12.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "crypto_etf_cache.js",
-        "crypto_etf_cache.json"
-      ],
-      "witness": "crypto_etf_cache.json"
-    },
-    {
-      "id": "cryptoytd",
-      "script": "fetch_crypto_ytd.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "crypto_ytd_cache.js",
-        "crypto_ytd_cache.json"
-      ],
-      "witness": "crypto_ytd_cache.json"
-    },
-    {
-      "id": "cyclecache",
-      "script": "fetch_cycle_cache.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "cycle_cache.js",
-        "cycle_cache.js"
-      ],
-      "witness": "cycle_cache.js"
-    },
-    {
-      "id": "defiengagement.refresh",
-      "script": "fetch_defi_engagement.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "desk.complet",
-      "script": "desk_chaine.sh",
-      "args": [
-        "complet"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "desk.flash",
-      "script": "desk_chaine.sh",
-      "args": [
-        "flash"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "desk.revue",
-      "script": "desk_chaine.sh",
-      "args": [
-        "revue"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "deskaudit",
-      "script": "desk_audit_maj.sh",
-      "args": [
-        "--boucle"
-      ],
-      "schedule": "permanent",
-      "per_day": 0.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "earningscal",
-      "script": "fetch_earnings_calendar.py",
-      "args": [
-        "--auto"
-      ],
-      "schedule": "toutes les 0.17 h",
-      "per_day": 144.0,
-      "cadence": "5min",
-      "category": "public",
-      "outputs": [
-        "earnings_calendar_cache.json",
-        "earnings_live.js"
-      ],
-      "witness": "earnings_calendar_cache.json"
-    },
-    {
-      "id": "ecophysique",
-      "script": "fetch_economie_physique.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "economie_physique_cache.js",
-        "economie_physique_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "ecosysteme.indicators",
-      "script": "fetch_ecosysteme_indicators.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "ecosysteme_indicators_cache.js",
-        "ecosysteme_indicators_cache.js"
-      ],
-      "witness": "ecosysteme_indicators_cache.js"
-    },
-    {
-      "id": "energymacro",
-      "script": "fetch_energy_macro.py",
-      "args": [],
-      "schedule": "toutes les 3 h",
-      "per_day": 8.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "fedwatch.refresh",
-      "script": "fetch_fedwatch.py",
-      "args": [],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "fedwatch_cache.js",
-        "fedwatch_cache.js"
-      ],
-      "witness": "fedwatch_cache.js"
-    },
-    {
-      "id": "finance_americaine",
-      "script": "fetch_finance_americaine.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "finance_americaine_cache.js",
-        "finance_americaine_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "financiarisation",
-      "script": "fetch_financiarisation.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "financiarisation_cache.js",
-        "financiarisation_cache.json"
-      ],
-      "witness": "financiarisation_cache.json"
-    },
-    {
-      "id": "fjnews",
-      "script": "fetch_fj_news.py",
-      "args": [],
-      "schedule": "toutes les 0.25 h",
-      "per_day": 96.0,
-      "cadence": "5min",
-      "category": "public",
-      "outputs": [
-        "fj_news_cache.js",
-        "fj_news_cache.json",
-        "fj_trans_cache.json"
-      ],
-      "witness": "fj_news_cache.json"
-    },
-    {
-      "id": "fluxphysiques",
-      "script": "fetch_flux_physiques.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "flux_physiques_cache.js"
-      ],
-      "witness": "flux_physiques_cache.js"
-    },
-    {
-      "id": "frbudget",
-      "script": "fetch_atlas_france_budget.py",
-      "args": [],
-      "schedule": "toutes les 1.7e+02 h",
-      "per_day": 0.14,
-      "cadence": "weekly",
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "fredstress.refresh",
-      "script": "fetch_fred_stress_indicators.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "fred_stress_indicators_cache.js"
-      ],
-      "witness": "fred_stress_indicators_cache.js"
-    },
-    {
-      "id": "globalhist",
-      "script": "fetch_global_hist.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "global_hist_cache.js",
-        "global_hist_cache.json"
-      ],
-      "witness": "global_hist_cache.json"
-    },
-    {
-      "id": "globalmarkets",
-      "script": "fetch_global_markets.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "6 créneau(x)/jour",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "global_markets_cache.js",
-        "global_markets_cache.json"
-      ],
-      "witness": "global_markets_cache.json"
-    },
-    {
-      "id": "gtrends.serpapi",
-      "script": "update_gtrends.py",
-      "args": [
-        "--region",
-        "all"
-      ],
-      "schedule": "7 créneau(x)/jour",
-      "per_day": 7.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "gtrends_cache.json",
-        "gtrends_cache_long.json",
-        "gtrends_cache_long_meta.json",
-        "gtrends_cache_meta.json"
-      ],
-      "witness": "gtrends_cache.json"
-    },
-    {
-      "id": "gtrendshype",
-      "script": "fetch_gtrends_hype.py",
-      "args": [],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "gtrends_cache.json",
-        "gtrends_hype_cache.js",
-        "gtrends_hype_cache.json"
-      ],
-      "witness": "gtrends_hype_cache.json"
-    },
-    {
-      "id": "hlaccount",
-      "script": "refresh_hl.sh",
-      "args": [],
-      "schedule": "toutes les 0.17 h",
-      "per_day": 144.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "hlflow",
-      "script": "hl_flow_recorder.py",
-      "args": [],
-      "schedule": "toutes les 0.083 h",
-      "per_day": 288.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "hydrocarbures",
-      "script": "fetch_hydrocarbures.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "atlas_econ_cache.json",
-        "hydro_cache.json"
-      ],
-      "witness": "hydro_cache.json"
-    },
-    {
-      "id": "climat",
-      "script": "fetch_atlas_climat.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "climat_cache.js",
-        "climat_cache.json"
-      ],
-      "witness": "climat_cache.json"
-    },
-    {
-      "id": "ipocal",
-      "script": "fetch_ipo_calendar.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "ipo_calendar_cache.json",
-        "ipo_live.js"
-      ],
-      "witness": "ipo_calendar_cache.json"
-    },
-    {
-      "id": "l1history",
-      "script": "fetch_l1_history.py",
-      "args": [
-        "--force",
-        "--daily"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "l1_history_cache.js",
-        "l1_history_cache.json",
-        "l1_valuation_cache.json"
-      ],
-      "witness": "l1_history_cache.json"
-    },
-    {
-      "id": "l1valuation",
-      "script": "fetch_l1_valuation.py",
-      "args": [],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "l1_valuation_cache.js",
-        "l1_valuation_cache.json"
-      ],
-      "witness": "l1_valuation_cache.json"
-    },
-    {
-      "id": "leveredetf",
-      "script": "fetch_levered_etf_volume.py",
-      "args": [],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "levered_etf_cache.js"
-      ],
-      "witness": "levered_etf_cache.js"
-    },
-    {
-      "id": "macro-corr",
-      "script": "fetch_macro_corr.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "macro_corr_cache.json",
-        "macro_fred_cache.js"
-      ],
-      "witness": "macro_corr_cache.json"
-    },
-    {
-      "id": "macrocal",
-      "script": "fetch_macro_calendar.py",
-      "args": [
-        "--auto"
-      ],
-      "schedule": "toutes les 0.17 h",
-      "per_day": 144.0,
-      "cadence": "5min",
-      "category": "public",
-      "outputs": [
-        "macro_cal_live.js",
-        "macro_calendar_cache.json"
-      ],
-      "witness": "macro_calendar_cache.json"
-    },
-    {
-      "id": "macrofred.refresh",
-      "script": "fetch_macro_fred_data.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "macro_fred_cache.js",
-        "macro_fred_cache.js",
-        "macro_indicators_cache.js",
-        "macro_indicators_cache.json"
-      ],
-      "witness": "macro_fred_cache.js"
-    },
-    {
-      "id": "mag7hist",
-      "script": "fetch_mag7_hist.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "mag7_hist_cache.js",
-        "mag7_hist_cache.json"
-      ],
-      "witness": "mag7_hist_cache.json"
-    },
-    {
-      "id": "marketconcentration",
-      "script": "fetch_market_concentration.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [
-        "market_concentration_cache.js",
-        "market_concentration_cache.json"
-      ],
-      "witness": "market_concentration_cache.json"
-    },
-    {
-      "id": "moneyflow",
-      "script": "fetch_moneyflow.py",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": "5min",
-      "category": "public",
-      "outputs": [
-        "crypto_ytd_cache.json",
-        "moneyflow_cache.js",
-        "moneyflow_cache.json"
-      ],
-      "witness": "moneyflow_cache.json"
-    },
-    {
-      "id": "narratives",
-      "script": "fetch_narratives.py",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "btc_longhist_cache.json",
-        "mode_crypto_live.js",
-        "narratives_cache.js",
-        "narratives_cache.json",
-        "narratives_history_cache.json",
-        "news_cache.json"
-      ],
-      "witness": "narratives_cache.json"
-    },
-    {
-      "id": "narrfund",
-      "script": "fetch_narratives_fundamentals.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "narratives_cache.json",
-        "narratives_fundamentals_cache.js",
-        "narratives_fundamentals_cache.js"
-      ],
-      "witness": "narratives_fundamentals_cache.js"
-    },
-    {
-      "id": "newlistings",
-      "script": "fetch_new_listings.py",
-      "args": [],
-      "schedule": "toutes les 6 h",
-      "per_day": 4.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "new_listings_cache.js",
-        "new_listings_cache.json",
-        "stock_bubble_cache.js"
-      ],
-      "witness": "new_listings_cache.json"
-    },
-    {
-      "id": "news",
-      "script": "fetch_news.py",
-      "args": [],
-      "schedule": "toutes les 0.25 h",
-      "per_day": 96.0,
-      "cadence": "5min",
-      "category": "public",
-      "outputs": [
-        "news_cache.js",
-        "news_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "orderflow.funding",
-      "script": "fetch_loris_funding.py",
-      "args": [],
-      "schedule": "toutes les 10 min",
-      "per_day": 144.0,
-      "cadence": "10min",
-      "category": "public",
-      "outputs": [
-        "orderflow_funding_cache.js",
-        "orderflow_funding_cache.json",
-        "orderflow_funding_hist.js",
-        "orderflow_funding_hist_1d.json",
-        "orderflow_funding_hist_1h.json",
-        "orderflow_funding_hist_5m.json"
-      ],
-      "witness": "orderflow_funding_cache.json"
-    },
-    {
-      "id": "pehist",
-      "script": "fetch_pe_hist.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "pe_hist_cache.js",
-        "pe_hist_cache.js"
-      ],
-      "witness": "pe_hist_cache.js"
-    },
-    {
-      "id": "pehistglobal",
-      "script": "fetch_pe_hist_global.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "pe_hist_global_cache.js",
-        "pe_hist_global_cache.json"
-      ],
-      "witness": "pe_hist_global_cache.json"
-    },
-    {
-      "id": "perdata",
-      "script": "fetch_per_data.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "6 créneau(x)/jour",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "per_data_cache.js",
-        "per_data_cache.json"
-      ],
-      "witness": "per_data_cache.json"
-    },
-    {
-      "id": "predmarkets",
-      "script": "fetch_prediction_markets.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "prediction_markets_cache.js",
-        "prediction_markets_cache.json",
-        "prediction_markets_cache_light.json"
-      ],
-      "witness": "prediction_markets_cache.json"
-    },
-    {
-      "id": "radardata",
-      "script": "fetch_radar_data.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "toutes les 4 h",
-      "per_day": 6.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "radar_cache.js",
-        "radar_cache.js"
-      ],
-      "witness": "radar_cache.js"
-    },
-    {
-      "id": "radarv3.refresh",
-      "script": "refresh_radar_v3_cache.sh",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "radar_v3_cache.js"
-      ],
-      "witness": "radar_v3_cache.js"
-    },
-    {
-      "id": "savoirbake",
-      "script": "bake_savoir.sh",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "sentiment.fng",
-      "script": "refresh_sentiment_fng.sh",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "sentiment_index_live.js"
-      ],
-      "witness": "sentiment_index_live.js"
-    },
-    {
-      "id": "stockbubble",
-      "script": "fetch_stock_bubble.py",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": "10min",
-      "category": "public",
-      "outputs": [
-        "stock_bubble_cache.js",
-        "stock_bubble_cache.js",
-        "stock_ext_cn.js",
-        "stock_ext_cn.json",
-        "stock_ext_eu.js",
-        "stock_ext_eu.json",
-        "stock_ext_in.js",
-        "stock_ext_in.json",
-        "stock_ext_us.js",
-        "stock_ext_us.json",
-        "stock_history_cache.js",
-        "stock_history_cache.json"
-      ],
-      "witness": "stock_bubble_cache.js"
-    },
-    {
-      "id": "techdebt",
-      "script": "fetch_tech_debt.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [
-        "tech_debt_cache.json"
-      ],
-      "witness": "tech_debt_cache.json"
-    },
-    {
-      "id": "these_bitcoin.refresh",
-      "script": "fetch_these_bitcoin.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_bitcoin_cache.js",
-        "these_bitcoin_cache.json"
-      ],
-      "witness": "these_bitcoin_cache.json"
-    },
-    {
-      "id": "these_bulleia.refresh",
-      "script": "fetch_these_bulleia.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_bulleia_cache.js",
-        "these_bulleia_cache.json"
-      ],
-      "witness": "these_bulleia_cache.json"
-    },
-    {
-      "id": "these_dette.refresh",
-      "script": "fetch_these_dette.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_dette_cache.js",
-        "these_dette_cache.json"
-      ],
-      "witness": "these_dette_cache.json"
-    },
-    {
-      "id": "these_dollar.refresh",
-      "script": "fetch_these_dollar.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_dollar_cache.js",
-        "these_dollar_cache.json"
-      ],
-      "witness": "these_dollar_cache.json"
-    },
-    {
-      "id": "these_effondrement.refresh",
-      "script": "fetch_these_effondrement.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_effondrement_cache.js",
-        "these_effondrement_cache.json"
-      ],
-      "witness": "these_effondrement_cache.json"
-    },
-    {
-      "id": "these_energie.refresh",
-      "script": "fetch_these_energie.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_energie_cache.js",
-        "these_energie_cache.json"
-      ],
-      "witness": "these_energie_cache.json"
-    },
-    {
-      "id": "these_stagnation.refresh",
-      "script": "fetch_these_stagnation.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_stagnation_cache.js",
-        "these_stagnation_cache.json"
-      ],
-      "witness": "these_stagnation_cache.json"
-    },
-    {
-      "id": "these_web3.refresh",
-      "script": "fetch_these_web3.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_web3_cache.js",
-        "these_web3_cache.json"
-      ],
-      "witness": "these_web3_cache.json"
-    },
-    {
-      "id": "trackerstf",
-      "script": "fetch_trackers_tf.py",
-      "args": [],
-      "schedule": "toutes les 0.25 h",
-      "per_day": 96.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [
-        "narratives_cache.json",
-        "tradfi_cache.json"
-      ],
-      "witness": null
-    },
-    {
-      "id": "tradfi",
-      "script": "fetch_tradfi.py",
-      "args": [],
-      "schedule": "4 créneau(x)/jour",
-      "per_day": 4.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "mode_tradfi_live.js",
-        "news_cache.json",
-        "tradfi_cache.js",
-        "tradfi_cache.json",
-        "tradfi_fx_cache.json",
-        "tradfi_histories_cache.js",
-        "tradfi_history_cache.json",
-        "tradfi_logos_cache.js",
-        "tradfi_shares_history_cache.json",
-        "tradfi_top_cache.json"
-      ],
-      "witness": "tradfi_cache.json"
-    },
-    {
-      "id": "tradfi-growth",
-      "script": "fetch_tradfi_growth.py",
-      "args": [],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "tradfi_growth_cache.json"
-      ],
-      "witness": "tradfi_growth_cache.json"
-    },
-    {
-      "id": "tradfi.cot",
-      "script": "fetch_cftc_cot.py",
-      "args": [],
-      "schedule": "1 fois/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "tradfi_cot_cache.js",
-        "tradfi_cot_cache.json"
-      ],
-      "witness": "tradfi_cot_cache.json"
-    },
-    {
-      "id": "tradfi.gamma",
-      "script": "fetch_cboe_gamma.py",
-      "args": [],
-      "schedule": "1 fois/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "tradfi_gamma_cache.js",
-        "tradfi_gamma_cache.json",
-        "tradfi_gamma_hist.json"
-      ],
-      "witness": "tradfi_gamma_cache.json"
-    },
-    {
-      "id": "tradfi.short",
-      "script": "fetch_finra_short.py",
-      "args": [],
-      "schedule": "1 fois/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "tradfi_short_cache.js",
-        "tradfi_short_cache.json"
-      ],
-      "witness": "tradfi_short_cache.json"
-    },
-    {
-      "id": "tradfi.vix",
-      "script": "fetch_cboe_vix.py",
-      "args": [],
-      "schedule": "1 fois/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "tradfi_vix_cache.js",
-        "tradfi_vix_cache.json"
-      ],
-      "witness": "tradfi_vix_cache.json"
-    },
-    {
-      "id": "tradfiallocation.refresh",
-      "script": "fetch_tradfi_allocation.py",
-      "args": [],
-      "schedule": "toutes les 1.7e+02 h",
-      "per_day": 0.14,
-      "cadence": "weekly",
-      "category": "public",
-      "outputs": [],
-      "witness": null
-    },
-    {
-      "id": "tradficycle",
-      "script": "fetch_tradfi_cycle.py",
-      "args": [
-        "--force"
-      ],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "tradfi_cycle_cache.js",
-        "tradfi_cycle_cache.json"
-      ],
-      "witness": "tradfi_cycle_cache.json"
-    },
-    {
-      "id": "tradfifund",
-      "script": "fetch_tradfi_fundamentals.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "tradfi_cache.json",
-        "tradfi_fundamentals_cache.js",
-        "tradfi_fundamentals_cache.js"
-      ],
-      "witness": "tradfi_fundamentals_cache.js"
-    },
-    {
-      "id": "tradfihist",
-      "script": "fetch_tradfi_hist.py",
-      "args": [
-        "--resume"
-      ],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "tradfi_fundamentals_cache.js",
-        "tradfi_hist_cache.js",
-        "tradfi_hist_cache.json"
-      ],
-      "witness": "tradfi_hist_cache.json"
-    },
-    {
-      "id": "treasury",
-      "script": "fetch_treasury_companies.py",
-      "args": [],
-      "schedule": "toutes les 0.5 h",
-      "per_day": 48.0,
-      "cadence": "10min",
-      "category": "public",
-      "outputs": [
-        "treasury_alert_live.js",
-        "treasury_alert_live.json",
-        "treasury_cache.js",
-        "treasury_cache.json",
-        "treasury_edgar_cache.json"
-      ],
-      "witness": "treasury_cache.json"
-    },
-    {
-      "id": "volatility",
-      "script": "fetch_volatility_multiasset.py",
-      "args": [],
-      "schedule": "toutes les 12 h",
-      "per_day": 2.0,
-      "cadence": null,
-      "category": "public",
-      "outputs": [
-        "volatility_cache.js"
-      ],
-      "witness": null
-    },
-    {
-      "id": "kalshi",
-      "script": "fetch_kalshi.py",
-      "args": [],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "kalshi_cache.js",
-        "kalshi_cache.json",
-        "kalshi_cache_light.json",
-        "kalshi_rules.json",
-        "kalshi_series.json"
-      ],
-      "witness": "kalshi_cache.json"
-    },
-    {
-      "id": "appariepredictifs",
-      "script": "apparier_predictifs.py",
-      "args": [],
-      "schedule": "toutes les 1 h",
-      "per_day": 24.0,
-      "cadence": "1h",
-      "category": "public",
-      "outputs": [
-        "pm_appariements_candidats.json",
-        "pm_agrege.json"
-      ],
-      "witness": "pm_agrege.json"
-    },
-    {
-      "id": "secinities",
-      "script": "fetch_sec_inities.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "sec_inities_cache.js",
-        "sec_inities_cache.json",
-        "sec_inities_vus.json"
-      ],
-      "witness": "sec_inities_cache.json"
-    },
-    {
-      "id": "secrachats",
-      "script": "fetch_sec_rachats.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "sec_rachats_cache.js",
-        "sec_rachats_cache.json"
-      ],
-      "witness": "sec_rachats_cache.json"
-    },
-    {
-      "id": "predmarkets_extras",
-      "script": "fetch_predmarkets_extras.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "platform_volume_hist.js",
-        "platform_volume_hist.json",
-        "prediction_markets_icons.js",
-        "prediction_markets_icons.json"
-      ],
-      "witness": "platform_volume_hist.json"
-    },
-    {
-      "id": "gerants13f",
-      "script": "fetch_13f.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "gerants_13f_cache.js",
-        "gerants_13f_cache.json"
-      ],
-      "witness": "gerants_13f_cache.json"
-    },
-    {
-      "id": "secfunda",
-      "script": "fetch_sec_fundamentals.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "sec_fundamentals_index.js",
-        "sec_fundamentals_index.json",
-        "sec_detail_0.json",
-        "sec_detail_A.json",
-        "sec_detail_B.json",
-        "sec_detail_C.json",
-        "sec_detail_D.json",
-        "sec_detail_E.json",
-        "sec_detail_F.json",
-        "sec_detail_G.json",
-        "sec_detail_H.json",
-        "sec_detail_I.json",
-        "sec_detail_J.json",
-        "sec_detail_K.json",
-        "sec_detail_L.json",
-        "sec_detail_M.json",
-        "sec_detail_N.json",
-        "sec_detail_O.json",
-        "sec_detail_P.json",
-        "sec_detail_Q.json",
-        "sec_detail_R.json",
-        "sec_detail_S.json",
-        "sec_detail_T.json",
-        "sec_detail_U.json",
-        "sec_detail_V.json",
-        "sec_detail_W.json",
-        "sec_detail_X.json",
-        "sec_detail_Y.json",
-        "sec_detail_Z.json"
-      ],
-      "witness": "sec_fundamentals_index.json"
-    },
-    {
-      "id": "intlfunda",
-      "script": "fetch_intl_fundamentals.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "intl_fundamentals_index.js",
-        "intl_fundamentals_index.json",
-        "intl_detail_00.json",
-        "intl_detail_01.json",
-        "intl_detail_02.json",
-        "intl_detail_03.json",
-        "intl_detail_04.json",
-        "intl_detail_05.json",
-        "intl_detail_06.json",
-        "intl_detail_07.json",
-        "intl_detail_08.json",
-        "intl_detail_09.json",
-        "intl_detail_10.json",
-        "intl_detail_11.json",
-        "intl_detail_12.json",
-        "intl_detail_13.json",
-        "intl_detail_16.json",
-        "intl_detail_17.json",
-        "intl_detail_18.json",
-        "intl_detail_19.json",
-        "intl_detail_20.json",
-        "intl_detail_22.json",
-        "intl_detail_23.json",
-        "intl_detail_24.json",
-        "intl_detail_25.json",
-        "intl_detail_26.json",
-        "intl_detail_28.json",
-        "intl_detail_29.json",
-        "intl_detail_30.json",
-        "intl_detail_31.json",
-        "intl_detail_36.json",
-        "intl_detail_37.json",
-        "intl_detail_38.json",
-        "intl_detail_40.json",
-        "intl_detail_41.json",
-        "intl_detail_43.json",
-        "intl_detail_45.json",
-        "intl_detail_46.json",
-        "intl_detail_47.json",
-        "intl_detail_49.json",
-        "intl_detail_60.json",
-        "intl_detail_63.json",
-        "intl_detail_64.json",
-        "intl_detail_65.json",
-        "intl_detail_67.json",
-        "intl_detail_68.json",
-        "intl_detail_69.json",
-        "intl_detail_70.json",
-        "intl_detail_72.json",
-        "intl_detail_75.json",
-        "intl_detail_78.json",
-        "intl_detail_79.json",
-        "intl_detail_80.json",
-        "intl_detail_83.json",
-        "intl_detail_86.json",
-        "intl_detail_87.json",
-        "intl_detail_88.json",
-        "intl_detail_89.json",
-        "intl_detail_91.json",
-        "intl_detail_92.json",
-        "intl_detail_93.json",
-        "intl_detail_94.json",
-        "intl_detail_95.json",
-        "intl_detail_96.json",
-        "intl_detail_97.json",
-        "intl_detail_99.json",
-        "intl_detail_A.json",
-        "intl_detail_B.json",
-        "intl_detail_C.json",
-        "intl_detail_D.json",
-        "intl_detail_E.json",
-        "intl_detail_F.json",
-        "intl_detail_G.json",
-        "intl_detail_H.json",
-        "intl_detail_I.json",
-        "intl_detail_J.json",
-        "intl_detail_K.json",
-        "intl_detail_L.json",
-        "intl_detail_M.json",
-        "intl_detail_N.json",
-        "intl_detail_O.json",
-        "intl_detail_P.json",
-        "intl_detail_Q.json",
-        "intl_detail_R.json",
-        "intl_detail_S.json",
-        "intl_detail_T.json",
-        "intl_detail_U.json",
-        "intl_detail_V.json",
-        "intl_detail_W.json",
-        "intl_detail_X.json",
-        "intl_detail_Y.json",
-        "intl_detail_Z.json"
-      ],
-      "witness": "intl_fundamentals_index.json"
-    },
-    {
-      "id": "crypto_raises",
-      "script": "fetch_crypto_raises.py",
-      "args": [],
-      "schedule": "1 créneau(x)/jour",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "crypto_raises_cache.js",
-        "crypto_raises_cache.json"
-      ],
-      "witness": "crypto_raises_cache.json"
-    },
-    {
-      "id": "univers",
-      "script": "fetch_univers_actions.py",
-      "args": [],
-      "schedule": "toutes les 24 h",
-      "per_day": 1.0,
-      "cadence": "daily",
-      "category": "public",
-      "outputs": [
-        "univers_actions.json",
-        "univers_actions_light.json",
-        "univers_0.json",
-        "univers_00.json",
-        "univers_01.json",
-        "univers_02.json",
-        "univers_03.json",
-        "univers_04.json",
-        "univers_05.json",
-        "univers_06.json",
-        "univers_07.json",
-        "univers_08.json",
-        "univers_09.json",
-        "univers_10.json",
-        "univers_11.json",
-        "univers_12.json",
-        "univers_13.json",
-        "univers_14.json",
-        "univers_15.json",
-        "univers_16.json",
-        "univers_17.json",
-        "univers_18.json",
-        "univers_19.json",
-        "univers_20.json",
-        "univers_21.json",
-        "univers_22.json",
-        "univers_23.json",
-        "univers_24.json",
-        "univers_25.json",
-        "univers_26.json",
-        "univers_27.json",
-        "univers_28.json",
-        "univers_29.json",
-        "univers_30.json",
-        "univers_31.json",
-        "univers_32.json",
-        "univers_33.json",
-        "univers_34.json",
-        "univers_35.json",
-        "univers_36.json",
-        "univers_37.json",
-        "univers_38.json",
-        "univers_39.json",
-        "univers_40.json",
-        "univers_41.json",
-        "univers_42.json",
-        "univers_43.json",
-        "univers_44.json",
-        "univers_45.json",
-        "univers_46.json",
-        "univers_47.json",
-        "univers_48.json",
-        "univers_49.json",
-        "univers_50.json",
-        "univers_51.json",
-        "univers_52.json",
-        "univers_53.json",
-        "univers_54.json",
-        "univers_55.json",
-        "univers_56.json",
-        "univers_57.json",
-        "univers_58.json",
-        "univers_59.json",
-        "univers_60.json",
-        "univers_61.json",
-        "univers_62.json",
-        "univers_63.json",
-        "univers_64.json",
-        "univers_65.json",
-        "univers_66.json",
-        "univers_67.json",
-        "univers_68.json",
-        "univers_69.json",
-        "univers_70.json",
-        "univers_71.json",
-        "univers_72.json",
-        "univers_73.json",
-        "univers_74.json",
-        "univers_75.json",
-        "univers_76.json",
-        "univers_77.json",
-        "univers_78.json",
-        "univers_79.json",
-        "univers_80.json",
-        "univers_81.json",
-        "univers_82.json",
-        "univers_83.json",
-        "univers_84.json",
-        "univers_85.json",
-        "univers_86.json",
-        "univers_87.json",
-        "univers_88.json",
-        "univers_89.json",
-        "univers_90.json",
-        "univers_91.json",
-        "univers_92.json",
-        "univers_93.json",
-        "univers_94.json",
-        "univers_95.json",
-        "univers_96.json",
-        "univers_97.json",
-        "univers_98.json",
-        "univers_99.json",
-        "univers_A.json",
-        "univers_B.json",
-        "univers_C.json",
-        "univers_D.json",
-        "univers_E.json",
-        "univers_F.json",
-        "univers_G.json",
-        "univers_H.json",
-        "univers_I.json",
-        "univers_J.json",
-        "univers_K.json",
-        "univers_L.json",
-        "univers_M.json",
-        "univers_N.json",
-        "univers_O.json",
-        "univers_P.json",
-        "univers_Q.json",
-        "univers_R.json",
-        "univers_S.json",
-        "univers_T.json",
-        "univers_U.json",
-        "univers_V.json",
-        "univers_W.json",
-        "univers_X.json",
-        "univers_Y.json",
-        "univers_Z.json"
-      ],
-      "witness": "univers_actions_light.json"
-    }
-  ]
+ "jobs": [
+  {
+   "id": "advisor",
+   "script": "trigger_advisor.sh",
+   "args": [],
+   "schedule": "5 créneau(x)/jour",
+   "per_day": 5.0,
+   "cadence": null,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "advisor.flows",
+   "script": "refresh_flows.sh",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": null,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "advisor.server",
+   "script": "advisor_server.py",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "perso",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "ai_adoption",
+   "script": "fetch_ai_adoption.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "ai_adoption_cache.js",
+    "ai_adoption_cache.json"
+   ],
+   "witness": "ai_adoption_cache.json"
+  },
+  {
+   "id": "appariepredictifs",
+   "script": "apparier_predictifs.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "pm_appariements_candidats.json",
+    "pm_agrege.json"
+   ],
+   "witness": "pm_agrege.json"
+  },
+  {
+   "id": "atlasbudget",
+   "script": "fetch_atlas_budget.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "atlasdebt",
+   "script": "fetch_atlas_debt.py",
+   "args": [
+    "--auto"
+   ],
+   "schedule": "toutes les 2 h",
+   "per_day": 12.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "atlas_debt_cache.json"
+   ],
+   "witness": "atlas_debt_cache.json"
+  },
+  {
+   "id": "atlasdetail",
+   "script": "fetch_atlas_detail.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "atlas_detail_cache.js",
+    "atlas_detail_cache.json"
+   ],
+   "witness": "atlas_detail_cache.json"
+  },
+  {
+   "id": "atlaseco",
+   "script": "fetch_atlas_econ.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "atlas_econ_cache.js",
+    "atlas_econ_cache.json"
+   ],
+   "witness": "atlas_econ_cache.json"
+  },
+  {
+   "id": "atlasmaritime",
+   "script": "fetch_atlas_maritime.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "atlas_maritime_cache.js",
+    "atlas_maritime_cache.json"
+   ],
+   "witness": "atlas_maritime_cache.json"
+  },
+  {
+   "id": "atlasquarterly",
+   "script": "fetch_atlas_quarterly.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "atlas_quarterly_cache.json"
+   ],
+   "witness": "atlas_quarterly_cache.json"
+  },
+  {
+   "id": "backtest.refresh",
+   "script": "refresh_backtest.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "backtestradar",
+   "script": "backtest_radar.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "radar_backtest_cache.js"
+   ],
+   "witness": "radar_backtest_cache.js"
+  },
+  {
+   "id": "btccycle",
+   "script": "fetch_btc_cycle.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    ".btc_cycle_light.tmp.js",
+    "btc_cycle_cache.js",
+    "btc_cycle_cache.json",
+    "btc_cycle_light.js"
+   ],
+   "witness": "btc_cycle_cache.json"
+  },
+  {
+   "id": "btccycle.live",
+   "script": "fetch_btc_cycle.py",
+   "args": [
+    "--force",
+    "--no-onchain"
+   ],
+   "schedule": "4 créneau(x)/jour",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    ".btc_cycle_light.tmp.js",
+    "btc_cycle_cache.js",
+    "btc_cycle_cache.json",
+    "btc_cycle_light.js"
+   ],
+   "witness": null
+  },
+  {
+   "id": "buffettcash",
+   "script": "fetch_buffett_cash.py",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "buffett_cash_cache.js",
+    "buffett_cash_cache.json"
+   ],
+   "witness": "buffett_cash_cache.json"
+  },
+  {
+   "id": "bulleai.refresh",
+   "script": "refresh_bulle_ia.sh",
+   "args": [],
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "ai_adoption_cache.js",
+    "ai_models_cache.js",
+    "ai_models_cache.json",
+    "ai_research_cache.json",
+    "bulle_ia_render/Bulle_IA.html",
+    "cycle_cache.js",
+    "mag7_hist_cache.js",
+    "nvda_hist_cache.js",
+    "pe_hist_cache.js"
+   ],
+   "witness": "bulle_ia_render/Bulle_IA.html"
+  },
+  {
+   "id": "cfdeploy",
+   "script": "deploy_public_wrangler.sh",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "advisor_cache.js",
+    "treasury_alert_live.js"
+   ],
+   "witness": null
+  },
+  {
+   "id": "cfwatchdog",
+   "script": "watchdog_public_deploy.sh",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "fj_news_cache.json",
+    "treasury_alert_live.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "climat",
+   "script": "fetch_atlas_climat.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "climat_cache.js",
+    "climat_cache.json"
+   ],
+   "witness": "climat_cache.json"
+  },
+  {
+   "id": "correlations.refresh",
+   "script": "refresh_correlations.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "creditprive",
+   "script": "fetch_credit_prive.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "credit_prive_cache.js",
+    "credit_prive_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "crypto-pe-hist",
+   "script": "fetch_crypto_pe_hist.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "crypto_pe_hist_cache.json"
+   ],
+   "witness": "crypto_pe_hist_cache.json"
+  },
+  {
+   "id": "crypto.options",
+   "script": "fetch_options_multi.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "crypto_options_cache.js",
+    "crypto_options_cache.json"
+   ],
+   "witness": "crypto_options_cache.json"
+  },
+  {
+   "id": "crypto_raises",
+   "script": "fetch_crypto_raises.py",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "crypto_raises_cache.js",
+    "crypto_raises_cache.json"
+   ],
+   "witness": "crypto_raises_cache.json"
+  },
+  {
+   "id": "cryptoetf",
+   "script": "fetch_crypto_etf_flows.py",
+   "args": [],
+   "schedule": "12 créneau(x)/jour",
+   "per_day": 12.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "crypto_etf_cache.js",
+    "crypto_etf_cache.json"
+   ],
+   "witness": "crypto_etf_cache.json"
+  },
+  {
+   "id": "cryptoytd",
+   "script": "fetch_crypto_ytd.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "crypto_ytd_cache.js",
+    "crypto_ytd_cache.json"
+   ],
+   "witness": "crypto_ytd_cache.json"
+  },
+  {
+   "id": "cyclecache",
+   "script": "fetch_cycle_cache.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "cycle_cache.js",
+    "cycle_cache.js"
+   ],
+   "witness": "cycle_cache.js"
+  },
+  {
+   "id": "defiengagement.refresh",
+   "script": "fetch_defi_engagement.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "desk.complet",
+   "script": "desk_chaine.sh",
+   "args": [
+    "complet"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "desk.flash",
+   "script": "desk_chaine.sh",
+   "args": [
+    "flash"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "desk.revue",
+   "script": "desk_chaine.sh",
+   "args": [
+    "revue"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "deskaudit",
+   "script": "desk_audit_maj.sh",
+   "args": [
+    "--boucle"
+   ],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "earningscal",
+   "script": "fetch_earnings_calendar.py",
+   "args": [
+    "--auto"
+   ],
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "cadence": "5min",
+   "category": "public",
+   "outputs": [
+    "earnings_calendar_cache.json",
+    "earnings_live.js"
+   ],
+   "witness": "earnings_calendar_cache.json"
+  },
+  {
+   "id": "ecophysique",
+   "script": "fetch_economie_physique.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "economie_physique_cache.js",
+    "economie_physique_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "ecosysteme.indicators",
+   "script": "fetch_ecosysteme_indicators.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "ecosysteme_indicators_cache.js",
+    "ecosysteme_indicators_cache.js"
+   ],
+   "witness": "ecosysteme_indicators_cache.js"
+  },
+  {
+   "id": "ecosysteme.refresh",
+   "script": "refresh_ecosysteme.sh",
+   "args": [],
+   "schedule": "3 créneau(x)/jour",
+   "per_day": 3.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "energymacro",
+   "script": "fetch_energy_macro.py",
+   "args": [],
+   "schedule": "toutes les 3 h",
+   "per_day": 8.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "fastpublish",
+   "script": "fast_publish.sh",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "fedwatch.refresh",
+   "script": "fetch_fedwatch.py",
+   "args": [],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "fedwatch_cache.js",
+    "fedwatch_cache.js"
+   ],
+   "witness": "fedwatch_cache.js"
+  },
+  {
+   "id": "finance_americaine",
+   "script": "fetch_finance_americaine.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "finance_americaine_cache.js",
+    "finance_americaine_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "financiarisation",
+   "script": "fetch_financiarisation.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "financiarisation_cache.js",
+    "financiarisation_cache.json"
+   ],
+   "witness": "financiarisation_cache.json"
+  },
+  {
+   "id": "fjnews",
+   "script": "fetch_fj_news.py",
+   "args": [],
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "cadence": "5min",
+   "category": "public",
+   "outputs": [
+    "fj_news_cache.js",
+    "fj_news_cache.json",
+    "fj_trans_cache.json"
+   ],
+   "witness": "fj_news_cache.json"
+  },
+  {
+   "id": "fluxphysiques",
+   "script": "fetch_flux_physiques.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "flux_physiques_cache.js"
+   ],
+   "witness": "flux_physiques_cache.js"
+  },
+  {
+   "id": "frbudget",
+   "script": "fetch_atlas_france_budget.py",
+   "args": [],
+   "schedule": "toutes les 1.7e+02 h",
+   "per_day": 0.14,
+   "cadence": "weekly",
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "fredstress.refresh",
+   "script": "fetch_fred_stress_indicators.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "fred_stress_indicators_cache.js"
+   ],
+   "witness": "fred_stress_indicators_cache.js"
+  },
+  {
+   "id": "freshness.watchdog",
+   "script": "watchdog_freshness.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "ai_adoption_cache.json",
+    "ai_models_cache.json",
+    "atlas_debt_cache.json",
+    "atlas_detail_cache.json",
+    "atlas_econ_cache.json",
+    "atlas_maritime_cache.json",
+    "atlas_quarterly_cache.json",
+    "btc_cycle_cache.json",
+    "buffett_cash_cache.json",
+    "crypto_etf_cache.json",
+    "crypto_pe_hist_cache.json",
+    "crypto_ytd_cache.json",
+    "cycle_cache.js",
+    "earnings_calendar_cache.json",
+    "ecosysteme_indicators_cache.js",
+    "fedwatch_cache.js",
+    "financiarisation_cache.json",
+    "fj_news_cache.json",
+    "flux_physiques_cache.js",
+    "fred_stress_indicators_cache.js",
+    "global_hist_cache.json",
+    "global_markets_cache.json",
+    "gtrends_cache.json",
+    "gtrends_hype_cache.json",
+    "hydro_cache.json",
+    "ipo_calendar_cache.json",
+    "l1_history_cache.json",
+    "l1_valuation_cache.json",
+    "levered_etf_cache.js",
+    "macro_calendar_cache.json",
+    "macro_corr_cache.json",
+    "macro_fred_cache.js",
+    "mag7_hist_cache.json",
+    "market_concentration_cache.json",
+    "moneyflow_cache.json",
+    "narratives_cache.json",
+    "narratives_fundamentals_cache.js",
+    "new_listings_cache.json",
+    "pe_hist_cache.js",
+    "pe_hist_global_cache.json",
+    "per_data_cache.json",
+    "portefeuille_cache.json",
+    "prediction_markets_cache.json",
+    "radar_backtest_cache.js",
+    "radar_cache.js",
+    "radar_v3_cache.js",
+    "sentiment_index_live.js",
+    "stock_bubble_cache.js",
+    "tech_debt_cache.json",
+    "these_bitcoin_cache.json",
+    "these_bulleia_cache.json",
+    "these_dette_cache.json",
+    "these_dollar_cache.json",
+    "these_effondrement_cache.json",
+    "these_energie_cache.json",
+    "these_stagnation_cache.json",
+    "these_web3_cache.json",
+    "tradfi_cache.json",
+    "tradfi_cycle_cache.json",
+    "tradfi_fundamentals_cache.js",
+    "tradfi_growth_cache.json",
+    "tradfi_hist_cache.json",
+    "treasury_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "gerants13f",
+   "script": "fetch_13f.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "gerants_13f_cache.js",
+    "gerants_13f_cache.json"
+   ],
+   "witness": "gerants_13f_cache.json"
+  },
+  {
+   "id": "globalhist",
+   "script": "fetch_global_hist.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "global_hist_cache.js",
+    "global_hist_cache.json"
+   ],
+   "witness": "global_hist_cache.json"
+  },
+  {
+   "id": "globalmarkets",
+   "script": "fetch_global_markets.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "6 créneau(x)/jour",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "global_markets_cache.js",
+    "global_markets_cache.json"
+   ],
+   "witness": "global_markets_cache.json"
+  },
+  {
+   "id": "gtrends.refresh",
+   "script": "refresh_gtrends.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "gtrends_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "gtrends.serpapi",
+   "script": "update_gtrends.py",
+   "args": [
+    "--region",
+    "all"
+   ],
+   "schedule": "7 créneau(x)/jour",
+   "per_day": 7.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "gtrends_cache_long.json",
+    "gtrends_cache_long_meta.json",
+    "gtrends_cache_meta.json"
+   ],
+   "witness": "gtrends_cache.json"
+  },
+  {
+   "id": "gtrendshype",
+   "script": "fetch_gtrends_hype.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "gtrends_cache.json",
+    "gtrends_hype_cache.js",
+    "gtrends_hype_cache.json"
+   ],
+   "witness": "gtrends_hype_cache.json"
+  },
+  {
+   "id": "hlaccount",
+   "script": "refresh_hl.sh",
+   "args": [],
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "hlflow",
+   "script": "hl_flow_recorder.py",
+   "args": [],
+   "schedule": "toutes les 0.083 h",
+   "per_day": 288.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "hydrocarbures",
+   "script": "fetch_hydrocarbures.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "atlas_econ_cache.json",
+    "hydro_cache.json"
+   ],
+   "witness": "hydro_cache.json"
+  },
+  {
+   "id": "intlfunda",
+   "script": "fetch_intl_fundamentals.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "intl_fundamentals_index.js",
+    "intl_fundamentals_index.json",
+    "intl_detail_00.json",
+    "intl_detail_01.json",
+    "intl_detail_02.json",
+    "intl_detail_03.json",
+    "intl_detail_04.json",
+    "intl_detail_05.json",
+    "intl_detail_06.json",
+    "intl_detail_07.json",
+    "intl_detail_08.json",
+    "intl_detail_09.json",
+    "intl_detail_10.json",
+    "intl_detail_11.json",
+    "intl_detail_12.json",
+    "intl_detail_13.json",
+    "intl_detail_16.json",
+    "intl_detail_17.json",
+    "intl_detail_18.json",
+    "intl_detail_19.json",
+    "intl_detail_20.json",
+    "intl_detail_22.json",
+    "intl_detail_23.json",
+    "intl_detail_24.json",
+    "intl_detail_25.json",
+    "intl_detail_26.json",
+    "intl_detail_28.json",
+    "intl_detail_29.json",
+    "intl_detail_30.json",
+    "intl_detail_31.json",
+    "intl_detail_36.json",
+    "intl_detail_37.json",
+    "intl_detail_38.json",
+    "intl_detail_40.json",
+    "intl_detail_41.json",
+    "intl_detail_43.json",
+    "intl_detail_45.json",
+    "intl_detail_46.json",
+    "intl_detail_47.json",
+    "intl_detail_49.json",
+    "intl_detail_60.json",
+    "intl_detail_63.json",
+    "intl_detail_64.json",
+    "intl_detail_65.json",
+    "intl_detail_67.json",
+    "intl_detail_68.json",
+    "intl_detail_69.json",
+    "intl_detail_70.json",
+    "intl_detail_72.json",
+    "intl_detail_75.json",
+    "intl_detail_78.json",
+    "intl_detail_79.json",
+    "intl_detail_80.json",
+    "intl_detail_83.json",
+    "intl_detail_86.json",
+    "intl_detail_87.json",
+    "intl_detail_88.json",
+    "intl_detail_89.json",
+    "intl_detail_91.json",
+    "intl_detail_92.json",
+    "intl_detail_93.json",
+    "intl_detail_94.json",
+    "intl_detail_95.json",
+    "intl_detail_96.json",
+    "intl_detail_97.json",
+    "intl_detail_99.json",
+    "intl_detail_A.json",
+    "intl_detail_B.json",
+    "intl_detail_C.json",
+    "intl_detail_D.json",
+    "intl_detail_E.json",
+    "intl_detail_F.json",
+    "intl_detail_G.json",
+    "intl_detail_H.json",
+    "intl_detail_I.json",
+    "intl_detail_J.json",
+    "intl_detail_K.json",
+    "intl_detail_L.json",
+    "intl_detail_M.json",
+    "intl_detail_N.json",
+    "intl_detail_O.json",
+    "intl_detail_P.json",
+    "intl_detail_Q.json",
+    "intl_detail_R.json",
+    "intl_detail_S.json",
+    "intl_detail_T.json",
+    "intl_detail_U.json",
+    "intl_detail_V.json",
+    "intl_detail_W.json",
+    "intl_detail_X.json",
+    "intl_detail_Y.json",
+    "intl_detail_Z.json"
+   ],
+   "witness": "intl_fundamentals_index.json"
+  },
+  {
+   "id": "ipocal",
+   "script": "fetch_ipo_calendar.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "ipo_calendar_cache.json",
+    "ipo_live.js"
+   ],
+   "witness": "ipo_calendar_cache.json"
+  },
+  {
+   "id": "kalshi",
+   "script": "fetch_kalshi.py",
+   "args": [],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "kalshi_cache.js",
+    "kalshi_cache.json",
+    "kalshi_cache_light.json",
+    "kalshi_rules.json",
+    "kalshi_series.json"
+   ],
+   "witness": "kalshi_cache.json"
+  },
+  {
+   "id": "l1history",
+   "script": "fetch_l1_history.py",
+   "args": [
+    "--force",
+    "--daily"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "l1_history_cache.js",
+    "l1_history_cache.json",
+    "l1_valuation_cache.json"
+   ],
+   "witness": "l1_history_cache.json"
+  },
+  {
+   "id": "l1valuation",
+   "script": "fetch_l1_valuation.py",
+   "args": [],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "l1_valuation_cache.js",
+    "l1_valuation_cache.json"
+   ],
+   "witness": "l1_valuation_cache.json"
+  },
+  {
+   "id": "leveredetf",
+   "script": "fetch_levered_etf_volume.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "levered_etf_cache.js"
+   ],
+   "witness": "levered_etf_cache.js"
+  },
+  {
+   "id": "macro-corr",
+   "script": "fetch_macro_corr.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "macro_corr_cache.json",
+    "macro_fred_cache.js"
+   ],
+   "witness": "macro_corr_cache.json"
+  },
+  {
+   "id": "macrocal",
+   "script": "fetch_macro_calendar.py",
+   "args": [
+    "--auto"
+   ],
+   "schedule": "toutes les 0.17 h",
+   "per_day": 144.0,
+   "cadence": "5min",
+   "category": "public",
+   "outputs": [
+    "macro_cal_live.js",
+    "macro_calendar_cache.json"
+   ],
+   "witness": "macro_calendar_cache.json"
+  },
+  {
+   "id": "macrofred.refresh",
+   "script": "fetch_macro_fred_data.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "macro_fred_cache.js",
+    "macro_fred_cache.js",
+    "macro_indicators_cache.js",
+    "macro_indicators_cache.json"
+   ],
+   "witness": "macro_fred_cache.js"
+  },
+  {
+   "id": "macrotrends.refresh",
+   "script": "refresh_macro_trends.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "mag7hist",
+   "script": "fetch_mag7_hist.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "mag7_hist_cache.js",
+    "mag7_hist_cache.json"
+   ],
+   "witness": "mag7_hist_cache.json"
+  },
+  {
+   "id": "marketconcentration",
+   "script": "fetch_market_concentration.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "market_concentration_cache.js",
+    "market_concentration_cache.json"
+   ],
+   "witness": "market_concentration_cache.json"
+  },
+  {
+   "id": "modelesvalo.refresh",
+   "script": "refresh_modeles_valo.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "moneyflow",
+   "script": "fetch_moneyflow.py",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": "5min",
+   "category": "public",
+   "outputs": [
+    "crypto_ytd_cache.json",
+    "moneyflow_cache.js",
+    "moneyflow_cache.json"
+   ],
+   "witness": "moneyflow_cache.json"
+  },
+  {
+   "id": "narratives",
+   "script": "fetch_narratives.py",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "btc_longhist_cache.json",
+    "mode_crypto_live.js",
+    "narratives_cache.js",
+    "narratives_cache.json",
+    "narratives_history_cache.json",
+    "news_cache.json"
+   ],
+   "witness": "narratives_cache.json"
+  },
+  {
+   "id": "narrfund",
+   "script": "fetch_narratives_fundamentals.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "narratives_cache.json",
+    "narratives_fundamentals_cache.js",
+    "narratives_fundamentals_cache.js"
+   ],
+   "witness": "narratives_fundamentals_cache.js"
+  },
+  {
+   "id": "newlistings",
+   "script": "fetch_new_listings.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "new_listings_cache.js",
+    "new_listings_cache.json",
+    "stock_bubble_cache.js"
+   ],
+   "witness": "new_listings_cache.json"
+  },
+  {
+   "id": "news",
+   "script": "fetch_news.py",
+   "args": [],
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "cadence": "5min",
+   "category": "public",
+   "outputs": [
+    "news_cache.js",
+    "news_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "orderflow.funding",
+   "script": "fetch_loris_funding.py",
+   "args": [],
+   "schedule": "toutes les 10 min",
+   "per_day": 144.0,
+   "cadence": "10min",
+   "category": "public",
+   "outputs": [
+    "orderflow_funding_cache.js",
+    "orderflow_funding_cache.json",
+    "orderflow_funding_hist.js",
+    "orderflow_funding_hist_1d.json",
+    "orderflow_funding_hist_1h.json",
+    "orderflow_funding_hist_5m.json"
+   ],
+   "witness": "orderflow_funding_cache.json"
+  },
+  {
+   "id": "orderflow.oihist",
+   "script": "fetch_oi_history.py",
+   "args": [],
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "oi_hist_index.json"
+   ],
+   "witness": "oi_hist_index.json"
+  },
+  {
+   "id": "pehist",
+   "script": "fetch_pe_hist.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "pe_hist_cache.js",
+    "pe_hist_cache.js"
+   ],
+   "witness": "pe_hist_cache.js"
+  },
+  {
+   "id": "pehistglobal",
+   "script": "fetch_pe_hist_global.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "pe_hist_global_cache.js",
+    "pe_hist_global_cache.json"
+   ],
+   "witness": "pe_hist_global_cache.json"
+  },
+  {
+   "id": "perdata",
+   "script": "fetch_per_data.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "6 créneau(x)/jour",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "per_data_cache.js",
+    "per_data_cache.json"
+   ],
+   "witness": "per_data_cache.json"
+  },
+  {
+   "id": "portefeuille",
+   "script": "fetch_portefeuille_prices.py",
+   "args": [],
+   "schedule": "toutes les 2 h",
+   "per_day": 12.0,
+   "cadence": null,
+   "category": "perso",
+   "outputs": [
+    "history_cache.json",
+    "intraday_cache.json",
+    "portefeuille_cache.js",
+    "portefeuille_cache.json"
+   ],
+   "witness": "portefeuille_cache.json"
+  },
+  {
+   "id": "predmarkets",
+   "script": "fetch_prediction_markets.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "prediction_markets_cache.js",
+    "prediction_markets_cache.json",
+    "prediction_markets_cache_light.json"
+   ],
+   "witness": "prediction_markets_cache.json"
+  },
+  {
+   "id": "predmarkets_extras",
+   "script": "fetch_predmarkets_extras.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "platform_volume_hist.js",
+    "platform_volume_hist.json",
+    "prediction_markets_icons.js",
+    "prediction_markets_icons.json"
+   ],
+   "witness": "platform_volume_hist.json"
+  },
+  {
+   "id": "radardata",
+   "script": "fetch_radar_data.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "radar_cache.js",
+    "radar_cache.js"
+   ],
+   "witness": "radar_cache.js"
+  },
+  {
+   "id": "radarv3.refresh",
+   "script": "refresh_radar_v3_cache.sh",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "radar_v3_cache.js"
+   ],
+   "witness": "radar_v3_cache.js"
+  },
+  {
+   "id": "savoir",
+   "script": "",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "savoirbake",
+   "script": "bake_savoir.sh",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "secfunda",
+   "script": "fetch_sec_fundamentals.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "sec_fundamentals_index.js",
+    "sec_fundamentals_index.json",
+    "sec_detail_0.json",
+    "sec_detail_A.json",
+    "sec_detail_B.json",
+    "sec_detail_C.json",
+    "sec_detail_D.json",
+    "sec_detail_E.json",
+    "sec_detail_F.json",
+    "sec_detail_G.json",
+    "sec_detail_H.json",
+    "sec_detail_I.json",
+    "sec_detail_J.json",
+    "sec_detail_K.json",
+    "sec_detail_L.json",
+    "sec_detail_M.json",
+    "sec_detail_N.json",
+    "sec_detail_O.json",
+    "sec_detail_P.json",
+    "sec_detail_Q.json",
+    "sec_detail_R.json",
+    "sec_detail_S.json",
+    "sec_detail_T.json",
+    "sec_detail_U.json",
+    "sec_detail_V.json",
+    "sec_detail_W.json",
+    "sec_detail_X.json",
+    "sec_detail_Y.json",
+    "sec_detail_Z.json"
+   ],
+   "witness": "sec_fundamentals_index.json"
+  },
+  {
+   "id": "secinities",
+   "script": "fetch_sec_inities.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "sec_inities_cache.js",
+    "sec_inities_cache.json",
+    "sec_inities_vus.json"
+   ],
+   "witness": "sec_inities_cache.json"
+  },
+  {
+   "id": "secrachats",
+   "script": "fetch_sec_rachats.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "sec_rachats_cache.js",
+    "sec_rachats_cache.json"
+   ],
+   "witness": "sec_rachats_cache.json"
+  },
+  {
+   "id": "sentiment.fng",
+   "script": "refresh_sentiment_fng.sh",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "sentiment_index_live.js"
+   ],
+   "witness": "sentiment_index_live.js"
+  },
+  {
+   "id": "siteserver",
+   "script": "",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "snapshot",
+   "script": "snapshot_site.sh",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [
+    "xxx_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "souv_carte",
+   "script": "carte.sh",
+   "args": [],
+   "schedule": "1 créneau(x)/jour",
+   "per_day": 1.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "souv_grind",
+   "script": "grind.sh",
+   "args": [
+    "25"
+   ],
+   "schedule": "toutes les 1 h",
+   "per_day": 24.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "souv_links",
+   "script": "links_runner.py",
+   "args": [],
+   "schedule": "toutes les 6 h",
+   "per_day": 4.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "stockbubble",
+   "script": "fetch_stock_bubble.py",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": "10min",
+   "category": "public",
+   "outputs": [
+    "stock_bubble_cache.js",
+    "stock_bubble_cache.js",
+    "stock_ext_cn.js",
+    "stock_ext_cn.json",
+    "stock_ext_eu.js",
+    "stock_ext_eu.json",
+    "stock_ext_in.js",
+    "stock_ext_in.json",
+    "stock_ext_us.js",
+    "stock_ext_us.json",
+    "stock_history_cache.js",
+    "stock_history_cache.json"
+   ],
+   "witness": "stock_bubble_cache.js"
+  },
+  {
+   "id": "syncprod",
+   "script": "sync_prod_branch.sh",
+   "args": [],
+   "schedule": "toutes les 4 h",
+   "per_day": 6.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "syncthing",
+   "script": "",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "syncthing.watchdog",
+   "script": "syncthing_watchdog.sh",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "techdebt",
+   "script": "fetch_tech_debt.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "tech_debt_cache.json"
+   ],
+   "witness": "tech_debt_cache.json"
+  },
+  {
+   "id": "these_bitcoin.refresh",
+   "script": "fetch_these_bitcoin.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_bitcoin_cache.js",
+    "these_bitcoin_cache.json"
+   ],
+   "witness": "these_bitcoin_cache.json"
+  },
+  {
+   "id": "these_bulleia.refresh",
+   "script": "fetch_these_bulleia.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_bulleia_cache.js",
+    "these_bulleia_cache.json"
+   ],
+   "witness": "these_bulleia_cache.json"
+  },
+  {
+   "id": "these_dette.refresh",
+   "script": "fetch_these_dette.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_dette_cache.js",
+    "these_dette_cache.json"
+   ],
+   "witness": "these_dette_cache.json"
+  },
+  {
+   "id": "these_dollar.refresh",
+   "script": "fetch_these_dollar.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_dollar_cache.js",
+    "these_dollar_cache.json"
+   ],
+   "witness": "these_dollar_cache.json"
+  },
+  {
+   "id": "these_effondrement.refresh",
+   "script": "fetch_these_effondrement.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_effondrement_cache.js",
+    "these_effondrement_cache.json"
+   ],
+   "witness": "these_effondrement_cache.json"
+  },
+  {
+   "id": "these_energie.refresh",
+   "script": "fetch_these_energie.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_energie_cache.js",
+    "these_energie_cache.json"
+   ],
+   "witness": "these_energie_cache.json"
+  },
+  {
+   "id": "these_stagnation.refresh",
+   "script": "fetch_these_stagnation.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_stagnation_cache.js",
+    "these_stagnation_cache.json"
+   ],
+   "witness": "these_stagnation_cache.json"
+  },
+  {
+   "id": "these_web3.refresh",
+   "script": "fetch_these_web3.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "these_web3_cache.js",
+    "these_web3_cache.json"
+   ],
+   "witness": "these_web3_cache.json"
+  },
+  {
+   "id": "trackerstf",
+   "script": "fetch_trackers_tf.py",
+   "args": [],
+   "schedule": "toutes les 0.25 h",
+   "per_day": 96.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "narratives_cache.json",
+    "tradfi_cache.json"
+   ],
+   "witness": null
+  },
+  {
+   "id": "tradfi",
+   "script": "fetch_tradfi.py",
+   "args": [],
+   "schedule": "4 créneau(x)/jour",
+   "per_day": 4.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "mode_tradfi_live.js",
+    "news_cache.json",
+    "tradfi_cache.js",
+    "tradfi_cache.json",
+    "tradfi_fx_cache.json",
+    "tradfi_histories_cache.js",
+    "tradfi_history_cache.json",
+    "tradfi_logos_cache.js",
+    "tradfi_shares_history_cache.json",
+    "tradfi_top_cache.json"
+   ],
+   "witness": "tradfi_cache.json"
+  },
+  {
+   "id": "tradfi-growth",
+   "script": "fetch_tradfi_growth.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "tradfi_growth_cache.json"
+   ],
+   "witness": "tradfi_growth_cache.json"
+  },
+  {
+   "id": "tradfi.cot",
+   "script": "fetch_cftc_cot.py",
+   "args": [],
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "tradfi_cot_cache.js",
+    "tradfi_cot_cache.json"
+   ],
+   "witness": "tradfi_cot_cache.json"
+  },
+  {
+   "id": "tradfi.gamma",
+   "script": "fetch_cboe_gamma.py",
+   "args": [],
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "tradfi_gamma_cache.js",
+    "tradfi_gamma_cache.json",
+    "tradfi_gamma_hist.json"
+   ],
+   "witness": "tradfi_gamma_cache.json"
+  },
+  {
+   "id": "tradfi.short",
+   "script": "fetch_finra_short.py",
+   "args": [],
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "tradfi_short_cache.js",
+    "tradfi_short_cache.json"
+   ],
+   "witness": "tradfi_short_cache.json"
+  },
+  {
+   "id": "tradfi.vix",
+   "script": "fetch_cboe_vix.py",
+   "args": [],
+   "schedule": "1 fois/jour",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "tradfi_vix_cache.js",
+    "tradfi_vix_cache.json"
+   ],
+   "witness": "tradfi_vix_cache.json"
+  },
+  {
+   "id": "tradfiallocation.refresh",
+   "script": "fetch_tradfi_allocation.py",
+   "args": [],
+   "schedule": "toutes les 1.7e+02 h",
+   "per_day": 0.14,
+   "cadence": "weekly",
+   "category": "public",
+   "outputs": [],
+   "witness": null
+  },
+  {
+   "id": "tradficycle",
+   "script": "fetch_tradfi_cycle.py",
+   "args": [
+    "--force"
+   ],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "1h",
+   "category": "public",
+   "outputs": [
+    "tradfi_cycle_cache.js",
+    "tradfi_cycle_cache.json"
+   ],
+   "witness": "tradfi_cycle_cache.json"
+  },
+  {
+   "id": "tradfifund",
+   "script": "fetch_tradfi_fundamentals.py",
+   "args": [],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "tradfi_cache.json",
+    "tradfi_fundamentals_cache.js",
+    "tradfi_fundamentals_cache.js"
+   ],
+   "witness": "tradfi_fundamentals_cache.js"
+  },
+  {
+   "id": "tradfihist",
+   "script": "fetch_tradfi_hist.py",
+   "args": [
+    "--resume"
+   ],
+   "schedule": "2 créneau(x)/jour",
+   "per_day": 2.0,
+   "cadence": "6h",
+   "category": "public",
+   "outputs": [
+    "tradfi_fundamentals_cache.js",
+    "tradfi_hist_cache.js",
+    "tradfi_hist_cache.json"
+   ],
+   "witness": "tradfi_hist_cache.json"
+  },
+  {
+   "id": "treasury",
+   "script": "fetch_treasury_companies.py",
+   "args": [],
+   "schedule": "toutes les 0.5 h",
+   "per_day": 48.0,
+   "cadence": "10min",
+   "category": "public",
+   "outputs": [
+    "treasury_alert_live.js",
+    "treasury_alert_live.json",
+    "treasury_cache.js",
+    "treasury_cache.json",
+    "treasury_edgar_cache.json"
+   ],
+   "witness": "treasury_cache.json"
+  },
+  {
+   "id": "univers",
+   "script": "fetch_univers_actions.py",
+   "args": [],
+   "schedule": "toutes les 24 h",
+   "per_day": 1.0,
+   "cadence": "daily",
+   "category": "public",
+   "outputs": [
+    "univers_actions.json",
+    "univers_actions_light.json",
+    "univers_0.json",
+    "univers_00.json",
+    "univers_01.json",
+    "univers_02.json",
+    "univers_03.json",
+    "univers_04.json",
+    "univers_05.json",
+    "univers_06.json",
+    "univers_07.json",
+    "univers_08.json",
+    "univers_09.json",
+    "univers_10.json",
+    "univers_11.json",
+    "univers_12.json",
+    "univers_13.json",
+    "univers_14.json",
+    "univers_15.json",
+    "univers_16.json",
+    "univers_17.json",
+    "univers_18.json",
+    "univers_19.json",
+    "univers_20.json",
+    "univers_21.json",
+    "univers_22.json",
+    "univers_23.json",
+    "univers_24.json",
+    "univers_25.json",
+    "univers_26.json",
+    "univers_27.json",
+    "univers_28.json",
+    "univers_29.json",
+    "univers_30.json",
+    "univers_31.json",
+    "univers_32.json",
+    "univers_33.json",
+    "univers_34.json",
+    "univers_35.json",
+    "univers_36.json",
+    "univers_37.json",
+    "univers_38.json",
+    "univers_39.json",
+    "univers_40.json",
+    "univers_41.json",
+    "univers_42.json",
+    "univers_43.json",
+    "univers_44.json",
+    "univers_45.json",
+    "univers_46.json",
+    "univers_47.json",
+    "univers_48.json",
+    "univers_49.json",
+    "univers_50.json",
+    "univers_51.json",
+    "univers_52.json",
+    "univers_53.json",
+    "univers_54.json",
+    "univers_55.json",
+    "univers_56.json",
+    "univers_57.json",
+    "univers_58.json",
+    "univers_59.json",
+    "univers_60.json",
+    "univers_61.json",
+    "univers_62.json",
+    "univers_63.json",
+    "univers_64.json",
+    "univers_65.json",
+    "univers_66.json",
+    "univers_67.json",
+    "univers_68.json",
+    "univers_69.json",
+    "univers_70.json",
+    "univers_71.json",
+    "univers_72.json",
+    "univers_73.json",
+    "univers_74.json",
+    "univers_75.json",
+    "univers_76.json",
+    "univers_77.json",
+    "univers_78.json",
+    "univers_79.json",
+    "univers_80.json",
+    "univers_81.json",
+    "univers_82.json",
+    "univers_83.json",
+    "univers_84.json",
+    "univers_85.json",
+    "univers_86.json",
+    "univers_87.json",
+    "univers_88.json",
+    "univers_89.json",
+    "univers_90.json",
+    "univers_91.json",
+    "univers_92.json",
+    "univers_93.json",
+    "univers_94.json",
+    "univers_95.json",
+    "univers_96.json",
+    "univers_97.json",
+    "univers_98.json",
+    "univers_99.json",
+    "univers_A.json",
+    "univers_B.json",
+    "univers_C.json",
+    "univers_D.json",
+    "univers_E.json",
+    "univers_F.json",
+    "univers_G.json",
+    "univers_H.json",
+    "univers_I.json",
+    "univers_J.json",
+    "univers_K.json",
+    "univers_L.json",
+    "univers_M.json",
+    "univers_N.json",
+    "univers_O.json",
+    "univers_P.json",
+    "univers_Q.json",
+    "univers_R.json",
+    "univers_S.json",
+    "univers_T.json",
+    "univers_U.json",
+    "univers_V.json",
+    "univers_W.json",
+    "univers_X.json",
+    "univers_Y.json",
+    "univers_Z.json"
+   ],
+   "witness": "univers_actions_light.json"
+  },
+  {
+   "id": "volatility",
+   "script": "fetch_volatility_multiasset.py",
+   "args": [],
+   "schedule": "toutes les 12 h",
+   "per_day": 2.0,
+   "cadence": null,
+   "category": "public",
+   "outputs": [
+    "volatility_cache.js"
+   ],
+   "witness": null
+  },
+  {
+   "id": "wakekicker",
+   "script": "wake_kicker.py",
+   "args": [],
+   "schedule": "permanent",
+   "per_day": 0.0,
+   "cadence": null,
+   "category": "locale",
+   "outputs": [],
+   "witness": null
+  }
+ ]
 }

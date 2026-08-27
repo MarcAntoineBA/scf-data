@@ -243,6 +243,16 @@ def outputs_of(script_name, witness):
 # silencieusement — le fichier ne connaît que ce que les plists racontent, et ces
 # collecteurs-là ne racontent rien à personne. Toute nouveauté vient donc ici.
 SANS_PLIST = [
+    # Un fichier par actif — cinq cent vingt-cinq sorties. Elles ne sont PAS listees
+    # ici : `outputs` sert a dater la fraicheur et a temoigner qu un passage a abouti,
+    # et cinq cents lignes rendraient ce registre illisible pour zero information
+    # supplementaire. C est `cache_manifest.txt` qui decide de ce qui se publie, et
+    # c est la que les cinq cent vingt-cinq noms vivent.
+    dict(id="orderflow.oihist", script="fetch_oi_history.py", args=[],
+         schedule="1 fois/jour", per_day=1.0, cadence="daily",
+         category="public",
+         outputs=["oi_hist_index.json"],
+         witness="oi_hist_index.json"),
     dict(id="orderflow.funding", script="fetch_loris_funding.py", args=[],
          schedule="toutes les 10 min", per_day=144.0, cadence="10min",
          category="public",

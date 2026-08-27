@@ -389,7 +389,10 @@ def traiter(sym, budget_recul, hier, pool):
         "unite": "open interest notionnel en dollars = oi[i] × k",
         "src": "data.binance.vision futures/um/daily/metrics (pas 5 min, "
                "heure T = relevé de T−5 min)",
-        "maj": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # `updated` et non un nom maison : c est le vocabulaire que lit
+        # index_fraicheur, et lui seul evite que ce fichier soit date de sa
+        # COPIE plutot que de sa collecte.
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     ecrire_atomique(chemin(sym), obj)
     return sym, len(jours_a_prendre), obj, "ok"
@@ -488,7 +491,7 @@ def main():
     index.sort(key=lambda x: -x["n"])
     profond = max((x["n"] for x in index), default=0)
     ecrire_atomique(INDEX, {
-        "maj": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "pas": HEURE,
         "n_actifs": len(index),
         "n_complets": sum(1 for x in index if x["complet"]),
