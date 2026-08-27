@@ -496,6 +496,92 @@ def _altman_z(cur, mcap_usd):
 TAUX_SANS_RISQUE = 4.2      # % — rendement du 10 ans américain, relevé le 2026-08-27
 PRIME_DE_RISQUE = 5.2       # % — prime actions de long terme, convention Damodaran
 
+
+# ─────────────────────────────────────────────────────────────────────────
+# Le taux d'imposition : celui qu'on affiche, et celui qui sert à calculer
+# ─────────────────────────────────────────────────────────────────────────
+def _taux_impot_reel(tax, pretax):
+    """Le taux effectivement payé cette année-là. None quand il n'a aucun sens.
+
+    Pas de borne, pas de valeur de remplacement : une société en perte, une
+    société qui encaisse un crédit d'impôt, une foncière exonérée ont un taux
+    négatif, nul ou supérieur à cent pour cent, et c'est un fait à montrer.
+    """
+    if tax is None or pretax is None or pretax == 0:
+        return None
+    return round(100.0 * tax / pretax, 1)
+
+
+def _taux_pour_nopat(tax, pretax):
+    """Le taux BORNÉ qui sert au résultat opérationnel après impôt.
+
+    Rend (taux entre 0 et 1, la borne a-t-elle joué). Sans borne, un crédit
+    d'impôt exceptionnel produirait un résultat après impôt supérieur au
+    résultat avant impôt, et un rendement du capital investi qui n'existe pas.
+    Vingt et un pour cent est le taux fédéral américain : c'est un choix, pas
+    une mesure, et le drapeau le dit.
+    """
+    if tax is None or pretax is None or pretax == 0:
+        return 0.21, True
+    t = tax / pretax
+    if not (0.0 <= t <= 0.5):
+        return 0.21, True
+    return t, False
+
+
+def _charge(v):
+    """Une charge est une charge : on la stocke en valeur absolue.
+
+    Les deux sources ne s'accordent pas sur le signe de la charge d'intérêts —
+    351 valeurs négatives sur 352 d'un côté, 1 sur 223 de l'autre. Toute garde
+    du type `interest_expense > 0` vide alors un ratio pour quatre cinquièmes
+    d'un univers, sans que rien ne le signale.
+    """
+    return abs(v) if isinstance(v, (int, float)) else v
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Contrôle d'unité sur le nombre d'actions
+# ─────────────────────────────────────────────────────────────────────────
+def _corriger_unite_actions(exercices):
+    """Rattrape un nombre d'actions exprimé dans la mauvaise unité.
+
+    McDonald's portait 716,4 actions en circulation là où il en faut 716,4
+    millions. Le facteur traverse tout : capitalisation, valeur d'entreprise,
+    coût du capital, toutes les grandeurs par action.
+
+    Le contrôle ne demande aucune source extérieure — le bénéfice par action
+    multiplié par le nombre d'actions doit rendre le résultat net :
+
+        actions_impliquees = net_income / eps_diluted
+
+    Quand le rapport entre les deux est une PUISSANCE DE MILLE, c'est une unité,
+    pas un écart comptable : on corrige. Sinon on ne touche à rien — un écart de
+    quelques pour cent vient des actions de préférence, et il est normal.
+
+    Rend la liste des corrections, pour qu'elles restent affichables.
+    """
+    corrections = []
+    for e in exercices:
+        act = e.get("shares_diluted")
+        ni = e.get("net_income")
+        eps = e.get("eps_diluted")
+        if not act or not ni or not eps or eps == 0:
+            continue
+        implique = ni / eps
+        if implique <= 0 or act <= 0:
+            continue
+        r = implique / act
+        for facteur in (1000.0, 1000000.0, 1000000000.0):
+            # 15 % de tolérance : l'écart résiduel vient des préférentielles.
+            if abs(r - facteur) / facteur < 0.15:
+                for cle in ("shares_diluted", "shares_basic"):
+                    if e.get(cle):
+                        e[cle] = e[cle] * facteur
+                corrections.append({"annee": e.get("annee"), "facteur": int(facteur)})
+                break
+    return corrections
+
 def _wacc(mcap_usd, dette, interets, taux_impot_pct, beta):
     """Le WACC d'un exercice, ou None si l'un des termes manque.
 

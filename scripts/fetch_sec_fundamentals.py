@@ -307,6 +307,7 @@ from fondamentaux_communs import (          # noqa: E402
     _FACTEURS_USUELS, _facteur_division, _corriger_divisions,
     _piotroski, _altman_z,
     TAUX_SANS_RISQUE, PRIME_DE_RISQUE, _wacc,
+    _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
 
@@ -487,10 +488,17 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # taux légal théorique : c'est ce qui distingue une société qui optimise
         # d'une société qui subit. Borné à [0 ; 50 %] pour qu'un crédit d'impôt
         # exceptionnel ne fabrique pas un résultat après impôt supérieur au brut.
-        taux = _div(e["tax"], e["pretax"])
-        if taux is None or not (0 <= taux <= 0.5):
-            taux = 0.21
-        e["taux_impot"] = round(taux * 100, 1)
+        # DEUX taux, et c'est le fond du correctif. Celui qu'on AFFICHE est le
+        # taux réellement payé, sans borne et vide quand il n'a pas de sens.
+        # Celui qui CALCULE le résultat après impôt est borné, faute de quoi un
+        # crédit d'impôt exceptionnel produirait un résultat après impôt
+        # supérieur au résultat avant impôt. Les confondre revenait à publier
+        # 21 % pour des sociétés qui ne l'ont jamais payé — un cinquième de
+        # l'univers américain, un septième de l'international.
+        e["taux_impot"] = _taux_impot_reel(e["tax"], e["pretax"])
+        taux, borne = _taux_pour_nopat(e["tax"], e["pretax"])
+        e["_taux_nopat"] = round(taux * 100, 1)
+        e["_taux_nopat_borne"] = borne
         e["nopat"] = e["operating_income"] * (1 - taux) if e["operating_income"] is not None else None
 
         # Bases de capital, à la CLÔTURE. Les rendements sont calculés plus bas
@@ -521,7 +529,21 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         e["depose_le"] = src[2] if src else None
         exercices.append(e)
 
-    # Les divisions d'action d'abord : tout ce qui suit se calcule « par action »
+    # Deux redressements AVANT tout calcul, dans cet ordre.
+    #
+    # Le signe des charges d'intérêts d'abord : les deux sources ne s'accordent
+    # pas, et une garde du type `interest_expense > 0` vide alors la couverture
+    # des intérêts pour quatre cinquièmes d'un univers sans rien signaler.
+    for _e in exercices:
+        _e["interest_expense"] = _charge(_e.get("interest_expense"))
+
+    # L'unité du nombre d'actions ensuite : McDonald's portait 716,4 actions là
+    # où il en faut 716,4 millions. Ce facteur traverse la capitalisation, la
+    # valeur d'entreprise, le coût du capital et toutes les grandeurs par
+    # action — le corriger après serait le corriger nulle part.
+    unites_actions = _corriger_unite_actions(exercices)
+
+    # Les divisions d'action enfin : tout ce qui suit se calcule « par action »
     # et serait faux sur une série non recousue.
     divisions = _corriger_divisions(exercices)
 
@@ -581,7 +603,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
             mc = mcap_usd          # dernier exercice : la capitalisation du jour
         e["mcap_estime"] = round(mc) if mc else None
         e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
-                          e.get("taux_impot"), beta)
+                          e.get("_taux_nopat"), beta)
         # L'écart entre ce que le capital rapporte et ce qu'il coûte : la seule
         # question qui décide si la croissance crée ou détruit de la valeur.
         e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
@@ -719,6 +741,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # Les divisions détectées sont RENDUES, pas seulement appliquées : une
         # correction muette est une correction qu'on ne peut pas contester.
         "divisions_action": divisions,
+        "unites_actions_corrigees": unites_actions,
     }
 
     # La note se calcule EN DERNIER : elle lit le résumé qu'on vient de bâtir.

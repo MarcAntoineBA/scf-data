@@ -1,0 +1,118 @@
+valorisation     prix                   montant neutre      OK 
+valorisation     capitalisation         montant neutre      OK 
+valorisation     ev                     montant neutre      OK 
+valorisation     pe                     x      bas_mieux   OK 
+valorisation     eps_yield              pct    haut_mieux  OK 
+valorisation     peg                    x      bas_mieux   OK 
+valorisation     p_fcf                  x      bas_mieux   OK 
+valorisation     fcf_yield              pct    haut_mieux  OK 
+valorisation     pfg                    x      bas_mieux   OK 
+valorisation     p_ocf                  x      bas_mieux   OK 
+valorisation     ocf_yield              pct    haut_mieux  OK 
+valorisation     pog                    x      bas_mieux   OK 
+valorisation     p_s                    x      bas_mieux   OK 
+valorisation     sales_yield            pct    haut_mieux  OK 
+valorisation     psg                    x      bas_mieux   OK 
+valorisation     p_b                    x      bas_mieux   OK 
+valorisation     ev_ebit                x      bas_mieux   OK 
+valorisation     ebit_ev_yield          pct    haut_mieux  OK 
+valorisation     ev_sales               x      bas_mieux   OK 
+valorisation     ev_ebitda              x      bas_mieux   OK 
+valorisation     ev_ocf                 x      bas_mieux   OK 
+valorisation     ev_fcf                 x      bas_mieux   OK 
+estimee_dividende forward_pe             x      bas_mieux   MANQUE eps_consensus_n1. AUCUN concept XBRL US-GAAP : une prevision
+estimee_dividende forward_eps_yield      pct    haut_mieux  MANQUE eps_consensus_n1, meme source et meme absence de concept XBR
+estimee_dividende forward_ps             x      bas_mieux   MANQUE revenue_consensus_n1. Pas de concept XBRL. Meme endpoint, ch
+estimee_dividende forward_sales_yield    pct    haut_mieux  MANQUE revenue_consensus_n1, meme source et meme absence de concept
+estimee_dividende dividende_par_action   montant neutre      OK 
+estimee_dividende payout_dividende       pct    bas_mieux   OK 
+estimee_dividende rendement_dividende    pct    haut_mieux  OK 
+estimee_dividende rendement_rachats      pct    haut_mieux  OK 
+estimee_dividende rendement_rachats_net  pct    haut_mieux  OK 
+estimee_dividende rendement_desendettement pct    haut_mieux  OK 
+estimee_dividende rendement_actionnaire  pct    haut_mieux  OK 
+estimee_dividende payout_benefices       pct    bas_mieux   OK 
+estimee_dividende payout_fcf             pct    bas_mieux   OK 
+estimee_dividende payout_actionnaire_benefices pct    neutre      OK 
+estimee_dividende payout_actionnaire_fcf pct    neutre      OK 
+marges           marge_brute            pct    haut_mieux  OK 
+marges           marge_ebit             pct    haut_mieux  OK 
+marges           marge_ebitda           pct    haut_mieux  OK 
+marges           marge_ope              pct    haut_mieux  OK 
+marges           marge_pretax           pct    haut_mieux  OK 
+marges           marge_ops_continues    pct    haut_mieux  OK 
+marges           marge_nette            pct    haut_mieux  OK 
+marges           marge_finale           pct    haut_mieux  MANQUE net_income_commun — concept XBRL US-GAAP : NetIncomeLossAvai
+marges           marge_fcf              pct    haut_mieux  OK 
+marges           marge_fcf_sbc          pct    haut_mieux  OK 
+marges           wacc                   pct    neutre      OK 
+retours          working_capital        montant neutre      OK 
+retours          invested_capital       montant neutre      OK 
+retours          roa                    pct    haut_mieux  OK 
+retours          oroa                   pct    haut_mieux  OK 
+retours          rota                   pct    haut_mieux  MANQUE intangibles — les immobilisations incorporelles HORS goodwil
+retours          roe                    pct    haut_mieux  OK 
+retours          roic                   pct    haut_mieux  OK 
+retours          roce                   pct    haut_mieux  OK 
+retours          roiic                  pct    haut_mieux  OK 
+retours          fcf_roc                pct    haut_mieux  OK 
+efficacite       capex_ocf              pct    bas_mieux   OK 
+efficacite       capex_dep              x      neutre      OK 
+efficacite       capex_ca               pct    bas_mieux   OK 
+efficacite       sga_ca                 pct    bas_mieux   OK 
+efficacite       rd_ca                  pct    neutre      OK 
+efficacite       sbc_ca                 pct    bas_mieux   OK 
+efficacite       incorporels_actifs     pct    bas_mieux   MANQUE Le champ intangibles n'existe pas. À collecter : IntangibleA
+efficacite       goodwill_actifs        pct    bas_mieux   OK 
+efficacite       dso                    jours  bas_mieux   MANQUE Le champ creances n'existe pas. À collecter : AccountsReceiv
+efficacite       dpo                    jours  haut_mieux  MANQUE Le champ dettes_fournisseurs n'existe pas. À collecter : Acc
+efficacite       dio                    jours  bas_mieux   OK 
+efficacite       cycle_exploitation     jours  bas_mieux   MANQUE Bloqué par le seul champ creances → AccountsReceivableNetCur
+efficacite       cycle_conversion       jours  bas_mieux   MANQUE Bloqué par DEUX champs : creances (AccountsReceivableNetCurr
+efficacite       creances_moyennes      montant neutre      MANQUE Le champ creances n'existe pas → AccountsReceivableNetCurren
+efficacite       dettes_fourn_moyennes  montant neutre      MANQUE Le champ dettes_fournisseurs n'existe pas → AccountsPayableC
+efficacite       stocks_moyens          montant neutre      OK 
+efficacite       rot_creances           x      haut_mieux  MANQUE Le champ creances n'existe pas → AccountsReceivableNetCurren
+efficacite       rot_dettes_fourn       x      bas_mieux   MANQUE Le champ dettes_fournisseurs n'existe pas → AccountsPayableC
+efficacite       rot_stocks             x      haut_mieux  OK 
+efficacite       rot_actifs_fixes       x      haut_mieux  MANQUE Le champ ppe_net n'existe pas → PropertyPlantAndEquipmentNet
+efficacite       rot_actifs             x      haut_mieux  OK 
+efficacite       rot_bfr                x      haut_mieux  OK 
+efficacite       ocf_dettes_ct          x      haut_mieux  OK 
+efficacite       ocf_ca                 pct    haut_mieux  OK 
+efficacite       fcf_ocf                pct    haut_mieux  OK 
+efficacite       rd_ocf                 pct    neutre      OK 
+efficacite       sbc_fcf                pct    bas_mieux   OK 
+efficacite       marketing_ocf          pct    bas_mieux   OK 
+par_action       revenue_action         montant haut_mieux  OK 
+par_action       eps                    montant haut_mieux  OK 
+par_action       dette_interet_action   montant bas_mieux   OK 
+par_action       tresorerie_action      montant neutre      OK 
+par_action       bvps                   montant haut_mieux  OK 
+par_action       tbvps                  montant haut_mieux  MANQUE intangibles_hors_goodwill — concept XBRL US-GAAP IntangibleA
+par_action       ocf_action             montant haut_mieux  OK 
+par_action       capex_action           montant neutre      OK 
+par_action       fcf_action             montant haut_mieux  OK 
+autres           income_quality         x      haut_mieux  OK 
+autres           tax_burden             x      neutre      OK 
+autres           net_income_ebt         x      neutre      OK 
+autres           interest_burden        x      neutre      OK 
+autres           ebt_ebit               x      neutre      OK 
+autres           effective_tax_rate     pct    bas_mieux   OK 
+autres           graham_number          montant haut_mieux  OK 
+autres           graham_marge_securite  pct    haut_mieux  OK 
+autres           graham_net_net         montant haut_mieux  MANQUE creances_clients — concept XBRL US-GAAP : AccountsReceivable
+autres           net_current_asset_value montant haut_mieux  OK 
+autres           ncav_sur_cours         pct    haut_mieux  OK 
+autres           tangible_asset_value   montant haut_mieux  MANQUE immobilisations incorporelles hors goodwill — concept XBRL U
+autres           tangible_book_majorant montant haut_mieux  OK 
+autres           fcf_equity             montant haut_mieux  OK 
+autres           fcf_firm               montant haut_mieux  OK 
+autres           fcf_yield_equity       pct    haut_mieux  OK 
+autres           fcf_yield_firm         pct    haut_mieux  OK 
+autres           rotation_actif         x      haut_mieux  OK 
+autres           levier_financier       x      neutre      OK 
+autres           dupont_roe             pct    haut_mieux  OK 
+autres           dupont_roe_3f          pct    haut_mieux  OK 
+autres           predictibilite_ca      nombre haut_mieux  OK 
+autres           linearite_cours        nombre haut_mieux  OK 

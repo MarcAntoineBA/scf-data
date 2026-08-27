@@ -82,6 +82,7 @@ from fondamentaux_communs import (          # noqa: E402
     _mediane, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
+    _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
 CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
@@ -373,10 +374,17 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         e["marge_nette"] = _pct(e["net_income"], e["revenue"])
         e["marge_fcf"] = _pct(e["fcf"], e["revenue"])
 
-        taux = _div(e["tax"], e["pretax"])
-        if taux is None or not (0 <= taux <= 0.5):
-            taux = 0.21
-        e["taux_impot"] = round(taux * 100, 1)
+        # DEUX taux, et c'est le fond du correctif. Celui qu'on AFFICHE est le
+        # taux réellement payé, sans borne et vide quand il n'a pas de sens.
+        # Celui qui CALCULE le résultat après impôt est borné, faute de quoi un
+        # crédit d'impôt exceptionnel produirait un résultat après impôt
+        # supérieur au résultat avant impôt. Les confondre revenait à publier
+        # 21 % pour des sociétés qui ne l'ont jamais payé — un cinquième de
+        # l'univers américain, un septième de l'international.
+        e["taux_impot"] = _taux_impot_reel(e["tax"], e["pretax"])
+        taux, borne = _taux_pour_nopat(e["tax"], e["pretax"])
+        e["_taux_nopat"] = round(taux * 100, 1)
+        e["_taux_nopat_borne"] = borne
         e["nopat"] = e["operating_income"] * (1 - taux) if e["operating_income"] is not None else None
         e["_capital_investi"] = (e["equity"] + dette - (liq or 0)) \
             if (e["equity"] is not None and dette is not None) else None
@@ -397,6 +405,15 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         e["payout_fcf"] = _pct(e["dividends_paid"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
         e["retour_actionnaire"] = ((e["dividends_paid"] or 0) + (e["buybacks"] or 0)) \
             if (e["dividends_paid"] is not None or e["buybacks"] is not None) else None
+
+    # Le signe des charges d'intérêts : 351 valeurs négatives sur 352 de ce
+    # côté-ci contre 1 sur 223 côté SEC. Sans ce redressement, la garde
+    # `interest_expense > 0` de la couverture des intérêts vide ce ratio pour
+    # 80,7 % de l'univers international, LVMH compris.
+    for _e in exercices:
+        _e["interest_expense"] = _charge(_e.get("interest_expense"))
+
+    unites_actions = _corriger_unite_actions(exercices)
 
     # La source rétro-ajuste déjà les divisions d'action sur tous les exercices.
     # On lance quand même la recouture : elle ne trouvera rien (aucun saut), et
@@ -445,7 +462,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
             mc = _en_devise_etats(mcap_usd, None, fx_dev, devise)
         e["mcap_estime"] = round(mc) if mc else None
         e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
-                          e.get("taux_impot"), beta)
+                          e.get("_taux_nopat"), beta)
         e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
                                 if (e.get("roic") is not None and e.get("wacc") is not None) else None)
 
@@ -507,6 +524,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         "altman_z": altman, "altman_detail": altman_detail,
         "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
         "divisions_action": divisions,
+        "unites_actions_corrigees": unites_actions,
     }
     resume["note_q"] = note_quantitative(resume)
 
