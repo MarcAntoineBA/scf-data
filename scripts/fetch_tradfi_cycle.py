@@ -59,6 +59,8 @@ WB_PINKSHEET_URLS = [
     "https://www.worldbank.org/content/dam/sites/commodity-markets/data/CMO-Historical-Data-Monthly.xlsx",
 ]
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) CapitalAntifragile/1.0"}
+# Livres par tonne metrique : le Pink Sheet cote le cuivre en $/tonne, Yahoo HG=F en $/livre.
+LB_PER_MT = 2204.62262
 
 COL = {"red": "#ff5570", "orange": "#f5a623", "green": "#28e07e", "bottom": "#1ec5ff"}
 
@@ -132,8 +134,14 @@ def worldbank_monthly():
                         out[key][ym] = fv
                 except (TypeError, ValueError):
                     pass
+        # Unites Pink Sheet : or & argent en $/once troy (identique a Yahoo), mais le cuivre
+        # est en $/tonne. On le ramene en $/livre — unite des futures COMEX HG=F — sans quoi le
+        # raccord Yahoo (splice) cree une marche de x2205 : le rendement du mois de jonction
+        # tombe a -99,9 % (saisonnalite faussee) et le ratio Cuivre/Or serait hors d'echelle.
+        for k in list(out["copper"]):
+            out["copper"][k] /= LB_PER_MT
         n = {k: len(v) for k, v in out.items()}
-        log(f"WorldBank Pink Sheet : or {n['gold']} · argent {n['silver']} · cuivre {n['copper']}")
+        log(f"WorldBank Pink Sheet : or {n['gold']} · argent {n['silver']} · cuivre {n['copper']} ($/lb)")
         if n["silver"] < 300 or n["copper"] < 300:
             return {}
         return out
@@ -524,6 +532,25 @@ def build():
     gold_nom_series += to_series_d(gold_d)
     gold_nom_series.sort(key=lambda r: r[0])
 
+    # Cuivre / Or : même montage que l'or nominal — mensuel World Bank Pink Sheet (cuivre
+    # $/lb ÷ or $/oz) jusqu'au premier mois daily, puis futures Yahoo quotidiens 2000+.
+    # Départ 1968 et pas 1960 : jusqu'en mars 1968 l'or est GELÉ à $35 par le pool de Londres,
+    # le « ratio » ne mesurerait donc que le cuivre et son maximum apparent serait un artefact
+    # de l'étalon-or. À partir du marché libre de 1968, les deux jambes cotent vraiment.
+    # Raccord mesuré : écart LME mensuel vs COMEX daily de 0,5 à 4 % sur 2000-2024 — invisible
+    # sur une échelle log qui couvre un facteur 15.
+    CG_DISPLAY_START = "1968-01"
+    copper_gold_m = ratio(copper_m, gold_m)
+    # Coupure au JOUR et pas au mois : un seuil au mois laissait deux points d'écart
+    # (dernier mensuel au 1er juillet, premier daily le 30 août). On garde tout mensuel
+    # strictement antérieur au premier point quotidien — ni trou, ni horodatage en double.
+    cg_cut = ymd_to_unix(min(copper_gold)) if copper_gold else ym_to_unix("2000-08")
+    cg_series = [[ym_to_unix(k), round(copper_gold_m[k], 6)] for k in sorted(copper_gold_m)
+                 if k >= CG_DISPLAY_START and ym_to_unix(k) < cg_cut]
+    cg_series += to_series_d(copper_gold)
+    cg_series.sort(key=lambda r: r[0])
+    log(f"cuivre/or : {len(cg_series)} pts · mensuel depuis {CG_DISPLAY_START} puis daily depuis {min(copper_gold) if copper_gold else '—'}")
+
     payload = {
         "meta": {
             "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
@@ -533,10 +560,11 @@ def build():
                 "gold": "Prix officiels US (étalon-or $19.39/$20.67 pré-1934) + datahub/LBMA (1934+) + Yahoo GC=F daily (2000+)",
                 "sp500_cpi": "datahub.io Shiller S&P 500 (1871+) + Yahoo ^GSPC live",
                 "commodities": "FRED PPIACO (1913+)", "deflator": "Shiller CPI + FRED CPIAUCNS",
-                "silver_copper": "Yahoo SI=F / HG=F daily (2000+)",
+                "silver_copper": "World Bank Pink Sheet mensuel (1960+, cuivre converti $/t → $/lb) + Yahoo SI=F / HG=F daily (2000+)",
             },
             "coverage_note": "S&P/Or = 1871+ · MP/Actions & MP réel = 1913+ · "
-                             "Or nominal & Or/Argent & Cuivre/Or = daily 2000+ (futures Yahoo).",
+                             "Or nominal & Or/Argent = daily 2000+ (futures Yahoo) · "
+                             "Cuivre/Or = mensuel 1968+ (World Bank) puis daily 2000+.",
             "palette": COL,
         },
         "composite": composite,
@@ -547,7 +575,7 @@ def build():
             "comm_real": to_series(comm_real),
             "gold_nominal": gold_nom_series,
             "gold_silver": to_series_d(gold_silver),
-            "copper_gold": to_series_d(copper_gold),
+            "copper_gold": cg_series,
             "sp500": to_series(sp),
             "gold": to_series(gold_m),
         },
