@@ -1,0 +1,764 @@
+#!/usr/bin/env python3
+"""États financiers des sociétés cotées HORS États-Unis.
+
+POURQUOI CE SECOND COLLECTEUR
+Le collecteur SEC couvre 315 sociétés américaines sur les 800 suivies. LVMH,
+Toyota, ASML, Nestlé, Reliance, Samsung, Tencent n'y sont pas : elles ne déposent
+pas auprès de la SEC. Une fiche société qui marche pour Apple et pas pour L'Oréal
+ne vaut rien. Ce collecteur ramène les 444 autres.
+
+LA SOURCE, ET POURQUOI ELLE PLUTÔT QU'UNE AUTRE
+`stockanalysis.com` sert ses pages d'états financiers en JSON, gratuitement, sans
+clé et sans compte. Mesuré le 2026-08-27 sur l'univers réel :
+  · 430 sociétés sur 444 répondent — 96,8 %, toutes places confondues ;
+  · 5 exercices par société, uniformément (le site en détient dix, `full_count`
+    le dit, mais n'en sert que cinq à un visiteur anonyme) ;
+  · 40 à 48 lignes de compte de résultat, 57 à 65 de bilan, 39 à 46 de flux ;
+  · 80 requêtes en rafale sans une seule limitation, ~7 minutes pour tout.
+
+yfinance a été mesuré en face : 4 exercices exploitables seulement, dividende par
+action irrécupérable (trois sources internes qui se contredisent), R&D absente
+pour les groupes japonais et chinois qui la publient pourtant, et trois cas où la
+devise des états diffère de celle de la cotation. Écarté comme source principale.
+
+CONTRÔLE DE JUSTESSE, contre une référence indépendante : ASML dépose aussi
+auprès de la SEC (formulaire 20-F). Chiffre d'affaires, résultat net, marge
+brute, total du bilan et capitaux propres sont IDENTIQUES AU CENTIME sur les cinq
+exercices comparés. Une seule divergence, le résultat d'exploitation 2021 à
+−3,2 % : c'est une ligne RETRAITÉE par le fournisseur de la source. D'où la règle
+ci-dessous.
+
+CE QU'IL FAUT SAVOIR AVANT DE LIRE CES CHIFFRES, et qui est écrit dans la sortie
+  · CINQ EXERCICES contre dix-neuf pour la SEC. L'asymétrie est réelle, la fiche
+    doit l'assumer plutôt que la masquer.
+  · LES MONTANTS SONT EN DEVISE NATIVE, jamais convertis. Convertir un bilan de
+    2021 au cours d'aujourd'hui produirait un nombre qui n'a jamais existé.
+    Les marges, rendements et croissances, eux, ne dépendent pas de la devise —
+    c'est l'essentiel de ce que la fiche montre.
+  · LA SOURCE N'EST PAS PRIMAIRE. Les données viennent de S&P Global Market
+    Intelligence, revendues par le site. Les lignes « dures » (chiffre
+    d'affaires, résultat net, actif, capitaux propres) sont les comptes publiés ;
+    les lignes « composées » (résultat d'exploitation, EBITDA) sont des
+    retraitements du fournisseur. On garde le lien vers la page à chaque fois.
+  · LES DIVISIONS D'ACTION SONT DÉJÀ RÉTRO-AJUSTÉES par la source, sur tous les
+    exercices. Les bénéfices par action divergent donc des rapports annuels
+    publiés à l'époque. C'est cohérent en interne, et c'est signalé.
+
+LE PIÈGE QUI A ÉTÉ TROUVÉ EN CHEMIN, et qui touche le dépôt aujourd'hui :
+`fetch_tradfi_hist.py` interroge la route `/financials/` pour l'international.
+Cette route n'est PLUS le compte de résultat — c'est devenue une page de synthèse
+où `financialData` vaut −1. Le garde-fou de schéma se déclenche donc pour TOUTES
+les sociétés internationales, et le script se rabat en silence sur son cache
+figé. Le compte de résultat a déménagé sur `/financials/income-statement/`.
+"""
+import signal as _signal, sys as _sys
+def _global_timeout_handler(signum, frame):
+    print("[fatal] délai global (25 min) atteint — abandon.", file=_sys.stderr)
+    _sys.exit(2)
+try:
+    _signal.signal(_signal.SIGALRM, _global_timeout_handler)
+    _signal.alarm(25 * 60)
+except Exception:
+    pass
+
+import json
+import os
+import sys
+import time
+import gzip
+import math
+import urllib.request
+import urllib.error
+import urllib.parse
+from pathlib import Path
+from datetime import datetime, timezone
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from fondamentaux_communs import (          # noqa: E402
+    _div, _pct, _r,
+    note_quantitative,
+    _mediane, _croissances, _predictibilite,
+    _serie_sans_baisse_dividende, _serie_hausses_dividende,
+    _corriger_divisions, _piotroski, _altman_z, _wacc,
+)
+
+CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+OUT_DIR = CACHE_DIR
+OUT_JSON = CACHE_DIR / "intl_fundamentals_index.json"
+OUT_JS = CACHE_DIR / "intl_fundamentals_index.js"
+TRACKER_CACHE = CACHE_DIR / "tradfi_cache.json"
+
+BASE = "https://stockanalysis.com"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " \
+     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+# Aucune limitation constatée à 4 requêtes par seconde sur 80 essais. On reste
+# nettement en dessous : la source est gratuite et ne nous doit rien.
+DEBIT = 0.35
+TIMEOUT = 25
+RETRIES = 3
+_last = [0.0]
+
+
+def _get(url, accept_404=True):
+    for essai in range(RETRIES):
+        d = time.time() - _last[0]
+        if d < DEBIT:
+            time.sleep(DEBIT - d)
+        _last[0] = time.time()
+        req = urllib.request.Request(url, headers={
+            "User-Agent": UA, "Accept-Encoding": "gzip",
+            "Accept": "application/json,text/plain,*/*",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+                return json.loads(raw)
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 403, 410):
+                return None            # la page n'existe pas, insister ne sert à rien
+            if essai == RETRIES - 1:
+                return None
+            time.sleep(1.2 * (essai + 1))
+        except Exception:
+            if essai == RETRIES - 1:
+                return None
+            time.sleep(1.2 * (essai + 1))
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Correspondance suffixe de cotation → code de place du site
+# ─────────────────────────────────────────────────────────────────────────
+# Reprise de fetch_tradfi_hist.py, avec TROIS corrections vérifiées une par une
+# le 2026-08-27 : « ose » ne désigne pas Oslo (c'est « osl » — Equinor rendait
+# zéro période), « set » ne désigne pas Bangkok (c'est « bkk » — PTT idem), et
+# Dubaï manquait entièrement.
+PLACES = {
+    "L": "lon", "HK": "hkg", "PA": "epa", "DE": "etr", "SW": "swx", "MC": "bme",
+    "MI": "bit", "AS": "ams", "BR": "ebr", "HE": "hel", "CO": "cph", "OL": "osl",
+    "ST": "sto", "TO": "tsx", "V": "tsxv", "T": "tyo", "KS": "krx", "KQ": "krx",
+    "TW": "tpe", "TWO": "tpe", "NS": "nse", "BO": "bom", "SI": "sgx", "AX": "asx",
+    "SS": "sha", "SZ": "she", "JK": "idx", "JO": "jse", "BK": "bkk", "KL": "klse",
+    "SR": "tadawul", "AE": "adx", "DU": "dfm", "MX": "bmv", "SA": "bvmf",
+    "PS": "pse", "VI": "vie", "LS": "eli", "IR": "ise", "WA": "wse", "PR": "pse",
+    "TA": "tase", "IS": "bist", "CN": "cse", "NE": "neo", "F": "fra",
+}
+
+
+def chemin_du_titre(symbole):
+    """« MC.PA » → « quote/epa/MC ». None si la place est inconnue."""
+    if "." not in symbole:
+        return None
+    ticker, suffixe = symbole.rsplit(".", 1)
+    place = PLACES.get(suffixe.upper())
+    if not place:
+        return None
+    # Les catégories d'actions nordiques s'écrivent avec un point sur le site
+    # (VOLV-B devient VOLV.B) là où Yahoo emploie un tiret.
+    ticker = ticker.replace("-", ".")
+    return "quote/%s/%s" % (place, ticker)
+
+
+def chercher_chemin(symbole, nom):
+    """Repli : l'API de recherche du site rend le chemin canonique.
+
+    Elle existe pour les cas où notre table de places se trompe ou ne connaît
+    pas la place — ce qui est arrivé trois fois sur trente-trois marchés. Mieux
+    vaut demander au site où il range un titre que de le deviner.
+    """
+    for terme in (symbole.split(".")[0], nom):
+        if not terme:
+            continue
+        d = _get(BASE + "/api/search?q=" + urllib.parse.quote(terme))
+        if not d:
+            continue
+        for item in (d.get("data") or d.get("results") or []):
+            s = item.get("s") if isinstance(item, dict) else None
+            if s and "/" in s:
+                return "quote/" + s
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Décodage du format « devalue »
+# ─────────────────────────────────────────────────────────────────────────
+# Le site est une application SvelteKit : sa charge JSON est une table de
+# POINTEURS. Chaque valeur est un ENTIER qui désigne une case du tableau plat.
+# Il n'y a aucun nom de champ dans le transport — d'où la fragilité, et d'où le
+# garde-fou de schéma plus bas : une refonte de route a déjà suffi à faire
+# passer `financialData` de « dict complet » à « −1 », en silence.
+def _resoudre(arr, idx, prof=0):
+    if prof > 40:
+        return None
+    v = arr[idx] if isinstance(idx, int) and 0 <= idx < len(arr) else idx
+    if isinstance(v, dict):
+        return {k: _resoudre(arr, j, prof + 1) for k, j in v.items()}
+    if isinstance(v, list):
+        return [_resoudre(arr, j, prof + 1) for j in v]
+    return v
+
+
+def _page(chemin, cle="financialData"):
+    d = _get(BASE + "/" + chemin + "/__data.json")
+    if not d:
+        return None
+    for n in d.get("nodes", []):
+        if not (isinstance(n, dict) and isinstance(n.get("data"), list)):
+            continue
+        arr = n["data"]
+        if not arr or not isinstance(arr[0], dict) or cle not in arr[0]:
+            continue
+        bloc = _resoudre(arr, arr[0][cle])
+        if isinstance(bloc, dict) and bloc:
+            return bloc
+    return None
+
+
+def etats(chemin):
+    """Les trois états annuels, en colonnes, plus le contexte.
+
+    Rend None si la structure attendue a changé — jamais un dict à moitié
+    rempli. Une source dont le format bouge doit se signaler bruyamment, pas
+    livrer des trous qu'on prendrait pour des lignes non publiées.
+    """
+    res = _page(chemin + "/financials/income-statement")
+    if not isinstance(res, dict) or "datekey" not in res:
+        return None
+    bil = _page(chemin + "/financials/balance-sheet") or {}
+    flx = _page(chemin + "/financials/cash-flow-statement") or {}
+    # La DEVISE et la fréquence de publication ne sont pas sur les pages
+    # d'états : elles vivent dans le bloc `details` de la page de synthèse.
+    # C'est une requête de plus, et elle n'est pas optionnelle — sans elle on
+    # comparerait des yens à des euros dans le même tableau.
+    ctx = _page(chemin + "/financials", "details") or {}
+    if not ctx.get("currency"):
+        ctx = dict(ctx or {}, **(_page(chemin + "/financials/income-statement", "details") or {}))
+    return {"contexte": ctx, "resultat": res, "bilan": bil, "flux": flx}
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Correspondance des libellés de la source vers les champs du schéma
+# ─────────────────────────────────────────────────────────────────────────
+# Une seule règle, et elle est stricte : on n'accepte un repli que s'il désigne
+# EXACTEMENT le même concept. Le repli « dette » vers « dette + loyers » ou
+# « écarts d'acquisition » vers « écarts + incorporels » change la définition du
+# mot : il doit produire un vide, pas une valeur. C'est ce que le dépôt s'est
+# déjà fait mordre ailleurs — deux nombres justes qui en produisent un faux.
+CHAMPS = {
+    # compte de résultat
+    "revenue":           ("resultat", ["revenue", "operatingRevenue"]),
+    "cogs":              ("resultat", ["cor"]),
+    "gross_profit":      ("resultat", ["gp"]),
+    "rd":                ("resultat", ["rnd"]),
+    "sga":               ("resultat", ["sgna"]),
+    "opex":              ("resultat", ["opex"]),
+    "operating_income":  ("resultat", ["opinc"]),
+    "pretax":            ("resultat", ["pretax", "ebtExcl"]),
+    "tax":               ("resultat", ["taxexp"]),
+    "net_income":        ("resultat", ["netinccmn", "netinc"]),
+    "interest_expense":  ("resultat", ["interestExpense"]),
+    "eps_diluted":       ("resultat", ["epsdil"]),
+    "eps_basic":         ("resultat", ["epsBasic"]),
+    "shares_diluted":    ("resultat", ["sharesDiluted"]),
+    "shares_basic":      ("resultat", ["sharesBasic"]),
+    "dps":               ("resultat", ["dps"]),
+    "ebitda_publie":     ("resultat", ["ebitda"]),
+    # bilan
+    "assets":              ("bilan", ["assets"]),
+    "assets_current":      ("bilan", ["assetsc"]),
+    "liabilities":         ("bilan", ["liabilities"]),
+    "liabilities_current": ("bilan", ["currentLiabilities"]),
+    "equity":              ("bilan", ["totalCommonEquity", "equity"]),
+    "cash":                ("bilan", ["cashneq"]),
+    "short_term_inv":      ("bilan", ["investmentsc"]),
+    "lt_debt":             ("bilan", ["debtnc"]),
+    "current_debt":        ("bilan", ["debtc"]),
+    "lease_lt":            ("bilan", ["capitalLeases"]),
+    "lease_ct":            ("bilan", ["currentCapLeases"]),
+    "goodwill":            ("bilan", ["goodwill"]),
+    "retained_earnings":   ("bilan", ["retearn"]),
+    "inventory":           ("bilan", ["inventory"]),
+    # flux de trésorerie
+    "ocf":            ("flux", ["ncfo"]),
+    "capex":          ("flux", ["capex"]),
+    "sbc":            ("flux", ["sbcomp"]),
+    "dividends_paid": ("flux", ["commonDividendCF"]),
+    "buybacks":       ("flux", ["commonRepurchased"]),
+    "dna":            ("flux", ["totalDepAmorCF"]),
+}
+
+
+def _nombre(v):
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        f = float(v)
+        return f if math.isfinite(f) else None
+    except Exception:
+        return None
+
+
+def construire(brut, mcap_usd=None, beta=None, cours=None):
+    res = brut["resultat"]
+    dates = res.get("datekey") or []
+    # La ligne « TTM » n'est pas un exercice : c'est un cumul glissant. La
+    # mélanger aux exercices ferait un point de plus qui n'a pas de clôture.
+    idx = [i for i, d in enumerate(dates)
+           if isinstance(d, str) and d.upper() != "TTM" and len(d) >= 10]
+    if not idx:
+        return None
+    # La source rend du plus récent au plus ancien ; on remet dans l'ordre.
+    idx.sort(key=lambda i: dates[i])
+
+    exercices = []
+    for i in idx:
+        e = {"fin": dates[i], "annee": int(dates[i][:4])}
+        for cle, (etat, noms) in CHAMPS.items():
+            src = brut.get(etat) or {}
+            val = None
+            for n in noms:
+                col = src.get(n)
+                if isinstance(col, list) and i < len(col):
+                    val = _nombre(col[i])
+                    if val is not None:
+                        break
+            e[cle] = val
+        # Les décaissements sont rendus en négatif par la source ; le schéma les
+        # veut en positif — « investissements de l'année », pas « flux négatif ».
+        for k in ("capex", "dividends_paid", "buybacks"):
+            if e.get(k) is not None:
+                e[k] = abs(e[k])
+        e["accn"] = None
+        e["depose_le"] = None
+        exercices.append(e)
+
+    # ── Reconstructions et ratios, à l'identique du collecteur SEC ──
+    for e in exercices:
+        if e["gross_profit"] is None and e["revenue"] is not None and e["cogs"] is not None:
+            e["gross_profit"] = e["revenue"] - e["cogs"]
+        if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
+            e["pretax"] = e["net_income"] + e["tax"]
+        if e["operating_income"] is None:
+            if e["gross_profit"] is not None and e["opex"] is not None:
+                e["operating_income"] = e["gross_profit"] - e["opex"]
+                e["_ope_source"] = "brut moins charges d’exploitation"
+            elif e["gross_profit"] is not None and (e["rd"] is not None or e["sga"] is not None):
+                e["operating_income"] = e["gross_profit"] - (e["rd"] or 0) - (e["sga"] or 0)
+                e["_ope_source"] = "brut moins R&D et frais généraux"
+        else:
+            e["_ope_source"] = "publié (retraité par le fournisseur)"
+
+        e["fcf"] = (e["ocf"] - e["capex"]) if (e["ocf"] is not None and e["capex"] is not None) else None
+        e["ebitda"] = (e["operating_income"] + e["dna"]) \
+            if (e["operating_income"] is not None and e["dna"] is not None) else e.get("ebitda_publie")
+
+        e["tresorerie"] = e["cash"]
+        liq = ((e["cash"] or 0) + (e["short_term_inv"] or 0)) if e["cash"] is not None else None
+        dette = None
+        if any(e.get(k) is not None for k in ("lt_debt", "current_debt", "lease_lt", "lease_ct")):
+            dette = ((e["lt_debt"] or 0) + (e["current_debt"] or 0)
+                     + (e["lease_lt"] or 0) + (e["lease_ct"] or 0))
+        e["liquidites"] = liq
+        e["tresorerie_totale"] = liq
+        e["dette_totale"] = dette
+        e["dette_nette"] = (dette - liq) if (dette is not None and liq is not None) else None
+
+        e["marge_brute"] = _pct(e["gross_profit"], e["revenue"])
+        e["marge_ope"] = _pct(e["operating_income"], e["revenue"])
+        e["marge_nette"] = _pct(e["net_income"], e["revenue"])
+        e["marge_fcf"] = _pct(e["fcf"], e["revenue"])
+
+        taux = _div(e["tax"], e["pretax"])
+        if taux is None or not (0 <= taux <= 0.5):
+            taux = 0.21
+        e["taux_impot"] = round(taux * 100, 1)
+        e["nopat"] = e["operating_income"] * (1 - taux) if e["operating_income"] is not None else None
+        e["_capital_investi"] = (e["equity"] + dette - (liq or 0)) \
+            if (e["equity"] is not None and dette is not None) else None
+        e["_capitaux_employes"] = (e["assets"] - e["liabilities_current"]) \
+            if (e["assets"] is not None and e["liabilities_current"] is not None) else None
+
+        e["capex_ca"] = _pct(e["capex"], e["revenue"])
+        e["capex_ocf"] = _pct(e["capex"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
+        e["rd_ocf"] = _pct(e["rd"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
+        e["sbc_fcf"] = _pct(e["sbc"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
+        e["dette_ebitda"] = _r(_div(e["dette_nette"], e["ebitda"]), 2) if (e["ebitda"] and e["ebitda"] > 0) else None
+        e["dette_ebitda_brut"] = _r(_div(dette, e["ebitda"]), 2) if (e["ebitda"] and e["ebitda"] > 0) else None
+        e["couverture_interets"] = _r(_div(e["operating_income"], e["interest_expense"]), 1) \
+            if (e["interest_expense"] and e["interest_expense"] > 0) else None
+        e["goodwill_actifs"] = _pct(e["goodwill"], e["assets"])
+        e["payout_benefices"] = _pct(e["dividends_paid"], e["net_income"]) \
+            if (e["net_income"] and e["net_income"] > 0) else None
+        e["payout_fcf"] = _pct(e["dividends_paid"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
+        e["retour_actionnaire"] = ((e["dividends_paid"] or 0) + (e["buybacks"] or 0)) \
+            if (e["dividends_paid"] is not None or e["buybacks"] is not None) else None
+
+    # La source rétro-ajuste déjà les divisions d'action sur tous les exercices.
+    # On lance quand même la recouture : elle ne trouvera rien (aucun saut), et
+    # si un jour la source change de politique, elle rattrapera. Le résultat est
+    # rendu, vide ou non, pour que la fiche puisse le dire.
+    divisions = _corriger_divisions(exercices)
+
+    def _moy(cle, i):
+        cur = exercices[i].get(cle)
+        if cur is None:
+            return None, "aucune"
+        if i == 0:
+            return cur, "cloture"
+        prev = exercices[i - 1].get(cle)
+        if prev is None:
+            return cur, "cloture"
+        return (cur + prev) / 2.0, "moyenne"
+
+    for i, e in enumerate(exercices):
+        sh = e.get("shares_diluted")
+        if sh and sh > 0:
+            e["ca_par_action"] = _r(_div(e["revenue"], sh), 4)
+            e["fcf_par_action"] = _r(_div(e["fcf"], sh), 4)
+            e["ocf_par_action"] = _r(_div(e["ocf"], sh), 4)
+        else:
+            e["ca_par_action"] = e["fcf_par_action"] = e["ocf_par_action"] = None
+        cp, base = _moy("equity", i)
+        e["_base_capital"] = base
+        e["roe"] = _pct(e["net_income"], cp) if (cp and cp > 0) else None
+        act, _ = _moy("assets", i)
+        e["roa"] = _pct(e["net_income"], act) if (act and act > 0) else None
+        ci, _ = _moy("_capital_investi", i)
+        e["roic"] = _pct(e["nopat"], ci) if (ci and ci > 0) else None
+        ce, _ = _moy("_capitaux_employes", i)
+        e["roce"] = _pct(e["operating_income"], ce) if (ce and ce > 0) else None
+
+        # Coût du capital : la capitalisation historique se reconstitue au cours
+        # de clôture, comme côté SEC. Elle est en devise de COTATION, la dette en
+        # devise des ÉTATS — on ne les mélange que si les deux coïncident.
+        mc = None
+        if cours and e.get("shares_diluted") and brut.get("_devises_alignees"):
+            px = _cours_au(cours, e["fin"])
+            if px:
+                mc = px * e["shares_diluted"]
+        if mc is None and i == len(exercices) - 1 and brut.get("_devises_alignees"):
+            mc = mcap_usd
+        e["mcap_estime"] = round(mc) if mc else None
+        e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
+                          e.get("taux_impot"), beta)
+        e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
+                                if (e.get("roic") is not None and e.get("wacc") is not None) else None)
+
+    for i in range(1, len(exercices)):
+        a, b = exercices[i - 1], exercices[i]
+        dn = (b["nopat"] - a["nopat"]) if (a.get("nopat") is not None and b.get("nopat") is not None) else None
+        ca_, cb = a.get("_capital_investi"), b.get("_capital_investi")
+        dci = (cb - ca_) if (ca_ is not None and cb is not None) else None
+        b["roiic"] = _pct(dn, dci) if (dci and abs(dci) > 0) else None
+    if exercices:
+        exercices[0]["roiic"] = None
+
+    piotroski = piotroski_detail = altman = altman_detail = None
+    if len(exercices) >= 2:
+        piotroski, piotroski_detail = _piotroski(exercices[-1], exercices[-2])
+    if exercices and brut.get("_devises_alignees"):
+        altman, altman_detail = _altman_z(exercices[-1], mcap_usd)
+
+    def pa(cle):
+        return [(e["annee"], e.get(cle)) for e in exercices]
+
+    def med(cle, n):
+        return _mediane([e.get(cle) for e in exercices[-n:]])
+
+    d = exercices[-1]
+    resume = {
+        "n_exercices": len(exercices),
+        "premier": exercices[0]["annee"], "dernier": d["annee"],
+        "fin_exercice": d["fin"], "accn": None, "depose_le": None,
+        "roic_1a": d.get("roic"), "roic_5a": med("roic", 5), "roic_10a": med("roic", 10),
+        "roce_1a": d.get("roce"), "roce_5a": med("roce", 5), "roce_10a": med("roce", 10),
+        "roe_1a": d.get("roe"), "roe_5a": med("roe", 5), "roe_10a": med("roe", 10),
+        "roiic_1a": d.get("roiic"), "roiic_5a": med("roiic", 5), "roiic_10a": med("roiic", 10),
+        "wacc_1a": d.get("wacc"), "wacc_5a": med("wacc", 5), "wacc_10a": med("wacc", 10),
+        "roic_moins_wacc": d.get("roic_moins_wacc"),
+        "marge_brute": d.get("marge_brute"), "marge_ope": d.get("marge_ope"),
+        "marge_nette": d.get("marge_nette"), "marge_fcf": d.get("marge_fcf"),
+        "capex_ca": d.get("capex_ca"), "capex_ocf": d.get("capex_ocf"),
+        "rd_ocf": d.get("rd_ocf"), "sbc_fcf": d.get("sbc_fcf"),
+        "croissances": {
+            "ca": _croissances(pa("ca_par_action")),
+            "eps": _croissances(pa("eps_diluted")),
+            "fcf": _croissances(pa("fcf_par_action")),
+            "ocf": _croissances(pa("ocf_par_action")),
+            "div": _croissances(pa("dps")),
+        },
+        "predictibilite": _predictibilite(pa("revenue")),
+        "annees_hausse_dividende": _serie_hausses_dividende(pa("dps")),
+        "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(pa("dps")),
+        "dette_ebitda": d.get("dette_ebitda"), "dette_ebitda_brut": d.get("dette_ebitda_brut"),
+        "couverture_interets": d.get("couverture_interets"),
+        "goodwill_actifs": d.get("goodwill_actifs"),
+        "payout_benefices": d.get("payout_benefices"),
+        "payout_benefices_10a": med("payout_benefices", 10),
+        "payout_fcf": d.get("payout_fcf"),
+        "piotroski": piotroski, "piotroski_detail": piotroski_detail,
+        "altman_z": altman, "altman_detail": altman_detail,
+        "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
+        "divisions_action": divisions,
+    }
+    resume["note_q"] = note_quantitative(resume)
+
+    # La note dans le temps. Cinq exercices seulement : on ne la calcule qu'à
+    # partir du troisième, faute de quoi les médianes à cinq ans porteraient sur
+    # deux points et ne voudraient rien dire.
+    hist = []
+    for i in range(2, len(exercices)):
+        sous = exercices[:i + 1]
+        sd = sous[-1]
+        spa = lambda c: [(x["annee"], x.get(c)) for x in sous]
+        n = note_quantitative({
+            "roic_1a": sd.get("roic"),
+            "roic_5a": _mediane([x.get("roic") for x in sous[-5:]]),
+            "roic_10a": _mediane([x.get("roic") for x in sous[-10:]]),
+            "marge_brute": sd.get("marge_brute"), "marge_ope": sd.get("marge_ope"),
+            "marge_nette": sd.get("marge_nette"), "capex_ocf": sd.get("capex_ocf"),
+            "predictibilite": _predictibilite(spa("revenue")),
+            "annees_hausse_dividende": _serie_hausses_dividende(spa("dps")),
+            "dette_ebitda_brut": sd.get("dette_ebitda_brut"),
+            "payout_benefices": sd.get("payout_benefices"),
+            "verse_dividende": bool(sd.get("dps") or sd.get("dividends_paid")),
+            "croissances": {"ca": _croissances(spa("ca_par_action")),
+                            "fcf": _croissances(spa("fcf_par_action")),
+                            "div": _croissances(spa("dps"))},
+        })
+        hist.append({"annee": sd["annee"], "note": n["note"],
+                     "note_ramenee": n["note_ramenee"],
+                     "criteres_notables": n["criteres_notables"]})
+    resume["note_historique"] = hist
+    return {"exercices": exercices, "resume": resume}
+
+
+def _cours_au(serie, fin_iso):
+    if not serie:
+        return None
+    try:
+        cible = datetime.fromisoformat(fin_iso).replace(tzinfo=timezone.utc).timestamp()
+    except Exception:
+        return None
+    best = ecart = None
+    for p in serie:
+        try:
+            t, c = p[0], p[1]
+        except Exception:
+            continue
+        if t > 1e11:
+            t = t / 1000.0
+        d = abs(t - cible)
+        if ecart is None or d < ecart:
+            ecart, best = d, c
+    return None if (ecart is None or ecart > 45 * 86400) else best
+
+
+def charger_cours():
+    for nom in ("tradfi_history_cache.json", "tradfi_histories_cache.json"):
+        f = CACHE_DIR / nom
+        if not f.exists():
+            continue
+        try:
+            with f.open(encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        h = d.get("histories") if isinstance(d, dict) else None
+        if isinstance(h, dict):
+            return h
+        if isinstance(d, dict) and d and isinstance(next(iter(d.values())), list):
+            return d
+    return {}
+
+
+def charger_univers():
+    """Les titres SUIVIS qui portent un suffixe de place, donc non américains."""
+    if not TRACKER_CACHE.exists():
+        print("[fatal] %s absent" % TRACKER_CACHE, file=sys.stderr)
+        return {}
+    with TRACKER_CACHE.open(encoding="utf-8") as f:
+        tc = json.load(f)
+    u = {}
+    for n in tc.get("narratives", []):
+        for t in n.get("tokens", []):
+            s = t.get("symbol")
+            if s and "." in s and s not in u:
+                u[s] = {"nom": t.get("name"), "mcap": t.get("mcap"),
+                        "exchange": t.get("exchange"), "region": t.get("region"),
+                        "secteur_suivi": n.get("narrative")}
+    f2 = CACHE_DIR / "tradfi_fundamentals_cache.json"
+    if f2.exists():
+        try:
+            with f2.open(encoding="utf-8") as fh:
+                tf = json.load(fh)
+            for sec in tf.get("sectors", []):
+                for st in sec.get("stocks", []):
+                    sym = st.get("symbol")
+                    if sym in u:
+                        if st.get("beta") is not None:
+                            u[sym]["beta"] = st["beta"]
+                        if st.get("currency"):
+                            u[sym]["devise_cotation"] = st["currency"]
+        except Exception:
+            pass
+    return u
+
+
+def _initiale(sym):
+    """Le paquet où ranger une société.
+
+    Une lettre suffit pour les tickers alphabétiques. Elle ne suffit PAS pour
+    les places asiatiques, où les codes sont numériques : Hong Kong, Tokyo,
+    Séoul et Shanghai réunis mettaient 165 sociétés dans un seul paquet de
+    2,5 Mo — que le visiteur aurait téléchargé pour en lire une. Sur un ticker
+    numérique on prend donc les DEUX premiers chiffres, ce qui suit d'ailleurs
+    la logique des places : 00xx et 07xx à Hong Kong, 72xx à Tokyo, 60xx à
+    Shanghai.
+    """
+    s = (sym or "?").upper()
+    c = s[0]
+    if "A" <= c <= "Z":
+        return c
+    return s[:2] if len(s) >= 2 and s[1].isdigit() else "0"
+
+
+def _options(argv):
+    o = {"tickers": None, "limit": None, "sortie": None}
+    for i, a in enumerate(argv):
+        if a == "--tickers" and i + 1 < len(argv):
+            o["tickers"] = {t.strip().upper() for t in argv[i + 1].split(",") if t.strip()}
+        elif a == "--limit" and i + 1 < len(argv):
+            o["limit"] = int(argv[i + 1])
+        elif a == "--sortie" and i + 1 < len(argv):
+            o["sortie"] = Path(argv[i + 1]).expanduser()
+    return o
+
+
+def main():
+    global OUT_JSON, OUT_JS, OUT_DIR
+    t0 = time.time()
+    opts = _options(sys.argv[1:])
+    if opts["sortie"]:
+        opts["sortie"].mkdir(parents=True, exist_ok=True)
+        OUT_DIR = opts["sortie"]
+        OUT_JSON = OUT_DIR / "intl_fundamentals_index.json"
+        OUT_JS = OUT_DIR / "intl_fundamentals_index.js"
+        print("[info] sortie détournée vers %s" % OUT_DIR)
+
+    univers = charger_univers()
+    if opts["tickers"]:
+        univers = {k: v for k, v in univers.items() if k.upper() in opts["tickers"]}
+    if not univers:
+        return 1
+    print("[info] univers non américain : %d titres" % len(univers))
+    cours = charger_cours()
+
+    index, paquets = {}, {}
+    ok = sans_place = echecs = 0
+    par_recherche = 0
+    for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
+        chemin = chemin_du_titre(sym)
+        brut = etats(chemin) if chemin else None
+        if brut is None:
+            autre = chercher_chemin(sym, meta.get("nom"))
+            if autre and autre != chemin:
+                brut = etats(autre)
+                if brut is not None:
+                    chemin = autre
+                    par_recherche += 1
+        if brut is None:
+            if chemin is None:
+                sans_place += 1
+            else:
+                echecs += 1
+            continue
+
+        ctx = brut.get("contexte") or {}
+        devise_etats = (ctx.get("currency") or "").upper() or None
+        devise_cot = (meta.get("devise_cotation") or "").upper() or None
+        # On n'autorise un calcul qui croise un montant d'état et un cours QUE si
+        # les deux devises coïncident. Shell cote en pence et publie en dollars ;
+        # un ratio bâti là-dessus se trompe d'un facteur cent quarante avant même
+        # la conversion de change.
+        brut["_devises_alignees"] = bool(devise_etats and devise_cot and devise_etats == devise_cot)
+
+        try:
+            bati = construire(brut, meta.get("mcap"), meta.get("beta"), cours.get(sym))
+        except Exception as e:
+            print("[warn] %s : %s" % (sym, e), file=sys.stderr)
+            echecs += 1
+            continue
+        if not bati:
+            echecs += 1
+            continue
+
+        r = bati["resume"]
+        r["devise"] = devise_etats
+        r["devise_cotation"] = devise_cot
+        r["devises_alignees"] = brut["_devises_alignees"]
+        r["frequence_publication"] = ctx.get("reportingFrequency")
+        r["source_url"] = BASE + "/" + chemin + "/financials/"
+        r["source"] = "stockanalysis.com (données S&P Global Market Intelligence)"
+
+        paquets.setdefault(_initiale(sym), {})[sym] = {
+            "symbole": sym, "nom": meta.get("nom"),
+            "exchange": meta.get("exchange"), "region": meta.get("region"),
+            "source": r["source"], "source_url": r["source_url"],
+            "exercices": bati["exercices"], "resume": r,
+        }
+        allege = dict(r)
+        allege.pop("piotroski_detail", None)
+        allege.pop("altman_detail", None)
+        index[sym] = allege
+        ok += 1
+        if i % 50 == 0:
+            print("[info] %d/%d — %d construites" % (i, len(univers), ok))
+        if opts["limit"] and ok >= opts["limit"]:
+            break
+
+    charge = {
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "source": "stockanalysis.com — états financiers publiés, données S&P Global",
+        "duree_s": round(time.time() - t0, 1),
+        "exhaustivite": {"univers": len(univers), "construites": ok,
+                         "place_inconnue": sans_place, "echecs": echecs,
+                         "retrouves_par_recherche": par_recherche},
+        "limites": [
+            "Cinq exercices par société — la source n'en sert pas davantage à un visiteur anonyme.",
+            "Montants en devise NATIVE, jamais convertis : un bilan de 2021 converti au cours d'aujourd'hui n'a jamais existé.",
+            "Source non primaire (S&P Global revendu) : les lignes composées — résultat d'exploitation, EBITDA — sont des retraitements du fournisseur.",
+            "Divisions d'action déjà rétro-ajustées par la source : les bénéfices par action diffèrent des rapports publiés à l'époque.",
+        ],
+        "paquets": sorted(paquets.keys()),
+        "societes": index,
+    }
+    with OUT_JSON.open("w", encoding="utf-8") as f:
+        json.dump(charge, f, ensure_ascii=False, indent=1)
+    with OUT_JS.open("w", encoding="utf-8") as f:
+        f.write("window.__INTL_FUNDA__ = " + json.dumps(charge, ensure_ascii=False,
+                                                        separators=(",", ":")) + ";\n")
+    horo = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    poids = []
+    for lettre, contenu in sorted(paquets.items()):
+        c = OUT_DIR / ("intl_detail_%s.json" % lettre)
+        with c.open("w", encoding="utf-8") as f:
+            json.dump({"genere_le": horo, "societes": contenu}, f,
+                      ensure_ascii=False, separators=(",", ":"))
+        poids.append(c.stat().st_size)
+
+    print("[ok] %d sociétés — %d place inconnue, %d échecs, %d retrouvées par recherche — %.1f s"
+          % (ok, sans_place, echecs, par_recherche, time.time() - t0))
+    print("[ok] index %d Ko · %d paquets, plus gros %d Ko, total %d Ko"
+          % (OUT_JSON.stat().st_size // 1024, len(poids),
+             (max(poids) // 1024) if poids else 0, (sum(poids) // 1024) if poids else 0))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
