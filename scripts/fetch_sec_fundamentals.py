@@ -763,9 +763,110 @@ def _altman_z(cur, mcap_usd):
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Coût moyen pondéré du capital
+# ─────────────────────────────────────────────────────────────────────────
+# WACC = part des fonds propres × leur coût + part de la dette × son coût après impôt.
+#
+# Le coût des fonds propres suit le modèle d'évaluation des actifs financiers :
+# taux sans risque + bêta × prime de risque. Les deux paramètres de marché sont
+# posés ici, en clair, avec leur date — plutôt que cachés dans une formule.
+# Ils bougent lentement ; une révision annuelle suffit, et elle doit être un
+# geste conscient, pas une dérive.
+TAUX_SANS_RISQUE = 4.2      # % — rendement du 10 ans américain, relevé le 2026-08-27
+PRIME_DE_RISQUE = 5.2       # % — prime actions de long terme, convention Damodaran
+
+def _wacc(mcap_usd, dette, interets, taux_impot_pct, beta):
+    """Le WACC d'un exercice, ou None si l'un des termes manque.
+
+    On ne remplace RIEN par une valeur par défaut : un WACC bâti sur un bêta
+    supposé ou une dette devinée serait un nombre inventé, et il servirait
+    ensuite à juger si l'entreprise crée de la valeur. Mieux vaut un tiret.
+    """
+    if not mcap_usd or mcap_usd <= 0 or beta is None:
+        return None
+    cout_fonds_propres = TAUX_SANS_RISQUE + beta * PRIME_DE_RISQUE
+    d = dette or 0
+    v = mcap_usd + d
+    if v <= 0:
+        return None
+    if d <= 0:
+        return round(cout_fonds_propres, 2)
+    # Coût de la dette = ce que la société paie RÉELLEMENT sur ce qu'elle doit,
+    # pas un taux de marché théorique. Borné à 25 % : au-delà, c'est que la dette
+    # du bilan ne correspond pas aux intérêts de l'exercice (dette remboursée en
+    # cours d'année, par exemple), et le ratio n'a plus de sens.
+    cout_dette = None
+    if interets and d > 0:
+        r = 100.0 * abs(interets) / d
+        if 0 < r <= 25:
+            cout_dette = r
+    if cout_dette is None:
+        cout_dette = TAUX_SANS_RISQUE + 1.5      # dette notée, écart de crédit usuel
+    t = (taux_impot_pct or 21.0) / 100.0
+    w = (mcap_usd / v) * cout_fonds_propres + (d / v) * cout_dette * (1 - t)
+    return round(w, 2) if math.isfinite(w) else None
+
+
+def charger_cours():
+    """{symbole: [(horodatage_s, cours), …]} — l'historique déjà collecté.
+
+    Sert à reconstituer la capitalisation de chaque exercice passé, seule façon
+    d'avoir un WACC historique plutôt qu'un seul point. Le fichier pèse une
+    dizaine de mégaoctets ; il est lu une fois, côté serveur, jamais servi au
+    navigateur.
+    """
+    for nom in ("tradfi_history_cache.json", "tradfi_histories_cache.json"):
+        f = CACHE_DIR / nom
+        if not f.exists():
+            continue
+        try:
+            with f.open(encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception as e:
+            print("[warn] %s illisible : %s" % (nom, e), file=sys.stderr)
+            continue
+        h = d.get("histories") if isinstance(d, dict) else None
+        if isinstance(h, dict):
+            return h
+        if isinstance(d, dict) and d and isinstance(next(iter(d.values())), list):
+            return d
+    print("[warn] aucun historique de cours — le WACC restera vide", file=sys.stderr)
+    return {}
+
+
+def _cours_au(serie, fin_iso):
+    """Le cours de clôture le plus proche d'une date d'arrêté, à 45 jours près.
+
+    Au-delà de quarante-cinq jours, on rend None : un cours vieux d'un trimestre
+    associé à un bilan produirait une capitalisation, donc un WACC, qui ne
+    correspond à aucun moment réel.
+    """
+    if not serie:
+        return None
+    try:
+        cible = datetime.fromisoformat(fin_iso).replace(tzinfo=timezone.utc).timestamp()
+    except Exception:
+        return None
+    best, ecart = None, None
+    for p in serie:
+        try:
+            t, c = p[0], p[1]
+        except Exception:
+            continue
+        if t > 1e11:          # certaines séries sont en millisecondes
+            t = t / 1000.0
+        e = abs(t - cible)
+        if ecart is None or e < ecart:
+            ecart, best = e, c
+    if ecart is None or ecart > 45 * 86400:
+        return None
+    return best
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Construction de la série annuelle d'une société
 # ─────────────────────────────────────────────────────────────────────────
-def construire(facts, mcap_usd=None):
+def construire(facts, mcap_usd=None, beta=None, cours=None):
     series = {}
     for cle, noms in CONCEPTS.items():
         series[cle] = _annuels(facts, noms, instant=(cle in INSTANTS))
@@ -937,6 +1038,23 @@ def construire(facts, mcap_usd=None):
         ce_moy, _ = _moy("_capitaux_employes", i)
         e["roce"] = _pct(e["operating_income"], ce_moy) if (ce_moy and ce_moy > 0) else None
 
+        # WACC de l'exercice : capitalisation reconstituée au cours de clôture,
+        # dette du bilan, intérêts et impôt réellement payés cette année-là.
+        mc = None
+        if cours and e.get("shares_diluted"):
+            px = _cours_au(cours, e["fin"])
+            if px:
+                mc = px * e["shares_diluted"]
+        if mc is None and i == len(exercices) - 1:
+            mc = mcap_usd          # dernier exercice : la capitalisation du jour
+        e["mcap_estime"] = round(mc) if mc else None
+        e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
+                          e.get("taux_impot"), beta)
+        # L'écart entre ce que le capital rapporte et ce qu'il coûte : la seule
+        # question qui décide si la croissance crée ou détruit de la valeur.
+        e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
+                                if (e.get("roic") is not None and e.get("wacc") is not None) else None)
+
     # ROIIC — rendement du capital NOUVELLEMENT investi. Il répond à la question
     # que le ROIC élude : la croissance récente crée-t-elle autant de valeur que
     # l'existant ? Variation du résultat d'exploitation après impôt sur variation
@@ -1037,6 +1155,8 @@ def construire(facts, mcap_usd=None):
         "roe_1a": dernier.get("roe"), "roe_5a": med("roe", 5), "roe_10a": med("roe", 10),
         "roiic_1a": dernier.get("roiic"), "roiic_5a": med("roiic", 5), "roiic_10a": med("roiic", 10),
 
+        "wacc_1a": dernier.get("wacc"), "wacc_5a": med("wacc", 5), "wacc_10a": med("wacc", 10),
+        "roic_moins_wacc": dernier.get("roic_moins_wacc"),
         "marge_brute": dernier.get("marge_brute"),
         "marge_ope": dernier.get("marge_ope"),
         "marge_nette": dernier.get("marge_nette"),
@@ -1101,6 +1221,26 @@ def charger_univers():
                     "mcap": t.get("mcap"),
                     "secteur_suivi": n.get("narrative"),
                 }
+
+    # Le bêta vient du cache des fondamentaux, déjà collecté par ailleurs. Sans
+    # lui, pas de coût des fonds propres, donc pas de WACC — et on préfère un
+    # champ vide à un bêta supposé, qui servirait ensuite à juger si la société
+    # crée de la valeur.
+    f = CACHE_DIR / "tradfi_fundamentals_cache.json"
+    if f.exists():
+        try:
+            with f.open(encoding="utf-8") as fh:
+                tf = json.load(fh)
+            n_beta = 0
+            for sec in tf.get("sectors", []):
+                for st in sec.get("stocks", []):
+                    sym = st.get("symbol")
+                    if sym in univers and st.get("beta") is not None:
+                        univers[sym]["beta"] = st["beta"]
+                        n_beta += 1
+            print("[info] bêta connu pour %d sociétés" % n_beta)
+        except Exception as e:
+            print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
     return univers
 
 
@@ -1163,6 +1303,10 @@ def main():
     cik_par_ticker = charger_cik()
     print(f"[info] correspondance SEC : {len(cik_par_ticker)} tickers")
 
+    cours = charger_cours()
+    if cours:
+        print("[info] historique de cours : %d titres" % len(cours))
+
     index = {}
     paquets = {}
     ok = sans_cik = echecs = 0
@@ -1182,7 +1326,8 @@ def main():
             echecs += 1
             continue
         try:
-            bati = construire(facts_doc["facts"], meta.get("mcap"))
+            bati = construire(facts_doc["facts"], meta.get("mcap"),
+                              beta=meta.get("beta"), cours=cours.get(sym))
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
             echecs += 1
