@@ -836,7 +836,14 @@
     {
       "id": "intlfunda",
       "script": "fetch_intl_fundamentals.py",
-      "args": [],
+      "args": [
+        "--source",
+        "marche",
+        "--tranche",
+        "auto",
+        "--parallele",
+        "8"
+      ],
       "schedule": "toutes les 24 h",
       "per_day": 1.0,
       "cadence": "daily",

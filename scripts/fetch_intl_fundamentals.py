@@ -935,6 +935,17 @@ def main():
 
     if opts["source"] == "marche":
         univers = univers_marche(opts["tranche"], opts["plafond"])
+        # Un univers VIDE n'est pas un resultat, c'est une panne. Sans ce
+        # refus, le collecteur parcourait zero societe, n'ecrivait rien et
+        # sortait en SUCCES — et l'univers profond aurait cesse de vivre
+        # sans qu'aucun voyant ne s'allume. Ce depot a deja paye ce genre
+        # de silence : dix-sept caches figes seize jours derriere un bilan
+        # a 26/26 OK.
+        if not univers:
+            raise SystemExit(
+                "[fatal] univers de marche demande mais vide : "
+                "univers_actions.json ou marche_NN.json manquent dans le cache. "
+                "Le collecteur de marche a-t-il tourne avant celui-ci ?")
         quoi = "collecte de marché"
         if opts["tranche"]:
             quoi += " — tranche %d sur %d" % (opts["tranche"][0] + 1, opts["tranche"][1])

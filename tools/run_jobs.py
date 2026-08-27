@@ -122,6 +122,11 @@ PARALLEL = 6
 DEPENDANCES = {
     "tradfihist": ["tradfifund"],       # lit tradfi_fundamentals_cache.json
     "appariepredictifs": ["kalshi"],    # lit kalshi_cache.json et ses règles
+    # Depuis le 27/08/2026 le collecteur d'états prend son univers dans la
+    # collecte de marché (`--source marche`) : il lit marche_*.json pour savoir
+    # QUELLES sociétés approfondir et par quel chemin les atteindre. Sans cette
+    # ligne il partait en même temps qu'elle et travaillait sur la veille.
+    "intlfunda": ["marche"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
