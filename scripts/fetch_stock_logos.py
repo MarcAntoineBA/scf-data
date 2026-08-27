@@ -82,7 +82,7 @@ LOOKUP_DIRS = [d for d in (REPO_DIR, CACHE_LOGOS) if d.exists()] or [OUT_DIR]
 
 
 def logo_exists(t):
-    fn = t.replace(".", "_") + ".png"
+    fn = _nom_fichier(t) + ".png"
     return any((d / fn).exists() for d in LOOKUP_DIRS)
 
 
@@ -159,6 +159,17 @@ def save_failed(prev, new_kos):
         log(f"[StockLogos] memoire des echecs non ecrite : {e}")
 
 def log(m): sys.stderr.write(m + "\n"); sys.stderr.flush()
+
+def _nom_fichier(ticker):
+    """Le nom de fichier d'un logo, pour un symbole du monde entier.
+
+    Le point devient un souligne (NVDA.SW -> NVDA_SW). La BARRE OBLIQUE aussi :
+    `bvl/CVERDEC1` designait un sous-dossier inexistant, et le run entier
+    s'arretait sur cette seule cotation liménienne. La page applique exactement
+    la meme regle, dans le meme ordre.
+    """
+    return str(ticker).replace(".", "_").replace("/", "_")
+
 
 def parent_domain(dom):
     """ir.baidu.com -> baidu.com ; en.sungrowpower.com -> sungrowpower.com.
@@ -421,13 +432,13 @@ def apply_aliases():
         if logo_exists(cible):
             faits.append(cible)
             continue
-        src_fn = source.replace(".", "_") + ".png"
+        src_fn = _nom_fichier(source) + ".png"
         src = next((d / src_fn for d in LOOKUP_DIRS if (d / src_fn).exists()), None)
         if src is None:
             log(f"[StockLogos] alias {cible} -> {source} : source absente, ignore")
             continue
         try:
-            (OUT_DIR / (cible.replace(".", "_") + ".png")).write_bytes(src.read_bytes())
+            (OUT_DIR / (_nom_fichier(cible) + ".png")).write_bytes(src.read_bytes())
             log(f"[StockLogos] alias {cible} <- {source} (meme societe)")
             faits.append(cible)
         except Exception as e:
@@ -519,6 +530,73 @@ def earnings_jobs(already):
     return out
 
 
+SOURCE_MARCHE = "--source" in sys.argv and "marche" in sys.argv
+PROFOND = "--profond" in sys.argv
+LIMITE = 0
+for _i, _a in enumerate(sys.argv):
+    if _a == "--limite" and _i + 1 < len(sys.argv):
+        LIMITE = int(sys.argv[_i + 1])
+
+
+def jobs_marche():
+    """Les domaines servis par la collecte de marche, en (ticker, domaine, nom).
+
+    Trie par capitalisation decroissante : si le run est plafonne ou interrompu,
+    ce sont les societes les plus regardees qui ont leur pastille.
+    """
+    import glob as _glob
+    import re as _re
+    from urllib.parse import urlparse as _up
+    dossier = str(CACHE_DIR)
+    frags = sorted(_glob.glob(dossier + "/marche_[0-9]*.json"))
+    if not frags:
+        log("[StockLogos] aucun fragment de marche dans " + dossier)
+        return []
+    profonds = set()
+    if PROFOND:
+        idx = CACHE_DIR / "intl_fundamentals_index.json"
+        if idx.exists():
+            try:
+                profonds = set((json.loads(idx.read_text()) or {}).get("societes") or {})
+            except Exception:
+                profonds = set()
+        sec = CACHE_DIR / "sec_fundamentals_index.json"
+        if sec.exists():
+            try:
+                profonds |= set((json.loads(sec.read_text()) or {}).get("societes") or {})
+            except Exception:
+                pass
+        log("[StockLogos] %d societes avec etats financiers" % len(profonds))
+    out = []
+    for f in frags:
+        try:
+            d = json.loads(Path(f).read_text())
+        except Exception:
+            continue
+        ch = d.get("champs") or []
+        if "site_web" not in ch:
+            continue
+        iw = ch.index("site_web")
+        inom = ch.index("name") if "name" in ch else None
+        ica = ch.index("marketCapUsd") if "marketCapUsd" in ch else None
+        for sym, arr in (d.get("societes") or {}).items():
+            if PROFOND and profonds and sym not in profonds:
+                continue
+            w = arr[iw] if iw < len(arr) else None
+            if not isinstance(w, str) or not w:
+                continue
+            h = _up(w if "//" in w else "http://" + w).netloc.lower().split(":")[0]
+            if not _re.match(r"^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$", h):
+                continue
+            capi = arr[ica] if (ica is not None and ica < len(arr)) else 0
+            out.append((capi if isinstance(capi, (int, float)) else 0,
+                        sym, h, (arr[inom] if inom is not None and inom < len(arr) else "") or ""))
+    out.sort(key=lambda x: -x[0])
+    if LIMITE:
+        out = out[:LIMITE]
+    return [(t, d, n) for _, t, d, n in out]
+
+
 def main():
     uni = json.loads(UNIVERSE.read_text())
     jobs = []                                          # (ticker, domaine, nom)
@@ -537,6 +615,19 @@ def main():
                 nodomain.append((t, r.get("n", "")))
                 continue
             jobs.append((t, d, r.get("n", "")))
+    # La collecte de marche sert 37 697 domaines mesures. Ils s'AJOUTENT au pool
+    # ecrit a la main : celui-ci porte des corrections curees (domaines
+    # alternatifs, ADR, classes de Berkshire) qu'aucune source automatique ne
+    # retrouverait, et il garde donc la priorite sur un meme ticker.
+    if SOURCE_MARCHE:
+        avant = len(jobs)
+        for t, d, n in jobs_marche():
+            if t in seen:
+                continue
+            seen.add(t)
+            jobs.append((t, d, n))
+        log("[StockLogos] +%d tickers depuis la collecte de marche" % (len(jobs) - avant))
+
     # Tickers du calendrier des resultats absents du pool (ADR, hors seuil, BRKa/b).
     earn_extra = earnings_jobs(seen)
     # Alias d'abord : une societe deja bakee sous un autre ticker n'a rien a
@@ -554,8 +645,10 @@ def main():
     if nodomain:
         log(f"[StockLogos] {len(nodomain)} SANS DOMAINE -> aucun logo possible, a "
             f"renseigner dans stock_universe.json (pool) ou EARNINGS_DOMAINS (resultats) :")
-        for t, n in nodomain:
+        for t, n in nodomain[:40]:
             log(f"  ! {t} ({n})")
+        if len(nodomain) > 40:
+            log(f"  ... et {len(nodomain) - 40} autres")
 
     failed_mem = load_failed()
     if failed_mem:
@@ -564,7 +657,7 @@ def main():
     ok, ko = [], []
     def work(job):
         t, d, n = job
-        path = OUT_DIR / (t.replace(".", "_") + ".png")
+        path = OUT_DIR / (_nom_fichier(t) + ".png")
         if t in TV_SOURCED and logo_exists(t) and not FORCE_REFETCH:
             ok.append(t); return          # pastille TradingView deja bakee : on n'y touche pas
         if ONLY_MISSING and logo_exists(t):
@@ -582,7 +675,9 @@ def main():
         else:
             ko.append((t, d))
 
-    with ThreadPoolExecutor(max_workers=12) as ex:
+    # Douze bras suffisaient pour mille cinq cents titres. Pour onze mille, le
+    # cout est le RESEAU, pas le calcul : on en met plus quand la liste le vaut.
+    with ThreadPoolExecutor(max_workers=(24 if len(jobs) > 3000 else 12)) as ex:
         list(ex.map(work, jobs))
 
     # Manifest = UNIQUEMENT les PNG reellement presents sur disque. Les tickers du
@@ -608,7 +703,9 @@ def main():
     MANIFEST.write_text("window.__STOCK_LOGOS__=" + json.dumps(mapping, separators=(",", ":")) + ";\n")
     save_failed(failed_mem, [t for t, _ in ko])
     log(f"[StockLogos] OK {len(mapping)}/{len(jobs)} | echecs {len(ko)}")
-    for t, d in ko: log(f"  KO {t} ({d})")
+    for t, d in ko[:40]: log(f"  KO {t} ({d})")
+    if len(ko) > 40:
+        log(f"  ... et {len(ko) - 40} autres echecs")
     log(f"[StockLogos] wrote {MANIFEST.name}")
 
     # ── Detection des faux logos : images IDENTIQUES sur plusieurs titres ────
@@ -620,17 +717,19 @@ def main():
     import hashlib, collections
     by_hash = collections.defaultdict(list)
     for t, _, _ in jobs:
-        f = OUT_DIR / (t.replace(".", "_") + ".png")
+        f = OUT_DIR / (_nom_fichier(t) + ".png")
         if not f.exists():
-            f = REPO_DIR / (t.replace(".", "_") + ".png")
+            f = REPO_DIR / (_nom_fichier(t) + ".png")
         if f.exists():
             by_hash[hashlib.md5(f.read_bytes()).hexdigest()].append(t)
     shared = {h: v for h, v in by_hash.items() if len(v) > 1}
     if shared:
         log(f"[StockLogos] {len(shared)} image(s) partagee(s) par plusieurs titres "
             f"(normal en groupe, SUSPECT sinon) :")
-        for h, v in sorted(shared.items(), key=lambda x: -len(x[1])):
+        for h, v in sorted(shared.items(), key=lambda x: -len(x[1]))[:25]:
             log(f"  {len(v)}x {h[:12]} : {', '.join(v[:8])}")
+        if len(shared) > 25:
+            log(f"  ... et {len(shared) - 25} autres groupes")
 
 if __name__ == "__main__":
     main()

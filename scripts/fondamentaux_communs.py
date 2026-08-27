@@ -235,6 +235,25 @@ def _croissance_annuelle(series):
     return out
 
 
+def _mediane_fenetre(vals, n, marge=2):
+    """Médiane sur une fenêtre de n ans — ou rien, si la fenêtre n'existe pas.
+
+    `_mediane(vals[-10:])` sur une série de cinq rend la médiane de cinq et se
+    fait appeler « dix ans ». Mesuré sur LVMH et Nestlé : `roic_5a` et
+    `roic_10a` strictement égaux, le même fait noté deux fois.
+
+    On exige donc n − `marge` points réellement utilisables. Dix ans en
+    demandent huit — ce qui laisse passer une société américaine à neuf
+    exercices, et arrête net une européenne à cinq. En dessous, on rend None :
+    le critère devient muet et sort du dénominateur de la note ramenée, au lieu
+    de se faire passer pour une mesure.
+    """
+    utiles = [v for v in (vals or []) if v is not None]
+    if len(utiles) < max(2, n - marge):
+        return None
+    return _mediane(utiles)
+
+
 def _mediane(vals):
     v = sorted(x for x in vals if x is not None)
     if not v:
@@ -270,8 +289,14 @@ def _predictibilite(series):
     100 = série parfaitement régulière. Une valeur négative ou nulle interrompt
     la série (on ne prend pas le log d'un chiffre d'affaires négatif).
     """
+    # Huit points, pas cinq. Le R² juge l'ajustement à une TENDANCE : sur cinq
+    # points il mesure le bruit, et il punit la stabilité — une société sans
+    # tendance n'a rien à ajuster, donc son R² s'effondre. Mesuré : Nestlé
+    # sortait à 1,2/100 sur cinq points, c'est-à-dire « imprévisible », pour
+    # l'un des chiffres d'affaires les plus réguliers d'Europe. En dessous de
+    # huit exercices le critère est muet, ce qui est plus vrai que zéro.
     pts = [(i, v) for i, (_, v) in enumerate(series) if v is not None and v > 0]
-    if len(pts) < 5:
+    if len(pts) < 8:
         return None
     xs = [p[0] for p in pts]
     ys = [math.log(p[1]) for p in pts]

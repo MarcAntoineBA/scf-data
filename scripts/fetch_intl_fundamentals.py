@@ -79,7 +79,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from fondamentaux_communs import (          # noqa: E402
     _div, _pct, _r,
     note_quantitative,
-    _mediane, _croissances, _predictibilite,
+    _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
@@ -504,7 +504,9 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         return [(e["annee"], e.get(cle)) for e in exercices]
 
     def med(cle, n):
-        return _mediane([e.get(cle) for e in exercices[-n:]])
+        # Une fenêtre de n ans exige n-2 points : sans quoi la médiane
+        # « dix ans » du jeu international serait celle de cinq.
+        return _mediane_fenetre([e.get(cle) for e in exercices[-n:]], n)
 
     d = exercices[-1]
     resume = {
@@ -555,8 +557,8 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         spa = lambda c: [(x["annee"], x.get(c)) for x in sous]
         n = note_quantitative({
             "roic_1a": sd.get("roic"),
-            "roic_5a": _mediane([x.get("roic") for x in sous[-5:]]),
-            "roic_10a": _mediane([x.get("roic") for x in sous[-10:]]),
+            "roic_5a": _mediane_fenetre([x.get("roic") for x in sous[-5:]], 5),
+            "roic_10a": _mediane_fenetre([x.get("roic") for x in sous[-10:]], 10),
             "marge_brute": sd.get("marge_brute"), "marge_ope": sd.get("marge_ope"),
             "marge_nette": sd.get("marge_nette"), "capex_ocf": sd.get("capex_ocf"),
             "predictibilite": _predictibilite(spa("revenue")),

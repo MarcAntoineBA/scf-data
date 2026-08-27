@@ -122,6 +122,11 @@ earningsDate lastEarningsDate nextEarningsDate
 # Servis, mais inégalement. On les prend quand même — une prévision d'analyste
 # n'existe QUE là où des analystes suivent le titre, et c'est une information en
 # soi — mais la fiche doit dire « non suivi », jamais « donnée manquante ».
+# Mesuré le 27/08/2026 sur cinq univers : 98,7 % des lignes portent un
+# domaine exploitable. C'est ce champ qui débloque les logos du monde
+# entier — le collecteur de pastilles savait faire, il n'avait pas d'entrée.
+SOLIDES += ["website"]
+
 PARTIELS = """
 analystRatings analystCount priceTarget priceTargetChange
 peForward pegRatio payoutRatio payoutFrequency dividendGrowth
@@ -133,6 +138,7 @@ revenueThisYear revenueNextYear revenue3y
 # sous leur nom d'origine reviendrait à annoncer un chiffre d'affaires de 89,4
 # pour NVIDIA là où il s'agit d'une croissance de 89,4 %.
 RENOMMAGES = {
+    "website": "site_web",
     "revenueThisYear": "croissance_ca_exercice_pct",
     "revenueNextYear": "croissance_ca_suivant_pct",
     "revenue3y": "croissance_ca_3a_pct",

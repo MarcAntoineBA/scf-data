@@ -302,7 +302,7 @@ def _val(serie, fin):
 from fondamentaux_communs import (          # noqa: E402
     _div, _pct, _r,
     _BAREME, _CRITERES_INDUSTRIELS, _noter_critere, note_quantitative,
-    _croissance_annuelle, _mediane, _croissances, _predictibilite,
+    _croissance_annuelle, _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _FACTEURS_USUELS, _facteur_division, _corriger_divisions,
     _piotroski, _altman_z,
@@ -644,7 +644,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     }
 
     def med(cle, n):
-        return _mediane([e.get(cle) for e in exercices[-n:]])
+        return _mediane_fenetre([e.get(cle) for e in exercices[-n:]], n)
 
     # ── Les entrées du barème, calculables sur une série TRONQUÉE ────────────
     # Extraites dans leur propre fonction pour une raison précise : elles servent
@@ -658,7 +658,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
             return {}
         d = exs[-1]
         pa = lambda cle: [(e["annee"], e.get(cle)) for e in exs]
-        m = lambda cle, n: _mediane([e.get(cle) for e in exs[-n:]])
+        m = lambda cle, n: _mediane_fenetre([e.get(cle) for e in exs[-n:]], n)
         return {
             "roic_1a": d.get("roic"), "roic_5a": m("roic", 5), "roic_10a": m("roic", 10),
             "marge_brute": d.get("marge_brute"),
