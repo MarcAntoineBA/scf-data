@@ -2312,6 +2312,22 @@
       "witness": "treasury_cache.json"
     },
     {
+      "id": "ukraine",
+      "script": "fetch_ukraine.py",
+      "args": [
+        "--live"
+      ],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "ukraine_cache.js",
+        "ukraine_cache.json"
+      ],
+      "witness": "ukraine_cache.json"
+    },
+    {
       "id": "univers",
       "script": "fetch_univers_actions.py",
       "args": [],
