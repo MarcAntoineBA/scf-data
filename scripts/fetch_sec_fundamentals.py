@@ -1769,6 +1769,10 @@ def main():
     index = {}
     paquets = {}
     ok = sans_cik = echecs = 0
+    # Un compteur ne se répare pas : on garde les NOMS. Quatre chemins, qui ne
+    # se soignent pas pareil — et « construction refusée » est le seul où c'est
+    # notre code qui dit non à une donnée existante.
+    perdus = {"sans_cik": [], "reseau": [], "faits_vides": [], "construction": []}
     recoiffees = []
     interrompu = False
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
@@ -1777,6 +1781,7 @@ def main():
         cik = cik_par_ticker.get(sym.upper())
         if not cik:
             sans_cik += 1
+            perdus["sans_cik"].append(sym)
             continue
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
         try:
@@ -1791,6 +1796,7 @@ def main():
         except Exception as e:
             print(f"[warn] {sym} : {e}", file=sys.stderr)
             echecs += 1
+            perdus["reseau"].append("%s (%s)" % (sym, str(e)[:60]))
             continue
         faits = (facts_doc or {}).get("facts")
 
@@ -1817,7 +1823,10 @@ def main():
                 print(f"[warn] {sym} : CIK historique illisible : {e}", file=sys.stderr)
 
         if not faits:
+            # La SEC a répondu, mais sans données XBRL. À distinguer d'un refus
+            # de NOTRE code : celui-là se répare, celui-ci non.
             echecs += 1
+            perdus["faits_vides"].append(sym)
             continue
         try:
             bati = construire(faits, meta.get("mcap"),
@@ -1825,9 +1834,14 @@ def main():
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
             echecs += 1
+            perdus["construction"].append("%s (exception: %s)" % (sym, str(e)[:60]))
             continue
         if not bati:
+            # LE CHEMIN QUI COMPTE : les faits sont la, et c'est NOTRE code qui
+            # les refuse. Le plus frequent, le plus reparable — c'est par ici que
+            # passait BBVA, faute d'une etiquette IFRS dans l'ossature.
             echecs += 1
+            perdus["construction"].append(sym)
             continue
 
         # ⚠ On ne repose PAS de cours quand `construire` a refusé les grandeurs
@@ -1971,6 +1985,38 @@ def main():
             print("      %-7s %6.0f Md$  %d exercice(s)" % (sym, m / 1e9, n))
         if len(maigres) > 12:
             print("      … et %d autre(s)" % (len(maigres) - 12))
+
+    # ── LES PERDUS, DANS UN FICHIER À PART ──
+    #
+    # PAS dans `exhaustivite`. `_fusionner_sec` recoud l'index et les paquets,
+    # mais reconstruit `exhaustivite` à partir des seuls compteurs du passage
+    # COURANT. C'est déjà visible dans l'index publié, qui annonce « univers 2,
+    # construites 2, échecs 0 » alors que 3 463 sociétés sont publiées — trace
+    # d'une passe à deux tickers.
+    #
+    # Y ajouter les listes ferait dire à une passe partielle « aucun échec »,
+    # ce qui est pire que se taire. Le fichier séparé porte donc la taille de
+    # l'univers auquel il se rapporte, et dit s'il vient d'une passe partielle.
+    try:
+        with (OUT_DIR / "sec_echecs.json").open("w", encoding="utf-8") as fh:
+            json.dump({
+                "genere_le": horodatage,
+                "univers": len(univers),
+                "partielle": bool(opts.get("tickers") or opts.get("tranche")),
+                "note": ("Diagnostic, hors manifeste. Quatre chemins qui ne "
+                         "se soignent pas pareil : « sans_cik » est souvent "
+                         "légitime (hors marché réglementé, ADR non parrainé), "
+                         "« reseau » se retente, « faits_vides » veut dire que "
+                         "la SEC répond sans données XBRL — et « construction » "
+                         "est le seul où les faits EXISTENT et où notre propre "
+                         "code les refuse. C'est celui-là qu'il faut regarder."),
+                "compte": {k: len(v) for k, v in perdus.items()},
+                "perdus": perdus,
+            }, fh, ensure_ascii=False, indent=1)
+        print("[ok] echecs nommes dans sec_echecs.json : %s"
+              % ", ".join("%s %d" % (k, len(v)) for k, v in sorted(perdus.items()) if v))
+    except OSError as e:
+        print("[warn] sec_echecs.json non ecrit : %s" % e, file=sys.stderr)
 
     print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko")
     if poids:
