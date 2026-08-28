@@ -216,8 +216,9 @@ def main():
                     help="nombre de trimestres d'index à parcourir")
     ap.add_argument("--limite", type=int, default=0,
                     help="s'arrêter après N documents (mise au point)")
-    ap.add_argument("--saut", type=int, default=0,
-                    help="trimestres a ignorer avant de commencer")
+    ap.add_argument("--saut", default="0",
+                    help="trimestres à ignorer avant de commencer, ou "
+                         "« auto » pour tourner sur quatre jours")
     ap.add_argument("--parallele", type=int, default=8,
                     help="fils de lecture ; le frein reste global")
     args = ap.parse_args()
@@ -241,7 +242,20 @@ def main():
     # que son CIK est chez nous, puis on déduplique par numéro de dépôt : le
     # document dira lui-même qui est l'émetteur.
     a_lire = {}
-    for annee, q in trimestres(args.trimestres, args.saut):
+    # ── LE SAUT, ET SA ROTATION ──
+    # Une fenêtre fixe ne remonte jamais : deux trimestres par jour couvriraient
+    # toujours les deux DERNIERS, et les six d'avant resteraient hors d'atteinte
+    # malgré la fusion. Le jour de la semaine décide donc du décalage, et l'ère
+    # du formulaire structuré — huit trimestres depuis fin 2024 — est parcourue
+    # en quatre jours. Même idiome que `--tranche auto` du collecteur SEC : un
+    # univers trop grand pour un passage, parcouru sans registre à tenir.
+    if str(args.saut).lower() == "auto":
+        saut = (date.today().weekday() % 4) * args.trimestres
+        print("[info] saut automatique : %d trimestre(s) — rotation sur quatre jours"
+              % saut)
+    else:
+        saut = int(args.saut)
+    for annee, q in trimestres(args.trimestres, saut):
         url = ("https://www.sec.gov/Archives/edgar/full-index/%d/QTR%d/form.idx"
                % (annee, q))
         idx = http(url)
