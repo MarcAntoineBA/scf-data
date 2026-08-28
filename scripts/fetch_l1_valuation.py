@@ -234,7 +234,7 @@ def fetch_defillama_fees(chain_slug, retries=3):
 # ──────────────────────────────────────────────────────────────
 SOURCE_CAPTATION = (
     "DefiLlama /overview/fees/<chain> lu trois fois — dataType=dailyFees, dailyRevenue, "
-    "dailyHoldersRevenue (total1y, sinon 30j × 12). Courbes mensuelles agrégées en UTC "
+    "dailyHoldersRevenue (12 mois glissants, sinon 30 j × 12). Courbes mensuelles en UTC "
     "depuis totalDataChart, mois en cours écarté. BTC : captation nulle par construction "
     "(les frais rémunèrent les mineurs), usage mesuré par blockchain.info. "
     "DOT : adaptateur muet (HTTP 500)."
