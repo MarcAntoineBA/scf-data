@@ -84,6 +84,7 @@ from fondamentaux_communs import (          # noqa: E402
     _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
+    effacer_l_impossible,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
@@ -414,12 +415,34 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
     for _e in exercices:
         _e["interest_expense"] = _charge(_e.get("interest_expense"))
 
+    # Ce qui est logiquement impossible s'efface AVANT tout calcul : un résultat
+    # brut au-dessus du chiffre d'affaires, un poste au-dessus de son propre
+    # total. Une marge tirée d'un couple impossible reste fausse, mais elle
+    # n'a plus l'air de rien une fois arrondie à deux décimales.
+    impossibles = effacer_l_impossible(exercices)
+
     # ── Reconstructions et ratios, à l'identique du collecteur SEC ──
     for e in exercices:
         if e["gross_profit"] is None and e["revenue"] is not None and e["cogs"] is not None:
             e["gross_profit"] = e["revenue"] - e["cogs"]
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
+
+        # ── LE TOTAL DES DETTES SE DÉDUIT, IL NE SE DEVINE PAS ──
+        # Même correctif que côté américain, et même mesure : 1 772 sociétés
+        # internationales sur 19 430 sortaient sans total des dettes, dont 1 757
+        # dont l'actif et les capitaux propres étaient pourtant là. Sans ce
+        # total, le Z d'Altman perd son quatrième terme — et il était publié
+        # quand même, amputé, puis lu comme un verdict.
+        # Actif = dettes + capitaux propres + intérêts minoritaires + mezzanine
+        # est une identité comptable : on la retourne, et on marque le résultat.
+        if (e.get("liabilities") is None and e.get("assets") is not None
+                and e.get("equity") is not None):
+            e["liabilities"] = (e["assets"] - e["equity"]
+                                - (e.get("interets_minoritaires_bilan") or 0.0)
+                                - (e.get("capitaux_mezzanine") or 0.0))
+            e["liabilities_reconstruit"] = True
+
         if e["operating_income"] is None:
             if e["gross_profit"] is not None and e["opex"] is not None:
                 e["operating_income"] = e["gross_profit"] - e["opex"]
@@ -828,11 +851,27 @@ def univers_marche(tranche=None, plafond=None):
     recherche à refaire ici.
 
     `tranche` vaut (i, n) : on ne garde qu'une société sur n, celles dont le
-    rang modulo n vaut i. Le découpage se fait sur le RANG et non sur une
-    empreinte, pour que chaque tranche contienne un échantillon de toutes les
-    tailles — sinon la tranche du lundi ne verrait que des mégacapitalisations
-    et celle du dimanche que des microcaps, et une panne un jour donné aurait
-    des conséquences très différentes selon le jour.
+    PAQUET modulo n vaut i.
+
+    ⚠ SUR LE PAQUET, ET NON SUR LE RANG DE CAPITALISATION.
+    Le découpage se faisait sur le rang, pour que chaque tranche contienne un
+    échantillon de toutes les tailles — sinon la tranche du lundi ne verrait que
+    des mégacapitalisations et celle du dimanche que des microcaps. L'intention
+    était juste ; son coût, invisible.
+
+    Le rang de capitalisation n'a aucun rapport avec l'empreinte qui choisit le
+    paquet. Les sociétés d'une tranche se répartissaient donc sur les CINQ CENT
+    DOUZE paquets, et les cinq cent douze fichiers changeaient chaque jour. Or
+    ces fichiers sont versionnés par git, qui ajoute chaque version à son
+    historique et n'en retire jamais aucune. Mesuré le 28/08/2026 sur le jeu
+    américain, de même forme : dix-sept mégaoctets compressés par jour, un dépôt
+    à 271 Mo qui franchissait le gigaoctet en six semaines.
+
+    En découpant sur le paquet, la tranche du jour n'en touche que soixante-treize.
+    L'échantillon de tailles est préservé : l'empreinte est un hachage du symbole,
+    sans corrélation avec la capitalisation — vérifié, les sept tranches ont la
+    même capitalisation médiane à 15 % près. On troque une stratification exacte
+    contre un tirage aléatoire, et on divise le coût par sept.
     """
     f = CACHE_DIR / "univers_actions.json"
     if not f.exists():
@@ -886,7 +925,7 @@ def univers_marche(tranche=None, plafond=None):
         lignes = lignes[:plafond]
     if tranche:
         i, n = tranche
-        lignes = [x for k, x in enumerate(lignes) if k % n == i]
+        lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
     out = {}
     for capi, sym, nom in lignes:
         px, dev = cotations.get(sym, (None, None))

@@ -533,6 +533,7 @@ from fondamentaux_communs import (          # noqa: E402
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _FACTEURS_USUELS, _facteur_division, _corriger_divisions,
     _piotroski, _altman_z,
+    effacer_l_impossible,
     TAUX_SANS_RISQUE, PRIME_DE_RISQUE, _wacc,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
@@ -697,10 +698,22 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     for cle, noms in CONCEPTS.items():
         series[cle] = _annuels(facts, noms, instant=(cle in INSTANTS), devise=devise)
 
-    # Les dates d'arrêté du chiffre d'affaires font l'ossature. Si une société
-    # n'a pas de chiffre d'affaires publié (rare, mais les holdings financières
-    # en font), on retombe sur le résultat net.
-    axe = sorted(series["revenue"].keys()) or sorted(series["net_income"].keys())
+    # ── L'OSSATURE EST UNE UNION, PAS UNE SEULE LIGNE ──
+    #
+    # Elle était faite du seul chiffre d'affaires, avec repli sur le résultat net
+    # quand il manquait ENTIÈREMENT. Mesuré le 28/08/2026, c'est faux dès qu'une
+    # ligne APPARAÎT en cours de route — et c'est silencieux. Investar Holding ne
+    # publie son produit net bancaire qu'à partir de 2019 : ses exercices 2012 à
+    # 2018, dont le résultat net, l'actif et les capitaux propres sont pourtant
+    # tous déposés, étaient jetés. Quatorze exercices tombaient à sept. Vingt-
+    # quatre sociétés dans ce cas, dont Goldman Sachs (19 → 15) et NetEase.
+    #
+    # L'ossature est donc l'union des dates d'arrêté des trois flux principaux.
+    # Un exercice sans chiffre d'affaires vaut mieux qu'un exercice absent : la
+    # case vide se voit, l'année manquante non.
+    axe = sorted(set(series["revenue"])
+                 | set(series["net_income"])
+                 | set(series["ocf"]))
     if not axe:
         return None
 
@@ -730,6 +743,30 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
 
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
+
+        # ── LE TOTAL DES DETTES SE DÉDUIT, IL NE SE DEVINE PAS ──
+        # Beaucoup de sociétés n'étiquettent jamais `Liabilities` : leur bilan
+        # publié détaille les postes sans en donner le total. Mesuré le
+        # 28/08/2026 : 453 sociétés américaines sur 3 195 — 14,2 % — sortaient
+        # sans total des dettes, dont 437 dont l'actif ET les capitaux propres
+        # étaient pourtant déposés.
+        #
+        # Le coût était silencieux et lourd : le terme « capitalisation sur
+        # dettes » du Z d'Altman disparaissait, et le Z était quand même publié,
+        # amputé d'un cinquième de sa formule, puis comparé aux seuils d'Altman
+        # comme s'il était complet. Illumina s'affichait à 1,28 — « zone de
+        # détresse » — pour un Z réel autour de 2,7.
+        #
+        # Ce n'est pas une estimation : actif = dettes + capitaux propres +
+        # intérêts minoritaires + capitaux mezzanine est une identité comptable.
+        # On la retourne, et on marque le chiffre comme reconstruit — un montant
+        # déduit doit rester distinguable d'un montant déposé.
+        if (e.get("liabilities") is None and e.get("assets") is not None
+                and e.get("equity") is not None):
+            e["liabilities"] = (e["assets"] - e["equity"]
+                                - (e.get("interets_minoritaires_bilan") or 0.0)
+                                - (e.get("capitaux_mezzanine") or 0.0))
+            e["liabilities_reconstruit"] = True
 
         # ── RECONSTRUIRE LE RÉSULTAT D'EXPLOITATION QUAND IL N'EST PAS DÉPOSÉ ──
         # Beaucoup de sociétés cessent d'étiqueter `OperatingIncomeLoss` : leur
@@ -848,6 +885,12 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     # des intérêts pour quatre cinquièmes d'un univers sans rien signaler.
     for _e in exercices:
         _e["interest_expense"] = _charge(_e.get("interest_expense"))
+
+    # D'abord ce qui est logiquement impossible — un résultat brut au-dessus du
+    # chiffre d'affaires, un poste au-dessus de son propre total. Avant tout
+    # calcul : une marge tirée d'un couple impossible est fausse, et elle n'a
+    # plus l'air de rien une fois arrondie à deux décimales.
+    impossibles = effacer_l_impossible(exercices)
 
     # L'unité du nombre d'actions ensuite : McDonald's portait 716,4 actions là
     # où il en faut 716,4 millions. Ce facteur traverse la capitalisation, la
@@ -1086,9 +1129,27 @@ def univers_marche(tranche=None):
     secondaires portent des capitalisations dans la monnaie de leur place —
     mesuré, 231 lignes affichaient des montants impossibles.
 
-    `tranche` vaut (i, n) : une société sur n, celles dont le RANG de
-    capitalisation modulo n vaut i. Sur le rang, et non sur une empreinte, pour
-    que chaque tranche porte un échantillon de toutes les tailles.
+    `tranche` vaut (i, n) : une société sur n, celles dont le PAQUET modulo n
+    vaut i.
+
+    ⚠ SUR LE PAQUET, ET NON SUR LE RANG DE CAPITALISATION.
+    La découpe se faisait sur le rang, pour que chaque tranche porte un
+    échantillon de toutes les tailles. L'intention était bonne, le coût invisible :
+    un rang de capitalisation n'a aucun rapport avec l'empreinte qui choisit le
+    paquet, donc les cinq cent cinquante sociétés d'une tranche se répartissaient
+    sur les CINQ CENT DOUZE paquets. Les cinq cent douze fichiers changeaient donc
+    tous les jours.
+
+    Mesuré le 28/08/2026 : dix-sept mégaoctets compressés par jour ajoutés à
+    l'historique d'un dépôt git — qui n'en retire jamais rien. Le dépôt pesait
+    271 Mo ; il franchissait le gigaoctet en six semaines et les cinq en neuf mois.
+
+    En découpant sur le paquet, la tranche du jour ne touche que soixante-treize
+    fichiers au lieu de cinq cent douze : deux mégaoctets et demi par jour, sept
+    fois moins. L'échantillon de tailles est préservé — l'empreinte est une
+    fonction de hachage du symbole, donc sans corrélation avec la capitalisation ;
+    on troque une stratification exacte contre un tirage aléatoire, ce qui ne
+    change rien à l'usage et divise le coût par sept.
     """
     import glob as _glob
     f = CACHE_DIR / "univers_actions.json"
@@ -1147,7 +1208,7 @@ def univers_marche(tranche=None):
     lignes.sort(reverse=True)
     if tranche:
         i, n = tranche
-        lignes = [x for k, x in enumerate(lignes) if k % n == i]
+        lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
 
     out = {}
     for capi, sym, nom, ind in lignes:

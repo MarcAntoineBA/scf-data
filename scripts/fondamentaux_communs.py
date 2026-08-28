@@ -79,9 +79,22 @@ def dedupliquer_exercices(exercices):
     tardive, qui est l'exercice complet plutôt que la période de transition.
 
     L'ordre chronologique est préservé : tout le reste du calcul en dépend.
+
+    ⚠ LA RICHESSE PASSE AVANT LA FRAÎCHEUR.
+    Depuis que l'ossature annuelle est l'union de plusieurs lignes, deux entrées
+    peuvent tomber sur la même année sans être des retraitements l'une de
+    l'autre : l'une porte l'exercice complet, l'autre n'existe que parce qu'un
+    flux de trésorerie a été déposé à une date voisine. Classer sur le seul
+    numéro de dépôt ferait gagner la seconde et viderait l'année. On compare donc
+    d'abord le nombre de grandeurs renseignées ; le dépôt le plus récent ne
+    départage que les entrées de richesse égale — le cas du vrai retraitement.
     """
     if not exercices:
         return exercices
+
+    def garni(e):
+        return sum(1 for c, v in e.items()
+                   if c != "annee" and isinstance(v, (int, float)))
 
     def rang(e):
         # Le numéro de dépôt de la SEC porte l'année de dépôt en son milieu :
@@ -92,7 +105,8 @@ def dedupliquer_exercices(exercices):
         if len(parts) == 3 and len(parts[1]) == 2 and parts[1].isdigit():
             n = int(parts[1])
             an_depot = 2000 + n if n < 80 else 1900 + n
-        return (an_depot, str(e.get("depose_le") or ""), str(e.get("fin") or ""))
+        return (garni(e), an_depot, str(e.get("depose_le") or ""),
+                str(e.get("fin") or ""))
 
     par_annee = {}
     for e in exercices:
@@ -604,10 +618,26 @@ def _altman_z(cur, mcap_usd):
         "capitalisation_sur_dettes": _r(0.6 * mcap_usd / dettes, 3) if dettes else None,
         "rotation": _r(1.0 * cur["revenue"] / A, 3) if cur.get("revenue") is not None else None,
     }
-    presentes = [v for v in parts.values() if v is not None]
-    if len(presentes) < 4:
+    # ── LES CINQ TERMES, OU RIEN ──
+    #
+    # On acceptait d'en publier quatre : la somme des termes présents partait
+    # telle quelle, et la fiche la comparait aux seuils d'Altman — 1,81
+    # « détresse », 2,99 « sûre » — comme si elle était complète.
+    #
+    # Or les cinq termes sont positifs pour une société saine. Une somme à
+    # quatre termes est donc SYSTÉMATIQUEMENT plus basse que le Z vrai, jamais
+    # plus haute : ce n'est pas un Z imprécis, c'est un Z biaisé dans un seul
+    # sens, celui qui accuse. Mesuré le 28/08/2026 : 754 fiches américaines
+    # publiaient un Z à quatre termes, et 341 d'entre elles — 45 % — changeaient
+    # de verdict dès que le terme manquant prenait la valeur médiane observée
+    # ailleurs. Illumina s'affichait à 1,28 pour un Z réel autour de 2,7.
+    #
+    # On rend donc None, et le détail à côté : la fiche peut montrer les termes
+    # connus sans prétendre au score. Une case vide se discute, un « zone de
+    # détresse » faux se croit.
+    if any(v is None for v in parts.values()):
         return None, parts
-    return _r(sum(presentes), 2), parts
+    return _r(sum(parts.values()), 2), parts
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -670,6 +700,68 @@ def _charge(v):
 # ─────────────────────────────────────────────────────────────────────────
 # Contrôle d'unité sur le nombre d'actions
 # ─────────────────────────────────────────────────────────────────────────
+def effacer_l_impossible(exercices):
+    """Efface les couples de chiffres qui ne peuvent pas être vrais ensemble.
+
+    POURQUOI
+
+    Un balayage d'invariants comptables sur les 38 297 exercices américains, le
+    28/08/2026, a trouvé trois familles de valeurs LOGIQUEMENT impossibles — pas
+    extrêmes, impossibles :
+
+      · 220 exercices où la marge brute dépasse 100 % : le résultat brut y est
+        supérieur au chiffre d'affaires. EACO 2011 affichait 28,6 M$ de brut pour
+        1,24 M$ de chiffre d'affaires, quand la société en fait cent dix-sept.
+      · 24 exercices où la trésorerie dépasse l'actif total, 13 où le passif
+        courant dépasse le passif, 3 où l'actif courant dépasse l'actif. Ingles
+        Markets 2010 portait 1,53 M$ d'actif pour 423 M$ d'actif courant.
+
+    Dans chaque cas, une balise XBRL a été lue à la mauvaise échelle ou sur un
+    périmètre partiel. On ne sait pas LEQUEL des deux chiffres est faux — un
+    total trop petit et un poste trop grand produisent la même violation — donc
+    on n'en répare aucun : on efface les DEUX, et on dit pourquoi.
+
+    CE QU'ON NE TOUCHE PAS, ET C'EST DÉLIBÉRÉ
+    Le même balayage a trouvé 2 928 marges au-delà de ±1 000 % et 421 rendements
+    du même ordre. Ceux-là ne sont pas impossibles : une biotech sans revenus a
+    réellement une marge d'exploitation de −7 000 %, et une société aux capitaux
+    propres presque nuls un rendement de 5 000 %. Ces nombres sont vrais et
+    inutiles — c'est à la fiche de les cadrer, pas au collecteur de les nier.
+    Effacer ce qui est vrai serait le même geste qu'afficher ce qui est faux.
+
+    Rend le nombre d'effacements, par famille.
+    """
+    faits = {}
+
+    def efface(e, cles, raison):
+        for k in cles:
+            e[k] = None
+        e.setdefault("_impossibles", []).append(raison)
+        faits[raison] = faits.get(raison, 0) + 1
+
+    # (poste, son total, libellé) — un poste ne peut pas dépasser son propre total.
+    INCLUSIONS = (
+        ("assets_current", "assets", "actif courant au-dessus de l’actif"),
+        ("liabilities_current", "liabilities", "passif courant au-dessus du passif"),
+        ("cash", "assets", "trésorerie au-dessus de l’actif"),
+    )
+
+    for e in exercices:
+        g = e.get
+        rev, brut = g("revenue"), g("gross_profit")
+        if (isinstance(rev, (int, float)) and isinstance(brut, (int, float))
+                and rev > 0 and brut > rev * 1.001):
+            efface(e, ("revenue", "gross_profit"), "marge brute au-dessus de 100 %")
+
+        for petit, grand, quoi in INCLUSIONS:
+            a, b = g(petit), g(grand)
+            if (isinstance(a, (int, float)) and isinstance(b, (int, float))
+                    and b > 0 and a > b * 1.001):
+                efface(e, (petit, grand), quoi)
+
+    return faits
+
+
 def _corriger_unite_actions(exercices):
     """Rattrape un nombre d'actions exprimé dans la mauvaise unité.
 
@@ -686,6 +778,28 @@ def _corriger_unite_actions(exercices):
     pas un écart comptable : on corrige. Sinon on ne touche à rien — un écart de
     quelques pour cent vient des actions de préférence, et il est normal.
 
+    ⚠ DEUX SENS, PAS UN — ET UN TROISIÈME CAS QUI NE SE CORRIGE PAS.
+    Cette fonction ne traitait qu'un sens : le nombre déposé trop PETIT, qu'on
+    multiplie. Mesuré le 28/08/2026 sur les 32 729 exercices américains qui
+    portent à la fois résultat net, BPA et nombre d'actions :
+
+      · 24 exercices trop petits  — le cas déjà traité ;
+      · 35 exercices trop GRANDS d'un facteur mille, jamais corrigés. BiomX
+        déclarait 17 403 270 000 actions là où son propre BPA en implique
+        17 403 750 : le nombre est déposé en unités sous une balise qui annonce
+        des milliers. On divise, symétriquement ;
+      · 111 exercices où l'écart dépasse dix fois sans être une puissance de
+        mille. Là, aucune correction n'est défendable — on ne sait pas lequel des
+        deux chiffres est faux. On EFFACE le nombre d'actions, ce qui vide les
+        grandeurs par action au lieu de les publier fausses d'un facteur inconnu.
+        Une case vide se voit ; un chiffre d'affaires par action faux se lit
+        comme un chiffre d'affaires par action.
+
+    On ne touche pas aux écarts de deux à dix fois (1,1 % des exercices) — ils
+    s'expliquent par le périmètre, actions de base contre diluées ou activités
+    abandonnées — ni aux 248 exercices où le résultat net et le BPA n'ont pas le
+    même signe, qui relèvent d'un autre défaut.
+
     Rend la liste des corrections, pour qu'elles restent affichables.
     """
     corrections = []
@@ -699,6 +813,7 @@ def _corriger_unite_actions(exercices):
         if implique <= 0 or act <= 0:
             continue
         r = implique / act
+        touche = False
         for facteur in (1000.0, 1000000.0, 1000000000.0):
             # 15 % de tolérance : l'écart résiduel vient des préférentielles.
             if abs(r - facteur) / facteur < 0.15:
@@ -706,7 +821,24 @@ def _corriger_unite_actions(exercices):
                     if e.get(cle):
                         e[cle] = e[cle] * facteur
                 corrections.append({"annee": e.get("annee"), "facteur": int(facteur)})
+                touche = True
                 break
+            # Le sens inverse : le nombre déposé est trop GRAND du même facteur.
+            if abs(1.0 / r - facteur) / facteur < 0.15:
+                for cle in ("shares_diluted", "shares_basic"):
+                    if e.get(cle):
+                        e[cle] = e[cle] / facteur
+                corrections.append({"annee": e.get("annee"),
+                                    "facteur": -int(facteur)})
+                touche = True
+                break
+        if touche:
+            continue
+        # Ni concordant, ni une unité : on ne publie pas un diviseur inconnu.
+        if r > 10 or r < 0.1:
+            for cle in ("shares_diluted", "shares_basic"):
+                e[cle] = None
+            e["shares_ecarte"] = "incohérent avec le bénéfice par action déposé"
     return corrections
 
 def _wacc(mcap_usd, dette, interets, taux_impot_pct, beta):
