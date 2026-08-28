@@ -228,6 +228,11 @@ def _cle_fragment(mot):
 # certificat de dépôt : son cours est celui du certificat, son nombre d'actions
 # celui du titre local, et leur produit ne veut rien dire. Mesuré : 4 665 lignes
 # sur 38 075, dont Taiwan Semiconductor, Banco Santander-Chile et LATAM Airlines.
+# Aucune société au monde n'a cinq cents milliards d'actions : PetroChina,
+# championne du monde, en a cent quatre-vingt-trois milliards. Au-delà, la
+# capitalisation et le cours ne sont pas dans la même devise.
+ACTIONS_IMPLICITES_MAX = 500e9
+
 PLACES_US = {"NYSE", "NASDAQ", "NYSEAMERICAN", "NYSE American", "NYSE Arca",
              "OTCMKTS", "Cboe BZX"}
 
@@ -585,6 +590,7 @@ def main():
     _capi_incoherentes = [0]
     _capi_non_verifiables = [0]
     _capi_depot = [0]
+    _capi_absurdes = [0]
 
     def capi_usd(v):
         """La capitalisation en dollars — recalculée quand on peut la vérifier.
@@ -641,6 +647,26 @@ def main():
         _capi_non_verifiables[0] += 1
         if not isinstance(mc, (int, float)):
             return 0.0
+
+        # ── Le calcul retourné ──
+        # Faute de nombre d'actions, on ne peut pas vérifier. Mais si les deux
+        # valeurs étaient dans la même devise, `capitalisation ÷ cours` donnerait
+        # ce nombre d'actions — et celui-là, on sait le juger : PetroChina,
+        # championne du monde, en a cent quatre-vingt-trois milliards.
+        #
+        # Grupo Argos, quatrième capitalisation mondiale publiée, en supposait
+        # cinq cent soixante-sept milliards : cours en dollars, capitalisation en
+        # pesos colombiens.
+        #
+        # Mesuré sur les 17 954 lignes concernées : 490 dépassent cinq cents
+        # milliards, soit 1,29 %. Le seuil laisse une marge de 2,7 fois au record
+        # réel. On ne publie pas un nombre qu'on sait faux — et on le COMPTE,
+        # une exclusion silencieuse étant un autre mensonge.
+        if isinstance(px, (int, float)) and px > 0 and mc > 0:
+            if (mc / px) > ACTIONS_IMPLICITES_MAX:
+                _capi_absurdes[0] += 1
+                return 0.0
+
         return mc * r
 
     for sym, v in lignes.items():
@@ -661,6 +687,10 @@ def main():
           "laissés à la source ; %d non vérifiables (pas de nombre d'actions)"
           % (len(lignes) - _capi_non_verifiables[0] - _capi_depot[0],
              _capi_incoherentes[0], _capi_depot[0], _capi_non_verifiables[0]))
+    if _capi_absurdes[0]:
+        print("[ok] %d société(s) écartée(s) : leur capitalisation supposerait plus "
+              "de %d milliards d'actions, donc elle n'est pas dans la devise du "
+              "cours" % (_capi_absurdes[0], int(ACTIONS_IMPLICITES_MAX / 1e9)))
     if sans_taux:
         print("[ok] devises sans taux, sociétés non publiées faute de comparaison : %s"
               % ", ".join(sorted(x for x in sans_taux if x)))

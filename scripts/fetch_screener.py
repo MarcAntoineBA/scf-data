@@ -257,6 +257,42 @@ def main():
         index_douteux = []
         print("[ok] aucune capitalisation invraisemblable")
 
+    # ── Les médianes des colonnes affichées, par industrie ──
+    # Chaque valeur du tableau porte un point disant si elle est au-dessus ou en
+    # dessous de la médiane de SON industrie. Les médianes complètes pèsent trois
+    # mégaoctets et demi en trente-deux paquets — cinquante-trois grandeurs et
+    # vingt et un quantiles chacune. Le screener n'en affiche que six : on les
+    # embarque avec l'index, et les points sont là dès la première ligne rendue.
+    COLONNES_POINTS = ["peRatio", "pbRatio", "roe", "profitMargin",
+                       "dividendYield", "croissance_ca_pct"]
+    MINI_INDUSTRIE = 8       # même règle que partout : en dessous, c'est un tirage
+    j_ind = champs.index("industry") if "industry" in champs else None
+    med_ind = {}
+    if j_ind is not None:
+        par_ind = {}
+        for v in lignes.values():
+            nom = v[j_ind] if j_ind < len(v) else None
+            if not nom:
+                continue
+            bloc = par_ind.setdefault(nom, {})
+            for c in COLONNES_POINTS:
+                if c not in champs:
+                    continue
+                x = v[champs.index(c)]
+                if isinstance(x, (int, float)) and not isinstance(x, bool):
+                    bloc.setdefault(c, []).append(x)
+        for nom, bloc in par_ind.items():
+            sortie_ind = {}
+            for c, vals in bloc.items():
+                if len(vals) < MINI_INDUSTRIE:
+                    continue
+                vals.sort()
+                sortie_ind[c] = _arrondir(_centile(vals, 0.50))
+            if sortie_ind:
+                med_ind[nom] = sortie_ind
+        print("[ok] médianes du screener : %d industries, %d couples"
+              % (len(med_ind), sum(len(x) for x in med_ind.values())))
+
     index = {
         "genere_le": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "source": "collecte de marché (stockanalysis), assemblée localement",
@@ -269,6 +305,7 @@ def main():
         "bornes": bornes,
         "categories": cats,
         "douteux": index_douteux,
+        "medianes_industrie_screener": med_ind,
         "note": ("Deux étages : les %d plus grosses capitalisations partent avec "
                  "la page, le reste attend qu'on demande l'univers entier. "
                  "L'interface DOIT dire lequel est chargé — un screener qui "

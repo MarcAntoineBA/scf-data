@@ -858,6 +858,8 @@ def aggregate_sector(stocks):
         if not raw_pairs:
             out[k] = None
             out[f"{k}_median"] = None
+            out[f"{k}_q1"] = None
+            out[f"{k}_q3"] = None
             out[f"{k}_min"] = None
             out[f"{k}_max"] = None
             out[f"{k}_n"] = 0
@@ -866,6 +868,15 @@ def aggregate_sector(stocks):
         # Median (unweighted): robust central tendency the user can sanity-check
         vals_sorted = sorted(v for v, _, _ in raw_pairs)
         out[f"{k}_median"] = round(_percentile(vals_sorted, 50), 3)
+        # ── Les quartiles : où se tient LA MOITIÉ du secteur ──
+        # Le minimum et le maximum décrivent les extrêmes, souvent une seule
+        # société aberrante de chaque côté. Les quartiles décrivent le centre —
+        # et c'est la seule des deux paires qui réponde à « ce secteur est-il
+        # resserré ou dispersé ». Sans elle, un P/E de 30 dans un secteur de
+        # médiane 20 se lit pareil, que la moitié du secteur tienne entre 18 et
+        # 22 ou qu'elle s'étale de 8 à 45.
+        out[f"{k}_q1"] = round(_percentile(vals_sorted, 25), 3)
+        out[f"{k}_q3"] = round(_percentile(vals_sorted, 75), 3)
         out[f"{k}_min"] = round(vals_sorted[0], 3)
         out[f"{k}_max"] = round(vals_sorted[-1], 3)
         out[f"{k}_n"] = len(raw_pairs)
