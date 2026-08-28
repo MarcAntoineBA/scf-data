@@ -885,11 +885,32 @@ def univers_marche(tranche=None):
         return {}
     with f.open(encoding="utf-8") as fh:
         u = json.load(fh)
+    # Les cotations principales, ET LEUR COURS.
+    #
+    # Le cours ne venait que de `tradfi_history_cache`, qui ne couvre que les
+    # quelque huit cents titres du tracker. Mesuré le 28/08/2026 après la
+    # collecte complète : sur 3 195 sociétés américaines, **315 seulement**
+    # portaient un cours — 9,9 %. Sans lui, pas de P/E, pas de rendement, pas de
+    # prix juste : l'onglet Valorisation reste éteint pour neuf sociétés sur dix.
+    #
+    # `univers_actions.json` porte la cotation de 46 992 titres principaux. Le
+    # cas américain est le plus simple qui soit : la société cote en dollars et
+    # publie en dollars, donc aucune conversion — contrairement à
+    # l'international, où il a fallu écrire `_cotation_vers_etats`.
+    #
+    # On garde tout de même la devise, et on REFUSE un cours qui ne serait pas
+    # en dollars : un certificat étranger coté ailleurs se glisserait sinon dans
+    # l'univers, et son cours rencontrerait des états en dollars.
     principales = set()
+    cotations = {}
     for t in u.get("titres", []):
         sym = t.get("yahoo") or t.get("sa")
         if sym and t.get("principal"):
             principales.add(sym)
+            px = t.get("cours")
+            if isinstance(px, (int, float)) and px > 0 \
+               and (t.get("devise") or "").upper() == "USD":
+                cotations[sym] = px
 
     lignes = []
     for pth in _glob.glob(str(CACHE_DIR / "marche_[0-9]*.json")):
@@ -917,7 +938,8 @@ def univers_marche(tranche=None):
 
     out = {}
     for capi, sym, nom, ind in lignes:
-        out[sym] = {"nom": nom, "mcap": capi, "secteur_suivi": ind}
+        out[sym] = {"nom": nom, "mcap": capi, "secteur_suivi": ind,
+                    "cours_cotation": cotations.get(sym)}
 
     # Le bêta, comme pour l'univers suivi : sans lui, pas de coût des fonds
     # propres, donc pas de WACC — et on préfère un champ vide à un bêta supposé,
@@ -1160,6 +1182,14 @@ def main():
     print(f"[info] correspondance SEC : {len(cik_par_ticker)} tickers")
 
     cours = charger_cours()
+    # La date des cotations de l'univers, pour dater le cours de repli. Une
+    # cotation sans date se confondrait avec une cotation du jour.
+    jour_univers = None
+    try:
+        with (CACHE_DIR / "univers_actions.json").open(encoding="utf-8") as _fh:
+            jour_univers = str((json.load(_fh) or {}).get("updated") or "")[:10] or None
+    except Exception:
+        pass
     if cours:
         print("[info] historique de cours : %d titres" % len(cours))
 
@@ -1204,6 +1234,17 @@ def main():
 
         bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
             _dernier_cours(cours.get(sym))
+        # Repli sur la cotation de l'univers. La série du tracker ne couvre que
+        # ses huit cents titres ; sans ce repli, 90 % des sociétés américaines
+        # n'avaient aucun cours — donc ni P/E, ni rendement, ni prix juste.
+        # Ici la conversion est inutile : la cotation retenue est en dollars, et
+        # les états d'un déposant SEC le sont aussi.
+        bati["resume"]["cours_source"] = \
+            "tracker" if bati["resume"]["cours_natif"] is not None else None
+        if bati["resume"]["cours_natif"] is None and meta.get("cours_cotation"):
+            bati["resume"]["cours_natif"] = meta["cours_cotation"]
+            bati["resume"]["cours_natif_le"] = jour_univers
+            bati["resume"]["cours_source"] = "univers"
         bati["resume"]["devise"] = "USD"
 
         # Le détail est REGROUPÉ PAR INITIALE, pas écrit un fichier par société.
