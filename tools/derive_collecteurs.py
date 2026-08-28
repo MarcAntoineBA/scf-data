@@ -68,16 +68,18 @@ RE_PY_MAC = re.compile(r"/Library/Frameworks/Python\.framework/Versions/3\.\d+/b
                        r"|/usr/local/bin/python3|/opt/homebrew/bin/python3"
                        r"|/opt/anaconda3/bin/python3?|/opt/miniconda3/bin/python3?")
 RE_CAFFEINATE = re.compile(r"/usr/bin/caffeinate -[a-z]* ")
-RE_LABEL = re.compile(r"com\.[A-Za-z0-9._-]+\.")
+RE_LABEL = re.compile(r"com\.[A-Za-z0-9_-]+\.")
 RE_SECRET_PY = re.compile(r'(os\.environ\.get\(\s*["\'][A-Z_]*(?:KEY|TOKEN|SECRET|PASSWORD)'
                           r'[A-Z_]*["\']\s*,\s*)["\'][^"\']*["\']')
 RE_SECRET_SH = re.compile(r'(\$\{[A-Z_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*:-)[^}]*(\})')
-RE_EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.]+')
+RE_EMAIL = re.compile(r'"[^"\n]*[\w.+-]+@[\w-]+\.[\w.]+[^"\n]*"'
+                      r"|'[^'\n]*[\w.+-]+@[\w-]+\.[\w.]+[^'\n]*'"
+                      r"|[\w.+-]+@[\w-]+\.[\w.]+")
 RE_CONTACT = re.compile(r'os\.environ\.get\(\s*"SCF_CONTACT_UA"\s*,\s*"[^"]*"\s*\)'
                         r'|\$\{SCF_CONTACT_UA:-[^}]*\}')
 
 
-def normaliser(texte, compte):
+def normaliser(texte, compte, garder_import_os=False):
     if compte:
         texte = re.sub(r"/Users/%s/" % re.escape(compte), "~/", texte)
     texte = RE_COMPTE.sub("~/", texte)
@@ -88,7 +90,7 @@ def normaliser(texte, compte):
     texte = RE_CAFFEINATE.sub("", texte)
     texte = RE_LABEL.sub("scf.", texte)
     texte = RE_CONTACT.sub('"<contact>"', texte)
-    texte = RE_EMAIL.sub("<contact>", texte)
+    texte = RE_EMAIL.sub('"<contact>"', texte)
     texte = RE_SECRET_PY.sub(r'\1""', texte)
     texte = RE_SECRET_SH.sub(r"\1\2", texte)
     if compte:
@@ -98,7 +100,12 @@ def normaliser(texte, compte):
         ligne = ligne.rstrip()
         # `import os` est ajouté par la publication quand elle introduit un
         # expanduser : sa présence d'un seul côté n'est pas un écart de code.
-        if ligne == "import os":
+        #
+        # `garder_import_os` sert au DÉPLOIEMENT, qui ne compare pas mais ALIGNE :
+        # il recolle un fichier ligne à ligne à partir de ces indices. Une ligne
+        # escamotée ici décalerait tout le reste, et retirerait au passage un import
+        # dont la machine a besoin — le fichier déployé mourrait sur un NameError.
+        if ligne == "import os" and not garder_import_os:
             continue
         lignes.append(ligne)
     while lignes and not lignes[-1]:
