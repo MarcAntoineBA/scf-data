@@ -51,6 +51,23 @@ from pathlib import Path
 CACHE = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 PREMIER_ETAGE = 10000
 
+# ── L'AMORÇAGE : ce que la page tire en arrivant ──
+#
+# Mesuré le 28/08/2026 sur un vrai chargement : la page tirait 10,2 Mo AVANT que
+# le visiteur n'ait rien demandé, dont 3,4 Mo pour `screener_1.json` à lui seul.
+# Or le tableau n'affiche que SOIXANTE lignes au premier écran, triées par
+# capitalisation décroissante. Tirer dix mille sociétés pour en montrer soixante,
+# c'est trente-quatre fois trop — et sur une connexion mobile à cinq mégabits,
+# cela repousse le premier chiffre de plus de cinq secondes.
+#
+# On écrit donc un troisième fichier, plus court, qui couvre la vue par défaut et
+# les premiers défilements. Les deux étages complets ne changent pas : dès que le
+# lecteur filtre, trie sur une autre colonne ou dépasse cet amorçage, la page
+# tire `screener_1.json` comme avant. Un screener qui ne regarderait qu'une
+# partie du monde donnerait une réponse fausse à la question posée — l'amorçage
+# sert à AFFICHER vite, jamais à répondre.
+AMORCAGE = 1200
+
 # Les grandeurs du screener. Choisies pour couvrir les blocs de filtres du
 # concurrent : identité, valorisation, rentabilité, croissance, santé,
 # dividende, marché.
@@ -299,6 +316,9 @@ def main():
         "champs": champs,
         "texte": sorted(TEXTE & set(champs)),
         "total": len(lignes),
+        # Combien de sociétés voyagent dans l'amorçage : l'interface en a
+        # besoin pour savoir quand elle doit tirer l'étage complet.
+        "amorcage": len(ordre[:AMORCAGE]),
         "etage1": len(etage1),
         "etage2": len(etage2),
         "seuil_etage1_usd": int(seuil or 0),
@@ -321,7 +341,9 @@ def main():
         "window.__SCREENER__=" + json.dumps(index, ensure_ascii=False,
                                             separators=(",", ":")) + ";\n",
         encoding="utf-8")
-    for nom, part in (("screener_1.json", etage1), ("screener_2.json", etage2)):
+    amorce = dict(ordre[:AMORCAGE])
+    for nom, part in (("screener_0.json", amorce),
+                      ("screener_1.json", etage1), ("screener_2.json", etage2)):
         (CACHE / nom).write_text(
             json.dumps({"societes": part}, ensure_ascii=False,
                        separators=(",", ":")), encoding="utf-8")
@@ -329,6 +351,8 @@ def main():
     ko = lambda f: (CACHE / f).stat().st_size / 1024.0
     print("[ok] étage 1 : %d sociétés (au-dessus de %.0f M$) — %.0f Ko"
           % (len(etage1), (seuil or 0) / 1e6, ko("screener_1.json")))
+    print("[ok] amorçage : %d sociétés — %.0f Ko (ce que la page tire en arrivant)"
+          % (len(amorce), ko("screener_0.json")))
     print("[ok] étage 2 : %d sociétés — %.0f Ko" % (len(etage2), ko("screener_2.json")))
     print("[ok] index   : %.0f Ko · %d champs bornés · %s"
           % (ko("screener_index.json"), len(bornes),
