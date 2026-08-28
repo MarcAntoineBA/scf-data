@@ -142,8 +142,14 @@ INS_US = {"prime": "PCU5241265241262",   # Homeowner's insurance (PPI)
           "auto": "PCU5241265241261",    # Private passenger auto (PPI)
           "cpi_menage": "CUUR0000SEHD",  # le piège, gardé pour le documenter
           "deflateur": "CUUR0000SA0"}    # CPI tous articles
-INS_EU = (("EA20", "zone euro"), ("FR", "France"), ("DE", "Allemagne"),
-          ("ES", "Espagne"), ("IT", "Italie"))
+#    ⚠ Les agrégats à composition CONSTANTE (EA20, EU27_2020) ne commencent
+#    qu'en 2001 : une base 1998 les élimine en silence. Les agrégats à
+#    composition CHANGEANTE — `EU` et `EA` tout court — remontent à 1996, et
+#    ce sont eux qu'Eurostat publie comme série longue.
+INS_EU = (("EU", "Union européenne"), ("EA", "zone euro"),
+          ("FR", "France"), ("DE", "Allemagne"), ("ES", "Espagne"),
+          ("IT", "Italie"), ("NL", "Pays-Bas"), ("BE", "Belgique"),
+          ("PT", "Portugal"), ("AT", "Autriche"))
 
 ERRORS = []      # sources tombées : listées dans le cache ET sur stdout
 
@@ -677,18 +683,23 @@ def _eurostat_hicp(coicop, geo):
 
 
 def _indice_reel(brut, deflateur, base):
-    """Série divisée par l'indice général des prix, base `base` = 100.
+    """Trois séries base `base` = 100 : réelle, nominale, et l'inflation elle-même.
+
+    La nominale est le prix PAYÉ — celle qui parle. La réelle est l'écart à
+    l'inflation. Sans la troisième, un lecteur ne peut pas juger la deuxième :
+    un prix qui double sur une période où tout double n'a pas bougé.
 
     Sans l'année de base dans LES DEUX séries, on ne renvoie rien : un indice
     recalé sur une autre année ne se compare plus aux voisins du graphique.
     """
     if base not in brut or base not in deflateur:
-        return None, None
-    reel, nom = {}, {}
+        return None, None, None
+    reel, nom, infl = {}, {}, {}
     for a in sorted(set(brut) & set(deflateur)):
         nom[a] = round(brut[a] / brut[base] * 100, 2)
+        infl[a] = round(deflateur[a] / deflateur[base] * 100, 2)
         reel[a] = round((brut[a] / brut[base]) / (deflateur[a] / deflateur[base]) * 100, 2)
-    return reel, nom
+    return reel, nom, infl
 
 
 def get_prix_assurance():
@@ -712,9 +723,10 @@ def get_prix_assurance():
         for cle, sid, lab in (("US", INS_US["prime"], "États-Unis — habitation"),
                               ("US_AUTO", INS_US["auto"], "États-Unis — auto"),
                               ("US_CPI", INS_US["cpi_menage"], "États-Unis — CPI locataires")):
-            reel, nom = _indice_reel(us.get(sid, {}), defl, INS_BASE)
+            reel, nom, infl = _indice_reel(us.get(sid, {}), defl, INS_BASE)
             if reel:
                 zones[cle] = {"lab": lab, "reel": pack(reel), "nom": pack(nom),
+                              "infl": pack(infl), "dev": "dollars",
                               "src": "BLS " + sid,
                               "url": "https://data.bls.gov/timeseries/" + sid}
         if zones:
@@ -725,10 +737,11 @@ def get_prix_assurance():
     # ── Europe : HICP, une requête par pays ─────────────────────────────────
     for geo, lab in INS_EU:
         try:
-            reel, nom = _indice_reel(_eurostat_hicp("CP1252", geo),
-                                     _eurostat_hicp("CP00", geo), INS_BASE)
+            reel, nom, infl = _indice_reel(_eurostat_hicp("CP1252", geo),
+                                           _eurostat_hicp("CP00", geo), INS_BASE)
             if reel:
                 zones[geo] = {"lab": lab, "reel": pack(reel), "nom": pack(nom),
+                              "infl": pack(infl), "dev": "euros",
                               "src": "Eurostat HICP CP1252",
                               "url": "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"}
         except Exception as e:                               # noqa: BLE001
