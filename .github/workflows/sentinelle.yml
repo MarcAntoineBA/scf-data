@@ -1,0 +1,79 @@
+name: Sentinelle de fraîcheur du site
+
+# Surveille l'ÂGE de ce que le site public sert vraiment.
+#
+# Pourquoi ici, et pas sur le Mac : toute la surveillance de fraîcheur existante
+# (watchdog_freshness.py, kickstart launchd, garde de retard de publication) tourne
+# SUR LA MACHINE QU'ELLE SURVEILLE. Quand le Mac dort, elle dort avec lui — donc
+# elle est aveugle précisément au moment où il faudrait qu'elle parle. Le
+# 2026-08-28, le site a servi une veille Trésoreries vieille de 6 h tout un
+# après-midi et c'est l'utilisateur qui l'a vu, à l'œil, sur sa propre page.
+#
+# Ce runner ne dépend ni du Mac ni du PC. C'est sa seule raison d'être.
+#
+# CE QUI DÉCLENCHE UN MAIL : l'échec de ce job. GitHub prévient de lui-même le
+# propriétaire du dépôt, sans service tiers ni abonnement. Le script ne fait
+# échouer le job qu'à la BASCULE vers la panne, puis une fois toutes les 12 h tant
+# qu'elle dure — une alarme qui sonne toutes les heures finit coupée, et une alarme
+# coupée ne vaut pas mieux que pas d'alarme.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Toutes les heures à :23. Minute volontairement décalée : la plateforme
+    # retarde, voire abandonne, les tâches planifiées aux heures rondes.
+    - cron: "23 * * * *"
+  push:
+    # Se relance dès qu'on touche à ce qu'elle mesure, ce qui donne le verdict
+    # immédiatement au lieu d'attendre le prochain créneau.
+    branches: [main]
+    paths:
+      - tools/sentinelle_publique.py
+      - .github/workflows/sentinelle.yml
+
+permissions:
+  contents: write   # l'état anti-bruit est versionné (voir l'étape « Mémoriser »)
+
+# Deux exécutions concurrentes se marcheraient dessus sur sentinelle/etat.json.
+concurrency:
+  group: sentinelle
+  cancel-in-progress: false
+
+jobs:
+  sentinelle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Aucune dépendance : urllib et zoneinfo suffisent. Une sentinelle qui
+      # tomberait en panne d'installation serait une sentinelle muette.
+      - name: Contrôler le site public
+        id: controle
+        run: python tools/sentinelle_publique.py
+        continue-on-error: true
+
+      # L'état DOIT être écrit même quand le contrôle échoue : c'est lui qui
+      # distingue « nouvelle panne » de « panne déjà annoncée ». Sans ça, un mail
+      # par heure toute la nuit.
+      - name: Mémoriser l'état
+        if: always()
+        run: |
+          git config user.name  "sentinelle"
+          git config user.email "sentinelle@users.noreply.github.com"
+          git add sentinelle/
+          git diff --cached --quiet && { echo "état inchangé"; exit 0; }
+          git commit -q -m "sentinelle : $(date -u '+%F %H:%M UTC')"
+          git pull --rebase --autostash origin main && git push
+
+      # Le verdict est rendu APRÈS la mémorisation, pour que l'échec du job
+      # n'empêche jamais l'état d'être enregistré.
+      - name: Verdict
+        if: steps.controle.outcome == 'failure'
+        run: |
+          echo "::error::Le site public sert des données périmées — voir le rapport ci-dessus."
+          exit 1
