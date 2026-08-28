@@ -495,6 +495,16 @@ def run_one(job, timeout):
 _CLES_DATE = ("updated", "generated_at", "genere_le", "last_update", "updated_at")
 
 
+def _comparable(h):
+    """Rend deux horodatages comparables quel que soit leur séparateur.
+
+    « 2026-08-28 11:29 UTC » et « 2026-08-28T16:00:00Z » désignent le même jour,
+    mais l'espace se classe AVANT le « T ». Sans cette normalisation, le premier
+    paraîtrait toujours plus ancien que le second.
+    """
+    return (h or "").replace("T", " ", 1)
+
+
 def _horodatage_interne(chemin):
     """La date que le fichier se donne à lui-même, ou None.
 
@@ -582,7 +592,7 @@ def collect(manifest):
             # horodatage, la garde de poids reste seule juge, comme avant.
             h_neuf = _horodatage_interne(src)
             h_vieux = _horodatage_interne(ancien)
-            if h_neuf and h_vieux and h_neuf < h_vieux:
+            if h_neuf and h_vieux and _comparable(h_neuf) < _comparable(h_vieux):
                 perimes.append(f"{name} ({h_vieux[:16]} → {h_neuf[:16]})")
                 continue          # ← on NE PUBLIE PAS : le dépôt est plus frais
 
