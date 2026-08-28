@@ -14,7 +14,96 @@ toujours, et la fiche finirait par afficher deux définitions du même mot selon
 la nationalité de la société. Un écart qu'on ne voit jamais, parce qu'il ne
 produit aucune erreur.
 """
+import datetime as _dt
 import math
+
+
+def annee_exercice(fin):
+    """L'année d'un exercice, déduite de sa date de CLÔTURE.
+
+    POURQUOI CE N'EST PAS `int(fin[:4])`, ET CE QUE ÇA COÛTAIT
+
+    Les deux collecteurs prenaient l'année civile de la clôture. C'est juste pour
+    une société qui clôt le 31 décembre ou le 30 juin, et faux pour toutes celles
+    qui suivent un calendrier de 52/53 semaines — très répandu dans la
+    distribution et l'industrie américaine. Leur exercice se termine le samedi le
+    plus proche du 31 décembre, donc parfois le 1ᵉʳ ou le 2 JANVIER SUIVANT.
+
+    L'exercice 2010 de HNI, clos le 01/01/2011, était donc étiqueté 2011 — et
+    entrait en collision avec le vrai exercice 2011, clos le 31/12/2011. Deux
+    entrées portaient la même année.
+
+    Rien ne le signalait, et tout en souffrait :
+      · les médianes à cinq et dix ans prennent `exs[-5:]` ; un doublon volait sa
+        place à une vraie année, et la fenêtre couvrait un exercice de moins ;
+      · les croissances comparent des années consécutives ; deux entrées de même
+        millésime donnaient 0 % ou un écart absurde ;
+      · le nombre d'exercices affiché sur la fiche surestimait la profondeur.
+
+    Mesuré le 28/08/2026 : 131 sociétés américaines (4,2 %) et 1 556
+    internationales (13,4 %) portaient au moins une année en double.
+
+    LA RÈGLE. On recule de quinze jours avant de lire l'année. Une clôture du
+    1ᵉʳ janvier retombe au 17 décembre et rend l'année précédente ; une clôture du
+    31 décembre ne bouge pas ; une clôture de juin ou de septembre non plus.
+    Quinze jours suffisent — un exercice de 52/53 semaines ne dérive jamais de
+    plus d'une semaine autour du 31 décembre — et restent loin de toute autre
+    date de clôture usuelle.
+
+    Résolution mesurée : 67 % des collisions américaines, 97 % des
+    internationales. Le reste vient d'un phénomène différent — des sociétés qui
+    ont CHANGÉ de date de clôture et publient deux périodes qui se chevauchent —
+    et se traite par déduplication, pas par étiquetage.
+    """
+    try:
+        a, m, j = (int(x) for x in str(fin)[:10].split("-"))
+        return (_dt.date(a, m, j) - _dt.timedelta(days=15)).year
+    except Exception:
+        try:
+            return int(str(fin)[:4])
+        except Exception:
+            return None
+
+
+def dedupliquer_exercices(exercices):
+    """Une seule entrée par année : celle du dépôt le plus récent.
+
+    Après correction de l'étiquetage, il reste des collisions d'une autre nature :
+    une société qui change de date de clôture publie une période de transition qui
+    chevauche l'exercice suivant. Keurig Dr Pepper porte ainsi un exercice clos le
+    30/09/2017 et un autre le 31/12/2017.
+
+    On garde l'entrée issue du dépôt le PLUS RÉCENT : un retraitement remplace ce
+    qu'il retraite, c'est sa raison d'être. À défaut de numéro de dépôt — les
+    sources internationales n'en portent pas — on garde la clôture la plus
+    tardive, qui est l'exercice complet plutôt que la période de transition.
+
+    L'ordre chronologique est préservé : tout le reste du calcul en dépend.
+    """
+    if not exercices:
+        return exercices
+
+    def rang(e):
+        # Le numéro de dépôt de la SEC porte l'année de dépôt en son milieu :
+        # `0000048287-14-000007` a été déposé en 2014. Il classe mieux que la date
+        # de clôture, qui ne dit rien de la fraîcheur du retraitement.
+        parts = str(e.get("accn") or "").split("-")
+        an_depot = -1
+        if len(parts) == 3 and len(parts[1]) == 2 and parts[1].isdigit():
+            n = int(parts[1])
+            an_depot = 2000 + n if n < 80 else 1900 + n
+        return (an_depot, str(e.get("depose_le") or ""), str(e.get("fin") or ""))
+
+    par_annee = {}
+    for e in exercices:
+        a = e.get("annee")
+        if a is None:
+            continue
+        garde = par_annee.get(a)
+        if garde is None or rang(e) > rang(garde):
+            par_annee[a] = e
+    return [par_annee[a] for a in sorted(par_annee)]
+
 
 def _div(a, b):
     if a is None or b in (None, 0):

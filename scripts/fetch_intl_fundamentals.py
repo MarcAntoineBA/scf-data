@@ -77,6 +77,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from fondamentaux_communs import (          # noqa: E402
+    annee_exercice,
+    dedupliquer_exercices,
     _div, _pct, _r,
     note_quantitative,
     _mediane, _mediane_fenetre, _croissances, _predictibilite,
@@ -367,7 +369,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
 
     exercices = []
     for i in idx:
-        e = {"fin": dates[i], "annee": int(dates[i][:4])}
+        e = {"fin": dates[i], "annee": annee_exercice(dates[i])}
         for cle, (etat, noms) in CHAMPS.items():
             src = brut.get(etat) or {}
             val = None
@@ -386,6 +388,12 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         e["accn"] = None
         e["depose_le"] = None
         exercices.append(e)
+
+    # Une seule entrée par année, AVANT tout calcul — même raison et même
+    # fonction que dans le collecteur SEC. Ici la source ne porte pas de numéro
+    # de dépôt : c'est la clôture la plus tardive qui l'emporte, donc l'exercice
+    # complet plutôt que la période de transition.
+    exercices = dedupliquer_exercices(exercices)
 
     # ── Reconstructions et ratios, à l'identique du collecteur SEC ──
     for e in exercices:

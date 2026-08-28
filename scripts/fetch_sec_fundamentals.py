@@ -335,6 +335,8 @@ def _val(serie, fin):
 # module pour la raison. Ce fichier ne garde que ce qui touche à la SEC.
 # ─────────────────────────────────────────────────────────────────────────
 from fondamentaux_communs import (          # noqa: E402
+    annee_exercice,
+    dedupliquer_exercices,
     _div, _pct, _r,
     _BAREME, _CRITERES_INDUSTRIELS, _noter_critere, note_quantitative,
     _croissance_annuelle, _mediane, _mediane_fenetre, _croissances, _predictibilite,
@@ -431,6 +433,67 @@ def _cours_au(serie, fin_iso):
     return best
 
 
+# ── Les entrées du barème, calculables sur une série TRONQUÉE ────────────
+# Elles servent DEUX fois : une fois sur la série complète, pour la note
+# d'aujourd'hui ; et une fois par exercice passé, pour la note TELLE QU'ELLE
+# ÉTAIT cette année-là. Le concurrent n'affiche qu'un instantané ; avec vingt et
+# un exercices en main, « 16/20 en 2011, 11/20 aujourd'hui » est une phrase qu'on
+# peut écrire et lui non.
+#
+# Au NIVEAU MODULE et non plus imbriquée dans `construire` : elle ne dépend que
+# d'auxiliaires de module, et la sortir permet de RECALCULER l'historique de la
+# note depuis les exercices déjà en cache, sans réinterroger la SEC. Sans cela,
+# lever le plafond de douze aurait imposé une collecte complète pour une valeur
+# qu'on détenait déjà.
+def entrees_bareme(exs):
+    if not exs:
+        return {}
+    d = exs[-1]
+    pa = lambda cle: [(e["annee"], e.get(cle)) for e in exs]
+    m = lambda cle, n: _mediane_fenetre([e.get(cle) for e in exs[-n:]], n)
+    return {
+        "roic_1a": d.get("roic"), "roic_5a": m("roic", 5), "roic_10a": m("roic", 10),
+        "marge_brute": d.get("marge_brute"),
+        "marge_ope": d.get("marge_ope"),
+        "marge_nette": d.get("marge_nette"),
+        "capex_ocf": d.get("capex_ocf"),
+        "predictibilite": _predictibilite(pa("revenue")),
+        "annees_hausse_dividende": _serie_hausses_dividende(pa("dps")),
+        "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(pa("dps")),
+        "dette_ebitda_brut": d.get("dette_ebitda_brut"),
+        "payout_benefices": d.get("payout_benefices"),
+        "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
+        "croissances": {
+            "ca":  _croissances(pa("ca_par_action")),
+            "fcf": _croissances(pa("fcf_par_action")),
+            "div": _croissances(pa("dps")),
+        },
+    }
+
+
+def historique_note(exercices):
+    """La note de chaque exercice, en ne connaissant que ce qu'on savait alors.
+
+    Aucun plafond : une société à vingt et un exercices produit dix-sept notes,
+    et les dix-sept sont rendues. Chacune porte le nombre d'exercices dont son
+    calcul disposait, pour que la fiche puisse signaler les plus courtes au lieu
+    de les faire passer pour les autres.
+    """
+    out = []
+    for i in range(len(exercices)):
+        if i < 4:
+            continue
+        n = note_quantitative(entrees_bareme(exercices[:i + 1]))
+        out.append({
+            "annee": exercices[i]["annee"],
+            "note": n["note"],
+            "note_ramenee": n["note_ramenee"],
+            "criteres_notables": n["criteres_notables"],
+            "n_exercices_connus": i + 1,
+        })
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Construction de la série annuelle d'une société
 # ─────────────────────────────────────────────────────────────────────────
@@ -448,7 +511,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
 
     exercices = []
     for fin in axe:
-        e = {"fin": fin, "annee": int(fin[:4])}
+        e = {"fin": fin, "annee": annee_exercice(fin)}
         for cle in CONCEPTS:
             e[cle] = _val(series[cle], fin)
 
@@ -577,6 +640,12 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         e["depose_le"] = src[2] if src else None
         exercices.append(e)
 
+    # Une seule entrée par année, AVANT tout calcul. Une société qui change de
+    # date de clôture publie une période de transition qui chevauche l'exercice
+    # suivant ; deux entrées de même millésime feraient mentir toutes les
+    # fenêtres glissantes qui suivent. Voir `dedupliquer_exercices`.
+    exercices = dedupliquer_exercices(exercices)
+
     # Deux redressements AVANT tout calcul, dans cet ordre.
     #
     # Le signe des charges d'intérêts d'abord : les deux sources ne s'accordent
@@ -694,54 +763,22 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     def med(cle, n):
         return _mediane_fenetre([e.get(cle) for e in exercices[-n:]], n)
 
-    # ── Les entrées du barème, calculables sur une série TRONQUÉE ────────────
-    # Extraites dans leur propre fonction pour une raison précise : elles servent
-    # deux fois. Une fois sur la série complète, pour la note d'aujourd'hui ; et
-    # une fois par exercice passé, pour la note TELLE QU'ELLE ÉTAIT cette
-    # année-là. Le concurrent n'affiche qu'un instantané ; avec dix-neuf
-    # exercices en main, « 16/20 en 2019, 11/20 aujourd'hui » est une phrase
-    # qu'on peut écrire et lui non.
-    def entrees_bareme(exs):
-        if not exs:
-            return {}
-        d = exs[-1]
-        pa = lambda cle: [(e["annee"], e.get(cle)) for e in exs]
-        m = lambda cle, n: _mediane_fenetre([e.get(cle) for e in exs[-n:]], n)
-        return {
-            "roic_1a": d.get("roic"), "roic_5a": m("roic", 5), "roic_10a": m("roic", 10),
-            "marge_brute": d.get("marge_brute"),
-            "marge_ope": d.get("marge_ope"),
-            "marge_nette": d.get("marge_nette"),
-            "capex_ocf": d.get("capex_ocf"),
-            "predictibilite": _predictibilite(pa("revenue")),
-            "annees_hausse_dividende": _serie_hausses_dividende(pa("dps")),
-            "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(pa("dps")),
-            "dette_ebitda_brut": d.get("dette_ebitda_brut"),
-            "payout_benefices": d.get("payout_benefices"),
-            "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
-            "croissances": {
-                "ca":  _croissances(pa("ca_par_action")),
-                "fcf": _croissances(pa("fcf_par_action")),
-                "div": _croissances(pa("dps")),
-            },
-        }
-
     # La note de chaque exercice, en ne connaissant que ce qu'on savait alors.
-    # On s'arrête aux dix derniers : au-delà, la série est trop courte pour que
-    # les médianes à cinq et dix ans veuillent dire quelque chose, et une note
-    # calculée sur trois exercices se compare mal à une note calculée sur dix.
-    note_historique = []
-    for i in range(len(exercices)):
-        if i < 4:
-            continue
-        n = note_quantitative(entrees_bareme(exercices[:i + 1]))
-        note_historique.append({
-            "annee": exercices[i]["annee"],
-            "note": n["note"],
-            "note_ramenee": n["note_ramenee"],
-            "criteres_notables": n["criteres_notables"],
-        })
-    note_historique = note_historique[-12:]
+    #
+    # LE PLAFOND À DOUZE A ÉTÉ RETIRÉ le 28/08/2026. Il jetait jusqu'à cinq
+    # notes déjà calculées : une société à vingt et un exercices en produit
+    # dix-sept, et n'en gardait que douze. Or la note dans le temps est
+    # précisément ce que le concurrent ne montre pas — il n'affiche qu'un
+    # instantané — et la tronquer nous privait de notre seul avantage sur ce
+    # point.
+    #
+    # La justification d'origine reste vraie sur le fond : une note calculée sur
+    # cinq exercices ne se compare pas à une note calculée sur quinze, parce que
+    # les médianes à cinq et dix ans y sont bornées par la longueur de la série.
+    # Mais la réponse juste n'est pas de CACHER ces notes : c'est de dire sur
+    # combien d'exercices chacune repose, et de laisser la fiche le montrer.
+    # D'où `n_exercices_connus`, qui accompagne désormais chaque point.
+    note_historique = historique_note(exercices)
 
     dernier = exercices[-1]
     resume = {
