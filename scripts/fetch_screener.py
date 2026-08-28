@@ -245,11 +245,13 @@ def main():
           "medical", "diagnostic substance", "health", "hospital", "dental",
           "in vitro", "orthopedic", "laboratory analytical"), "Healthcare"),
         (("semiconductor", "computer", "software", "data processing",
+          "printed circuit",
           "electronic component", "prepackaged", "information retrieval",
           "calculating", "office machines", "magnetic", "optical instrument",
           "laboratory apparatus"), "Technology"),
         (("bank", "savings institution", "credit institution", "insurance",
-          "insurance carrier", "security broker", "investor", "unit investment",
+          "insurance carrier", "security broker", "commodity broker",
+          "investor", "unit investment",
           "management investment", "finance service", "personal credit",
           "mortgage banker", "title insurance", "blank check", "asset-backed",
           "investment advice", "federal and federally"), "Financials"),
@@ -265,10 +267,13 @@ def main():
         (("food and kindred", "agricultural production", "fats and oils",
           "beverages", "malt beverages", "bottled", "sugar", "dairy",
           "grain mill", "bakery", "canned", "tobacco", "soap", "grocery",
-          "meat packing", "poultry", "fishing", "cigarettes"), "Consumer Staples"),
+          "meat packing", "poultry", "fishing", "cigarettes",
+          "food preparation",
+          "groceries"), "Consumer Staples"),
         (("eating place", "hotel", "retail", "apparel", "amusement",
           "recreation", "motor vehicle", "footwear", "jewelry", "toys",
           "sporting", "furniture store", "auto dealer", "department store",
+          "textile mill", "textile", "household audio", "automotive dealer",
           "catalog", "leather", "household appliance", "educational service",
           "personal service", "membership sport"), "Consumer Discretionary"),
         (("mining", "ores", "gold and silver", "metal", "chemical", "cement",
@@ -280,7 +285,8 @@ def main():
           "trucking", "air transportation", "water transportation",
           "shipping", "railroad", "aircraft", "ship building",
           "ship and boat", "boat building", "power, distribution", "engines",
-          "electrical industrial", "measuring", "instrument", "services-",
+          "electrical industrial", "electric lighting", "wiring equip",
+          "measuring", "instrument", "services-",
           "wholesale", "arrangement of transportation", "courier",
           "refuse system", "sanitary", "heavy construction",
           "special industry machinery", "general industrial",
@@ -299,6 +305,32 @@ def main():
         return None
 
     i_sec, i_ind = champs.index("sector"), champs.index("industry")
+
+    # ── UN SEUL VOCABULAIRE DE SECTEURS ──
+    # La source classe la plupart des titres selon les onze secteurs usuels, mais
+    # une poignée arrive sous un vocabulaire Refinitiv. Mesuré le 28/08/2026 :
+    # 21 sociétés sur 21 296, des cotations philippines pour l'essentiel. Rien en
+    # volume, tout en usage — un lecteur qui filtre « Consumer Staples » ne verra
+    # pas les sept distributeurs alimentaires rangés sous « Consumer
+    # Non-Cyclicals ». Un filtre qui oublie en silence est pire qu'un filtre absent.
+    SECTEURS_ETRANGERS = {
+        "Consumer Non-Cyclicals": "Consumer Staples",
+        "Academic & Educational Services": "Consumer Discretionary",
+        # « Consumer Goods » ne recouvre rien de net : la seule société qui le
+        # porte a pour industrie « Electronic Equipment ». On efface plutôt que
+        # de deviner — la déduction par libellé d'industrie, juste en dessous,
+        # tranchera avec une information que ce secteur n'a pas.
+        "Consumer Goods": None,
+    }
+    ramenes = 0
+    for l in lignes.values():
+        neuf = SECTEURS_ETRANGERS.get(l[i_sec], "")
+        if neuf != "":
+            l[i_sec] = neuf
+            ramenes += 1
+    if ramenes:
+        print("[ok] %d secteur(s) ramené(s) au vocabulaire canonique" % ramenes)
+
     deduits = inconnus = sans_industrie = 0
     non_classes = Counter()
     for l in lignes.values():
