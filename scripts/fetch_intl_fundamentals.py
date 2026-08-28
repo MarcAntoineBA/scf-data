@@ -618,7 +618,15 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         })
         hist.append({"annee": sd["annee"], "note": n["note"],
                      "note_ramenee": n["note_ramenee"],
-                     "criteres_notables": n["criteres_notables"]})
+                     "criteres_notables": n["criteres_notables"],
+                     # Le nombre d'exercices dont ce calcul disposait. Même champ
+                     # que côté SEC, et pour la même raison : ici il vaut trois à
+                     # cinq, donc TOUTES ces notes reposent sur une série courte
+                     # où les médianes à cinq et dix ans sont bornées par la
+                     # longueur disponible. La fiche les affiche en demi-teinte
+                     # plutôt que de les faire passer pour des notes de même
+                     # solidité que celles d'un déposant de vingt ans.
+                     "n_exercices_connus": len(sous)})
     resume["note_historique"] = hist
     return {"exercices": exercices, "resume": resume}
 
