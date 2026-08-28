@@ -359,11 +359,24 @@ def _croissances(series):
     une moyenne décennale vers le haut et ferait passer une société cyclique
     pour une société en croissance.
     """
+    # ⚠ UNE FENÊTRE DE DIX ANS EXIGE DIX ANS, pas cinq.
+    #
+    # Ces deux lignes acceptaient trois variations pour la médiane à cinq ans et
+    # cinq pour celle à dix. Mesuré le 28/08/2026 : 407 des 2 353 fiches
+    # affichant une « croissance du chiffre d'affaires 10 ans » la calculaient
+    # sur moins de huit variations — dont 111 sur cinq exactement, c'est-à-dire
+    # le MÊME chiffre que la jauge « 5 ans » juste au-dessus. Le lecteur voyait
+    # deux mesures concordantes là où il n'y en avait qu'une, et en tirait une
+    # confiance que rien ne fondait.
+    #
+    # `_mediane_fenetre` existe dans ce fichier depuis la correction de
+    # `roic_5a == roic_10a` — même défaut, même remède — et exige n−2 points.
+    # Elle n'était simplement pas appelée ici.
     g = _croissance_annuelle(series)
     return {
         "1a": g[-1] if g else None,
-        "5a": _mediane(g[-5:]) if len(g) >= 3 else None,
-        "10a": _mediane(g[-10:]) if len(g) >= 5 else None,
+        "5a": _mediane_fenetre(g[-5:], 5),
+        "10a": _mediane_fenetre(g[-10:], 10),
         "n": len(g),
     }
 

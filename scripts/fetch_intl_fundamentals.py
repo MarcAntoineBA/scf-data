@@ -401,6 +401,19 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
     # complet plutôt que la période de transition.
     exercices = dedupliquer_exercices(exercices)
 
+    # Le signe des charges d'intérêts : 351 valeurs négatives sur 352 de ce
+    # côté-ci contre 1 sur 223 côté SEC. Sans ce redressement, la garde
+    # `interest_expense > 0` de la couverture des intérêts vide ce ratio pour
+    # 80,7 % de l'univers international, LVMH compris.
+    #
+    # ⚠ IL DOIT PASSER AVANT LES RATIOS, et il passait après. Le commentaire
+    # ci-dessus annonçait donc exactement le contraire de ce qui se produisait :
+    # mesuré le 28/08/2026, la couverture des intérêts était renseignée sur
+    # 8 fiches internationales sur 15 887 où elle est calculable — 0,05 %, contre
+    # 99,2 % côté SEC. Six lignes plus haut, et le ratio existe.
+    for _e in exercices:
+        _e["interest_expense"] = _charge(_e.get("interest_expense"))
+
     # ── Reconstructions et ratios, à l'identique du collecteur SEC ──
     for e in exercices:
         if e["gross_profit"] is None and e["revenue"] is not None and e["cogs"] is not None:
@@ -474,13 +487,6 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         e["payout_fcf"] = _pct(e["dividends_paid"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
         e["retour_actionnaire"] = ((e["dividends_paid"] or 0) + (e["buybacks"] or 0)) \
             if (e["dividends_paid"] is not None or e["buybacks"] is not None) else None
-
-    # Le signe des charges d'intérêts : 351 valeurs négatives sur 352 de ce
-    # côté-ci contre 1 sur 223 côté SEC. Sans ce redressement, la garde
-    # `interest_expense > 0` de la couverture des intérêts vide ce ratio pour
-    # 80,7 % de l'univers international, LVMH compris.
-    for _e in exercices:
-        _e["interest_expense"] = _charge(_e.get("interest_expense"))
 
     unites_actions = _corriger_unite_actions(exercices)
 
