@@ -1185,19 +1185,30 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         _emp = e.get("emprunts_ifrs")
         if not _emp:
             # Osisko porte un `Borrowings` de ZÉRO : le `not` l'attrape, et la
-            # somme des composantes prend le relais — vide chez elle, donc rien.
-            _emp = ((e.get("lt_debt") or 0) + (e.get("current_debt") or 0)) or None
+            # somme des composantes prend le relais. `None` quand aucune
+            # composante n'existe — pas zéro : « pas d'emprunt déclaré » et
+            # « emprunt nul » ne se distinguent qu'ici.
+            _lt, _ct = e.get("lt_debt"), e.get("current_debt")
+            _emp = ((_lt or 0) + (_ct or 0)) if (_lt is not None or _ct is not None) else None
 
         # Les baux, du total international ou de la somme des deux natures.
         _bx = e.get("baux_ifrs")
         if _bx is None and (e.get("lease_lt") is not None or e.get("lease_ct") is not None):
             _bx = (e.get("lease_lt") or 0) + (e.get("lease_ct") or 0)
 
-        # ⚠ UNE DETTE FAITE DE LOYERS SEULS N'EST PAS UNE DETTE. Sans cette
-        # règle, tout déposant portant un bail voyait sa dette réduite à ses
-        # loyers, avec l'air d'être complète — Shell à 28 933 M$ au lieu de
-        # 104 576.
-        dette_totale = None if not _emp else (_emp + (_bx or 0))
+        # ⚠ UNE DETTE FAITE DE LOYERS SEULS EST UNE DETTE — quand la société
+        # n'a pas d'emprunt. J'avais écrit l'inverse, et la mesure l'a dit :
+        # 1 023 sociétés perdaient leur dette, dont Five Below (2 032 M$ de baux,
+        # aucun emprunt), Landstar, Kennametal, Weis Markets. Par cascade, 4 384
+        # exercices perdaient leur ROIC.
+        #
+        # Ce qui était vrai dans la règle : Shell ne doit pas publier 28 933 M$.
+        # Ce qui était faux : la cause n'était pas la nature de sa dette, c'était
+        # que ses EMPRUNTS n'étaient pas lus. Depuis que `Borrowings` est au
+        # dictionnaire, elle rend 104 576 sans qu'aucun refus soit nécessaire.
+        # Corriger la conséquence au lieu de la cause coûtait mille sociétés.
+        dette_totale = (None if (_emp is None and _bx is None)
+                        else ((_emp or 0) + (_bx or 0)))
 
         # ⚠ AUCUNE SOCIÉTÉ NE DOIT PLUS QUE CE QU'ELLE POSSÈDE. Grupo
         # Aeroportuario del Sureste 2017 déclare 7 149 177 000 000 pesos
