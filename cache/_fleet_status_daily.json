@@ -1,16 +1,43 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-28T07:51:56Z",
-  "total": 1,
-  "ok": 1,
-  "secs": 80.2,
-  "changed": 0,
-  "versionnes": 0,
-  "pieces_jointes": 0,
-  "absents": 6,
-  "muets": [],
-  "failed": []
+  "ts": "2026-08-28T17:47:50Z",
+  "total": 38,
+  "ok": 32,
+  "secs": 3131.5,
+  "changed": 1734,
+  "versionnes": 1729,
+  "pieces_jointes": 5,
+  "absents": 32,
+  "muets": [
+   "gtrends.serpapi (132.5 h)"
+  ],
+  "failed": [
+   {
+    "job": "marche",
+    "why": "[fatal] 0 sociétés collectées contre 37574 au passage précédent, soit 100 % de moins. Aucune cause normale — jour férié, place fermée — ne fait perdre un quart de l'univers. On garde les fragments exi"
+   },
+   {
+    "job": "desk.complet",
+    "why": "script absent"
+   },
+   {
+    "job": "desk.flash",
+    "why": "script absent"
+   },
+   {
+    "job": "desk.revue",
+    "why": "script absent"
+   },
+   {
+    "job": "savoirbake",
+    "why": "script absent"
+   },
+   {
+    "job": "actionnariat",
+    "why": "[fatal] ~/Library/Caches/site_crypto_finance/sec_fundamentals_index.json absent : lancer d'abord fetch_sec_fundamentals.py"
+   }
+  ]
  },
- "updated": "2026-08-28T07:51:56Z"
+ "updated": "2026-08-28T17:47:50Z"
 }
