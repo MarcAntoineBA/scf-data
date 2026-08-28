@@ -307,87 +307,6 @@ def snapshot_ok(t):
     return None
 
 
-def ring_signed_area(ring):
-    """Aire signée planaire (lacet de chaussure), en degrés². Seul le SIGNE nous
-    intéresse : positif = sens trigonométrique, négatif = sens horaire."""
-    a = 0.0
-    for i in range(len(ring) - 1):
-        a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
-    return a / 2.0
-
-
-def rewind(rings):
-    """Impose le sens d'enroulement attendu par d3-geo : anneau extérieur
-    HORAIRE, trous en sens trigonométrique.
-
-    ⚠ C'est l'INVERSE de la spécification GeoJSON (RFC 7946), et c'est le piège
-    le plus coûteux de cette vue. d3-geo raisonne sur la sphère : un anneau
-    parcouru à l'envers ne décrit pas le polygone, il décrit TOUT LE RESTE DU
-    GLOBE. Mesuré : la carte s'affichait intégralement rouge, avec le contour de
-    l'Ukraine tracé par-dessus — aucune erreur, aucun avertissement, juste une
-    carte qui disait le contraire de la vérité. Le fond de carte de l'Atlas
-    (Natural Earth via TopoJSON) est déjà en horaire : c'est cette convention-là
-    qui fait foi ici, et le contrôle tient dans le signe d'une aire."""
-    out = []
-    for i, r in enumerate(rings):
-        want_neg = (i == 0)                      # extérieur : horaire (aire < 0)
-        if (ring_signed_area(r) < 0) != want_neg:
-            r = list(reversed(r))
-        out.append(r)
-    return out
-
-
-def simplify_ring(ring, nd=3):
-    """Arrondit à ~100 m et supprime les points devenus identiques.
-    La carte de la vue fait au plus 1 300 px de large pour 1 300 km : 100 m est
-    dix fois plus fin que le pixel. On divise le poids du GeoJSON par ~4 sans
-    perte visible, et on n'invente aucun point."""
-    out = []
-    last = None
-    for pt in ring:
-        q = (round(float(pt[0]), nd), round(float(pt[1]), nd))
-        if q != last:
-            out.append([q[0], q[1]])
-            last = q
-    if len(out) >= 3 and out[0] != out[-1]:
-        out.append(list(out[0]))
-    return out if len(out) >= 4 else None
-
-
-def simplify_geom(g, nd=3):
-    t = g.get("type")
-    if t == "Polygon":
-        rings = [r for r in (simplify_ring(x, nd) for x in g["coordinates"]) if r]
-        return {"type": "Polygon", "coordinates": rewind(rings)} if rings else None
-    if t == "MultiPolygon":
-        polys = []
-        for pol in g["coordinates"]:
-            rings = [r for r in (simplify_ring(x, nd) for x in pol) if r]
-            if rings:
-                polys.append(rewind(rings))
-        return {"type": "MultiPolygon", "coordinates": polys} if polys else None
-    return None
-
-
-def dsm_map_geo(fc):
-    """GeoJSON allégé pour la carte de la vue : les cinq catégories utiles,
-    coordonnées arrondies, propriétés réduites à la catégorie. Le classement
-    passe par dsm_key, donc la carte montre EXACTEMENT ce qui a été compté."""
-    keep = (KEY_OCCUPIED, KEY_CRIMEA, KEY_ORDLO, KEY_LIBERATED, KEY_UNKNOWN)
-    feats = []
-    for f in (fc or {}).get("features") or []:
-        g = f.get("geometry") or {}
-        if g.get("type") not in ("Polygon", "MultiPolygon"):
-            continue
-        k = dsm_key(f)
-        if k not in keep:
-            continue
-        sg = simplify_geom(g)
-        if sg:
-            feats.append({"t": "F", "k": k, "g": sg})
-    return feats
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # 1 · FRONT — DeepStateMap
 # ═══════════════════════════════════════════════════════════════════════════
@@ -518,7 +437,6 @@ def build_front(sess, prev, full=False):
         "series": series,
         "deltas": {"d30": delta(30), "d90": delta(90), "d365": delta(365)},
         "skipped": sorted(skipped),
-        "geo": dsm_map_geo(last_fc),
         "note_en": (hist_last.get("descriptionEn") or "")[:400],
         "ukraine_km2": UKRAINE_KM2,
         "crimea_ref_km2": CRIMEA_REF_KM2,
