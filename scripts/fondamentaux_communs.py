@@ -1205,6 +1205,47 @@ def _corriger_unite_actions(exercices):
             e["shares_ecarte"] = "incohérent avec le bénéfice par action déposé"
     return corrections
 
+# ── LA BANDE DE PLAUSIBILITÉ DU BÊTA ──────────────────────────────────────
+#
+# Le bêta de marché va de −20 833 à 1 877 dans les fichiers `marche_NN.json`.
+# Ce ne sont pas des mesures : un bêta est la pente d'une régression du titre
+# sur son indice, et une pente de 1 877 dit seulement que le titre ne bouge
+# presque jamais — Elcid Investments cote autour de 2,4 lakh la part et
+# s'échange quelques fois par an. La formule rend un nombre, et il est faux.
+#
+# Sans garde, `_wacc` en tire un coût des fonds propres de 9 400 % et la tuile
+# « rendement du capital contre son coût » affiche une destruction de valeur
+# massive : un jugement fabriqué, affiché avec aplomb.
+#
+# ⚠ LA BANDE SE CHOISIT SUR CE QU'ELLE DÉTRUIT. Mesuré sur les 27 013 cotations
+# qui portent un bêta : ±3 refuse 156 cotations dont 75 de plus de 2 Md$, et ces
+# 75-là sont de VRAIES mesures — en 2026 les mineurs de bitcoin et les centres de
+# données IA ont des bêtas de 4 à 6 (MARA 5,36 · Hut 8 6,11 · Core Scientific
+# 5,59 · Applied Digital 5,77 · IREN 4,30 · TeraWulf 4,29). ±8 n'en refuse que 18
+# au total, dont une seule au-dessus de 2 Md$ : Compass Gas e Energia à 95,39 —
+# et un distributeur de gaz brésilien n'a pas un bêta de 95.
+BETA_BANDE = 8.0
+
+
+def beta_plausible(b):
+    """Rend le bêta si c'en est un, None si c'est un artefact de régression.
+
+    Le zéro exact est refusé : quatre cotations sur 37 574, toutes minuscules et
+    illiquides. Il donnerait un coût des fonds propres égal au taux sans risque
+    — une action aussi sûre qu'une obligation d'État.
+
+    Un bêta négatif est en revanche GARDÉ tant qu'il reste dans la bande : les
+    minières d'or et quelques foncières en ont vraiment, et c'est justement
+    l'information intéressante.
+    """
+    if b is None or isinstance(b, bool) or not isinstance(b, (int, float)):
+        return None
+    b = float(b)
+    if not math.isfinite(b) or b == 0.0 or abs(b) > BETA_BANDE:
+        return None
+    return b
+
+
 def _wacc(mcap_usd, dette, interets, taux_impot_pct, beta):
     """Le WACC d'un exercice, ou None si l'un des termes manque.
 
@@ -1215,6 +1256,22 @@ def _wacc(mcap_usd, dette, interets, taux_impot_pct, beta):
     if not mcap_usd or mcap_usd <= 0 or beta is None:
         return None
     cout_fonds_propres = TAUX_SANS_RISQUE + beta * PRIME_DE_RISQUE
+    # ⚠ UN COÛT NÉGATIF N'EST PAS UN COÛT. Un bêta sous −0,81 rend ce terme
+    # négatif. Le MEB l'admet — un actif qui monte quand le marché baisse est une
+    # assurance qu'on paie — mais ce nombre ne reste pas seul : il nourrit
+    # `roic_moins_wacc`, et un coût négatif fait passer pour créatrice de valeur
+    # toute société dont le rendement dépasse zéro. Une société à rendement nul
+    # afficherait 35 points de valeur créée.
+    #
+    # Mesuré le 29/08/2026 après rejeu : 51 sociétés sur 15 364 (0,33 %), et
+    # aucune n'est un cas de manuel — SEALSQ, Quantum eMotion, Uranus Chemicals,
+    # Easy Smart Group : des flottants minuscules dont la régression contre
+    # l'indice ne mesure rien de stable.
+    #
+    # Un bêta légèrement négatif reste servi : à −0,5 le coût vaut 1,6 %, et une
+    # minière d'or peu corrélée au marché mérite ce chiffre-là.
+    if cout_fonds_propres <= 0:
+        return None
     d = dette or 0
     v = mcap_usd + d
     if v <= 0:

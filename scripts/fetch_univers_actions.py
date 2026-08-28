@@ -352,6 +352,22 @@ def charger_taux():
     devises : les autres n'auront pas de capitalisation en dollars, et c'est
     préférable à un chiffre inventé.
     """
+    # ── LES DEUX CACHES, FUSIONNÉS — PAS LE PREMIER QUI RÉPOND ──
+    #
+    # L'ancienne boucle rendait le premier fichier non vide. Or
+    # `fx_rates_cache.json` s'arrête au 2026-04-28 et `tradfi_fx_cache.json` va
+    # jusqu'au 2026-08-29 : le second n'était jamais atteint, et toute
+    # conversion de l'exercice le plus récent se faisait à un taux vieux de
+    # quatre mois. Mesuré : KRW 7,19 % de dérive, BRL 3,83 %, SEK 3,67 %,
+    # médiane 0,98 % — invisible, donc installé depuis quatre mois.
+    #
+    # ⚠ FUSION ET NON CHOIX : le fichier frais couvre le rand sud-africain que
+    # le périmé n'a pas, et le périmé couvre le peso philippin que le frais n'a
+    # pas. Prendre l'un OU l'autre perd une devise dans les deux sens.
+    #
+    # Jour par jour, le plus récent fichier gagnant sur les jours communs : une
+    # série fraîche mais courte ne doit pas effacer trente ans d'historique.
+    fusion = {}
     for nom in ("fx_rates_cache.json", "tradfi_fx_cache.json"):
         f = CACHE_DIR / nom
         if not f.exists():
@@ -361,12 +377,15 @@ def charger_taux():
                 d = json.load(fh)
         except Exception:
             continue
-        out = {"USD": 1.0}
+        if not isinstance(d, dict):
+            continue
         for dev, par_jour in d.items():
             if isinstance(par_jour, dict) and par_jour:
-                out[dev] = par_jour[max(par_jour)]
-        return out
-    return {"USD": 1.0}
+                fusion.setdefault(dev, {}).update(par_jour)
+    out = {"USD": 1.0}
+    for dev, par_jour in fusion.items():
+        out[dev] = par_jour[max(par_jour)]
+    return out
 
 
 # L'ordre de PLACES est la règle de priorité. Le premier trouvé pour un même nom

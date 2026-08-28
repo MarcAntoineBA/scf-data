@@ -60,7 +60,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fetch_intl_fundamentals import construire_resume        # noqa: E402
-from fondamentaux_communs import _pct                        # noqa: E402
+from fondamentaux_communs import _pct, _wacc, beta_plausible  # noqa: E402
 
 CACHE = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 
@@ -139,6 +139,89 @@ def couverture(e):
     return round(ope / i, 2)
 
 
+def charger_beta_marche():
+    """Le bêta de chaque cotation, depuis les fichiers de marché locaux.
+
+    Ces fichiers portent le bêta de 27 013 des 37 574 cotations. Le collecteur
+    international les lit désormais, mais les paquets publiés datent d'avant :
+    60 sociétés sur 19 455 portent un WACC. Recollecter l'univers demande
+    plusieurs jours ; le lire ici demande une seconde.
+
+    ⚠ Passé par `beta_plausible` — la même bande que les collecteurs, pas une
+    copie. Sans elle, Elcid Investments entre avec −20 833 et Compass Gas e
+    Energia avec 95,39, et `_wacc` en tire des coûts du capital à quatre
+    chiffres.
+    """
+    betas = {}
+    hors_bande = set()
+    for pth in sorted(glob.glob(os.path.join(CACHE, "marche_[0-9]*.json"))):
+        try:
+            with open(pth, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        ch = d.get("champs") or []
+        if "beta" not in ch:
+            continue
+        i_b = ch.index("beta")
+        for sym, v in (d.get("societes") or {}).items():
+            brut = v[i_b] if i_b < len(v) else None
+            b = beta_plausible(brut)
+            if b is not None:
+                betas[sym] = b
+            elif brut not in (None, 0):
+                # Retenu NOMMÉMENT, pas seulement compté : une société dont le
+                # bêta est refusé doit perdre le coût du capital qu'un passage
+                # antérieur lui avait donné. Un compteur ne permet pas ça.
+                hors_bande.add(sym)
+    return betas, hors_bande
+
+
+def refaire_wacc(exercices, beta, refuse=False):
+    """Recalcule le coût du capital sur chaque exercice qui a une capitalisation.
+
+    Les quatre termes de `_wacc` sont déjà dans l'exercice — seul le bêta venait
+    d'ailleurs. Rien d'autre n'est touché : les états financiers restent ceux de
+    la collecte.
+
+    ⚠ `mcap_estime` est déjà ramené dans la devise des états par le collecteur
+    (`_en_devise_etats`). Une société dont la cotation et les états divergent
+    sans taux connu n'en a pas — la garde des devises tient donc en amont, et on
+    ne la réécrit pas ici. Une garde recopiée est une garde qui dérive.
+
+    Rend le nombre d'exercices qui gagnent un WACC.
+    """
+    # ⚠ ON N'EFFACE PAS PAR IGNORANCE. Sans bêta ici et sans refus explicite, on
+    # ne sait rien : la collecte, elle, en avait peut-être un — le cache
+    # sectoriel du tracker en porte 641. Effacer détruirait une valeur juste.
+    if beta is None and not refuse:
+        return 0, 0
+    n = efface = 0
+    for e in exercices:
+        mc = e.get("mcap_estime")
+        w = None
+        if beta is not None and isinstance(mc, (int, float)) and mc > 0:
+            w = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
+                      e.get("_taux_nopat"), beta)
+        avant = e.get("wacc")
+        if w is None:
+            # La règle a dit non — coût des fonds propres négatif, ou bêta hors
+            # bande. Une règle qui se durcit doit atteindre ce qui est déjà
+            # écrit, sinon le durcissement ne protège que les collectes futures.
+            if avant is not None:
+                e["wacc"] = None
+                e["roic_moins_wacc"] = None
+                efface += 1
+            continue
+        e["wacc"] = w
+        r = e.get("roic")
+        e["roic_moins_wacc"] = (round(r - w, 2)
+                                if isinstance(r, (int, float)) else None)
+        if avant is None:
+            n += 1
+    return n, efface
+
+
 def main():
     essai = "--essai" in sys.argv
     t0 = time.time()
@@ -148,7 +231,14 @@ def main():
         print("[fatal] aucun paquet intl_detail_NNN.json", file=sys.stderr)
         return 2
 
+    betas, hors_bande = charger_beta_marche()
+    print("[info] bêta lu pour %d cotation(s) ; %d hors bande refusé(s)"
+          % (len(betas), len(hors_bande)))
+
     horodatage = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    waccs = effaces = 0
+    soc_wacc = set()
+    soc_effacee = set()
     total = rejouees = echecs = 0
     couvertures = 0
     defaits = 0
@@ -184,6 +274,18 @@ def main():
             if c is not None:
                 ex[-1]["couverture_interets"] = c
                 couvertures += 1
+
+            # Le coût du capital, avec le bêta que la collecte n'avait pas lu.
+            # AVANT `construire_resume` : c'est elle qui en tire `wacc_1a`,
+            # `wacc_5a`, `wacc_10a` et `roic_moins_wacc`.
+            b = betas.get(sym)
+            n_w, n_e = refaire_wacc(ex, b, sym in hors_bande)
+            if n_w:
+                waccs += n_w
+                soc_wacc.add(sym)
+            if n_e:
+                effaces += n_e
+                soc_effacee.add(sym)
 
             try:
                 neuf = construire_resume(ex,
@@ -234,6 +336,13 @@ def main():
                     neuf[cle] = val
             neuf["resume_rejoue_le"] = horodatage
 
+            # Les paquets d'avant ce jour n'ont pas `montants_marche`, et le
+            # rejeu vient d'y poser un coût du capital. Sans ce champ, la fiche
+            # afficherait le chiffre SOUS une phrase annonçant qu'il a été laissé
+            # vide. La filière internationale convertit — on le dit.
+            if neuf.get("devises_alignees") is False and not neuf.get("montants_marche"):
+                neuf["montants_marche"] = "convertis"
+
             v["resume"] = neuf
             rejouees += 1
             change = True
@@ -248,6 +357,12 @@ def main():
           "la source internationale retro-ajuste deja son historique"
           % (defaits, len(soc_defaites)))
     print("[ok] couverture d'intérêts calculée sur %d société(s)" % couvertures)
+    print("[ok] coût du capital : %d exercice(s) sur %d société(s) — "
+          "le bêta dormait dans les fichiers de marché"
+          % (waccs, len(soc_wacc)))
+    print("[ok] coût du capital EFFACÉ : %d exercice(s) sur %d société(s) — "
+          "coût des fonds propres négatif, ou bêta hors bande"
+          % (effaces, len(soc_effacee)))
     print("[ok] taux retirés (calculés sur une base qui n'en était pas une) : %s"
           % ", ".join("%s %d" % (k, n) for k, n in sorted(retirees.items())))
     print("[ok] ratios hors bande écartés : %d" % ratios_ecartes)

@@ -854,6 +854,7 @@ from fondamentaux_communs import (
     effacer_l_impossible,
     redresser_dividende_par_action,
     TAUX_SANS_RISQUE, PRIME_DE_RISQUE, _wacc,
+    beta_plausible,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
@@ -1117,11 +1118,22 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # étiquettes qui fait garde-fou — mesuré avant d'écrire cette branche, sur
         # 62 sociétés tirées de ces 2 168 : deux seulement les déposent, et ce
         # sont deux banques. Zéro non-financière.
+        # ⚠ LA CONDITION SUR L'EXISTENCE DU CHIFFRE D'AFFAIRES A ÉTÉ RETIRÉE.
+        # Elle exigeait qu'un chiffre d'affaires existe DÉJÀ pour le corriger :
+        # la branche ne pouvait donc que réécrire, jamais créer. Or 148 sociétés
+        # américaines n'en ont AUCUN sur AUCUN exercice tout en déposant les deux
+        # composantes du produit bancaire — Truist, banque du S&P 500, dix-neuf
+        # exercices, marge d'intérêt et commissions dormant dans son paquet.
+        #
+        # La garde qui compte n'a jamais été cette condition, c'est la présence
+        # SIMULTANÉE des deux étiquettes : mesuré avant d'écrire la branche, deux
+        # sociétés sur soixante-deux les déposent, et ce sont deux banques.
         _pin, _pcom = e.get("produit_interet_net"), e.get("produit_commissions")
-        if (e.get("revenue") is not None
-                and e.get("revenue_contrats") is not None
-                and e["revenue"] == e["revenue_contrats"]
-                and _pin is not None and _pcom is not None):
+        _deja = (e.get("revenue") is not None
+                 and e.get("revenue_contrats") is not None
+                 and e["revenue"] == e["revenue_contrats"])
+        if (_pin is not None and _pcom is not None
+                and (_deja or e.get("revenue") is None)):
             e["revenue"] = _pin + _pcom
             e["revenue_total_utilise"] = "produit net bancaire"
 
@@ -1597,6 +1609,10 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # sait pourquoi les multiples manquent au lieu de lire des multiples faux.
         resume["devise_cotation"] = "USD"
         resume["devises_alignees"] = False
+        # Ici on EFFACE, et la fiche a le droit de l'annoncer tel quel — à la
+        # différence de la filière internationale, qui convertit au taux daté de
+        # la clôture. Le front lit ce champ plutôt que de deviner.
+        resume["montants_marche"] = "ecartes"
         for e in exercices:
             e["mcap_estime"] = None
             e["wacc"] = None
@@ -1720,10 +1736,64 @@ def univers_marche(tranche=None):
                     if sym in out and st.get("beta") is not None:
                         out[sym]["beta"] = st["beta"]
                         n_beta += 1
-            print("[info] bêta connu pour %d sociétés" % n_beta)
+            print("[info] bêta connu pour %d sociétés (cache sectoriel)" % n_beta)
         except Exception as e:
             print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
+    combler_beta_marche(out)
     return out
+
+
+def combler_beta_marche(cible):
+    """Complète le bêta manquant depuis les fichiers de marché. Ne l'écrase JAMAIS.
+
+    Le cache sectoriel `tradfi_fundamentals_cache.json` ne porte que ~820
+    titres : au-delà, pas de bêta, donc pas de coût des fonds propres, donc pas
+    de WACC — et la tuile « rendement du capital contre son coût » reste éteinte
+    alors que c'est la seule qui dise si la croissance crée de la valeur.
+
+    Les fichiers `marche_NN.json` portent le bêta de 71,9 % des 37 574
+    cotations, et ce collecteur les ouvre déjà. C'est exactement le défaut
+    corrigé côté international, où le bêta dormait à l'index 19.
+
+    ⚠ On ne comble QUE les vides. Le cache sectoriel est la source historique :
+    changer une valeur déjà servie serait un effet de bord non demandé, et un
+    bêta qui bouge fait bouger un jugement de création de valeur.
+
+    ⚠ Un bêta n'est pas un montant : aucune conversion de devise ici. Le bêta
+    est un rapport de variations, il est sans unité — c'est justement pour ça
+    qu'il traverse les places sans être touché.
+    """
+    import glob as _g
+    n = 0
+    try:
+        for pth in sorted(_g.glob(str(CACHE_DIR / "marche_[0-9]*.json"))):
+            try:
+                with open(pth, encoding="utf-8") as fh:
+                    d = json.load(fh)
+            except Exception:
+                continue
+            ch = d.get("champs") or []
+            if "beta" not in ch:
+                continue
+            i_b = ch.index("beta")
+            for sym, v in (d.get("societes") or {}).items():
+                e = cible.get(sym)
+                if e is None or e.get("beta") is not None:
+                    continue
+                # `beta_plausible` refuse le zéro exact et tout ce qui sort de
+                # ±8 : un bêta de 1 877 donnerait un coût des fonds propres de
+                # 9 400 %, et la tuile afficherait une destruction de valeur
+                # inventée. La règle est dans `fondamentaux_communs`, avec le
+                # relevé qui a fixé la bande.
+                b = beta_plausible(v[i_b] if i_b < len(v) else None)
+                if b is not None:
+                    e["beta"] = b
+                    n += 1
+    except Exception as e:
+        print("[warn] bêtas de marché illisibles : %s" % e, file=sys.stderr)
+    if n:
+        print("[info] bêta comblé pour %d société(s) depuis les fichiers de marché" % n)
+    return n
 
 
 def charger_univers():
@@ -1765,9 +1835,10 @@ def charger_univers():
                     if sym in univers and st.get("beta") is not None:
                         univers[sym]["beta"] = st["beta"]
                         n_beta += 1
-            print("[info] bêta connu pour %d sociétés" % n_beta)
+            print("[info] bêta connu pour %d sociétés (cache sectoriel)" % n_beta)
         except Exception as e:
             print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
+    combler_beta_marche(univers)
     return univers
 
 

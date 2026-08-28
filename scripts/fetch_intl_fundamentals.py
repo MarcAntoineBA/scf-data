@@ -85,6 +85,7 @@ from fondamentaux_communs import (
     _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
+    beta_plausible,
     effacer_l_impossible,
     redresser_dividende_par_action,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
@@ -890,6 +891,22 @@ def _cours_au(serie, fin_iso):
 
 def charger_fx():
     """{DEVISE: {AAAA-MM-JJ: valeur d'UNE unité en dollars}} — déjà dans le cache."""
+    # ── LES DEUX CACHES, FUSIONNÉS — PAS LE PREMIER QUI RÉPOND ──
+    #
+    # L'ancienne boucle rendait le premier fichier non vide. Or
+    # `fx_rates_cache.json` s'arrête au 2026-04-28 et `tradfi_fx_cache.json` va
+    # jusqu'au 2026-08-29 : le second n'était jamais atteint, et toute
+    # conversion de l'exercice le plus récent se faisait à un taux vieux de
+    # quatre mois. Mesuré : KRW 7,19 % de dérive, BRL 3,83 %, SEK 3,67 %,
+    # médiane 0,98 % — invisible, donc installé depuis quatre mois.
+    #
+    # ⚠ FUSION ET NON CHOIX : le fichier frais couvre le rand sud-africain que
+    # le périmé n'a pas, et le périmé couvre le peso philippin que le frais n'a
+    # pas. Prendre l'un OU l'autre perd une devise dans les deux sens.
+    #
+    # Jour par jour, le plus récent fichier gagnant sur les jours communs : une
+    # série fraîche mais courte ne doit pas effacer trente ans d'historique.
+    fusion = {}
     for nom in ("fx_rates_cache.json", "tradfi_fx_cache.json"):
         f = CACHE_DIR / nom
         if not f.exists():
@@ -897,11 +914,14 @@ def charger_fx():
         try:
             with f.open(encoding="utf-8") as fh:
                 d = json.load(fh)
-            if isinstance(d, dict) and d:
-                return d
         except Exception:
             continue
-    return {}
+        if not isinstance(d, dict):
+            continue
+        for dev, par_jour in d.items():
+            if isinstance(par_jour, dict) and par_jour:
+                fusion.setdefault(dev, {}).update(par_jour)
+    return fusion
 
 
 def _taux(par_jour, date_iso):
@@ -1061,9 +1081,14 @@ def univers_marche(tranche=None, plafond=None):
         for sym, v in (d.get("societes") or {}).items():
             if sym not in chemins:
                 continue
-            b = v[i_beta] if (i_beta is not None and i_beta < len(v)) else None
-            lignes.append((v[i_capi] or 0, sym, v[i_nom],
-                           b if isinstance(b, (int, float)) else None))
+            # ⚠ PASSÉ PAR LA BANDE. Sans elle, Elcid Investments entre avec un
+            # bêta de −20 833 et Compass Gas e Energia avec 95,39 : `_wacc` en
+            # tire des coûts du capital à quatre chiffres, et la tuile « ROIC
+            # contre WACC » affiche une destruction de valeur inventée. La règle
+            # et le relevé qui a fixé ±8 sont dans `fondamentaux_communs`.
+            b = beta_plausible(
+                v[i_beta] if (i_beta is not None and i_beta < len(v)) else None)
+            lignes.append((v[i_capi] or 0, sym, v[i_nom], b))
     lignes.sort(reverse=True)
     if plafond:
         lignes = lignes[:plafond]
@@ -1341,6 +1366,19 @@ def main():
                 r["cours_source"] = "univers"
         r["devise_cotation"] = devise_cot
         r["devises_alignees"] = brut["_devises_alignees"]
+        # ⚠ CE QUI A RÉELLEMENT ÉTÉ FAIT DES GRANDEURS DE MARCHÉ.
+        #
+        # La fiche annonçait « capitalisation, cours et coût du capital laissés
+        # vides plutôt que convertis » dès que les devises divergent. C'est vrai
+        # de la filière SEC, qui efface. C'est FAUX ici : `_en_devise_etats`
+        # convertit au taux DATÉ de la clôture, et rend None si le taux est
+        # inconnu. Mesuré le 29/08/2026 : 1 731 sociétés marquées « non
+        # alignées », dont 1 454 affichent bel et bien une capitalisation
+        # (Galderma 50,5 Md$, Yara 10,1 Md$, Temenos 6,9 Md$).
+        #
+        # On ne retire pas la garde — elle est juste — on dit ce qu'elle a fait.
+        if not brut["_devises_alignees"]:
+            r["montants_marche"] = "convertis"
         r["frequence_publication"] = ctx.get("reportingFrequency")
         r["source_url"] = BASE + "/" + chemin + "/financials/"
         # Une tranche par jour veut dire qu'une donnée peut avoir six jours.

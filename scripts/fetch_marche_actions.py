@@ -301,6 +301,22 @@ def charger_taux():
     devise absente vaut zéro capitalisation en dollars — donc la société n'est
     pas publiée, ce qui est préférable à un classement au hasard.
     """
+    # ── LES DEUX CACHES, FUSIONNÉS — PAS LE PREMIER QUI RÉPOND ──
+    #
+    # L'ancienne boucle rendait le premier fichier non vide. Or
+    # `fx_rates_cache.json` s'arrête au 2026-04-28 et `tradfi_fx_cache.json` va
+    # jusqu'au 2026-08-29 : le second n'était jamais atteint, et toute
+    # conversion de l'exercice le plus récent se faisait à un taux vieux de
+    # quatre mois. Mesuré : KRW 7,19 % de dérive, BRL 3,83 %, SEK 3,67 %,
+    # médiane 0,98 % — invisible, donc installé depuis quatre mois.
+    #
+    # ⚠ FUSION ET NON CHOIX : le fichier frais couvre le rand sud-africain que
+    # le périmé n'a pas, et le périmé couvre le peso philippin que le frais n'a
+    # pas. Prendre l'un OU l'autre perd une devise dans les deux sens.
+    #
+    # Jour par jour, le plus récent fichier gagnant sur les jours communs : une
+    # série fraîche mais courte ne doit pas effacer trente ans d'historique.
+    fusion = {}
     for nom in ("fx_rates_cache.json", "tradfi_fx_cache.json"):
         f = CACHE_DIR / nom
         if not f.exists():
@@ -310,23 +326,26 @@ def charger_taux():
                 d = json.load(fh)
         except Exception:
             continue
-        out = {"USD": 1.0}
+        if not isinstance(d, dict):
+            continue
         for dev, par_jour in d.items():
             if isinstance(par_jour, dict) and par_jour:
-                out[dev] = par_jour[max(par_jour)]
-        # La BCE complète, elle n'écrase pas : le cache du dépôt est daté et
-        # aligné sur les séries de cours, la BCE ne sert qu'à boucher les trous.
-        bce = taux_bce()
-        for dev, t in bce.items():
-            out.setdefault(dev, t)
-        print("[info] taux : %d du cache, %d ajoutés par la BCE"
-              % (len(out) - len(bce) + sum(1 for d2 in bce if d2 in out), len(bce)))
-        # Les sous-unités se déduisent de leur devise mère.
-        for sous, (mere, div) in SOUS_UNITES.items():
-            if mere in out:
-                out.setdefault(sous, out[mere] / div)
-        return out
-    return {"USD": 1.0}
+                fusion.setdefault(dev, {}).update(par_jour)
+    out = {"USD": 1.0}
+    for dev, par_jour in fusion.items():
+        out[dev] = par_jour[max(par_jour)]
+    # La BCE complète, elle n'écrase pas : le cache du dépôt est daté et
+    # aligné sur les séries de cours, la BCE ne sert qu'à boucher les trous.
+    bce = taux_bce()
+    for dev, t in bce.items():
+        out.setdefault(dev, t)
+    print("[info] taux : %d du cache, %d ajoutés par la BCE"
+          % (len(out) - len(bce) + sum(1 for d2 in bce if d2 in out), len(bce)))
+    # Les sous-unités se déduisent de leur devise mère.
+    for sous, (mere, div) in SOUS_UNITES.items():
+        if mere in out:
+            out.setdefault(sous, out[mere] / div)
+    return out
 
 
 def charger_suivis():
@@ -520,8 +539,17 @@ def main():
     t0 = time.time()
     champs = SOLIDES + PARTIELS
     # Les grandeurs exprimées dans la devise du COURS, donc en pence à Londres.
+    # ⚠ `priceTargetChange` A ÉTÉ RETIRÉ. Ce n'est pas un montant : c'est
+    # l'ÉCART entre l'objectif et le cours, en POUR CENT. Le diviser par cent le
+    # rendait cent fois trop petit — Diageo sortait à 0,15 % au lieu de 15,31 %,
+    # Currys à 0,22 au lieu de 22,3. Mesuré : 392 lignes fausses. Et le champ
+    # n'est pas orphelin, il alimente la cascade des médianes d'industrie.
+    #
+    # `dividend` reste : le collecteur le classe parmi les champs vides, donc la
+    # règle ne s'applique jamais — mais c'est bien un montant, et le jour où il
+    # se remplira il devra être converti.
     champs_pence = {"price", "high52", "low52", "ma50", "ma200", "atr",
-                    "priceTarget", "priceTargetChange", "eps", "dividend"}
+                    "priceTarget", "eps", "dividend"}
 
     par_sa, meta = charger_univers()
     print("[info] univers de correspondance : %d chemins connus" % len(par_sa))

@@ -60,6 +60,10 @@ def main():
             touchees += 1
             r["devise_cotation"] = "USD"
             r["devises_alignees"] = False
+            # Ce script EFFACE : la fiche peut l'annoncer tel quel. La filière
+            # internationale, elle, convertit — d'où ce champ, qui dit lequel
+            # des deux traitements a eu lieu au lieu de le déduire.
+            r["montants_marche"] = "ecartes"
             r["cours_natif"] = None
             r["cours_natif_le"] = None
             r["cours_source"] = None
