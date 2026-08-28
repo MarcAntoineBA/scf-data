@@ -87,7 +87,7 @@ UKRAINE_KM2 = 603_550.0
 CRIMEA_REF_KM2 = 26_945.0
 CRIMEA_TOL = 0.05
 
-MAXAGE_H = 6.0          # au-delà, --live rafraîchit aussi les blocs lents
+MAXAGE_H = 20.0         # au-delà, --live rafraîchit aussi les blocs lents (Kiel = 12 Mo)
 MAX_NEW_SNAPSHOTS = 60  # plafond de snapshots DeepStateMap téléchargés par run
 
 DSM_API = "https://deepstatemap.live/api"
@@ -722,6 +722,10 @@ def build_aid(sess):
                     continue
                 d = row[ci["d"]]
                 d = d.strftime("%Y-%m") if hasattr(d, "strftime") else str(d)[:7]
+                # La feuille se termine par une ligne « Total » sans date : elle
+                # entrerait dans la série comme un mois de 356 Md€.
+                if not re.match(r"^(19|20)\d\d-(0[1-9]|1[0-2])$", d):
+                    continue
                 rec = {"d": d}
                 for k in ("mil", "fin", "hum"):
                     if k in ci:
@@ -936,19 +940,21 @@ def build_trade(sess):
                          ("sinceTimePeriod", "2019-01")])
             if ser:
                 out[key] = [[d, round(v, 1)] for d, v in ser]
-                log("commerce · %s : %d mois, dernier %s = %.0f M EUR"
+                log("commerce · %s : %d mois, dernier %s = %.0f M€"
                     % (lab, len(ser), ser[-1][0], ser[-1][1]))
         except Exception as e:
             warn("commerce · %s : %s" % (lab, e))
     if not out:
-        raise RuntimeError("Eurostat : aucune serie de commerce UE-Ukraine")
+        raise RuntimeError("Eurostat : aucune série de commerce UE↔Ukraine")
     out["refused"] = {
         "source": "IMF PortWatch",
-        "why": ("Escales portuaires ukrainiennes ecartees : a partir de 2025, la serie "
-                "attribue le trafic aux mauvais ports (Odessa passe de 743 escales en "
-                "2024 a 4 en 2025, Kertch de 382 a 3 286). Le corridor de la mer Noire "
-                "n'est donc pas represente ici tant que la source ne redevient pas "
-                "coherente."),
+        "why": ("Les escales des ports ukrainiens ont été écartées : à partir de 2025, "
+                "la série attribue le trafic aux mauvais ports — Odessa passe de 743 "
+                "escales en 2024 à 4 en 2025, tandis que Kertch, petit port de Crimée, "
+                "monte de 382 à 3 286. Odessa n'est pas à l'arrêt : c'est par elle que "
+                "passe l'essentiel des exportations depuis l'ouverture du corridor. Le "
+                "corridor de la mer Noire n'est donc pas représenté ici tant que la "
+                "source ne redevient pas cohérente."),
     }
     return out
 
