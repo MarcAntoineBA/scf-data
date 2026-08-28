@@ -956,8 +956,31 @@ def _corriger_unite_actions(exercices):
                 break
         if touche:
             continue
-        # Ni concordant, ni une unité : on ne publie pas un diviseur inconnu.
+        # ── NI CONCORDANT, NI UNE UNITÉ — MAIS AVANT D'EFFACER, UN ARBITRE ──
+        #
+        # La règle s'appuyait sur le seul nombre implicite (résultat net ÷ BPA).
+        # Elle suppose donc un BPA fiable, et il ne l'est pas quand il est
+        # minuscule : arrondi au centime, un bénéfice de 0,0264 $ devient 0,01 et
+        # le nombre implicite triple. Meta 2012 en est le cas d'école — 2,2
+        # milliards d'actions déposées, 5,3 milliards impliquées, et rien de faux.
+        #
+        # Mesuré le 28/08/2026 : sur 581 exercices à plus de deux fois d'écart,
+        # 508 portent un nombre dilué COHÉRENT avec le nombre de base. Le nombre
+        # d'actions y est juste ; c'est le BPA qui est l'intrus. Et 20 des 156
+        # exercices que cette règle effaçait avaient un BPA de 0,02 $ ou moins.
+        #
+        # On se donne donc un arbitre INDÉPENDANT du BPA : le nombre d'actions de
+        # base, déposé séparément. Le dilué lui est toujours supérieur et proche.
+        # Quand les deux s'accordent, ils se confirment l'un l'autre, et aucun
+        # BPA arrondi ne doit pouvoir les effacer.
         if r > 10 or r < 0.1:
+            sb = e.get("shares_basic")
+            if (isinstance(sb, (int, float)) and sb > 0
+                    and 0.95 <= act / sb <= 1.30):
+                e["shares_bpa_douteux"] = ("le bénéfice par action déposé contredit "
+                                           "le nombre d’actions, que les comptes de "
+                                           "base et dilué confirment pourtant")
+                continue
             for cle in ("shares_diluted", "shares_basic"):
                 e[cle] = None
             e["shares_ecarte"] = "incohérent avec le bénéfice par action déposé"

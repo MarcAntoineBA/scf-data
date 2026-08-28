@@ -20,6 +20,20 @@ millions de dollars, sans jamais dire quelle part du capital elles représentent
 et il ignore les détenteurs qui ne sont pas des gérants — fondateurs, familles,
 États. Vingt gérants suivis ne font pas un actionnariat.
 
+⚠ LA PROFONDEUR S'ARRÊTE FIN 2024, ET C'EST LA SOURCE QUI L'IMPOSE.
+Le formulaire « SCHEDULE 13G », dont le document principal est structuré,
+n'existe que depuis la modernisation de fin 2024. Avant, la SEC classait ces
+dépôts sous « SC 13G » et leur contenu était de la prose. Mesuré en remontant
+l'index : 4 394 lignes au premier trimestre 2025, 503 au quatrième trimestre
+2024, puis 18 et 9. Remonter au-delà ne rapporte donc rien sans un analyseur de
+texte libre.
+
+C'est ce qui explique une absence visible : BlackRock détient environ sept pour
+cent d'Apple mais n'apparaît pas sur sa fiche. Un détenteur passif ne redépose
+qu'au franchissement d'un seuil ou à l'anniversaire, et sa dernière déclaration
+sur Apple est antérieure au formulaire structuré. Apple ne porte que DEUX dépôts
+sur quatre trimestres, tous deux de Vanguard.
+
 ⚠ CE QUE 13G NE DIT PAS, ET QU'IL FAUDRA ÉCRIRE SUR LA FICHE
   · seuls les détenteurs de PLUS DE 5 % déposent. Le flottant diffus n'y est pas,
     et la somme des parts déclarées ne fait jamais 100 % ;
