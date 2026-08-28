@@ -29,8 +29,10 @@ Six blocs, six sources indépendantes :
   5. DÉCOUPLAGE ÉNERGÉTIQUE — Eurostat : importations UE de gaz et de pétrole
      en provenance de Russie, mensuel. Donnée européenne, pas russe.
 
-  6. MER NOIRE — IMF PortWatch : escales quotidiennes des ports ukrainiens
-     (AIS satellitaire). Le corridor céréalier se lit directement dedans.
+  6. COMMERCE — Eurostat : échanges de marchandises UE↔Ukraine, mensuel.
+     (Les escales portuaires d'IMF PortWatch ont été essayées puis ÉCARTÉES :
+      leur série ukrainienne attribue le trafic aux mauvais ports depuis 2025.
+      Le motif chiffré est conservé en commentaire au-dessus de build_trade.)
 
 Produit `ukraine_cache.{json,js}` (window.__ATLAS_UKRAINE__), chargé en lazy
 par la vue. Le PIB, l'inflation, la dette de l'Ukraine et de la Russie ne sont
@@ -91,8 +93,6 @@ MAX_NEW_SNAPSHOTS = 60  # plafond de snapshots DeepStateMap téléchargés par r
 DSM_API = "https://deepstatemap.live/api"
 KIEL_PAGE = "https://www.ifw-kiel.de/topics/war-against-ukraine/ukraine-support-tracker/"
 EUROSTAT = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/"
-PORTWATCH = ("https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/"
-             "Daily_Ports_Data/FeatureServer/0/query")
 
 WARN = []
 
@@ -203,15 +203,45 @@ def dsm_totals(areas):
     }
 
 
+def ring_signed_area(ring):
+    """Aire signée planaire (lacet de chaussure), en degrés². Seul le SIGNE nous
+    intéresse : positif = sens trigonométrique, négatif = sens horaire."""
+    a = 0.0
+    for i in range(len(ring) - 1):
+        a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return a / 2.0
+
+
+def rewind(rings):
+    """Impose le sens d'enroulement attendu par d3-geo : anneau extérieur
+    HORAIRE, trous en sens trigonométrique.
+
+    ⚠ C'est l'INVERSE de la spécification GeoJSON (RFC 7946), et c'est le piège
+    le plus coûteux de cette vue. d3-geo raisonne sur la sphère : un anneau
+    parcouru à l'envers ne décrit pas le polygone, il décrit TOUT LE RESTE DU
+    GLOBE. Mesuré : la carte s'affichait intégralement rouge, avec le contour de
+    l'Ukraine tracé par-dessus — aucune erreur, aucun avertissement, juste une
+    carte qui disait le contraire de la vérité. Le fond de carte de l'Atlas
+    (Natural Earth via TopoJSON) est déjà en horaire : c'est cette convention-là
+    qui fait foi ici, et le contrôle tient dans le signe d'une aire."""
+    out = []
+    for i, r in enumerate(rings):
+        want_neg = (i == 0)                      # extérieur : horaire (aire < 0)
+        if (ring_signed_area(r) < 0) != want_neg:
+            r = list(reversed(r))
+        out.append(r)
+    return out
+
+
 def simplify_ring(ring, nd=3):
     """Arrondit à ~100 m et supprime les points devenus identiques.
-    La carte de la vue fait 700 px de large pour 1 300 km : 100 m est 20 fois
-    plus fin que le pixel. On divise le poids du GeoJSON par ~4 sans perte
-    visible, et on n'invente aucun point."""
+    La carte de la vue fait au plus 1 300 px de large pour 1 300 km : 100 m est
+    dix fois plus fin que le pixel. On divise le poids du GeoJSON par ~4 sans
+    perte visible, et on n'invente aucun point."""
     out = []
     last = None
-    for p in ring:
-        q = (round(float(p[0]), nd), round(float(p[1]), nd))
+    for pt in ring:
+        q = (round(float(pt[0]), nd), round(float(pt[1]), nd))
         if q != last:
             out.append([q[0], q[1]])
             last = q
@@ -224,13 +254,13 @@ def simplify_geom(g, nd=3):
     t = g.get("type")
     if t == "Polygon":
         rings = [r for r in (simplify_ring(x, nd) for x in g["coordinates"]) if r]
-        return {"type": "Polygon", "coordinates": rings} if rings else None
+        return {"type": "Polygon", "coordinates": rewind(rings)} if rings else None
     if t == "MultiPolygon":
         polys = []
-        for p in g["coordinates"]:
-            rings = [r for r in (simplify_ring(x, nd) for x in p) if r]
+        for pol in g["coordinates"]:
+            rings = [r for r in (simplify_ring(x, nd) for x in pol) if r]
             if rings:
-                polys.append(rings)
+                polys.append(rewind(rings))
         return {"type": "MultiPolygon", "coordinates": polys} if polys else None
     return None
 
@@ -751,117 +781,61 @@ def build_eurostat(sess):
 # ═══════════════════════════════════════════════════════════════════════════
 # 6 · MER NOIRE — IMF PortWatch (escales quotidiennes, AIS)
 # ═══════════════════════════════════════════════════════════════════════════
-UA_PORTS = {
-    "Odessa": "Odessa", "Chornomorsk": "Tchornomorsk", "Pivdennyi": "Pivdenny",
-    "Mykolaiv": "Mykolaïv", "Kherson": "Kherson", "Izmail": "Izmaïl",
-    "Reni": "Reni", "Olvia": "Olvia", "Mariupol": "Marioupol", "Kerch": "Kertch",
-}
+# ═══════════════════════════════════════════════════════════════════════════
+# 6 · COMMERCE EXTÉRIEUR — Eurostat, vu depuis l'Union européenne
+#
+# ⚠ SOURCE ESSAYÉE PUIS ÉCARTÉE (2026-08-28). Ce bloc devait porter les escales
+# des ports ukrainiens relevées par AIS satellitaire (IMF PortWatch) : le
+# corridor céréalier de la mer Noire s'y lit à l'œil nu. Vérification faite
+# port par port AVANT publication, la série ukrainienne de PortWatch est
+# inexploitable à partir de 2025 — le trafic y est attribué aux mauvais ports.
+# Relevé, en escales annuelles :
+#
+#     Odessa       2024 :   743   ->  2025 :     4
+#     Chornomorsk  2024 :   893   ->  2025 :     2
+#     Pivdennyi    2024 :   507   ->  2025 :     3
+#     Kertch       2024 :   382   ->  2025 : 3 286
+#
+# Odessa n'est pas à l'arrêt : c'est par elle que passe l'essentiel des
+# exportations ukrainiennes depuis l'ouverture du corridor. Un petit port de
+# Crimée qui capterait huit fois le trafic du premier port du pays est une
+# erreur d'affectation en amont, pas un fait de guerre. Publier ce graphique
+# aurait affirmé que les ports ukrainiens sont morts.
+#
+# On prend donc la même question — « le commerce ukrainien tient-il ? » — par
+# une source qui, elle, tient : les DOUANES des Vingt-Sept. Elle ne voit qu'un
+# partenaire, mais l'UE pèse aujourd'hui la majeure partie du commerce extérieur
+# ukrainien, et personne ne conteste un dédouanement européen.
+# ═══════════════════════════════════════════════════════════════════════════
+TRADE_DS = "ext_st_eu27_2020sitc"
 
 
-def pw_query(sess, where, out_fields, order=None, limit=2000, offset=0):
-    p = {
-        "where": where, "outFields": out_fields, "f": "json",
-        "returnGeometry": "false", "resultRecordCount": str(limit),
-        "resultOffset": str(offset),
+def build_trade(sess):
+    out = {}
+    for key, flow, lab in (("imp", "IMP", "importations de l'UE en provenance d'Ukraine"),
+                           ("exp", "EXP", "exportations de l'UE vers l'Ukraine")):
+        try:
+            ser = estat(sess, TRADE_DS,
+                        [("partner", "UA"), ("geo", "EU27_2020"), ("sitc06", "TOTAL"),
+                         ("indic_et", "TRD_VAL"), ("stk_flow", flow),
+                         ("sinceTimePeriod", "2019-01")])
+            if ser:
+                out[key] = [[d, round(v, 1)] for d, v in ser]
+                log("commerce · %s : %d mois, dernier %s = %.0f M EUR"
+                    % (lab, len(ser), ser[-1][0], ser[-1][1]))
+        except Exception as e:
+            warn("commerce · %s : %s" % (lab, e))
+    if not out:
+        raise RuntimeError("Eurostat : aucune serie de commerce UE-Ukraine")
+    out["refused"] = {
+        "source": "IMF PortWatch",
+        "why": ("Escales portuaires ukrainiennes ecartees : a partir de 2025, la serie "
+                "attribue le trafic aux mauvais ports (Odessa passe de 743 escales en "
+                "2024 a 4 en 2025, Kertch de 382 a 3 286). Le corridor de la mer Noire "
+                "n'est donc pas represente ici tant que la source ne redevient pas "
+                "coherente."),
     }
-    if order:
-        p["orderByFields"] = order
-    r = sess.get(PORTWATCH, params=p)
-    r.raise_for_status()
-    j = r.json()
-    if "error" in j:
-        raise RuntimeError(str(j["error"])[:180])
-    return [f["attributes"] for f in j.get("features") or []]
-
-
-def pw_date(ts):
-    """Le service renvoie tantôt un epoch en millisecondes, tantôt une date déjà
-    formatée « AAAA-MM-JJ », selon le champ et la version du service. Mesuré :
-    avec un seul des deux formats géré, le bloc rendait 0 escale SANS lever la
-    moindre erreur — un cadre vide qu'on aurait lu comme « les ports sont à
-    l'arrêt ». On accepte les deux, et l'absence de date reste une exclusion
-    explicite."""
-    if ts is None:
-        return None
-    if isinstance(ts, (int, float)):
-        try:
-            return dt.datetime.fromtimestamp(float(ts) / 1000.0, dt.timezone.utc).date()
-        except Exception:
-            return None
-    v = str(ts).strip()
-    if v.isdigit():
-        try:
-            return dt.datetime.fromtimestamp(float(v) / 1000.0, dt.timezone.utc).date()
-        except Exception:
-            return None
-    try:
-        return dt.date.fromisoformat(v[:10])
-    except Exception:
-        return None
-
-
-def build_blacksea(sess):
-    """Agrège en MENSUEL les escales quotidiennes des ports ukrainiens.
-    On travaille sur les escales (portcalls) : c'est un comptage de navires
-    par satellite AIS, pas une déclaration douanière — donc ni l'Ukraine ni
-    la Russie ne peuvent l'arranger."""
-    # Le service ArcGIS refuse toute clause qui ne porte pas sur un champ indexé
-    # (mesuré : `portname='Odessa'` et même `1=1` renvoient « Invalid query
-    # parameters », `ISO3='UKR'` passe). On filtre donc large côté serveur et on
-    # trie les ports ici — c'est le serveur qui impose la forme, pas un choix.
-    where = "ISO3='UKR'"
-    rows = []
-    off = 0
-    # ⚠ Pagination : le service sert au plus `maxRecordCount` lignes par appel, et
-    # cette borne est la SIENNE, pas celle qu'on demande. Une boucle qui s'arrête
-    # dès qu'un lot fait moins que la taille demandée s'est arrêtée au bout de
-    # trois mois de données sur sept ans — sans erreur, sans trou visible, juste
-    # une histoire tronquée. On avance donc du nombre de lignes REÇUES et on ne
-    # s'arrête que sur un lot vide.
-    while off < 300_000:
-        chunk = pw_query(sess, where, "date,portname,portcalls,portcalls_cargo,export,import",
-                         order="date ASC", limit=2000, offset=off)
-        if not chunk:
-            break
-        rows.extend(chunk)
-        off += len(chunk)
-    if not rows:
-        raise RuntimeError("PortWatch : aucune escale ukrainienne")
-
-    agg = {}
-    for a in rows:
-        d = pw_date(a.get("date"))
-        if d is None:
-            continue
-        ym = d.strftime("%Y-%m")
-        pn = a.get("portname")
-        k = (pn, ym)
-        r = agg.setdefault(k, {"pc": 0.0, "exp": 0.0, "imp": 0.0, "n": 0})
-        r["pc"] += float(a.get("portcalls") or 0)
-        r["exp"] += float(a.get("export") or 0)
-        r["imp"] += float(a.get("import") or 0)
-        r["n"] += 1
-
-    months = sorted({ym for (_, ym) in agg})
-    # Le mois courant est incomplet : on le retire pour ne pas afficher un
-    # effondrement qui n'est qu'un mois à moitié écoulé.
-    cur = dt.date.today().strftime("%Y-%m")
-    months = [m for m in months if m != cur]
-    ports = []
-    for pn, fr in UA_PORTS.items():
-        pc = [round(agg.get((pn, m), {}).get("pc", 0.0), 1) for m in months]
-        ex = [round(agg.get((pn, m), {}).get("exp", 0.0), 1) for m in months]
-        if sum(pc) <= 0:
-            continue
-        ports.append({"n": pn, "fr": fr, "pc": pc, "exp": ex})
-    if not ports or not months:
-        raise RuntimeError("PortWatch : %d lignes reçues mais aucun port exploitable "
-                           "(format de date ou de nom de port modifié en amont)" % len(rows))
-    tot_pc = [round(sum(p["pc"][i] for p in ports), 1) for i in range(len(months))]
-    tot_ex = [round(sum(p["exp"][i] for p in ports), 1) for i in range(len(months))]
-    log("mer noire · %d ports · %d mois · dernier mois %s = %.0f escales"
-        % (len(ports), len(months), months[-1] if months else "?", tot_pc[-1] if tot_pc else 0))
-    return {"months": months, "ports": ports, "tot_pc": tot_pc, "tot_exp": tot_ex}
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -912,7 +886,7 @@ def load_prev():
 
 def write_out(out):
     blob = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
-    hdr = "/* ukraine_cache.js — Guerre en Ukraine (DeepStateMap · IfW Kiel · NBU · HCR · Eurostat · IMF PortWatch) */"
+    hdr = "/* ukraine_cache.js — Guerre en Ukraine (DeepStateMap · IfW Kiel · NBU · HCR · Eurostat) */"
     wrote = 0
     for base in CACHES:
         try:
@@ -939,7 +913,7 @@ def main():
     prev = load_prev() or {}
     sess = _sess()
     out = {"meta": {}, "front": None, "aid": None, "nbu": None,
-           "unhcr": None, "eurostat": None, "sea": None, "refs": REFERENCES}
+           "unhcr": None, "eurostat": None, "trade": None, "refs": REFERENCES}
     status = {}
 
     def run(key, fn, keep_prev=True):
@@ -965,16 +939,16 @@ def main():
             run("nbu", lambda: build_nbu(sess))
             run("unhcr", lambda: build_unhcr(sess))
             run("eurostat", lambda: build_eurostat(sess))
-            run("sea", lambda: build_blacksea(sess))
+            run("trade", lambda: build_trade(sess))
             slow_ts = int(time.time())
         else:
             log("blocs lents repris du cache (%.1f h)" % age_h)
-            for k in ("aid", "nbu", "unhcr", "eurostat", "sea"):
+            for k in ("aid", "nbu", "unhcr", "eurostat", "trade"):
                 out[k] = prev.get(k)
                 status[k] = {"ok": 1, "cached": 1}
             slow_ts = int(float(pm.get("slow_ts") or 0))
     else:
-        for k in ("aid", "nbu", "unhcr", "eurostat", "sea"):
+        for k in ("aid", "nbu", "unhcr", "eurostat", "trade"):
             out[k] = prev.get(k)
         slow_ts = int(float((prev.get("meta") or {}).get("slow_ts") or 0))
 
@@ -1007,8 +981,10 @@ def main():
          "note": "Réfugiés d'origine ukrainienne, par pays d'accueil."},
         {"id": "estat", "label": "Eurostat", "url": "https://ec.europa.eu/eurostat/",
          "note": "Importations de gaz et de pétrole de l'UE en provenance de Russie."},
-        {"id": "pw", "label": "IMF PortWatch", "url": "https://portwatch.imf.org/",
-         "note": "Escales portuaires quotidiennes reconstituées par AIS satellitaire."},
+        {"id": "estat_trade", "label": "Eurostat — commerce extérieur",
+         "url": "https://ec.europa.eu/eurostat/databrowser/view/ext_st_eu27_2020sitc/",
+         "note": "Échanges de marchandises entre l'UE et l'Ukraine, mensuel, "
+                 "déclarés par les douanes des Vingt-Sept."},
         {"id": "wb", "label": "Banque mondiale — RDNA", "url": "https://www.worldbank.org/",
          "note": "Évaluation des dommages et des besoins de reconstruction."},
     ]
