@@ -148,6 +148,41 @@ def _get(url, accept_404=False):
 # plusieurs années au milieu d'une série — le genre de trou qu'on prend pour une
 # chute d'activité. L'ordre compte : le premier trouvé gagne, on met donc en tête
 # la formulation la plus spécifique.
+# ── LE VOCABULAIRE INTERNATIONAL, ET LES TROIS ÉTIQUETTES QU'ON REFUSE ──
+#
+# Le lecteur interroge les DEUX taxonomies. Ce n'est donc pas la taxonomie qui
+# manquait mais le VOCABULAIRE : sur cinquante grandeurs, six seulement portaient
+# un nom international. 297 sociétés et 2 257 exercices n'avaient AUCUN résultat
+# avant impôt, AUCUNE trésorerie, sur aucun exercice — Novo Nordisk, Ericsson,
+# AB InBev, Nokia, Ferrari, BAT, Ambev, Tenaris, Aegon, VEON, Cenovus, BBVA.
+#
+# Les étiquettes internationales sont ajoutées EN FIN de liste : le rang départage
+# à date égale, donc un nom us-gaap reste prioritaire chez un déposant américain.
+#
+# ⚠ TROIS ÉTIQUETTES SONT REFUSÉES, ET CE SONT CELLES QUI COMBLENT LE PLUS DE
+# CASES. C'est précisément ce qui les rend dangereuses : un recensement par
+# fréquence les remonterait en tête, et quelqu'un les ajouterait.
+#
+#   · `FinanceCosts` comble 100 % des trous de charge d'intérêts contre 40 % pour
+#     l'étiquette juste — mais la norme y met aussi les pertes de change et la
+#     désactualisation. ASR 2017 : 618 831 000 MXN contre 1 804 000 d'intérêts
+#     réels, facteur 343. TEO 2024 : −1 914 786 000 000 ARS, NÉGATIF, contre
+#     +173 837 000 000. La couverture d'intérêts qui en sortirait serait négative
+#     et parfaitement bien formée.
+#   · `WeightedAverageShares` : PAC 2024, BPA 17,0444 × 5,053e11 actions =
+#     8,612e12 pour un résultat de 8,612e9. Facteur mille exact, quatre exercices
+#     d'affilée.
+#   · `Borrowings` dans `lt_debt` : c'est le TOTAL de la dette, pas sa part
+#     longue. BSAC 2021, 8 827 Md CLP contre 16 056 pour la somme des échéances.
+#     Il a sa place dans la dette totale, jamais dans une composante.
+#
+# Et `ShareBasedPaymentsExpense` N'EXISTE PAS : la taxonomie écrit
+# `ExpenseFromSharebasedPaymentTransactionsWithEmployees`, avec un b MINUSCULE.
+# Même piège que le pluriel de `NoncontrollingInterests`. Non ajoutée tant qu'elle
+# n'a pas été contrôlée en valeur sur un cas nommé.
+#
+# Enfin, `...AndGeneralPartnershipUnit...` est refusée : c'est le concept dont les
+# deux valeurs se contredisent d'un dépôt à l'autre chez Natural Resource Partners.
 CONCEPTS = {
     # ── Compte de résultat (durée) ──
     # ⚠ LES SOCIÉTÉS CHANGENT D'ÉTIQUETTE, ET LA SÉRIE S'ARRÊTE SANS RIEN DIRE.
@@ -203,10 +238,19 @@ CONCEPTS = {
     # DISJOINTS par construction — la norme 842 régit les baux, la 606 les
     # contrats clients, et une recette ne relève que de l'une des deux. Les
     # additionner n'est donc pas une estimation, c'est une addition.
+    # ── LE PRODUIT NET BANCAIRE ──
+    # Une banque ne vend pas des marchandises : son produit d'exploitation est la
+    # marge d'intérêt plus les commissions. Ces deux étiquettes étaient
+    # totalement absentes du dictionnaire, et Western Alliance publiait 135,8 M$
+    # de chiffre d'affaires pour une banque qui en fait 3 543.
+    "produit_interet_net": ["InterestIncomeExpenseNet"],
+    "produit_commissions": ["NoninterestIncome"],
+
     "revenue_baux": ["OperatingLeaseLeaseIncome",
                      "OperatingLeasesIncomeStatementMinimumLeaseRevenue"],
     "cogs": ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold",
-             "CostOfServices"],
+             "CostOfServices",
+        "CostOfSales"],
     "gross_profit": ["GrossProfit"],
     "rd": ["ResearchAndDevelopmentExpense",
            "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
@@ -215,10 +259,13 @@ CONCEPTS = {
     "sm": ["SellingAndMarketingExpense"],
     "opex": ["OperatingExpenses", "CostsAndExpenses", "OperatingCostsAndExpenses"],
     "autres_non_ope": ["OtherNonoperatingIncomeExpense", "NonoperatingIncomeExpense"],
-    "operating_income": ["OperatingIncomeLoss"],
+    "operating_income": ["OperatingIncomeLoss",
+        "ProfitLossFromOperatingActivities"],
     "pretax": ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
-               "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
-    "tax": ["IncomeTaxExpenseBenefit"],
+               "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+        "ProfitLossBeforeTax"],
+    "tax": ["IncomeTaxExpenseBenefit",
+        "IncomeTaxExpenseContinuingOperations"],
     # ⚠ `NetIncomeLoss` désigne DÉJÀ la part du groupe en norme américaine ;
     # `ProfitLoss` désigne le TOTAL, minoritaires compris. Les empiler dans la
     # même liste de replis change la définition du mot selon la société.
@@ -253,18 +300,38 @@ CONCEPTS = {
         "ProfitLossAttributableToNoncontrollingInterests"],
     "net_income_common": ["NetIncomeLossAvailableToCommonStockholdersBasic"],
     "interest_expense": ["InterestExpense", "InterestExpenseDebt",
-                         "InterestExpenseNonoperating"],
-    "eps_diluted": ["EarningsPerShareDiluted"],
-    "eps_basic": ["EarningsPerShareBasic"],
-    "shares_diluted": ["WeightedAverageNumberOfDilutedSharesOutstanding"],
+                         "InterestExpenseNonoperating",
+        "InterestExpenseOnBorrowings"],
+    "eps_diluted": ["EarningsPerShareDiluted",
+        "DilutedEarningsLossPerShare",
+        "DilutedEarningsLossPerShareFromContinuingOperations",
+        "EarningsPerShareBasicAndDiluted",
+        "BasicAndDilutedEarningsLossPerShare",
+        "IncomeLossFromContinuingOperationsPerBasicAndDilutedShare",
+        "NetIncomeLossNetOfTaxPerOutstandingLimitedPartnershipUnitDiluted"],
+    "eps_basic": ["EarningsPerShareBasic",
+        "BasicEarningsLossPerShare",
+        "BasicEarningsLossPerShareFromContinuingOperations",
+        "EarningsPerShareBasicAndDiluted",
+        "BasicAndDilutedEarningsLossPerShare",
+        "NetIncomeLossPerOutstandingLimitedPartnershipUnitBasicNetOfTax"],
+    "shares_diluted": ["WeightedAverageNumberOfDilutedSharesOutstanding",
+        "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+        "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
+        "WeightedAverageLimitedPartnershipUnitsOutstandingDiluted"],
     "shares_basic": ["WeightedAverageNumberOfSharesOutstandingBasic",
-                     "WeightedAverageNumberOfSharesOutstanding"],
+                     "WeightedAverageNumberOfSharesOutstanding",
+        "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+        "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
+        "WeightedAverageLimitedPartnershipUnitsOutstanding"],
 
     # ── Bilan (instant) ──
     "assets": ["Assets"],
-    "assets_current": ["AssetsCurrent"],
+    "assets_current": ["AssetsCurrent",
+        "CurrentAssets"],
     "liabilities": ["Liabilities"],
-    "liabilities_current": ["LiabilitiesCurrent"],
+    "liabilities_current": ["LiabilitiesCurrent",
+        "CurrentLiabilities"],
     # `Equity` et `EquityAttributableToOwnersOfParent` sont les noms des normes
     # internationales. Sans eux, les déposants passés aux IFRS — Agnico Eagle,
     # Vale, Petrobras, Alcon — rendaient des capitaux propres vides, et avec eux
@@ -311,7 +378,8 @@ CONCEPTS = {
         "RedeemableNoncontrollingInterestEquityFairValue",
     ],
     "cash": ["CashAndCashEquivalentsAtCarryingValue",
-             "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
+             "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+        "CashAndCashEquivalents"],
     # Placements à court terme. Beaucoup d'étiquettes pour une même réalité :
     # NVIDIA a utilisé `MarketableSecurities` jusqu'en 2024, puis
     # `MarketableSecuritiesCurrent`, puis la ventilation par échéance. On prend
@@ -323,18 +391,43 @@ CONCEPTS = {
                        "AvailableForSaleSecuritiesCurrent",
                        "AvailableForSaleSecuritiesDebtMaturitiesWithinOneYearFairValue",
                        "OtherShortTermInvestments"],
-    "lt_debt": ["LongTermDebtNoncurrent", "LongTermDebt"],
-    "current_debt": ["LongTermDebtCurrent", "DebtCurrent"],
+    "lt_debt": ["LongTermDebtNoncurrent", "LongTermDebt",
+        "LongtermBorrowings"],
+    "current_debt": ["LongTermDebtCurrent", "DebtCurrent",
+        "ShorttermBorrowings"],
     # Les loyers capitalisés SONT de la dette depuis IFRS 16 / ASC 842, et les
     # omettre sous-estime l'endettement de tout ce qui loue ses locaux ou ses
     # centres de données. Contrôle sur NVIDIA, exercice 2026 : 7 469 + 999 de
     # dette financière + 2 572 + 372 de loyers = 11 412 M$, soit exactement le
     # chiffre publié par le concurrent. Sans les loyers on tombait à 8 468.
-    "lease_lt": ["OperatingLeaseLiabilityNoncurrent", "FinanceLeaseLiabilityNoncurrent"],
-    "lease_ct": ["OperatingLeaseLiabilityCurrent", "FinanceLeaseLiabilityCurrent"],
+    # ── LES BAUX S'ADDITIONNENT, ILS NE SE CHOISISSENT PAS ──
+    #
+    # Ces quatre étiquettes étaient rangées deux par deux, comme des synonymes.
+    # Le lecteur départage alors au RANG : le loyer simple passait, le
+    # crédit-bail était jeté. Ce ne sont pas des synonymes mais deux COMPOSANTES
+    # du bilan — 21,4 Md$ manquants sur 22 sociétés.
+    #
+    # La correction d'origine des baux avait été validée sur NVIDIA, qui ne
+    # dépose AUCUN crédit-bail : le témoin choisi était celui sur lequel le
+    # défaut est invisible.
+    # ── LA DETTE DES DÉPOSANTS INTERNATIONAUX ──
+    # `Borrowings` est le TOTAL des emprunts, pas une composante : il n'a donc
+    # rien à faire dans `lt_debt` (voir le refus en tête du dictionnaire), et
+    # toute sa place ici. `LeaseLiabilities` est le total ACTUALISÉ des baux —
+    # ne jamais lui préférer `GrossLeaseLiabilities`, qui ne l'est pas et
+    # gonflerait la dette de 45 % chez Shell.
+    "emprunts_ifrs": ["Borrowings"],
+    "baux_ifrs": ["LeaseLiabilities"],
+
+    "bail_simple_lt": ["OperatingLeaseLiabilityNoncurrent"],
+    "credit_bail_lt": ["FinanceLeaseLiabilityNoncurrent"],
+    "bail_simple_ct": ["OperatingLeaseLiabilityCurrent"],
+    "credit_bail_ct": ["FinanceLeaseLiabilityCurrent"],
     "goodwill": ["Goodwill"],
-    "retained_earnings": ["RetainedEarningsAccumulatedDeficit"],
-    "inventory": ["InventoryNet"],
+    "retained_earnings": ["RetainedEarningsAccumulatedDeficit",
+        "RetainedEarnings"],
+    "inventory": ["InventoryNet",
+        "Inventories"],
 
     # ── Flux de trésorerie (durée) ──
     # Le troisième nom est celui de la taxonomie IFRS. Sans lui, 267 sociétés
@@ -382,7 +475,8 @@ CONCEPTS = {
               # sur les exercices où aucune ligne complète n'est déposée — et sur
               # ceux-là, une part de l'investissement vaut mieux que rien, à
               # condition de savoir qu'elle est partielle.
-              "PaymentsToAcquireOtherProductiveAssets"],
+              "PaymentsToAcquireOtherProductiveAssets",
+        "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
     # Le décaissement NET d'investissement — achats MOINS cessions. Il vit dans
     # son propre champ et non parmi les précédents, pour une raison de signe : le
     # collecteur prend la valeur absolue de l'investissement, parce que certains
@@ -394,7 +488,9 @@ CONCEPTS = {
     "capex_net": ["PaymentsForProceedsFromProductiveAssets"],
     "sbc": ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"],
     "dividends_paid": ["PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends",
-                       "PaymentsOfDividends"],
+                       "PaymentsOfDividends",
+        "DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities",
+        "DividendsPaidClassifiedAsFinancingActivities"],
     # Le dividende PRÉFÉRENTIEL, séparément — et il sert à une chose précise.
     # `PaymentsOfDividends` est un TOTAL : il englobe les actions de préférence.
     # Sans cette ligne, le dividende par action implicite (versé ÷ actions) est
@@ -405,10 +501,12 @@ CONCEPTS = {
     # une vraie coupe pour une erreur de saisie.
     "dividends_paid_preferred": ["PaymentsOfDividendsPreferredStockAndPreferenceStock",
                                  "PaymentsOfDistributionsToAffiliates"],
-    "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
+    "buybacks": ["PaymentsForRepurchaseOfCommonStock",
+        "PaymentsToAcquireOrRedeemEntitysShares"],
     "dna": ["DepreciationDepletionAndAmortization",
             "DepreciationAmortizationAndAccretionNet",
-            "DepreciationAndAmortization", "Depreciation"],
+            "DepreciationAndAmortization", "Depreciation",
+        "DepreciationAndAmortisationExpense"],
     "dps": ["CommonStockDividendsPerShareDeclared",
             "CommonStockDividendsPerShareCashPaid"],
 }
@@ -418,7 +516,8 @@ CONCEPTS = {
 # annuel à un solde ponctuel.
 INSTANTS = {"assets", "assets_current", "liabilities", "liabilities_current",
             "equity", "cash", "short_term_inv", "lt_debt", "current_debt",
-            "lease_lt", "lease_ct",
+            "bail_simple_lt", "credit_bail_lt", "bail_simple_ct", "credit_bail_ct",
+            "emprunts_ifrs", "baux_ifrs",
             # Deux postes de BILAN, donc pris à une date et non sur une période :
             # les demander comme des flux ne rendrait rien du tout.
             "interets_minoritaires_bilan", "capitaux_mezzanine",
@@ -472,18 +571,48 @@ def devise_du_deposant(facts):
               ("StockholdersEquity", "Equity",
                "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"),
               ("NetIncomeLoss", "ProfitLoss"))
-    couverture, points = {}, {}
-    for groupe in postes:
-        vues_groupe = set()
-        for espace in ("us-gaap", "ifrs-full"):
-            bloc = facts.get(espace) or {}
-            for nom in groupe:
-                for u, pts in ((bloc.get(nom) or {}).get("units") or {}).items():
-                    if u.isalpha() and len(u) == 3:
+    # ── NE COMPTER QUE LES DÉPÔTS ANNUELS ──
+    #
+    # Le comptage prenait TOUS les points, y compris ceux d'un 6-K trimestriel.
+    # Deux points en dollars déposés dans un rapport trimestriel suffisaient donc
+    # à égaler la monnaie locale en couverture — et l'égalité revient au dollar,
+    # à raison, puisque c'est la colonne comparable.
+    #
+    # Puis le lecteur jetait les faits en monnaie locale (devise retenue : le
+    # dollar) ET les faits en dollars (un 6-K n'est pas une forme annuelle). La
+    # société se vidait entièrement. Deux gardes justes qui se détruisaient.
+    #
+    # Sans aucun poste annuel, on retombe sur le comptage complet : mieux vaut
+    # une décision imparfaite qu'aucune.
+    def annuels_seuls(pts):
+        return [p for p in pts
+                if (p.get("form") or "").split("/")[0] in FORMES_ANNUELLES]
+
+    def compter(annuel):
+        couv, pts_par_devise = {}, {}
+        for groupe in postes:
+            vues_groupe = set()
+            for espace in ("us-gaap", "ifrs-full"):
+                bloc = facts.get(espace) or {}
+                for nom in groupe:
+                    for u, pts in ((bloc.get(nom) or {}).get("units") or {}).items():
+                        if not (u.isalpha() and len(u) == 3):
+                            continue
+                        retenus = annuels_seuls(pts) if annuel else pts
+                        if not retenus:
+                            continue
                         vues_groupe.add(u)
-                        points[u] = points.get(u, 0) + len(pts)
-        for u in vues_groupe:
-            couverture[u] = couverture.get(u, 0) + 1
+                        pts_par_devise[u] = pts_par_devise.get(u, 0) + len(retenus)
+            for u in vues_groupe:
+                couv[u] = couv.get(u, 0) + 1
+        return couv, pts_par_devise
+
+    # D'abord sur les seuls dépôts annuels. Si aucune devise n'y est couverte —
+    # une société qui n'a encore déposé que des trimestriels — on retombe sur le
+    # comptage complet : une décision imparfaite vaut mieux qu'aucune.
+    couverture, points = compter(True)
+    if not couverture:
+        couverture, points = compter(False)
     if not couverture:
         return None
     meilleure = max(couverture.values())
@@ -595,9 +724,28 @@ def _annuels(facts, concept_noms, instant=False, devise=None):
                 cle_unite = max(monetaires, key=lambda u: len(unites[u]))
             _DEVISES_VUES.add(cle_unite)
         else:
-            # Ni devise à trois lettres : des actions, des taux, des unités par
-            # action. La plus peuplée reste le bon choix.
-            cle_unite = max(unites, key=lambda u: len(unites[u]))
+            # ── LES UNITÉS « PAR ACTION » PORTENT UNE DEVISE, ELLES AUSSI ──
+            #
+            # Le test ci-dessus reconnaît une devise à `u.isalpha() and len == 3`.
+            # L'unité d'un bénéfice par action s'écrit « USD/shares », « TWD/shares » :
+            # la barre oblique n'est pas alphabétique, la liste des monétaires
+            # ressort vide, et le verrou de devise est SAUTÉ. On tombait alors sur
+            # l'unité la plus peuplée, sans regarder la monnaie.
+            #
+            # Taiwan Semiconductor dépose son BPA dans les deux monnaies. Le
+            # dollar taïwanais étant le plus fourni, la fiche aurait publié 44,68
+            # pour un cours en dollars américains — facteur 33, P/E divisé
+            # d'autant. Mesuré aussi sur BCH (pesos chiliens), ELLO, TLX.
+            #
+            # On préfère donc explicitement la devise de la société quand elle
+            # existe, AVANT de retomber sur la plus peuplée.
+            par_action = "%s/shares" % devise if devise else None
+            if par_action and par_action in unites:
+                cle_unite = par_action
+            else:
+                # Ni devise à trois lettres, ni « devise/shares » : des actions,
+                # des taux, des ratios. La plus peuplée reste le bon choix.
+                cle_unite = max(unites, key=lambda u: len(unites[u]))
         for p in unites[cle_unite]:
             forme = (p.get("form") or "").split("/")[0]   # « 10-K/A » compte comme « 10-K »
             if forme not in FORMES_ANNUELLES:
@@ -902,6 +1050,27 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
             e["revenue"] = _baux
             e["revenue_total_utilise"] = "loyers seuls"
 
+        # ── LE PRODUIT NET BANCAIRE, TROISIÈME BRANCHE ──
+        #
+        # Même mécanisme que les bailleurs, autre métier. Quand le chiffre
+        # d'affaires se réduit aux commissions — c'est-à-dire quand il ÉGALE le
+        # chiffre d'affaires « contrats » — et que la société dépose les deux
+        # composantes du produit bancaire, on prend leur somme.
+        #
+        # ⚠ LA PREMIÈRE CONDITION NE SUFFIT PAS, ET DE LOIN. L'égalité est vraie
+        # pour 2 168 sociétés, dont NVIDIA, Apple, Microsoft, Amazon, Walmart,
+        # Exxon et Johnson & Johnson. C'est la présence SIMULTANÉE des deux
+        # étiquettes qui fait garde-fou — mesuré avant d'écrire cette branche, sur
+        # 62 sociétés tirées de ces 2 168 : deux seulement les déposent, et ce
+        # sont deux banques. Zéro non-financière.
+        _pin, _pcom = e.get("produit_interet_net"), e.get("produit_commissions")
+        if (e.get("revenue") is not None
+                and e.get("revenue_contrats") is not None
+                and e["revenue"] == e["revenue_contrats"]
+                and _pin is not None and _pcom is not None):
+            e["revenue"] = _pin + _pcom
+            e["revenue_total_utilise"] = "produit net bancaire"
+
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
 
@@ -990,10 +1159,56 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # déduit vraiment de la dette), et la dette TOTALE loyers compris.
         e["tresorerie"] = e["cash"]
         liquidites = ((e["cash"] or 0) + (e["short_term_inv"] or 0)) if e["cash"] is not None else None
-        dette_totale = None
-        if any(e[k] is not None for k in ("lt_debt", "current_debt", "lease_lt", "lease_ct")):
-            dette_totale = ((e["lt_debt"] or 0) + (e["current_debt"] or 0)
-                            + (e["lease_lt"] or 0) + (e["lease_ct"] or 0))
+        # ── LES BAUX : SOMME EXPLICITE DES DEUX NATURES ──
+        # `None + None` reste `None` : une société qui ne dépose aucun bail n'a
+        # pas zéro bail, elle n'en a pas. C'est la différence entre « mesuré à
+        # zéro » et « non mesuré », et elle se propage jusqu'à la dette totale.
+        for _long, _a, _b in (("lease_lt", "bail_simple_lt", "credit_bail_lt"),
+                              ("lease_ct", "bail_simple_ct", "credit_bail_ct")):
+            _x, _y = e.get(_a), e.get(_b)
+            e[_long] = None if (_x is None and _y is None) else ((_x or 0) + (_y or 0))
+
+        # ── UNE DETTE FAITE DE LOYERS SEULS N'EST PAS UNE DETTE ──
+        #
+        # Le repli international ne peut pas s'armer sur « dette_totale est
+        # nulle » : dès qu'un déposant porte un bail, le total cesse d'être nul —
+        # il vaut LES LOYERS SEULS — et le repli ne s'arme jamais. Shell
+        # publierait 28 933 M$ au lieu de 104 576, sans erreur et avec l'air
+        # complet. On regarde donc si UNE LIGNE D'EMPRUNT est servie.
+        # LE TOTAL PRIME SUR LES COMPOSANTES quand la société le dépose.
+        # `Borrowings` est le total des emprunts ; la somme des deux échéances
+        # l'oublie partiellement — chez Shell, `ShorttermBorrowings` (506) ne
+        # compte pas la part à moins d'un an des emprunts longs (9 128), et la
+        # reconstruction par composantes lui volait 8,6 Md$ EN SILENCE. Mais
+        # `Borrowings` est parfois absent ou périmé (Chunghwa Telecom, ChipMOS,
+        # Sify) : à cette date-là, la somme des composantes reprend la main.
+        _emp = e.get("emprunts_ifrs")
+        if not _emp:
+            # Osisko porte un `Borrowings` de ZÉRO : le `not` l'attrape, et la
+            # somme des composantes prend le relais — vide chez elle, donc rien.
+            _emp = ((e.get("lt_debt") or 0) + (e.get("current_debt") or 0)) or None
+
+        # Les baux, du total international ou de la somme des deux natures.
+        _bx = e.get("baux_ifrs")
+        if _bx is None and (e.get("lease_lt") is not None or e.get("lease_ct") is not None):
+            _bx = (e.get("lease_lt") or 0) + (e.get("lease_ct") or 0)
+
+        # ⚠ UNE DETTE FAITE DE LOYERS SEULS N'EST PAS UNE DETTE. Sans cette
+        # règle, tout déposant portant un bail voyait sa dette réduite à ses
+        # loyers, avec l'air d'être complète — Shell à 28 933 M$ au lieu de
+        # 104 576.
+        dette_totale = None if not _emp else (_emp + (_bx or 0))
+
+        # ⚠ AUCUNE SOCIÉTÉ NE DOIT PLUS QUE CE QU'ELLE POSSÈDE. Grupo
+        # Aeroportuario del Sureste 2017 déclare 7 149 177 000 000 pesos
+        # d'emprunts longs pour 56 614 103 000 d'actif — 126 fois. La SEC porte
+        # deux points pour cette date, l'un juste et l'autre avec trois zéros de
+        # trop, et la règle « le dépôt le plus récent gagne » choisit le faux.
+        # Une dette qui dépasse l'actif ne se corrige pas : elle s'efface.
+        if (dette_totale is not None and e.get("assets")
+                and dette_totale > 10 * abs(e["assets"])):
+            e["_dette_effacee"] = dette_totale
+            dette_totale = None
         e["liquidites"] = liquidites
         e["tresorerie_totale"] = liquidites          # nom conservé pour compatibilité
         e["dette_totale"] = dette_totale
