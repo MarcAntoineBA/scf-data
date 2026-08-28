@@ -147,11 +147,30 @@ def geom_km2(g):
 
 
 # ── Classement des polygones DeepStateMap ────────────────────────────────────
-# Le champ `name` est un triplet « ukrainien /// anglais /// clé ». Seule la clé
-# est stable, donc c'est elle qu'on lit. Le fichier contient aussi des calques
-# militants sans rapport avec l'Ukraine (Kouriles, Carélie, Abkhazie, Prusse…) :
-# ils sont EXCLUS par liste blanche, jamais par liste noire — une nouvelle
-# couche exotique ne doit pas pouvoir gonfler le total en silence.
+# TROIS FORMATS DE NOMMAGE COHABITENT dans l'historique, et il faut les lire tous
+# les trois — sinon les relevés anciens sortent à zéro et quittent la série sans
+# bruit (mesuré : 24 relevés sur 103 évaporés au premier essai) :
+#
+#   2022        « Окуповано »                          ukrainien seul
+#   2022-2023   « Окуповано /// Occupied »             + anglais
+#   depuis 2024 « … /// geoJSON.status.occupied »      + clé stable
+#
+# La clé fait foi quand elle est là. Sinon on lit le texte, dans un ORDRE qui
+# compte : « Окупований Крим » contient « окупован », donc la Crimée doit être
+# reconnue AVANT l'occupation générale, sans quoi elle serait comptée deux fois.
+#
+# ── ET LE FICHIER NE PARLE PAS QUE D'UKRAINE ─────────────────────────────────
+# DeepStateMap y publie aussi des calques militants sur d'autres territoires
+# qu'il considère occupés par la Russie : Kouriles, Carélie, Itchkérie, Prusse
+# orientale, Abkhazie, Petsamo, Salla, district de Tskhinvali, Transnistrie,
+# île de Touzla, Pechorsky. Presque tous portent le mot « occupé » : lus
+# naïvement, ils ajoutent 130 000 km² au territoire ukrainien occupé.
+#
+# Ils sont écartés par DEUX filets indépendants, parce qu'aucun des deux ne
+# suffit seul : une CLÔTURE GÉOGRAPHIQUE (le polygone doit être en Ukraine)
+# élimine tout ce qui est loin, mais pas la Transnistrie ni Touzla, qui sont
+# à la porte ; une liste de noms écartés s'occupe de ces derniers, mais elle
+# périmerait seule au premier calque nouveau. Les deux ensemble tiennent.
 KEY_OCCUPIED = "status.occupied"          # occupé depuis février 2022
 KEY_CRIMEA = "territories.crimea"         # occupé depuis 2014
 KEY_ORDLO = "territories.ordlo"           # Donbass séparatiste d'avant 2022
@@ -160,23 +179,73 @@ KEY_UNKNOWN = "status.unknown"            # zone grise revendiquée des deux cô
 
 CONTROLLED = (KEY_OCCUPIED, KEY_CRIMEA, KEY_ORDLO)
 
+# Clôture : boîte englobante généreuse de l'Ukraine de 1991 (Crimée comprise).
+UA_BBOX = (21.5, 43.3, 41.5, 53.0)        # lon min, lat min, lon max, lat max
+
+# Calques hors sujet qui tombent DANS la clôture (voisinage immédiat).
+NOT_UKRAINE = (
+    "придністров", "transnistria", "тузла", "tuzla", "молдов", "moldova",
+)
+
+# Reconnaissance par le texte, dans l'ordre. Le premier motif qui apparaît gagne.
+NAME_RULES = (
+    (KEY_CRIMEA, ("крим", "crimea")),
+    (KEY_ORDLO, ("ордло", "cadr", "calr", "ордил")),
+    (KEY_LIBERATED, ("звільнено", "liberated", "звiльнено")),
+    (KEY_UNKNOWN, ("невідом", "невiдом", "під питанням", "пiд питанням", "unknown",
+                   "situation is unknown", "статус невідомий")),
+    (KEY_OCCUPIED, ("окупован", "окуповано", "occupied")),
+)
+
+
+def geom_center(g):
+    """Centre de la boîte englobante d'une géométrie. Suffisant pour une
+    clôture : on cherche à savoir si l'objet est en Ukraine ou en Sibérie, pas
+    à le localiser au mètre."""
+    xs, ys = [], []
+
+    def walk(c):
+        if isinstance(c, (list, tuple)):
+            if c and isinstance(c[0], (int, float)):
+                xs.append(float(c[0])); ys.append(float(c[1]))
+            else:
+                for x in c:
+                    walk(x)
+    walk((g or {}).get("coordinates"))
+    if not xs:
+        return None
+    return ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
+
+
+def in_ukraine(g):
+    c = geom_center(g)
+    if not c:
+        return False
+    return (UA_BBOX[0] <= c[0] <= UA_BBOX[2]) and (UA_BBOX[1] <= c[1] <= UA_BBOX[3])
+
 
 def dsm_key(feat):
-    """Clé stable d'un objet DeepStateMap, ou None si l'objet n'est pas typé."""
-    nm = str(((feat or {}).get("properties") or {}).get("name") or "")
-    if "geoJSON." not in nm:
+    """Catégorie d'un polygone DeepStateMap, ou None s'il ne nous concerne pas."""
+    props = (feat or {}).get("properties") or {}
+    nm = " ".join(str(props.get("name") or "").split())
+    low = nm.lower()
+    if any(w in low for w in NOT_UKRAINE):
         return None
-    k = nm.split("geoJSON.", 1)[1].strip()
-    k = k.split()[0] if k else ""
-    k = k.split("{{")[0].strip()
-    # « status.dismissed_at {{date}} » (libéré à telle date) reste un « libéré »
-    if k.startswith("status.dismissed_at"):
-        return KEY_LIBERATED
-    return k or None
+    if not in_ukraine((feat or {}).get("geometry")):
+        return None
+    if "geoJSON." in nm:
+        k = nm.split("geoJSON.", 1)[1].strip().split()[0].split("{{")[0].strip()
+        if k.startswith("status.dismissed_at"):
+            return KEY_LIBERATED
+        return k or None
+    for key, pats in NAME_RULES:
+        if any(pt in low for pt in pats):
+            return key
+    return None
 
 
 def dsm_areas(fc):
-    """{clé: km²} pour une FeatureCollection DeepStateMap."""
+    """{catégorie: km²} pour une FeatureCollection DeepStateMap."""
     out = {}
     for f in (fc or {}).get("features") or []:
         g = f.get("geometry") or {}
@@ -194,93 +263,48 @@ def dsm_totals(areas):
     cri = areas.get(KEY_CRIMEA, 0.0)
     ord_ = areas.get(KEY_ORDLO, 0.0)
     return {
-        "occ": round(occ, 1),          # occupé depuis 2022
-        "cri": round(cri, 1),          # Crimée (2014)
-        "ordlo": round(ord_, 1),       # Donbass séparatiste (2014)
+        "occ": round(occ, 1),
+        "cri": round(cri, 1),
+        "ordlo": round(ord_, 1),
         "lib": round(areas.get(KEY_LIBERATED, 0.0), 1),
         "unk": round(areas.get(KEY_UNKNOWN, 0.0), 1),
         "tot": round(occ + cri + ord_, 1),
     }
 
 
-def ring_signed_area(ring):
-    """Aire signée planaire (lacet de chaussure), en degrés². Seul le SIGNE nous
-    intéresse : positif = sens trigonométrique, négatif = sens horaire."""
-    a = 0.0
-    for i in range(len(ring) - 1):
-        a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
-    return a / 2.0
+# ── QUAND UN RELEVÉ EST-IL LISIBLE ? ─────────────────────────────────────────
+# Les exports anciens de l'API sont PARTIELS : certains ne portent qu'une partie
+# des calques. Relevé sur des sondages trimestriels :
+#
+#     2022-04-03   occupé  57 886   Crimée      0   ORDLO 16 935
+#     2022-07-01   occupé  16 637   Crimée      0   ORDLO      0     ← inexploitable
+#     2022-10-01   occupé  71 414   Crimée 27 111   ORDLO 16 760
+#     2023-01-01   occupé  64 595   Crimée 27 111   ORDLO 16 756     (retrait de Kherson)
+#     …           puis une série continue et cohérente jusqu'à aujourd'hui
+#
+# Le critère d'acceptation ne peut donc PAS être un seuil choisi à la main : il
+# doit sortir de la donnée. C'est la CRIMÉE qui le fournit. Elle est occupée sans
+# interruption depuis 2014 et sa surface ne bouge pas d'un mètre ; un fichier qui
+# ne la porte pas n'énonce pas un fait, il lui manque une couche. Un relevé sans
+# calque Crimée — ou dont la Crimée ne retombe pas sur ses 26 945 km² — est donc
+# REFUSÉ, et le motif est écrit. Ce seul critère fait commencer la série en
+# octobre 2022, exactement là où elle devient cohérente : personne n'a eu à
+# choisir cette date.
+#
+# Les bornes d'occupation ci-dessous ne sont qu'un second filet, très large.
+OCC_MIN, OCC_MAX = 30_000.0, 250_000.0
 
 
-def rewind(rings):
-    """Impose le sens d'enroulement attendu par d3-geo : anneau extérieur
-    HORAIRE, trous en sens trigonométrique.
-
-    ⚠ C'est l'INVERSE de la spécification GeoJSON (RFC 7946), et c'est le piège
-    le plus coûteux de cette vue. d3-geo raisonne sur la sphère : un anneau
-    parcouru à l'envers ne décrit pas le polygone, il décrit TOUT LE RESTE DU
-    GLOBE. Mesuré : la carte s'affichait intégralement rouge, avec le contour de
-    l'Ukraine tracé par-dessus — aucune erreur, aucun avertissement, juste une
-    carte qui disait le contraire de la vérité. Le fond de carte de l'Atlas
-    (Natural Earth via TopoJSON) est déjà en horaire : c'est cette convention-là
-    qui fait foi ici, et le contrôle tient dans le signe d'une aire."""
-    out = []
-    for i, r in enumerate(rings):
-        want_neg = (i == 0)                      # extérieur : horaire (aire < 0)
-        if (ring_signed_area(r) < 0) != want_neg:
-            r = list(reversed(r))
-        out.append(r)
-    return out
-
-
-def simplify_ring(ring, nd=3):
-    """Arrondit à ~100 m et supprime les points devenus identiques.
-    La carte de la vue fait au plus 1 300 px de large pour 1 300 km : 100 m est
-    dix fois plus fin que le pixel. On divise le poids du GeoJSON par ~4 sans
-    perte visible, et on n'invente aucun point."""
-    out = []
-    last = None
-    for pt in ring:
-        q = (round(float(pt[0]), nd), round(float(pt[1]), nd))
-        if q != last:
-            out.append([q[0], q[1]])
-            last = q
-    if len(out) >= 3 and out[0] != out[-1]:
-        out.append(list(out[0]))
-    return out if len(out) >= 4 else None
-
-
-def simplify_geom(g, nd=3):
-    t = g.get("type")
-    if t == "Polygon":
-        rings = [r for r in (simplify_ring(x, nd) for x in g["coordinates"]) if r]
-        return {"type": "Polygon", "coordinates": rewind(rings)} if rings else None
-    if t == "MultiPolygon":
-        polys = []
-        for pol in g["coordinates"]:
-            rings = [r for r in (simplify_ring(x, nd) for x in pol) if r]
-            if rings:
-                polys.append(rewind(rings))
-        return {"type": "MultiPolygon", "coordinates": polys} if polys else None
+def snapshot_ok(t):
+    if not t["cri"]:
+        return "export partiel : le calque Crimée est absent du fichier"
+    if abs(t["cri"] - CRIMEA_REF_KM2) / CRIMEA_REF_KM2 > CRIMEA_TOL:
+        return "Crimée mesurée à %.0f km² au lieu de %.0f" % (t["cri"], CRIMEA_REF_KM2)
+    if not t["ordlo"]:
+        return "export partiel : le calque du Donbass séparatiste est absent"
+    if not (OCC_MIN <= t["occ"] <= OCC_MAX):
+        return "occupation mesurée à %.0f km², hors des bornes plausibles" % t["occ"]
     return None
-
-
-def dsm_map_geo(fc):
-    """GeoJSON allégé pour la carte : uniquement les 5 statuts qui nous
-    intéressent, coordonnées arrondies, propriétés réduites à la clé."""
-    keep = (KEY_OCCUPIED, KEY_CRIMEA, KEY_ORDLO, KEY_LIBERATED, KEY_UNKNOWN)
-    feats = []
-    for f in (fc or {}).get("features") or []:
-        g = f.get("geometry") or {}
-        if g.get("type") not in ("Polygon", "MultiPolygon"):
-            continue
-        k = dsm_key(f)
-        if k not in keep:
-            continue
-        sg = simplify_geom(g)
-        if sg:
-            feats.append({"t": "F", "k": k, "g": sg})
-    return feats
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -327,7 +351,11 @@ def build_front(sess, prev, full=False):
     known = {}
     for row in ((prev or {}).get("front") or {}).get("series") or []:
         known[str(row.get("id"))] = row
-    todo = [(i, d) for i, d in anchors if i not in known]
+    # Un export partiel le restera : le fichier est figé côté source. Sans
+    # mémoire des refus, chaque passage re-télécharge les mêmes treize relevés
+    # illisibles — pour rien, et en masquant le vrai rattrapage sous le plafond.
+    skipped = set(((prev or {}).get("front") or {}).get("skipped") or [])
+    todo = [(i, d) for i, d in anchors if i not in known and i not in skipped]
     if not full and len(todo) > MAX_NEW_SNAPSHOTS:
         # On rattrape par la FIN (les points récents d'abord) : une vue à trous
         # anciens reste lisible, une vue sans le présent ne l'est pas.
@@ -345,6 +373,11 @@ def build_front(sess, prev, full=False):
             fc = rr.json()
             a = dsm_areas(fc)
             t = dsm_totals(a)
+            bad = snapshot_ok(t)
+            if bad:
+                warn("front · relevé %s (%s) refusé : %s" % (day, sid, bad))
+                skipped.add(sid)
+                continue
             t["id"] = sid
             t["d"] = day
             series.append(t)
@@ -378,7 +411,7 @@ def build_front(sess, prev, full=False):
     log("front · contrôle Crimée OK : %.0f km² calculés vs %.0f officiels (%.2f %%)"
         % (ref["cri"], CRIMEA_REF_KM2, err * 100))
 
-    series = [s for s in series if s.get("d") and s.get("tot")]
+    series = [s for s in series if s.get("d") and s.get("occ")]
     series.sort(key=lambda s: s["d"])
     # dédoublonnage par jour (on garde la dernière mesure du jour)
     ded = {}
@@ -403,6 +436,7 @@ def build_front(sess, prev, full=False):
         "last": last,
         "series": series,
         "deltas": {"d30": delta(30), "d90": delta(90), "d365": delta(365)},
+        "skipped": sorted(skipped),
         "geo": dsm_map_geo(last_fc),
         "note_en": (hist_last.get("descriptionEn") or "")[:400],
         "ukraine_km2": UKRAINE_KM2,
