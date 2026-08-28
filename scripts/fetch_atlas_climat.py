@@ -119,6 +119,32 @@ GISTEMP = "https://data.giss.nasa.gov/gistemp/tabledata_v4/GLB.Ts+dSST.csv"
 MLO_M = "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.csv"
 MLO_W = "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.csv"
 
+# ── Prix de l'assurance de dommages ──────────────────────────────────────────
+#    Deux sources publiques, sans clé, qui mesurent la MÊME chose de deux côtés
+#    de l'Atlantique : le prix payé pour assurer un logement.
+#      · États-Unis : BLS, Producer Price Index, industrie 524126 (assureurs
+#        dommages en direct), produit 5241262 « Homeowner's insurance ».
+#        ⚠ Le réflexe naturel — l'indice des prix à la consommation « tenants'
+#        and household insurance » (CUUR0000SEHD) — est un PIÈGE : le CPI
+#        américain EXCLUT l'assurance des propriétaires (elle est logée dans le
+#        loyer imputé). Cette série-là BAISSE en réel pendant que les primes des
+#        propriétaires s'envolent. On la collecte quand même, nommément, pour
+#        pouvoir le montrer plutôt que l'affirmer.
+#      · Europe : Eurostat, indice des prix à la consommation harmonisé, poste
+#        ECOICOP CP1252 « assurance liée au logement ».
+#    Dans les deux cas on divise par l'indice général des prix de la même zone :
+#    ce qui nous intéresse est l'écart à l'inflation, pas l'inflation.
+BLS_API = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
+EUROSTAT_HICP = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/"
+                 "1.0/data/prc_hicp_aind")
+INS_BASE = 1998                    # première année commune aux deux sources
+INS_US = {"prime": "PCU5241265241262",   # Homeowner's insurance (PPI)
+          "auto": "PCU5241265241261",    # Private passenger auto (PPI)
+          "cpi_menage": "CUUR0000SEHD",  # le piège, gardé pour le documenter
+          "deflateur": "CUUR0000SA0"}    # CPI tous articles
+INS_EU = (("EA20", "zone euro"), ("FR", "France"), ("DE", "Allemagne"),
+          ("ES", "Espagne"), ("IT", "Italie"))
+
 ERRORS = []      # sources tombées : listées dans le cache ET sur stdout
 
 
@@ -606,6 +632,124 @@ def get_carbon_locked():
 # ═════════════════════════════════════════════════════════════════════════════
 #  Assemblage
 # ═════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
+#  13. Prix de l'assurance de dommages — BLS (US) et Eurostat (Europe)
+# ═════════════════════════════════════════════════════════════════════════════
+def _bls_annuel(series_ids, y1, y2):
+    """Moyenne ANNUELLE des séries mensuelles BLS. {série: {année: valeur}}.
+
+    L'API publique v1 ne demande pas de clé mais plafonne à 10 ans par appel :
+    l'appelant découpe. Une année n'est retenue qu'à partir de 6 mois publiés,
+    sinon l'année courante, à peine commencée, ferait un faux décrochage.
+    """
+    body = json.dumps({"seriesid": series_ids,
+                       "startyear": str(y1), "endyear": str(y2)}).encode()
+    req = request.Request(BLS_API, data=body,
+                          headers={"Content-Type": "application/json",
+                                   "User-Agent": UA})
+    with request.urlopen(req, timeout=60, context=CTX) as r:
+        d = json.loads(r.read().decode("utf-8", "ignore"))
+    if d.get("status") != "REQUEST_SUCCEEDED":
+        raise RuntimeError("BLS : %s %s" % (d.get("status"), str(d.get("message"))[:200]))
+    out = {}
+    for srv in d.get("Results", {}).get("series", []):
+        mois = {}
+        for o in srv.get("data", []):
+            per = o.get("period", "")
+            if not per.startswith("M") or per == "M13":
+                continue
+            v = num(o.get("value"))
+            if v is not None:
+                mois.setdefault(o["year"], []).append(v)
+        out[srv["seriesID"]] = {int(a): sum(v) / len(v)
+                                for a, v in mois.items() if len(v) >= 6}
+    return out
+
+
+def _eurostat_hicp(coicop, geo):
+    """Indice annuel moyen HICP pour un poste et un pays. {année: valeur}."""
+    url = ("%s?format=JSON&lang=EN&unit=INX_A_AVG&coicop=%s&geo=%s"
+           % (EUROSTAT_HICP, coicop, geo))
+    d = json.loads(http(url).decode("utf-8", "ignore"))
+    idx = d["dimension"]["time"]["category"]["index"]
+    inv = {i: a for a, i in idx.items()}
+    return {int(inv[int(k)]): v for k, v in d.get("value", {}).items()}
+
+
+def _indice_reel(brut, deflateur, base):
+    """Série divisée par l'indice général des prix, base `base` = 100.
+
+    Sans l'année de base dans LES DEUX séries, on ne renvoie rien : un indice
+    recalé sur une autre année ne se compare plus aux voisins du graphique.
+    """
+    if base not in brut or base not in deflateur:
+        return None, None
+    reel, nom = {}, {}
+    for a in sorted(set(brut) & set(deflateur)):
+        nom[a] = round(brut[a] / brut[base] * 100, 2)
+        reel[a] = round((brut[a] / brut[base]) / (deflateur[a] / deflateur[base]) * 100, 2)
+    return reel, nom
+
+
+def get_prix_assurance():
+    """Le prix de l'assurance du logement, corrigé de l'inflation, par zone.
+
+    Renvoie None si AUCUNE zone n'a pu être construite : l'appelant garde alors
+    le bloc du cache précédent plutôt que d'effacer un graphique.
+    """
+    zones, srcs = {}, {}
+
+    # ── États-Unis : PPI, découpé en tranches de 10 ans (limite de l'API) ────
+    try:
+        us = {}
+        ids = list(INS_US.values())
+        an_fin = dt.date.today().year
+        for y1 in range(1996, an_fin + 1, 10):
+            for sid, serie in _bls_annuel(ids, y1, min(y1 + 9, an_fin)).items():
+                us.setdefault(sid, {}).update(serie)
+            time.sleep(0.6)
+        defl = us.get(INS_US["deflateur"], {})
+        for cle, sid, lab in (("US", INS_US["prime"], "États-Unis — habitation"),
+                              ("US_AUTO", INS_US["auto"], "États-Unis — auto"),
+                              ("US_CPI", INS_US["cpi_menage"], "États-Unis — CPI locataires")):
+            reel, nom = _indice_reel(us.get(sid, {}), defl, INS_BASE)
+            if reel:
+                zones[cle] = {"lab": lab, "reel": pack(reel), "nom": pack(nom),
+                              "src": "BLS " + sid,
+                              "url": "https://data.bls.gov/timeseries/" + sid}
+        if zones:
+            srcs["BLS"] = "https://www.bls.gov/ppi/"
+    except Exception as e:                                   # noqa: BLE001
+        fail("BLS prix assurance", e)
+
+    # ── Europe : HICP, une requête par pays ─────────────────────────────────
+    for geo, lab in INS_EU:
+        try:
+            reel, nom = _indice_reel(_eurostat_hicp("CP1252", geo),
+                                     _eurostat_hicp("CP00", geo), INS_BASE)
+            if reel:
+                zones[geo] = {"lab": lab, "reel": pack(reel), "nom": pack(nom),
+                              "src": "Eurostat HICP CP1252",
+                              "url": "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"}
+        except Exception as e:                               # noqa: BLE001
+            fail("Eurostat HICP " + geo, e)
+    if any(k in zones for k, _ in INS_EU):
+        srcs["Eurostat"] = "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"
+
+    if not zones:
+        return None
+    return {
+        "base": INS_BASE,
+        "zones": zones,
+        "srcs": srcs,
+        "n": ("indice de PRIX de l'assurance du logement, divisé par l'indice "
+              "général des prix de la même zone. Au-dessus de 100 : l'assurance "
+              "a augmenté plus vite que le reste. Un prix n'est pas un coût du "
+              "risque : il porte aussi la concurrence, la réglementation et le "
+              "cycle de la réassurance."),
+    }
+
+
 def main():
     t0 = time.time()
     log("[climat] collecte…")
@@ -786,6 +930,31 @@ def main():
             G[key] = get_multi_grapher(slug, entity=ent)
         except Exception as e:                               # noqa: BLE001
             fail(f"OWID {slug}", e)
+
+    # ── 11 bis. Prix de l'assurance du logement ─────────────────────────────
+    log("· BLS + Eurostat — prix de l'assurance du logement")
+    try:
+        ins = get_prix_assurance()
+        if not ins:
+            raise RuntimeError("aucune zone construite")
+        G["ins_px"] = ins
+        for k, z in ins["zones"].items():
+            r = z["reel"]
+            log("  %-8s %d-%d : indice reel %.0f"
+                % (k, r["s"], r["s"] + len(r["v"]) - 1, r["v"][-1]))
+    except Exception as e:                                   # noqa: BLE001
+        fail("prix assurance", e)
+        # Un graphique qui existait hier ne doit pas disparaitre parce qu'une
+        # API a eu un mauvais jour : on reprend le bloc du cache precedent.
+        try:
+            if OUT_JSON.exists():
+                vieux = json.loads(OUT_JSON.read_text(encoding="utf-8"))
+                old = (vieux.get("global") or {}).get("ins_px")
+                if old:
+                    G["ins_px"] = old
+                    log("  -> bloc assurance repris du cache precedent")
+        except Exception:                                    # noqa: BLE001
+            pass
 
     # ── 12. Carbone verrouillé dans les réserves ─────────────────────────────
     log("· carbone verrouillé (réserves prouvées)")
