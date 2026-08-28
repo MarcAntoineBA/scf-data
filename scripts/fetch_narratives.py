@@ -1508,7 +1508,7 @@ def narrative_stats(narr, cfg, scan, assets, max_rank=MAX_MCAP_RANK):
             img_fallback = m.get("image_fallback") or ""
         else:
             cg_image = m.get("image") or ""
-            jsdeliver_svg = (os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")
+            jsdeliver_svg = (f"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.0/svg/color/{sym_lower}.svg"
                              if sym_lower else "")
             img_url      = cg_image or jsdeliver_svg
             img_fallback = jsdeliver_svg if cg_image and jsdeliver_svg and cg_image != jsdeliver_svg else ""

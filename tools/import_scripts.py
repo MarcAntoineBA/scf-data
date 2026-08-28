@@ -48,7 +48,17 @@ LABEL_RULE = (rf"com\.{re.escape(ACCOUNT)}\.", "scf.")
 # On ne peut ni les supprimer (la source refuserait) ni les publier (adresse récoltée
 # par les robots dès l'indexation) : la valeur passe par l'environnement, alimentée
 # par un secret GitHub, avec un repli neutre qui garde le script exécutable en local.
-EMAIL_IN_STRING = re.compile(r'(?<![\w.])[fFrRbB]{0,2}"[^"\n]*[\w.+-]+@[\w-]+\.[\w.]+[^"\n]*"')
+# ⚠ CETTE RÈGLE A CRÉÉ LA FUITE QU'ELLE DEVAIT EMPÊCHER (28/08/2026).
+# `cryptocurrency-icons@0.18.0/svg/color/…` a la forme d'une adresse : un point, une
+# arobase, un domaine. La règle a donc remplacé une URL de CDN par la lecture
+# d'environnement du contact. Sur le Mac, la variable n'existe pas et le repli neutre
+# passait inaperçu ; sur le runner GitHub, le secret la remplit — et le collecteur
+# public a écrit l'adresse de l'auteur dans le champ `image_fallback` de 183 jetons,
+# dans un dépôt public. Le garde-fou anti-secrets a publié un secret.
+#
+# Une chaîne qui contient « :// » est une URL. Aucun User-Agent nominatif n'en
+# contient : c'est le discriminant, et il est sûr dans les deux sens.
+EMAIL_IN_STRING = re.compile(r'(?<![\w.])[fFrRbB]{0,2}"(?![^"\n]*://)[^"\n]*[\w.+-]+@[\w-]+\.[\w.]+[^"\n]*"')
 CONTACT_ENV_PY = 'os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")'
 CONTACT_ENV_SH = '"${SCF_CONTACT_UA:-CapitalAntifragile research}"'
 
@@ -194,12 +204,25 @@ def scrub_prose(text):
     return "\n".join(out)
 
 
+# Ce que la dernière réécriture a remplacé par la variable de contact : la liste est
+# relue par l'appelant, qui l'affiche. Une substitution muette est ce qui a permis à
+# l'adresse de partir en ligne pendant des semaines.
+remplaces = []
+
+
 def rewrite(text, is_shell):
     text = ENV_DEFAULT_SECRET.sub(r'\1""', text)
     text = SH_DEFAULT_SECRET.sub(r'\1\2', text)
     text = scrub_prose(text)
     text = SCRATCH_ENTRY.sub("", text)
-    text = EMAIL_IN_STRING.sub(CONTACT_ENV_SH if is_shell else CONTACT_ENV_PY, text)
+    # On journalise CE QU'ON DÉTRUIT. Cette substitution remplace une ligne par une
+    # autre qui ne lui ressemble pas ; si elle se trompe de cible, rien dans le
+    # fichier produit ne le dira. La voir passer est le seul moyen de s'en apercevoir
+    # avant que le résultat ne parte en public.
+    remplaces.clear()
+    text = EMAIL_IN_STRING.sub(lambda m: (remplaces.append(m.group(0)),
+                                          CONTACT_ENV_SH if is_shell else CONTACT_ENV_PY)[1],
+                               text)
     for pat, rep in (SH_RULES if is_shell else PY_RULES):
         text = re.sub(pat, rep, text)
     return re.sub(LABEL_RULE[0], LABEL_RULE[1], text)
@@ -295,6 +318,8 @@ def main():
             continue
 
         out = rewrite(raw, name.endswith(".sh"))
+        for chaine in remplaces:
+            print("    · %s : contact substitué à %s" % (name, chaine.strip()[:72]))
 
         # Contrôle final : plus AUCUNE trace du compte, sous aucune forme.
         residue = [m.start() for m in re.finditer(re.escape(ACCOUNT), out)]
