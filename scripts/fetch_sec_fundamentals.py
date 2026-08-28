@@ -1044,6 +1044,33 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         if len(devises) > 1:
             resume["devises_multiples"] = sorted(devises)
 
+        # ── ÉTATS EN MONNAIE LOCALE, COTATION EN DOLLARS : ON NE MULTIPLIE PAS ──
+        #
+        # La capitalisation et le cours viennent de la cotation américaine, donc
+        # en dollars ; les états, eux, sont en wons, en pesos ou en réaux. Tout
+        # ratio qui croise les deux est faux d'un facteur mille — c'est
+        # exactement le défaut qui avait mis Toyota à un P/E de 0,1, et il a déjà
+        # coûté une soirée à ce dépôt.
+        #
+        # On pourrait convertir : le cache de change existe. On ne le fait PAS,
+        # et c'est délibéré — mesuré le 28/08/2026, sa dernière cotation date du
+        # 28 avril, quatre mois plus tôt, et il ne couvre pas le peso colombien.
+        # Une conversion à un taux périmé serait une fausse précision, plus
+        # dangereuse qu'une case vide parce qu'elle a l'air d'un chiffre.
+        #
+        # On efface donc les grandeurs de marché de ces exercices et on déclare
+        # la divergence. La fiche affiche alors « états en KRW mais cotation en
+        # USD » — le mécanisme existe déjà côté international — et le lecteur
+        # sait pourquoi les multiples manquent au lieu de lire des multiples faux.
+        resume["devise_cotation"] = "USD"
+        resume["devises_alignees"] = False
+        for e in exercices:
+            e["mcap_estime"] = None
+            e["wacc"] = None
+            e["ecart_roic_wacc"] = None
+        resume["cours_natif"] = None
+        resume["cours_natif_le"] = None
+
     return {"exercices": exercices, "resume": resume}
 
 
@@ -1418,19 +1445,26 @@ def main():
             echecs += 1
             continue
 
-        bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
-            _dernier_cours(cours.get(sym))
-        # Repli sur la cotation de l'univers. La série du tracker ne couvre que
-        # ses huit cents titres ; sans ce repli, 90 % des sociétés américaines
-        # n'avaient aucun cours — donc ni P/E, ni rendement, ni prix juste.
-        # Ici la conversion est inutile : la cotation retenue est en dollars, et
-        # les états d'un déposant SEC le sont aussi.
-        bati["resume"]["cours_source"] = \
-            "tracker" if bati["resume"]["cours_natif"] is not None else None
-        if bati["resume"]["cours_natif"] is None and meta.get("cours_cotation"):
-            bati["resume"]["cours_natif"] = meta["cours_cotation"]
-            bati["resume"]["cours_natif_le"] = jour_univers
-            bati["resume"]["cours_source"] = "univers"
+        # ⚠ On ne repose PAS de cours quand `construire` a refusé les grandeurs
+        # de marché : il l'a fait parce que les états ne sont pas en dollars, et
+        # la cotation américaine, elle, l'est. Remettre le cours ici referait
+        # précisément le croisement de monnaies qu'on vient d'écarter.
+        if bati["resume"].get("devises_alignees") is False:
+            bati["resume"]["cours_source"] = None
+        else:
+            bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
+                _dernier_cours(cours.get(sym))
+            # Repli sur la cotation de l'univers. La série du tracker ne couvre
+            # que ses huit cents titres ; sans ce repli, 90 % des sociétés
+            # américaines n'avaient aucun cours — donc ni P/E, ni rendement, ni
+            # prix juste. Ici la conversion est inutile : la cotation retenue est
+            # en dollars, et les états d'un déposant SEC le sont aussi.
+            bati["resume"]["cours_source"] = \
+                "tracker" if bati["resume"]["cours_natif"] is not None else None
+            if bati["resume"]["cours_natif"] is None and meta.get("cours_cotation"):
+                bati["resume"]["cours_natif"] = meta["cours_cotation"]
+                bati["resume"]["cours_natif_le"] = jour_univers
+                bati["resume"]["cours_source"] = "univers"
         # ⚠ La devise est posée par `construire`, qui SAIT laquelle il a lue. Elle
         # était écrite « USD » en dur ici, ce qui écrasait la vérité et rendait
         # invisible le cas des déposants étrangers publiant en roubles, en dongs
