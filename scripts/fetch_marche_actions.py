@@ -27,7 +27,20 @@ Royaume-Uni 3 980 titres) :
   · 15 champs partiels, dont TOUTES les prévisions d'analystes : l'objectif de
     prix couvre 68,6 % des américaines mais 13,1 % des britanniques ;
   · 19 champs vides, dont `earningsEpsEstimate` (0 % hors États-Unis),
-    `totalDebt`, `bookValue`, `dividend` et `ocf` — vides même aux États-Unis.
+    `totalDebt`, `bookValue` et `dividend` — vides même aux États-Unis.
+
+⚠ `ocf` FIGURAIT DANS CETTE LISTE *ET* DANS SOLIDES. La contradiction disait vrai
+des deux côtés : le champ est bien vide à 0,00 % sur les 37 574 sociétés — seule
+colonne à zéro de tout le jeu — mais ce n'est pas la SOURCE qui est muette, c'est
+NOUS qui demandions un nom qui n'existe pas. La même requête sert le flux
+d'exploitation sous `operatingCF` : 78,6 % en France, 97,6 % au Japon, 97,2 % en
+Inde. Vérifié au SENS et pas seulement au remplissage — comparé au flux déjà
+calculé sur les fiches, l'écart relatif médian est de 0,00 % sur 3 833 couples.
+
+Le point d'entrée ACCEPTE N'IMPORTE QUEL NOM et rend du vide en silence : un champ
+témoin inventé pour l'occasion sort à 0,00 % exactement comme `ocf`. Tout champ
+demandé dont le remplissage ressort à zéro doit donc se signaler bruyamment —
+sans quoi la prochaine faute de frappe deviendra une colonne vide invisible.
 
 Ces trois listes sont écrites en clair plus bas. Elles ne sont pas une opinion :
 chaque ligne a été comptée.
@@ -111,7 +124,7 @@ peRatio psRatio pbRatio pFcfRatio pOcfRatio evEbitda evEbit evSales evFcf
 revenue grossProfit operatingIncome netIncome ebitda ebit eps
 grossMargin operatingMargin profitMargin ebitdaMargin ebitMargin fcfMargin
 revenueGrowth revenueGrowthQ epsGrowth
-fcf capex ocf netCash workingCapital tangibleBookValue
+fcf capex operatingCF netCash workingCapital tangibleBookValue
 roe roa roic roce currentRatio quickRatio debtEquity debtEbitda
 interestCoverage assetTurnover inventoryTurnover taxRate
 dividendYield buybackYield earningsYield fcfYield

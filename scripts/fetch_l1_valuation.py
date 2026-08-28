@@ -36,6 +36,12 @@ HYPE_NUSERS_SNAPSHOTS = CACHE_DIR / "hyperliquid_nusers_snapshots.json"
 CHAIN_AA_SNAPSHOTS = CACHE_DIR / "chain_active_users_snapshots.json"
 CACHE_MAX_HOURS = 4
 
+# Empreinte écrite dans le cache à chaque run : elle dit ce que ce binaire SAIT
+# faire. Qui lit le cache — la page, une sentinelle — peut alors séparer « la
+# source se tait » de « le collecteur déployé est périmé ». À compléter quand un
+# framework s ajoute ; jamais à retirer sans retirer le code correspondant.
+COLLECTEUR_CAPACITES = ("captation", "adresses_actives", "staking", "transmission")
+
 TOKENS = [
     # token, coingecko_id, defillama_chain, blockchain_name
     ("BTC",    "bitcoin",          "Bitcoin",     "Bitcoin"),
@@ -1435,6 +1441,46 @@ def appliquer_captation(entry, capt, mcap_usd, infl, tok):
                          % (tok, entry["fees_m"], entry["capt_frais_m"]))
 
 
+def _recalculer_captation_derivee(entry):
+    """Reconstruit les grandeurs AFFICHÉES de la captation depuis les ingrédients.
+
+    PANNE DU 28/08/2026. Le filet last-known-good rendait bien capt_frais_m et
+    capt_detenteurs_m — mais PAS capt_taux_pct, capt_rendement_pct ni
+    capt_nette_pct, qui sont les trois seuls champs que la page lit. Le filet se
+    refermait donc sur les ingrédients pendant que le plat restait vide : le
+    bandeau « Feed health » annonçait quinze N/A sur un cache réputé sauvé.
+
+    On RECALCULE au lieu de préserver, et c est délibéré : le rendement et la
+    captation nette se rapportent à la capitalisation et à l inflation, qui sont
+    fraîches ce run. Préserver le taux d hier le rapporterait à la capitalisation
+    d aujourd hui — un chiffre juste au mauvais endroit.
+
+    Ne touche que ce qui est None : une valeur fraîchement lue gagne toujours.
+    """
+    f_m    = entry.get("capt_frais_m")        # M$ de frais annualisés
+    h_m    = entry.get("capt_detenteurs_m")   # M$ de revenu détenteurs annualisé
+    mcap_b = entry.get("mcap_b")
+    infl   = entry.get("inflation")
+
+    if entry.get("capt_taux_pct") is None and f_m and h_m is not None:
+        entry["capt_taux_pct"] = round(100.0 * h_m / f_m, 2)
+    if entry.get("capt_rendement_pct") is None and mcap_b and h_m is not None:
+        # h_m en M$, mcap_b en G$ : le facteur 1e3 remet les deux à la même échelle.
+        entry["capt_rendement_pct"] = round(100.0 * (h_m / 1e3) / mcap_b, 3)
+    if (entry.get("capt_nette_pct") is None
+            and entry.get("capt_rendement_pct") is not None and infl is not None):
+        entry["capt_nette_pct"] = round(entry["capt_rendement_pct"] - infl, 2)
+
+    # La transmission se relit dans les courbes mensuelles, elles aussi préservées.
+    if entry.get("capt_pente_cents") is None:
+        pente, r2 = _capt_transmission(entry.get("capt_frais_mensuel"),
+                                       entry.get("capt_detenteurs_mensuel"))
+        if pente is not None:
+            entry["capt_pente_cents"] = round(pente * 100.0, 1)
+        if entry.get("capt_r2") is None:
+            entry["capt_r2"] = r2
+
+
 def _cache_age_hours():
     """Âge de la donnée, lu DANS le cache — et seulement à défaut sur le fichier.
 
@@ -1483,7 +1529,8 @@ PRESERVE_FIELDS = ("fees_m", "tvl_b", "active_addresses_7d_avg",
                    # passager efface le framework ⑧ de la page pendant 4 h.
                    "capt_frais_m", "capt_revenu_m", "capt_detenteurs_m",
                    "capt_frais_mensuel", "capt_detenteurs_mensuel",
-                   "capt_pente_cents", "capt_r2", "capt_base", "capt_tao_recycle")
+                   "capt_pente_cents", "capt_r2", "capt_base", "capt_tao_recycle",
+                   "capt_note")
 PRESERVE_MAX_HOURS = 48  # cap on how stale a preserved value can be
 
 
@@ -1593,6 +1640,7 @@ def main():
     tvl_data = fetch_defillama_tvl()
 
     tokens_out = {}
+    n_capt_frais = 0
     for tok, cg_id, dl_chain, name in TOKENS:
         cg = cg_data.get(cg_id, {})
         tvl_usd = tvl_data.get(dl_chain) or tvl_data.get(dl_chain.lower()) or 0.0
@@ -1688,6 +1736,10 @@ def main():
         }
 
         appliquer_captation(entry, capt, mcap_usd, infl, tok)
+        # Fraîche = lue à la source CE run (par opposition à restaurée du cache).
+        # C est ce compte, et lui seul, qui a le droit de dater la captation.
+        if entry.get("capt_taux_pct") is not None:
+            n_capt_frais += 1
 
         # Derived ratios
         if entry["mcap_b"] and entry["fees_m"]:
@@ -1732,6 +1784,10 @@ def main():
         if entry.get("fees_m") and entry.get("fdv_b") and entry.get("ps_fdv") is None:
             entry["ps_fdv"] = round(entry["fdv_b"] * 1000 / entry["fees_m"], 1)
 
+        # Les dérivées de la captation suivent la même règle que celles des frais :
+        # un ingrédient restauré ne sert à rien si la grandeur affichée reste vide.
+        _recalculer_captation_derivee(entry)
+
         tokens_out[tok] = entry
         # gentle rate limit for DefiLlama
         time.sleep(0.3)
@@ -1769,6 +1825,35 @@ def main():
         },
         "tokens":   tokens_out,
     }
+
+    # -- CE QUE CE BINAIRE SAIT PRODUIRE -------------------------------------
+    # PANNE DU 28/08/2026, la vraie cause. Sous launchd tournait le collecteur du
+    # 20 août — celui d AVANT la captation. Il n a rien « perdu » : il ne sait pas
+    # écrire ces champs. La page a conclu à une panne DefiLlama (l API répondait
+    # parfaitement) et a proposé de relancer ce même binaire périmé, ce qui aurait
+    # ré-effacé la captation à chaque essai. Sans cette empreinte, rien ne distingue
+    # « la source se tait » de « le collecteur déployé est périmé » — deux pannes au
+    # symptôme identique qui appellent des gestes opposés.
+    payload["collecteur_capacites"] = list(COLLECTEUR_CAPACITES)
+
+    # La captation ne se date que si elle a été LUE ce run. Restaurée du cache, elle
+    # garde la date de sa collecte : la mentir rendrait la page fausse — même règle
+    # que `updated`, qui date le marché et rien d autre.
+    if n_capt_frais >= 5:
+        payload["captation_updated"] = maintenant.strftime("%d/%m/%Y %H:%M")
+    elif prev_cache.get("captation_updated"):
+        payload["captation_updated"] = prev_cache["captation_updated"]
+
+    # Après le filet : si la captation manque QUAND MÊME sur tout le parc, on écrit
+    # (le marché, lui, est frais et doit le rester) mais on le DIT — dans le cache
+    # et dans les logs. Un N/A qui s explique vaut infiniment mieux qu un N/A muet.
+    n_capt_publie = sum(1 for v in tokens_out.values() if v.get("capt_taux_pct") is not None)
+    if n_capt_publie < 5:
+        motif = ("source DefiLlama muette et cache precedent trop ancien (>%dh)"
+                 % PRESERVE_MAX_HOURS)
+        payload["captation_alerte"] = "%s - %d/%d chaines renseignees." % (
+            motif, n_capt_publie, len(tokens_out))
+        sys.stderr.write("[L1] ALERTE captation : %s\n" % payload["captation_alerte"])
 
     # ── ON N'ÉCRASE PAS UNE DONNÉE COMPLÈTE PAR UNE DONNÉE VIDE ──────────────
     # CoinGecko en tarif gratuit répond 429 dès qu'on le sollicite deux fois en

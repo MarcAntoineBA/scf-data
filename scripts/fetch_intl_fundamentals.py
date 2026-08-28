@@ -337,8 +337,37 @@ CHAMPS = {
     "interets_minoritaires_bilan": ("bilan", ["minorityInterestBS"]),
     "cash":                ("bilan", ["cashneq"]),
     "short_term_inv":      ("bilan", ["investmentsc"]),
-    "lt_debt":             ("bilan", ["debtnc"]),
-    "current_debt":        ("bilan", ["debtc"]),
+    # ── LA DETTE : LE TOTAL DE LA SOURCE, ET CINQ FAMILLES DE DÉTAIL ──
+    #
+    # `debt` est le « Total Debt » que la source calcule elle-même. Il PRIME sur
+    # toute recomposition, et pas seulement parce qu'il est plus sûr : Cupid
+    # Limited montre que la source DÉPLACE un même montant entre `debtc` et
+    # `currentPortDebt` d'un instantané à l'autre — 29 332 000 comptés dans l'un
+    # ou dans l'autre selon la date de lecture. Les additionner comme deux postes
+    # distincts doublerait ce montant. Le total, lui, ne bouge pas.
+    "dette_publiee":       ("bilan", ["debt"]),
+
+    # Le DÉTAIL, en cinq familles. Elles vivent dans le même bloc, à la même
+    # requête, et ne coûtent rien. Sans elles, l'identité entre notre somme et le
+    # total de la source ne tient que sur 41 % des exercices ; avec elles, 99,6 %.
+    #
+    # Iberdrola, Enel et National Grid emploient le schéma « services aux
+    # collectivités » ; Hana, Royal Bank of Canada, BNP et Absa le schéma
+    # « banque » ; Emperador et Carindale celui de l'immobilier ; Toyota se
+    # referme au million près par sa division de financement.
+    "lt_debt":             ("bilan", ["debtnc", "longTermDebtUti",
+                                      "longTermDebtBank", "longTermDebtRE",
+                                      "finDivDebtLT"]),
+    "current_debt":        ("bilan", ["debtc", "shortTermDebtUti",
+                                      "shortTermDebtBank", "finDivDebtCurrent"]),
+    "current_port_debt":   ("bilan", ["currentPortDebt",
+                                      "currentPortLongTermDebtUti",
+                                      "currentPortDebtBank",
+                                      "currentPortLongTermDebtRE"]),
+    # `trustPref` et `fhlbDebt` sont propres aux banques américaines cotées à
+    # l'étranger. Sixième famille, trouvée en cherchant pourquoi Equity
+    # Bancshares gardait un écart CONSTANT de 22 à 24 M$ sur cinq exercices.
+    "dette_bancaire_autre": ("bilan", ["trustPref", "fhlbDebt"]),
     "lease_lt":            ("bilan", ["capitalLeases"]),
     "lease_ct":            ("bilan", ["currentCapLeases"]),
     "goodwill":            ("bilan", ["goodwill"]),
@@ -519,10 +548,19 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
 
         e["tresorerie"] = e["cash"]
         liq = ((e["cash"] or 0) + (e["short_term_inv"] or 0)) if e["cash"] is not None else None
-        dette = None
-        if any(e.get(k) is not None for k in ("lt_debt", "current_debt", "lease_lt", "lease_ct")):
-            dette = ((e["lt_debt"] or 0) + (e["current_debt"] or 0)
-                     + (e["lease_lt"] or 0) + (e["lease_ct"] or 0))
+        # ── LE TOTAL PUBLIÉ PAR LA SOURCE PRIME ──
+        # Il est servi sur 96,1 % des exercices, et il est le seul à ne pas
+        # bouger quand la source déplace un montant d'un poste à l'autre entre
+        # deux instantanés. On ne recompose que faute de lui.
+        dette = e.get("dette_publiee")
+        if dette is None:
+            _postes = ("lt_debt", "current_debt", "current_port_debt",
+                       "dette_bancaire_autre", "lease_lt", "lease_ct")
+            if any(e.get(k) is not None for k in _postes):
+                dette = sum((e.get(k) or 0) for k in _postes)
+            e["_dette_source"] = "recomposée"
+        else:
+            e["_dette_source"] = "totale, publiée par la source"
         e["liquidites"] = liq
         e["tresorerie_totale"] = liq
         e["dette_totale"] = dette
