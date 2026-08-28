@@ -85,6 +85,7 @@ from fondamentaux_communs import (          # noqa: E402
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
     effacer_l_impossible,
+    redresser_dividende_par_action,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
@@ -513,6 +514,11 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
 
     unites_actions = _corriger_unite_actions(exercices)
 
+    # Le dividende par action ENSUITE, et avant la recouture des divisions : il se
+    # confronte au montant total verse divise par le nombre d actions, donc les
+    # deux doivent etre sur la meme base — brute, telle que deposee.
+    dps_redresses = redresser_dividende_par_action(exercices)
+
     # La source rétro-ajuste déjà les divisions d'action sur tous les exercices.
     # On lance quand même la recouture : elle ne trouvera rien (aucun saut), et
     # si un jour la source change de politique, elle rattrapera. Le résultat est
@@ -644,6 +650,12 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
             "marge_nette": sd.get("marge_nette"), "capex_ocf": sd.get("capex_ocf"),
             "predictibilite": _predictibilite(spa("revenue")),
             "annees_hausse_dividende": _serie_hausses_dividende(spa("dps")),
+            # Le critère NOTÉ est celui sans baisse ; sans cette ligne il serait
+            # muet sur chaque point de l'historique, et la note du passé
+            # deviendrait incomparable à celle d'aujourd'hui — un graphique qui
+            # monte parce qu'un critère s'est mis à compter, pas parce que la
+            # société s'est améliorée.
+            "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(spa("dps")),
             "dette_ebitda_brut": sd.get("dette_ebitda_brut"),
             "payout_benefices": sd.get("payout_benefices"),
             "verse_dividende": bool(sd.get("dps") or sd.get("dividends_paid")),

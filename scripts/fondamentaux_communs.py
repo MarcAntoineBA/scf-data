@@ -173,7 +173,19 @@ _BAREME = [
     ("Dividende", "croissance_div_1a",  "Dividende par action, 1 an",   10, 5, "haut"),
     ("Dividende", "croissance_div_5a",  "Dividende par action, 5 ans",  10, 5, "haut"),
     ("Dividende", "croissance_div_10a", "Dividende par action, 10 ans", 10, 5, "haut"),
-    ("Dividende", "annees_hausse_dividende", "Années de hausse consécutive", 8, 4, "haut"),
+    # ⚠ CE CRITÈRE COMPTE LES ANNÉES SANS BAISSE, ET C'EST DÉLIBÉRÉ.
+    # Le barème du concurrent l'intitule « années consécutives de hausse ». Mais
+    # le nombre qu'il AFFICHE ne mesure pas cela : il annonce 13 pour NVIDIA,
+    # dont son propre graphique de croissance du dividende montre quatre
+    # exercices à 0,00 %. Treize hausses consécutives et quatre années plates ne
+    # peuvent pas coexister — son chiffre compte les années sans BAISSE.
+    # Vérifié le 28/08/2026 sur nos propres dépôts : NVIDIA totalise 2 années de
+    # hausse stricte et 14 sans baisse. C'est la seconde qui reproduit son score.
+    # On note donc celle-là — la promesse est de recalculer SA note depuis les
+    # dépôts officiels, pas d'en inventer une autre — mais on la NOMME pour ce
+    # qu'elle est, et le compteur strict reste publié à côté dans le résumé.
+    ("Dividende", "annees_sans_baisse_dividende",
+     "Années sans baisse du dividende", 8, 4, "haut"),
 
     ("Santé", "dette_ebitda_brut", "Dette brute / EBITDA", 1.5, 2.5, "bas"),
     ("Santé", "payout_benefices",  "Taux de distribution", 30, 50, "bas"),
@@ -759,6 +771,106 @@ def effacer_l_impossible(exercices):
                     and b > 0 and a > b * 1.001):
                 efface(e, (petit, grand), quoi)
 
+    return faits
+
+
+def redresser_dividende_par_action(exercices):
+    """Répare le dividende par action quand il contredit le montant versé.
+
+    POURQUOI
+
+    Le dividende par action déposé est un chiffre unique, et il se trompe de deux
+    façons que rien ne signale :
+
+      · une ERREUR DE PÉRIODE. NVIDIA a déposé, pour son exercice 2016, un fait
+        couvrant 370 jours et portant 0,115 — son taux TRIMESTRIEL. Le filtre de
+        durée l'accepte : la période est bien annuelle, c'est la valeur qui ne
+        l'est pas. La série passe de 0,0085 à 0,0029 puis remonte à 0,0121, et le
+        compteur d'années de hausse tombe de treize à deux.
+      · une ERREUR D'ÉCHELLE. Southwest Gas déclare 1 980 $ de dividende par
+        action là où elle en verse 1,92. Permian Resources en déclare
+        27 900 000 $.
+
+    LE CONTRÔLE, sans source extérieure : la société dépose aussi le montant
+    TOTAL versé et son nombre d'actions. Le dividende par action implicite vaut
+    l'un divisé par l'autre. Mesuré le 28/08/2026 sur 16 235 exercices : 93,8 %
+    concordent à 40 % près. Restent 533 exercices — 3,3 % — où l'écart dépasse un
+    facteur deux et demi. Un écart pareil n'est pas du bruit.
+
+    ⚠ CE QUE LE CONTRÔLE NE PEUT PAS FAIRE, ET QU'IL A FALLU MESURER POUR LE SAVOIR.
+    Le dividende par action déposé est DÉCLARÉ ; le montant versé est ENCAISSÉ.
+    L'année où une société change de taux, les deux divergent légitimement.
+    JPMorgan 2009 : elle déclare 0,20 $ après avoir coupé, mais elle a DÉCAISSÉ
+    0,54 $ — le premier trimestre était encore payé à l'ancien taux de 0,38 $.
+    Les deux chiffres sont justes. Une règle qui aurait « corrigé » 0,20 en 0,54
+    aurait effacé la coupe la plus importante de sa décennie.
+
+    Deux versions ont donc été essayées et REJETÉES, chacune sur cette société :
+      · départager par la série — elle suppose un dividende qui évolue lentement,
+        ce qui est faux précisément les années qui comptent ;
+      · soustraire les préférentielles puis préférer l'implicite — utile, mais
+        insuffisant : même nettoyé, l'écart déclaré/versé de JPMorgan reste de
+        2,7 fois, et il est légitime.
+
+    LA RÈGLE RETENUE a donc deux déclencheurs indépendants, et aucun ne repose sur
+    la douceur de la série :
+
+      a) L'ÉCHELLE. Un écart au-delà d'un facteur vingt ne s'explique par aucun
+         décalage d'encaissement : au pire, un changement de taux en cours
+         d'année fait varier le rapport d'un facteur quatre. Southwest Gas
+         déclare 1 980 $ là où elle en verse 1,92 ; Permian Resources déclare
+         27 900 000 $ par action. Ce sont des unités, pas des dividendes.
+
+      b) LE CREUX EN V. Une vraie coupe PERSISTE — JPMorgan reste à 0,20 $ l'année
+         suivante. Une erreur de saisie fait un trou d'un an qui se referme.
+         NVIDIA 2016 déposait 0,115 — son taux TRIMESTRIEL — entre 0,34 et 0,485.
+         On exige donc que la valeur tombe sous 60 % de la PLUS PETITE de ses deux
+         voisines immédiates, et que l'implicite, lui, se tienne entre elles.
+
+    Rend la liste des exercices redressés.
+    """
+    faits = []
+    n = len(exercices)
+    for i, e in enumerate(exercices):
+        dps = e.get("dps")
+        pay = e.get("dividends_paid")
+        sh = e.get("shares_diluted")
+        if not all(isinstance(x, (int, float)) for x in (dps, pay, sh)):
+            continue
+        # Les préférentielles ne reviennent pas aux actions ordinaires : sans
+        # cette soustraction, l'implicite est gonflé pour toute société qui en
+        # verse, et JPMorgan 2009 sortait à 0,88 $ au lieu de 0,54 $.
+        pref = e.get("dividends_paid_preferred")
+        if isinstance(pref, (int, float)):
+            pay = pay - abs(pref)
+        if dps <= 0 or pay <= 0 or sh <= 0:
+            continue
+        implicite = pay / sh
+        if implicite <= 0:
+            continue
+        r = dps / implicite
+
+        motif = None
+        if r > 20 or r < 0.05:
+            motif = "échelle : le dividende déposé n’est pas dans la même unité"
+        else:
+            av = exercices[i - 1].get("dps") if i > 0 else None
+            ap = exercices[i + 1].get("dps") if i + 1 < n else None
+            if (isinstance(av, (int, float)) and isinstance(ap, (int, float))
+                    and av > 0 and ap > 0):
+                plancher = min(av, ap)
+                # Un creux d'un an qui se referme, et un implicite qui, lui, se
+                # tient entre les deux voisines : la valeur déposée est seule à
+                # être aberrante.
+                if (dps < 0.6 * plancher
+                        and min(av, ap) * 0.6 <= implicite <= max(av, ap) * 1.6):
+                    motif = ("creux d’un an refermé l’année suivante : une vraie "
+                             "coupe de dividende persiste")
+        if not motif:
+            continue
+        e["dps"] = implicite
+        e["dps_redresse"] = motif
+        faits.append((e.get("annee"), dps, implicite))
     return faits
 
 

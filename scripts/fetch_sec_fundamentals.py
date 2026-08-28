@@ -178,6 +178,33 @@ CONCEPTS = {
                 "RevenuesNetOfInterestExpense",
                 # Les déposants passés aux normes internationales.
                 "Revenue", "RevenueFromContractsWithCustomers"],
+    # ── DEUX SÉRIES DE CONTRÔLE, POUR UN DÉFAUT QUI DÉCAPITE LES FONCIÈRES ──
+    #
+    # Le revenu « contrats clients » de la norme 606 est, par construction, un
+    # SOUS-ENSEMBLE du chiffre d'affaires total : les loyers relèvent des baux,
+    # norme 842, et n'y figurent pas. Pour un bailleur, l'étiquette 606 ne porte
+    # donc que des miettes — des honoraires de gestion.
+    #
+    # Mesuré le 28/08/2026 : AvalonBay passe de 1 856 M$ en 2015 à 5,6 M$ en 2016
+    # et n'en bouge plus, parce qu'elle a commencé à déposer l'étiquette 606 cette
+    # année-là et que celle-ci prime dans notre ordre. Vingt-cinq sociétés
+    # affichent un résultat net supérieur à dix fois leur chiffre d'affaires,
+    # et la liste est une liste de foncières : REXR, CTRE, AVB, AIV, UDR, CPT, LXP.
+    #
+    # On collecte donc les deux séries À PART pour pouvoir arbitrer, plutôt que
+    # de réordonner la liste — un simple réordonnancement casserait les BANQUES,
+    # dont on veut délibérément le produit NET d'intérêts et non le produit brut.
+    "revenue_total": ["Revenues"],
+    "revenue_contrats": ["RevenueFromContractWithCustomerExcludingAssessedTax",
+                         "RevenueFromContractWithCustomerIncludingAssessedTax"],
+    # Les LOYERS, quand la société ne dépose aucun total. Camden Property n'a pas
+    # de ligne `Revenues` du tout : son chiffre d'affaires 2025 est la somme de
+    # 1 573 M$ de loyers et de 13 M$ de contrats. Les deux ensembles sont
+    # DISJOINTS par construction — la norme 842 régit les baux, la 606 les
+    # contrats clients, et une recette ne relève que de l'une des deux. Les
+    # additionner n'est donc pas une estimation, c'est une addition.
+    "revenue_baux": ["OperatingLeaseLeaseIncome",
+                     "OperatingLeasesIncomeStatementMinimumLeaseRevenue"],
     "cogs": ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold",
              "CostOfServices"],
     "gross_profit": ["GrossProfit"],
@@ -282,14 +309,66 @@ CONCEPTS = {
     # ── Flux de trésorerie (durée) ──
     "ocf": ["NetCashProvidedByUsedInOperatingActivities",
             "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+    # ── L'INVESTISSEMENT, ET CE QU'ON REFUSE D'APPELER AINSI ──
+    #
+    # Mesuré le 28/08/2026 : 4 454 exercices sur 41 038 n'ont pas d'investissement
+    # et donc pas de cash libre. Deux populations très différentes s'y cachent.
+    #
+    # 292 sociétés n'en ont JAMAIS — banques, assureurs, foncières. Wells Fargo
+    # sort dix-neuf exercices sur dix-neuf. Il n'y a rien à réparer : leur métier
+    # n'a pas de ligne d'investissement, et en fabriquer une serait pire que la
+    # case vide.
+    #
+    # 436 sociétés en ont avec des TROUS — 1 964 exercices perdus. Recensement sur
+    # soixante d'entre elles : trois étiquettes de décaissement, jamais lues,
+    # couvrent des années qu'aucune de celles ci-dessus ne couvre. On les ajoute
+    # APRÈS les autres : la recouture départage par rang, donc elles ne servent
+    # que là où le reste manque.
+    #
+    # ⚠ CE QU'ON REFUSE, ET POURQUOI. Le recensement remonte aussi, en nombre,
+    # `ProceedsFromSaleOfPropertyPlantAndEquipment`, `ProceedsFromSaleOfProductive
+    # Assets`, `PropertyPlantAndEquipmentDisposals` et leurs variantes. Ce sont
+    # des PRODUITS DE CESSION : de l'argent qui ENTRE. Les prendre pour des
+    # investissements inverserait le signe du cash libre sur ces exercices — une
+    # société qui vend une usine passerait pour une société qui en construit une.
+    # `CapitalExpendituresIncurredButNotYetPaid` est également refusé : c'est un
+    # montant engagé et NON payé, donc pas un flux de trésorerie.
     "capex": ["PaymentsToAcquirePropertyPlantAndEquipment",
               "PaymentsToAcquireProductiveAssets",
               "PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets",
               "PaymentsToAcquireOtherPropertyPlantAndEquipment",
-              "PaymentsForCapitalImprovements"],
+              "PaymentsForCapitalImprovements",
+              # Pétrole et gaz : leur investissement porte un autre nom, et sans
+              # lui tout un secteur perd son cash libre.
+              "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+              "PaymentsToAcquireOilAndGasProperty",
+              # Dernier repli : une composante, pas le total. Elle ne sert que
+              # sur les exercices où aucune ligne complète n'est déposée — et sur
+              # ceux-là, une part de l'investissement vaut mieux que rien, à
+              # condition de savoir qu'elle est partielle.
+              "PaymentsToAcquireOtherProductiveAssets"],
+    # Le décaissement NET d'investissement — achats MOINS cessions. Il vit dans
+    # son propre champ et non parmi les précédents, pour une raison de signe : le
+    # collecteur prend la valeur absolue de l'investissement, parce que certains
+    # déposants l'écrivent en négatif. Sur une grandeur nette, un négatif ne veut
+    # pas dire la même chose — il veut dire que la société a vendu plus qu'elle
+    # n'a acheté. Mélanger les deux transformerait cette année-là en année
+    # d'investissement record. On le collecte donc à part, et on ne s'en sert
+    # qu'à défaut, en gardant son signe.
+    "capex_net": ["PaymentsForProceedsFromProductiveAssets"],
     "sbc": ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"],
     "dividends_paid": ["PaymentsOfDividendsCommonStock", "PaymentsOfOrdinaryDividends",
                        "PaymentsOfDividends"],
+    # Le dividende PRÉFÉRENTIEL, séparément — et il sert à une chose précise.
+    # `PaymentsOfDividends` est un TOTAL : il englobe les actions de préférence.
+    # Sans cette ligne, le dividende par action implicite (versé ÷ actions) est
+    # gonflé pour toute société qui en verse, et le contrôle qui s'appuie dessus
+    # accuse à tort. Mesuré : JPMorgan 2009, qui a réellement coupé de 1,52 $ à
+    # 0,20 $, portait 3 422 M$ de dividendes versés dont l'essentiel revenait aux
+    # préférentielles du plan TARP. L'implicite sortait à 0,88 $ et faisait passer
+    # une vraie coupe pour une erreur de saisie.
+    "dividends_paid_preferred": ["PaymentsOfDividendsPreferredStockAndPreferenceStock",
+                                 "PaymentsOfDistributionsToAffiliates"],
     "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
     "dna": ["DepreciationDepletionAndAmortization",
             "DepreciationAmortizationAndAccretionNet",
@@ -534,6 +613,7 @@ from fondamentaux_communs import (          # noqa: E402
     _FACTEURS_USUELS, _facteur_division, _corriger_divisions,
     _piotroski, _altman_z,
     effacer_l_impossible,
+    redresser_dividende_par_action,
     TAUX_SANS_RISQUE, PRIME_DE_RISQUE, _wacc,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
@@ -741,6 +821,30 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
                 e["net_income"] = tot - (mino or 0.0)
                 e["net_income_reconstruit"] = True
 
+        # ── Le bailleur dont le chiffre d'affaires ne retient que les miettes ──
+        # On ne remplace QUE si les trois conditions sont réunies : la valeur
+        # retenue vient bien de l'étiquette « contrats clients », un total existe
+        # pour la même année, et ce total la dépasse de moitié. Hors de ce cas
+        # précis on ne touche à rien — surtout pas aux banques, dont le produit
+        # net d'intérêts est plus petit que leur produit brut et doit le rester.
+        _baux = e.get("revenue_baux")
+        if (e.get("revenue") is not None
+                and e.get("revenue_contrats") is not None
+                and e["revenue"] == e["revenue_contrats"]):
+            if (e.get("revenue_total") is not None
+                    and e["revenue_total"] > e["revenue"] * 1.5):
+                e["revenue"] = e["revenue_total"]
+                e["revenue_total_utilise"] = True
+            elif _baux is not None and _baux > e["revenue"]:
+                # Aucun total déposé : on additionne les deux ensembles disjoints.
+                e["revenue"] = _baux + e["revenue"]
+                e["revenue_total_utilise"] = "loyers + contrats"
+        elif e.get("revenue") is None and _baux is not None:
+            # Un bailleur qui ne dépose ni total ni contrats : les loyers SONT
+            # son chiffre d'affaires, et sans eux la fiche est vide.
+            e["revenue"] = _baux
+            e["revenue_total_utilise"] = "loyers seuls"
+
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
 
@@ -800,6 +904,14 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # positif : « investissements de l'année », pas « flux négatif ».
         if e["capex"] is not None:
             e["capex"] = abs(e["capex"])
+        # À défaut, le décaissement NET — et son signe est porteur : négatif
+        # signifie que la société a vendu plus d'actifs qu'elle n'en a acheté.
+        # On ne prend donc PAS sa valeur absolue, et on marque l'exercice : un
+        # cash libre calculé sur un investissement net n'est pas le même chiffre
+        # que sur un investissement brut, et la fiche doit pouvoir le dire.
+        elif e.get("capex_net") is not None:
+            e["capex"] = e["capex_net"]
+            e["capex_net_utilise"] = True
         for k in ("dividends_paid", "buybacks"):
             if e[k] is not None:
                 e[k] = abs(e[k])
@@ -914,6 +1026,11 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     # valeur d'entreprise, le coût du capital et toutes les grandeurs par
     # action — le corriger après serait le corriger nulle part.
     unites_actions = _corriger_unite_actions(exercices)
+
+    # Le dividende par action ENSUITE, et avant la recouture des divisions : il se
+    # confronte au montant total verse divise par le nombre d actions, donc les
+    # deux doivent etre sur la meme base — brute, telle que deposee.
+    dps_redresses = redresser_dividende_par_action(exercices)
 
     # Les divisions d'action enfin : tout ce qui suit se calcule « par action »
     # et serait faux sur une série non recousue.
@@ -1374,6 +1491,21 @@ def _options(argv):
     return o
 
 
+def _index_precedent():
+    """Les sociétés de l'index déjà publié, {symbole: métadonnées}.
+
+    Sert à réinjecter dans l'univers ce qui a été publié une fois : une société
+    qui sort de la source ne doit pas pour autant cesser d'être vérifiée.
+    """
+    if not OUT_JSON.exists():
+        return {}
+    try:
+        with OUT_JSON.open(encoding="utf-8") as fh:
+            return json.load(fh).get("societes") or {}
+    except Exception:
+        return {}
+
+
 def _fusionner_sec(index, paquets):
     """Ajoute ce qu'on vient de collecter à ce qui existe déjà.
 
@@ -1455,6 +1587,38 @@ def main():
                   "univers_actions.json ou marche_NN.json manquent.",
                   file=sys.stderr)
             return 1
+        # ── UNE SOCIÉTÉ DÉJÀ PUBLIÉE RESTE RAFRAÎCHISSABLE ──
+        # L'univers vient d'une source extérieure ; une société peut en sortir
+        # sans que nous le sachions. Son paquet, lui, reste publié : la fusion le
+        # reporte d'une collecte à l'autre, indéfiniment. La fiche s'affiche, les
+        # chiffres ont l'air normaux, et ils vieillissent — la panne muette dans
+        # sa forme la plus difficile à voir.
+        #
+        # Mesuré le 28/08/2026 : deux sociétés dans ce cas, mais lesquelles —
+        # Berkshire Hathaway (1 078 Md$) et AvalonBay (26 Md$). AvalonBay avait
+        # en prime un chiffre d'affaires faux, et aucune collecte ne pouvait plus
+        # le corriger.
+        #
+        # On réinjecte donc tout symbole déjà présent dans l'index précédent. Le
+        # coût est nul — deux sociétés aujourd'hui — et le principe tient pour
+        # toujours : ce que nous publions, nous continuons de le vérifier.
+        anciens = _index_precedent()
+        rendus = 0
+        for sym, meta in anciens.items():
+            if sym in univers or "." in sym or "/" in sym:
+                continue
+            if opts["tranche"]:
+                i, n = opts["tranche"]
+                if int(_initiale(sym)) % n != i:
+                    continue
+            univers[sym] = {"nom": meta.get("nom"), "mcap": meta.get("mcap"),
+                            "secteur_suivi": meta.get("secteur"),
+                            "cours_cotation": None}
+            rendus += 1
+        if rendus:
+            print("[info] %d société(s) déjà publiée(s) réinjectée(s) — "
+                  "elles avaient quitté l'univers de la source" % rendus)
+
         quoi = "collecte de marché, cotations américaines principales"
         if opts["tranche"]:
             quoi += " — tranche %d sur %d" % (opts["tranche"][0] + 1,
