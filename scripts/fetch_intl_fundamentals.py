@@ -379,6 +379,12 @@ CHAMPS = {
     "sbc":            ("flux", ["sbcomp"]),
     "dividends_paid": ("flux", ["commonDividendCF"]),
     "buybacks":       ("flux", ["commonRepurchased"]),
+    # ── CE QUE LA SOCIÉTÉ REPREND AU MARCHÉ ──
+    # Sans ce champ, le retour à l'actionnaire n'additionne que ce qu'on rend.
+    # Xcel Energy affichait 1,282 Md$ de retour pour 3,349 Md$ d'émissions la
+    # même année : son retour réel est NÉGATIF. Il est dans le même bloc de flux,
+    # à la même requête, et il n'était pas demandé.
+    "emissions_actions": ("flux", ["commonIssued"]),
     "dna":            ("flux", ["totalDepAmorCF"]),
 }
 
@@ -606,8 +612,22 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         e["payout_benefices"] = _pct(e["dividends_paid"], e["net_income"]) \
             if (e["net_income"] and e["net_income"] > 0) else None
         e["payout_fcf"] = _pct(e["dividends_paid"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
-        e["retour_actionnaire"] = ((e["dividends_paid"] or 0) + (e["buybacks"] or 0)) \
-            if (e["dividends_paid"] is not None or e["buybacks"] is not None) else None
+        # ── LE RETOUR NET, ET LE BRUT À CÔTÉ ──
+        # Une société qui rachète pour un milliard et en émet pour trois ne rend
+        # rien : elle prend. Mesuré sur des cas nommés — MercadoLibre, Guardant
+        # Health, CleanSpark et Xcel Energy ont tous un retour réellement NÉGATIF
+        # que la version brute affichait positif ; BizLink était surestimée 2,16
+        # fois, United Therapeutics 1,41.
+        #
+        # On garde les deux : leur ÉCART est lui-même une information — une
+        # société qui rachète d'une main ce qu'elle émet de l'autre finance sa
+        # rémunération en actions.
+        _sert = (e["dividends_paid"] is not None or e["buybacks"] is not None
+                 or e.get("emissions_actions") is not None)
+        _brut = ((e["dividends_paid"] or 0) + (e["buybacks"] or 0)) if _sert else None
+        e["retour_actionnaire_brut"] = _brut
+        e["retour_actionnaire"] = ((_brut - (e.get("emissions_actions") or 0))
+                                   if _brut is not None else None)
 
     unites_actions = _corriger_unite_actions(exercices)
 

@@ -556,6 +556,25 @@ def main():
         remplissage[k] = round(100.0 * sum(1 for v in brut.values()
                                            if v.get(c) is not None) / n, 1)
 
+    # ── UN CHAMP DEMANDÉ QUI RESSORT À ZÉRO EST UN NOM FAUX ──
+    #
+    # Le point d'entrée accepte n'importe quel nom de champ et rend du vide sans
+    # protester : un nom inventé pour l'essai ressort à 0,00 %, exactement comme
+    # un vrai champ mal orthographié. `ocf` a ainsi été demandé pendant des mois
+    # alors que la source servait le même flux sous `operatingCF`, rempli à 97 %.
+    #
+    # Le taux est calculé juste au-dessus et publié dans l'index depuis toujours.
+    # Il n'était simplement jamais regardé. Un champ à 0,1 % n'est pas signalé —
+    # il existe, il est rare ; c'est le ZÉRO EXACT qui trahit.
+    champs_a_zero = sorted(k for k, v in remplissage.items() if v == 0.0)
+    if champs_a_zero:
+        print("[!] %d champ(s) demandé(s) et VIDES sur les %d lignes — ce n'est "
+              "probablement pas la source qui se tait, c'est le nom qui est faux :"
+              % (len(champs_a_zero), n), file=sys.stderr)
+        print("    %s" % ", ".join(champs_a_zero), file=sys.stderr)
+        print("    (chercher le bon nom dans le catalogue de la page avant de "
+              "conclure à une donnée absente)", file=sys.stderr)
+
     # ── Jointure sur nos symboles ──
     lignes, sans_symbole = {}, 0
     croissances_ecartees = [0]
