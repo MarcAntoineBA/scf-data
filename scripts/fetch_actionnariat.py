@@ -116,10 +116,22 @@ def http(url, essais=3):
     return None
 
 
-def trimestres(n):
-    """Les n derniers trimestres, du plus récent au plus ancien."""
+def trimestres(n, saut=0):
+    """Les n trimestres qui précèdent, après en avoir sauté .
+
+    Le saut existe pour une raison précise : un détenteur passif ne redépose son
+    13G qu au franchissement d un seuil, pas chaque annee. Mesure sur Apple :
+    deux depots seulement en quatre trimestres, tous deux de Vanguard — BlackRock
+    en detient pourtant sept pour cent, mais sa derniere declaration est plus
+    ancienne. Remonter plus loin est donc necessaire, et relire les trimestres
+    deja lus serait une heure perdue.
+    """
     a, m = date.today().year, date.today().month
     q = (m - 1) // 3 + 1
+    for _ in range(saut):
+        q -= 1
+        if q == 0:
+            q, a = 4, a - 1
     out = []
     for _ in range(n):
         out.append((a, q))
@@ -153,15 +165,25 @@ def _cle_detenteur(nom):
     l'autre — « Vanguard Group Inc », « The Vanguard Group, Inc. », « Vanguard
     Portfolio Management ». Sans normalisation, la même maison apparaîtrait trois
     fois sur la même fiche, chacune avec sa part, et la somme n'aurait aucun sens.
+
+    ⚠ LES MOTIFS SONT ENCADRÉS D'ESPACES, ET LA CHAÎNE AUSSI.
+    Sans l'espace finale, « THE » ne mordait pas sur « THE VANGUARD GROUP » —
+    qui sortait donc sous la clé « THE VANGUARD » quand « Vanguard Capital
+    Management » sortait sous « VANGUARD ». Mesuré à la première collecte : la
+    même maison figurait deux fois sur les fiches d'Apple, Microsoft, NVIDIA et
+    JPMorgan, et les deux parts s'additionnaient dans le total déclaré.
     """
     s = (nom or "").upper()
     s = re.sub(r"[^A-Z0-9 ]", " ", s)
-    for mot in (" INC", " LLC", " LP", " LTD", " CORP", " CORPORATION", " COMPANY",
-                " CO", " GROUP", " THE", " PLC", " SA", " NV", " AG", " TRUST",
-                " HOLDINGS", " HOLDING", " MANAGEMENT", " MANAGEMENT CO",
-                " ADVISORS", " ADVISERS", " CAPITAL", " PARTNERS", " ASSOCIATES",
-                " INVESTMENTS", " INVESTMENT"):
-        s = s.replace(mot, " ")
+    s = " " + " ".join(s.split()) + " "
+    for mot in (" INC ", " LLC ", " LP ", " LTD ", " CORP ", " CORPORATION ",
+                " COMPANY ", " CO ", " GROUP ", " THE ", " PLC ", " SA ", " NV ",
+                " AG ", " TRUST ", " HOLDINGS ", " HOLDING ", " MANAGEMENT ",
+                " ADVISORS ", " ADVISERS ", " CAPITAL ", " PARTNERS ",
+                " ASSOCIATES ", " INVESTMENTS ", " INVESTMENT ", " PORTFOLIO ",
+                " ASSET ", " ASSETS "):
+        while mot in s:
+            s = s.replace(mot, " ")
     return " ".join(s.split())[:40]
 
 
@@ -180,6 +202,8 @@ def main():
                     help="nombre de trimestres d'index à parcourir")
     ap.add_argument("--limite", type=int, default=0,
                     help="s'arrêter après N documents (mise au point)")
+    ap.add_argument("--saut", type=int, default=0,
+                    help="trimestres a ignorer avant de commencer")
     ap.add_argument("--parallele", type=int, default=8,
                     help="fils de lecture ; le frein reste global")
     args = ap.parse_args()
@@ -203,7 +227,7 @@ def main():
     # que son CIK est chez nous, puis on déduplique par numéro de dépôt : le
     # document dira lui-même qui est l'émetteur.
     a_lire = {}
-    for annee, q in trimestres(args.trimestres):
+    for annee, q in trimestres(args.trimestres, args.saut):
         url = ("https://www.sec.gov/Archives/edgar/full-index/%d/QTR%d/form.idx"
                % (annee, q))
         idx = http(url)
@@ -277,6 +301,11 @@ def main():
                or _champ(xml, "filingPersonName") or "").strip()
         if pct is None or not nom:
             return "vide"
+        # Une déclaration à zéro est une SORTIE du seuil de 5 %, pas une
+        # détention : le déclarant signale qu'il n'est plus tenu de déclarer.
+        # L'afficher reviendrait à présenter un vendeur comme un actionnaire.
+        if pct <= 0:
+            return "vide"
         titres = _nb(_champ(xml, "reportingPersonBeneficiallyOwnedAggregateNumberOfShares")) \
             or _nb(_champ(xml, "amountBeneficiallyOwned"))
         typ = (_champ(xml, "typeOfReportingPerson")
@@ -311,7 +340,17 @@ def main():
             with _pose:
                 d = par_soc.setdefault(sym, {})
                 cle = _cle_detenteur(ligne["detenteur"])
-                if cle not in d or ligne["depose_le"] > d[cle]["depose_le"]:
+                # LA PLUS GRANDE PART, et non la plus récente : deux entités
+                # d'une même maison déclarent la MÊME détention sous deux
+                # raisons sociales — « Vanguard Portfolio Management » et
+                # « Vanguard Capital Management » chez AvalonBay. Garder la
+                # plus récente en choisirait une au hasard ; les additionner
+                # doublerait la part. On garde le total du groupe, qui est la
+                # plus grande des deux.
+                vu = d.get(cle)
+                if vu is None or ligne["part_pct"] > vu["part_pct"] or (
+                        ligne["part_pct"] == vu["part_pct"]
+                        and ligne["depose_le"] > vu["depose_le"]):
                     d[cle] = ligne
 
     # ── Fusion avec la collecte précédente ────────────────────────────────
