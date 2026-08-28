@@ -204,6 +204,124 @@ def main():
                 ligne.append(_arrondir(v, c == "marketCapUsd"))
         lignes[sym] = ligne
 
+    # ── LE SECTEUR DÉDUIT DE L'INDUSTRIE ──
+    #
+    # `sector` est rempli à 92,5 % (18 592 sur 20 096) quand `industry` l'est à
+    # 100 %. Les 1 504 sociétés sans secteur DISPARAISSENT dès qu'un secteur est
+    # choisi — et le filtre par secteur est le plus employé du screener. Un
+    # lecteur qui demande « Financials » ne verra jamais CaixaBank, et rien ne
+    # l'en avertit : 642 de ces sociétés sont dans le premier étage, dont cinq à
+    # plus de quatre-vingts milliards de dollars.
+    #
+    # Or 1 498 des 1 504 ont une industrie, et la correspondance industrie →
+    # secteur est déjà écrite dans les 18 592 renseignées. On la lit chez elles
+    # et on la leur applique.
+    #
+    # ⚠ Une industrie peut apparaître sous DEUX secteurs quand la source hésite.
+    # On retient alors le plus fréquent, et on ne déduit rien si l'industrie est
+    # ambiguë à moins de deux contre un : une déduction incertaine vaut moins
+    # qu'une case vide, qui au moins ne ment pas.
+    # ⚠ DEUX TAXONOMIES, ET AUCUNE INDUSTRIE EN COMMUN.
+    # Une première tentative apprenait la correspondance industrie → secteur chez
+    # les sociétés renseignées, pour l'appliquer aux autres. Elle n'a rattaché que
+    # 28 sociétés sur 1 504, et la mesure a dit pourquoi : les deux groupes ne
+    # parlent pas la même langue. Les renseignées emploient 226 industries de
+    # style « Semiconductors », « Banks - Diversified » ; les autres, 288 libellés
+    # SIC de la SEC — « Semiconductors and Related Devices », « Commercial Banks ».
+    # ZÉRO industrie partagée entre les deux ensembles : il n'y avait rien à
+    # apprendre.
+    #
+    # On écrit donc la table à la main. Le vocabulaire SIC est régulier, et un
+    # mot suffit presque toujours. L'ordre va du PLUS SPÉCIFIQUE au plus général :
+    # « Real Estate Investment Trusts » contient à la fois « real estate » et
+    # « trust », et c'est l'immobilier qui doit gagner.
+    SIC_VERS_SECTEUR = [
+        # immobilier avant finance — les foncières portent « trust »
+        (("real estate", "land subdivider", "operators of apartment",
+          "operators of nonresidential", "operators of dwellings",
+          "land developer"), "Real Estate"),
+        # santé avant matériaux — « biological products » n'est pas de la chimie
+        (("pharmaceutical", "biological product", "medicinal", "surgical",
+          "medical", "diagnostic substance", "health", "hospital", "dental",
+          "in vitro", "orthopedic", "laboratory analytical"), "Healthcare"),
+        (("semiconductor", "computer", "software", "data processing",
+          "electronic component", "prepackaged", "information retrieval",
+          "calculating", "office machines", "magnetic", "optical instrument",
+          "laboratory apparatus"), "Technology"),
+        (("bank", "savings institution", "credit institution", "insurance",
+          "insurance carrier", "security broker", "investor", "unit investment",
+          "management investment", "finance service", "personal credit",
+          "mortgage banker", "title insurance", "blank check", "asset-backed",
+          "investment advice", "federal and federally"), "Financials"),
+        (("crude petroleum", "petroleum refining", "oil and gas", "oil & gas",
+          "drilling oil", "natural gas", "pipe line", "bituminous coal",
+          "petroleum bulk"), "Energy"),
+        (("electric services", "gas and other services", "water supply",
+          "cogeneration", "electric and other services",
+          "natural gas distribution", "electric & other"), "Utilities"),
+        (("telephone", "communications service", "radio", "television",
+          "broadcast", "cable", "publishing", "advertising", "motion picture",
+          "newspaper", "periodical", "book"), "Communication Services"),
+        (("food and kindred", "agricultural production", "fats and oils",
+          "beverages", "malt beverages", "bottled", "sugar", "dairy",
+          "grain mill", "bakery", "canned", "tobacco", "soap", "grocery",
+          "meat packing", "poultry", "fishing", "cigarettes"), "Consumer Staples"),
+        (("eating place", "hotel", "retail", "apparel", "amusement",
+          "recreation", "motor vehicle", "footwear", "jewelry", "toys",
+          "sporting", "furniture store", "auto dealer", "department store",
+          "catalog", "leather", "household appliance", "educational service",
+          "personal service", "membership sport"), "Consumer Discretionary"),
+        (("mining", "ores", "gold and silver", "metal", "chemical", "cement",
+          "steel", "paper", "plastics", "glass", "rubber", "lumber",
+          "fertilizer", "paint", "abrasive", "concrete", "clay",
+          "industrial inorganic", "industrial organic", "adhesive",
+          "pulp", "primary production", "rolling drawing"), "Materials"),
+        (("construction", "machinery", "engineering", "transportation",
+          "trucking", "air transportation", "water transportation",
+          "shipping", "railroad", "aircraft", "ship building",
+          "ship and boat", "boat building", "power, distribution", "engines",
+          "electrical industrial", "measuring", "instrument", "services-",
+          "wholesale", "arrangement of transportation", "courier",
+          "refuse system", "sanitary", "heavy construction",
+          "special industry machinery", "general industrial",
+          "fabricated", "motors and generators", "search detection",
+          "public warehousing"), "Industrials"),
+    ]
+
+    def secteur_sic(libelle):
+        t = (libelle or "").lower()
+        if not t:
+            return None
+        for motifs, secteur in SIC_VERS_SECTEUR:
+            for m in motifs:
+                if m in t:
+                    return secteur
+        return None
+
+    i_sec, i_ind = champs.index("sector"), champs.index("industry")
+    deduits = inconnus = sans_industrie = 0
+    non_classes = Counter()
+    for l in lignes.values():
+        if l[i_sec]:
+            continue
+        ind = l[i_ind]
+        if not ind:
+            sans_industrie += 1
+            continue
+        s = secteur_sic(ind)
+        if s:
+            l[i_sec] = s
+            deduits += 1
+        else:
+            inconnus += 1
+            non_classes[ind] += 1
+    print("[ok] secteur déduit du libellé SIC : %d rattachée(s), %d non classée(s), "
+          "%d sans industrie" % (deduits, inconnus, sans_industrie))
+    if non_classes:
+        print("     libellés SIC les plus fréquents non couverts : %s"
+              % ", ".join("%s (%d)" % (k[:34], v)
+                          for k, v in non_classes.most_common(5)))
+
     # ── Deux étages, par capitalisation ──
     # Un screener ne se découpe pas par empreinte : il faut toutes les lignes à
     # la fois pour filtrer. On coupe donc par TAILLE, ce qui a un sens pour le
