@@ -32,7 +32,7 @@ LECTURE DU VERDICT
 Le contrôle tourne indifféremment sur le Mac (où il compare pour de vrai) ou sur un
 poste qui reçoit `Application Support` par Syncthing.
 
-Lancement : python3 tools/derive_collecteurs.py [--tout]
+Lancement : python3 tools/derive_collecteurs.py [--tout] [--json]
 Sortie    : 0 si rien n'est en avance, 1 sinon (utilisable en garde-fou).
 """
 
@@ -143,8 +143,15 @@ def jobs_par_script():
 
 def main():
     tout = "--tout" in sys.argv
+    # --json : le filet de fraîcheur du PC appelle ce contrôle toutes les 30 min
+    # et a besoin de la LISTE, pas de la prose. Lire un rapport à la regex serait
+    # une dépendance cachée entre deux fichiers qui ne se connaissent pas.
+    en_json = "--json" in sys.argv
 
     if not os.path.isdir(MACHINE):
+        if en_json:
+            print(json.dumps({"machine_visible": False, "en_avance": []}))
+            return 0
         print("Le dossier des collecteurs de la machine est introuvable :")
         print("  %s" % MACHINE)
         print("\nCe contrôle a besoin de VOIR ce qui tourne. Il se lance sur le Mac,")
@@ -179,6 +186,18 @@ def main():
     en_avance = [e for e in ecarts if e[3] - e[4] >= SEUIL_TRAVAIL]
     en_retard = [e for e in ecarts if e[4] - e[3] >= SEUIL_TRAVAIL]
     mineurs = [e for e in ecarts if e not in en_avance and e not in en_retard]
+
+    if en_json:
+        print(json.dumps({
+            "machine_visible": True,
+            "compte": compte,
+            "identiques": identiques,
+            "en_avance": [{"nom": n, "machine": la, "miroir": lb,
+                           "jobs": par_script.get(n, [])}
+                          for n, la, lb, _, _ in en_avance],
+            "en_retard": [e[0] for e in en_retard],
+        }, ensure_ascii=False))
+        return 1 if en_avance else 0
 
     print("Collecteurs comparés (machine ↔ miroir du dépôt)")
     print("  compte de la machine     : %s" % (compte or "indéterminé"))
