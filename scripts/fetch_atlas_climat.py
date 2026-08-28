@@ -749,11 +749,32 @@ def get_prix_assurance():
     if any(k in zones for k, _ in INS_EU):
         srcs["Eurostat"] = "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"
 
+    # ── Garde-fou par ZONE, et non pour le bloc entier ──────────────────────
+    #    Le 28/08/2026 le quota journalier de l'API BLS a été atteint : l'Europe
+    #    s'est mise à jour et les États-Unis ont DISPARU du graphique, sans que
+    #    rien n'échoue au sens du script. Une source qui tombe ne doit pas
+    #    effacer sa moitié du dessin : on reprend les zones manquantes dans le
+    #    cache précédent, et on écrit lesquelles.
+    repris = []
+    try:
+        if OUT_JSON.exists():
+            vieux = ((json.loads(OUT_JSON.read_text(encoding="utf-8"))
+                      .get("global") or {}).get("ins_px") or {}).get("zones") or {}
+            for k, z in vieux.items():
+                if k not in zones and z.get("reel"):
+                    zones[k] = z
+                    repris.append(k)
+    except Exception:                                        # noqa: BLE001
+        pass
+    if repris:
+        log("  \u26a0 zones reprises du cache precedent : " + ", ".join(sorted(repris)))
+
     if not zones:
         return None
     return {
         "base": INS_BASE,
         "zones": zones,
+        "repris": sorted(repris),
         "srcs": srcs,
         "n": ("indice de PRIX de l'assurance du logement, divisé par l'indice "
               "général des prix de la même zone. Au-dessus de 100 : l'assurance "
