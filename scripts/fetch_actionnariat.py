@@ -78,6 +78,86 @@ SORTIE = os.path.join(CACHE_DIR, "actionnariat_cache.json")
 SORTIE_JS = os.path.join(CACHE_DIR, "actionnariat_cache.js")
 INDEX_SEC = os.path.join(CACHE_DIR, "sec_fundamentals_index.json")
 
+# ── LE DÉCOUPAGE ───────────────────────────────────────────────────────────
+# La fiche ne lit qu'UNE société à la fois. Lui faire télécharger 2,2 Mo pour
+# afficher huit lignes est le défaut que le dépôt corrige partout ailleurs.
+PAQUETS_ACT = 512
+
+
+def _empreinte(sym):
+    """Le paquet où ranger une société.
+
+    ⚠ Corps recopié à l'identique de `_initiale()` (fondamentaux) et de
+    `empreintePaquet()` (la fiche). Il est primitif exprès : une empreinte
+    savante qui divergerait entre Python et JavaScript produirait des cartes
+    vides sans le moindre message d'erreur — la panne qui ressemble le plus à
+    une donnée absente.
+    """
+    t = (sym or "?").upper()
+    h = 0
+    for c in t:
+        h = (h * 31 + ord(c)) % 4294967296
+    return "%03d" % (h % PAQUETS_ACT)
+
+
+def nom_paquet(sym):
+    return "actionnariat_%s.json" % _empreinte(sym)
+
+
+def ecrire_paquets(doc, dossier=None):
+    """Écrit les 512 paquets. TOUS, y compris les vides.
+
+    Sur Cloudflare Pages, une adresse inconnue rend 200 + la page d'accueil au
+    lieu d'un 404 : un paquet absent reviendrait donc en HTML, et l'exception
+    de `json()` se lirait comme « aucun détenteur ». Un paquet vide dit la même
+    chose, mais il la dit vraiment.
+    """
+    dossier = dossier or CACHE_DIR
+    seaux = {"%03d" % i: {} for i in range(PAQUETS_ACT)}
+    for sym, bloc in (doc.get("societes") or {}).items():
+        seaux[_empreinte(sym)][sym] = bloc
+    os.makedirs(dossier, exist_ok=True)
+    for cle, lot in seaux.items():
+        petit = {
+            "updated": doc.get("updated"),
+            "source": doc.get("source"),
+            "note": doc.get("note"),
+            "societes": lot,
+        }
+        with open(os.path.join(dossier, "actionnariat_%s.json" % cle),
+                  "w", encoding="utf-8") as fh:
+            json.dump(petit, fh, ensure_ascii=False, separators=(",", ":"))
+    return len(seaux)
+
+
+def lire_etat_precedent():
+    """L'état d'où repartir : les PAQUETS d'abord, le cache entier ensuite.
+
+    Les paquets sont versionnés dans git — donc présents dans tout clone neuf,
+    y compris celui du runner. Le cache entier, lui, ne survit que sur la
+    machine qui l'a écrit ; on le garde en second recours pour ne rien perdre
+    au premier passage après le découpage.
+    """
+    societes = {}
+    for i in range(PAQUETS_ACT):
+        chemin = os.path.join(CACHE_DIR, "actionnariat_%03d.json" % i)
+        if not os.path.exists(chemin):
+            continue
+        try:
+            with open(chemin, encoding="utf-8") as fh:
+                societes.update(json.load(fh).get("societes") or {})
+        except (OSError, ValueError):
+            continue
+    if societes:
+        return societes
+    if os.path.exists(SORTIE):
+        try:
+            with open(SORTIE, encoding="utf-8") as fh:
+                return json.load(fh).get("societes") or {}
+        except (OSError, ValueError):
+            pass
+    return {}
+
 UA = {"User-Agent": os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research"),
       "Accept-Encoding": "gzip, deflate"}
 DEBIT = 0.11          # le garde-fou d'EDGAR, identique aux autres collecteurs
@@ -396,10 +476,9 @@ def main():
     # quarts de ce qu'elle savait. On fusionne donc détenteur par détenteur, et
     # le plus récent gagne.
     repris_soc = repris_det = 0
-    if os.path.exists(SORTIE):
+    ancien = lire_etat_precedent()
+    if ancien:
         try:
-            with open(SORTIE, encoding="utf-8") as fh:
-                ancien = json.load(fh).get("societes") or {}
             for sym, bloc in ancien.items():
                 d = par_soc.setdefault(sym, {})
                 if not d:
@@ -441,6 +520,10 @@ def main():
         fh.write("window.__ACTIONNARIAT__=")
         json.dump(doc, fh, ensure_ascii=False, separators=(",", ":"))
         fh.write(";")
+    # Ce qui est PUBLIÉ, ce sont les paquets. Les deux fichiers entiers ci-dessus
+    # restent en trace locale : ils servent de second recours à la fusion et se
+    # lisent d'un coup quand on veut vérifier quelque chose à la main.
+    n_paquets = ecrire_paquets(doc)
 
     n_det = sum(v["n"] for v in sortie.values())
     print("[ok] %d document(s) lu(s), %d illisible(s) — %.0f s"
@@ -448,8 +531,12 @@ def main():
     print("[ok] %d sociétés, %d détenteur(s) déclaré(s)" % (len(sortie), n_det))
     print("[ok] reprises de la collecte précédente : %d société(s) entière(s), "
           "%d détenteur(s) que ce passage n'a pas revus" % (repris_soc, repris_det))
-    print("[ok] %s : %d Ko" % (os.path.basename(SORTIE),
-                               os.path.getsize(SORTIE) // 1024))
+    print("[ok] %s : %d Ko (trace locale, non publiée)"
+          % (os.path.basename(SORTIE), os.path.getsize(SORTIE) // 1024))
+    gros = max(os.path.getsize(os.path.join(CACHE_DIR, "actionnariat_%03d.json" % i))
+               for i in range(PAQUETS_ACT))
+    print("[ok] %d paquets publiables — le plus gros fait %d Ko, "
+          "et la fiche n'en charge qu'UN" % (n_paquets, gros // 1024))
     return 0
 
 
