@@ -505,19 +505,18 @@ def fetch_captation_tao(prix_courant=None):
     }
 
 
+# 587 caracteres au premier jet : la plus longue chaine de source de la page, et le
+# bandeau d audit debordait a 390 px (mesure du 28/08/2026 — les 378 caracteres du
+# framework Adresses Actives passaient, pas ceux-la). Le detail appartient a la
+# Lecture, qui se remet en colonne ; ce badge doit tenir en une ligne de contexte.
 SOURCE_CAPTATION = (
-    "DefiLlama /overview/fees/<chain> lu trois fois — dataType=dailyFees, dailyRevenue, "
-    "dailyHoldersRevenue (12 mois glissants, sinon 30 j × 12). Courbes mensuelles en UTC "
-    "depuis totalDataChart, mois en cours écarté. BTC : captation nulle par construction "
-    "(les frais rémunèrent les mineurs), usage mesuré par blockchain.info. "
-    "DOT : adaptateur muet (HTTP 500). "
-    "TAO : lu directement sur la chaîne (RPC public Bittensor, "
-    "SubtensorModule.RAORecycledForRegistration en deltas par subnet, valorisé au cours "
-    "moyen de chaque mois) — DefiLlama n'y compte que le chiffre d'affaires de Chutes, "
-    "une application."
+    "DefiLlama /overview/fees/<chain> — dailyFees, dailyRevenue, dailyHoldersRevenue "
+    "(12 mois glissants). Mensuel en UTC, mois en cours écarté. BTC : captation nulle "
+    "par construction. TAO : lu sur la chaîne (RPC Bittensor). DOT : adaptateur muet."
 )
 
 BASE_CAPTATION_DEFAUT = "Frais réseau (DefiLlama)"
+BASE_CAPTATION_BTC = "Frais mineurs (blockchain.info)"
 
 NOTE_TAO_CAPTATION = (
     "Bittensor n'a pas de frais de transaction : le seul paiement des utilisateurs au "
@@ -1545,7 +1544,8 @@ def captation_seule():
             frais_btc = entry.get("fees_m")
             capt = {"frais_usd": frais_btc * 1e6 if frais_btc else None,
                     "revenu_usd": 0.0, "detenteurs_usd": 0.0,
-                    "frais_mensuel": None, "detenteurs_mensuel": None}
+                    "frais_mensuel": None, "detenteurs_mensuel": None,
+                    "base": BASE_CAPTATION_BTC}
             entry["capt_note"] = NOTE_BTC_CAPTATION
         elif tok == "TAO":
             capt = fetch_captation_tao(entry.get("price_usd"))
@@ -1607,7 +1607,8 @@ def main():
         # Captation de valeur — cf. le bloc de fonctions plus haut pour le cas BTC.
         if tok == "BTC":
             capt = {"frais_usd": fees_usd, "revenu_usd": 0.0, "detenteurs_usd": 0.0,
-                    "frais_mensuel": None, "detenteurs_mensuel": None}
+                    "frais_mensuel": None, "detenteurs_mensuel": None,
+                    "base": BASE_CAPTATION_BTC}
             capt_note = NOTE_BTC_CAPTATION
         elif tok == "TAO":
             capt = fetch_captation_tao(cg.get("price_usd"))
