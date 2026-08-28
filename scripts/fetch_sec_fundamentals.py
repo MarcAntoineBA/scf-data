@@ -1429,6 +1429,55 @@ def charger_univers():
     return univers
 
 
+# ── LES SOCIÉTÉS RECOIFFÉES D'UNE HOLDING NEUVE ───────────────────────────
+#
+# Quand une société se coiffe d'une holding, la SEC enregistre une entité neuve
+# et fait pointer le ticker vers elle. On récolte alors l'histoire de la
+# holding — deux ou trois ans — pendant que des décennies de dépôts restent
+# sous l'ancien CIK. Aucune erreur : la collecte réussit et la fiche paraît
+# n'avoir aucun passé.
+#
+# Une table NOMMÉE, pas une règle : une règle automatique qui se tromperait
+# rattacherait une société à l'histoire d'une AUTRE, et produirait des états
+# financiers parfaitement formés et entièrement faux. Chaque entrée est prouvée
+# avant d'être écrite — ordre de grandeur du chiffre d'affaires, et concordance
+# sur les exercices que les deux entités couvrent.
+#
+#   XOM  34088   « EXXON MOBIL CORP » — 19 exercices 2007→2025, CA 302 à 350 Md$.
+#                Le CIK pointé par le ticker (2115436) rend ZÉRO exercice.
+#   BLK  1364742 EDGAR le nomme « BlackRock Finance, Inc. » et liste « BlackRock,
+#                Inc. » parmi ses anciens noms — le nom que porte maintenant le
+#                CIK 2012383, anciennement « BlackRock Funding, Inc. ». Les deux
+#                se sont échangé le nom. Et sur 2022 et 2023, que les deux
+#                couvrent, elles annoncent le même CA : 18 Md$.
+CIK_HISTORIQUE = {
+    "XOM": "0000034088",
+    "BLK": "0001364742",
+}
+
+
+def fusionner_faits(vieux, neuf):
+    """Empile les faits de deux entités ; on ne choisit rien ici.
+
+    L'ancien d'abord, le neuf ensuite. C'est `dedupliquer_exercices` qui tranche
+    ensuite, avec la règle qu'elle applique déjà partout : la version la plus
+    GARNIE gagne, puis la plus récemment déposée. Choisir ici reviendrait à
+    inventer une seconde règle, qui divergerait un jour de la première.
+    """
+    out = {}
+    for source in (vieux, neuf):
+        for taxo, concepts in (source or {}).items():
+            d1 = out.setdefault(taxo, {})
+            for concept, corps in concepts.items():
+                d2 = d1.setdefault(concept, {"units": {}})
+                for k, v in corps.items():
+                    if k != "units":
+                        d2.setdefault(k, v)
+                for unite, lignes in (corps.get("units") or {}).items():
+                    d2["units"].setdefault(unite, []).extend(lignes)
+    return out
+
+
 def charger_cik():
     d = _get("https://www.sec.gov/files/company_tickers.json")
     out = {}
@@ -1665,6 +1714,7 @@ def main():
     index = {}
     paquets = {}
     ok = sans_cik = echecs = 0
+    recoiffees = []
     interrompu = False
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
         if interrompu:
@@ -1687,11 +1737,35 @@ def main():
             print(f"[warn] {sym} : {e}", file=sys.stderr)
             echecs += 1
             continue
-        if not facts_doc or not facts_doc.get("facts"):
+        faits = (facts_doc or {}).get("facts")
+
+        # ── L'HISTOIRE SOUS L'ANCIEN CIK ──
+        # Pour les sociétés recoiffées d'une holding neuve, on va chercher les
+        # faits de l'entité d'origine et on les empile avant ceux de l'entité
+        # actuelle. Un échec ici n'est pas fatal : on publie ce qu'on a plutôt
+        # que rien, mais on le DIT — un rattrapage qui échoue en silence
+        # laisserait croire que la société n'a pas de passé.
+        vieux_cik = CIK_HISTORIQUE.get(sym.upper())
+        if vieux_cik:
+            try:
+                doc2 = _get("https://data.sec.gov/api/xbrl/companyfacts/"
+                            f"CIK{vieux_cik}.json", accept_404=True)
+                if doc2 and doc2.get("facts"):
+                    faits = fusionner_faits(doc2["facts"], faits or {})
+                    recoiffees.append(sym)
+                else:
+                    print(f"[warn] {sym} : CIK historique {vieux_cik} sans faits",
+                          file=sys.stderr)
+            except DelaiGlobalAtteint:
+                raise
+            except Exception as e:
+                print(f"[warn] {sym} : CIK historique illisible : {e}", file=sys.stderr)
+
+        if not faits:
             echecs += 1
             continue
         try:
-            bati = construire(facts_doc["facts"], meta.get("mcap"),
+            bati = construire(faits, meta.get("mcap"),
                               beta=meta.get("beta"), cours=cours.get(sym))
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
@@ -1811,6 +1885,38 @@ def main():
               "décrit ce qui a été écrit, pas l'univers visé.", file=sys.stderr)
     print(f"[ok] {ok} sociétés — {sans_cik} sans CIK, {echecs} échecs — "
           f"{round(time.time() - t0, 1)} s")
+    if recoiffees:
+        print("[ok] histoire rattachée depuis le CIK d'origine pour %d société(s) : %s"
+              % (len(recoiffees), ", ".join(sorted(recoiffees))))
+
+    # ── LE DÉTECTEUR ──
+    # `CIK_HISTORIQUE` est figée et ne verra pas la réorganisation suivante. Le
+    # défaut ne produit aucune erreur : la collecte réussit et la fiche paraît
+    # seulement pauvre. On NOMME donc les grosses capitalisations presque vides.
+    # La plupart auront une bonne raison — scission récente, classe d'actions
+    # secondaire, émetteur étranger déposant un 20-F. Deux ou trois n'en auront
+    # pas : ce sont celles-là qu'on cherche, et un humain tranchera.
+    maigres = []
+    for sym, meta in univers.items():
+        m = meta.get("mcap") or 0
+        if m < 30e9 or sym.upper() in CIK_HISTORIQUE:
+            continue
+        bloc = index.get(sym) or {}
+        n = bloc.get("n_exercices")
+        if n is None:
+            n = 0
+        if n < 6:
+            maigres.append((m, sym, n))
+    if maigres:
+        maigres.sort(reverse=True)
+        print("[?] %d société(s) de plus de 30 Md$ rendues avec moins de six "
+              "exercices — à regarder si l'une d'elles a été recoiffée d'une "
+              "holding neuve :" % len(maigres))
+        for m, sym, n in maigres[:12]:
+            print("      %-7s %6.0f Md$  %d exercice(s)" % (sym, m / 1e9, n))
+        if len(maigres) > 12:
+            print("      … et %d autre(s)" % (len(maigres) - 12))
+
     print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko")
     if poids:
         print(f"[ok] {len(poids)} paquet(s) de détail — "
