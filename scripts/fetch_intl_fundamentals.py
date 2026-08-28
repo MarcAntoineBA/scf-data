@@ -326,6 +326,12 @@ CHAMPS = {
     "liabilities":         ("bilan", ["liabilities"]),
     "liabilities_current": ("bilan", ["currentLiabilities"]),
     "equity":              ("bilan", ["totalCommonEquity", "equity"]),
+    # Les participations ne donnant pas le contrôle. `totalCommonEquity` désigne
+    # la part du GROUPE ; sans cette ligne, le bilan ne s'équilibre pas — mesuré
+    # le 28/08/2026 : 33,3 % des 61 682 bilans internationaux violaient
+    # « actif = passif + capitaux propres », et c'était l'absence de ce poste,
+    # pas une donnée fausse. LVMH en porte 1,6 Md€.
+    "interets_minoritaires_bilan": ("bilan", ["minorityInterestBS"]),
     "cash":                ("bilan", ["cashneq"]),
     "short_term_inv":      ("bilan", ["investmentsc"]),
     "lt_debt":             ("bilan", ["debtnc"]),

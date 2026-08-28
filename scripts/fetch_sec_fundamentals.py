@@ -200,6 +200,28 @@ CONCEPTS = {
     "liabilities_current": ["LiabilitiesCurrent"],
     "equity": ["StockholdersEquity",
                "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+    # ── Les deux postes qui manquaient au bilan, et qui l'empêchaient de
+    #    s'équilibrer ──
+    # Mesuré le 28/08/2026 : sur 27 732 bilans américains complets, 19,3 %
+    # violaient l'identité « actif = passif + capitaux propres ». Ce n'était pas
+    # une donnée fausse, c'était un bilan INCOMPLET — deux lignes réelles
+    # n'étaient collectées ni d'un côté ni de l'autre.
+    #
+    # `equity` désigne la part du GROUPE. Les participations ne donnant pas le
+    # contrôle s'ajoutent pour former le total : Apollo Global porte 5,8 Md$ de
+    # minoritaires sur 257 Md$ d'actif, et sans eux son bilan manquait de 3,4 %.
+    #
+    # Les capitaux MEZZANINE — actions privilégiées rachetables, minoritaires
+    # rachetables — ne sont ni dette ni capitaux propres permanents : le plan
+    # comptable américain leur donne une ligne à part, entre les deux. Red Cat
+    # Holdings en portait exactement 1 500 004 $, soit tout l'écart de son bilan.
+    "interets_minoritaires_bilan": ["MinorityInterest"],
+    "capitaux_mezzanine": [
+        "TemporaryEquityCarryingAmountAttributableToParent",
+        "TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
+        "RedeemableNoncontrollingInterestEquityCarryingAmount",
+        "RedeemableNoncontrollingInterestEquityFairValue",
+    ],
     "cash": ["CashAndCashEquivalentsAtCarryingValue",
              "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
     # Placements à court terme. Beaucoup d'étiquettes pour une même réalité :
@@ -251,6 +273,9 @@ CONCEPTS = {
 INSTANTS = {"assets", "assets_current", "liabilities", "liabilities_current",
             "equity", "cash", "short_term_inv", "lt_debt", "current_debt",
             "lease_lt", "lease_ct",
+            # Deux postes de BILAN, donc pris à une date et non sur une période :
+            # les demander comme des flux ne rendrait rien du tout.
+            "interets_minoritaires_bilan", "capitaux_mezzanine",
             "goodwill", "retained_earnings", "inventory"}
 
 FORMES_ANNUELLES = ("10-K", "20-F", "40-F")
