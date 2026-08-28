@@ -46,8 +46,55 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fetch_sec_fundamentals import historique_note            # noqa: E402
 from fondamentaux_communs import (                            # noqa: E402
-    _croissances, ecarter_ratios_degeneres, note_quantitative,
+    _corriger_divisions, _croissances, ecarter_ratios_degeneres, note_quantitative,
 )
+
+
+def refaire_divisions(exercices):
+    """Remet les séries sur leur base brute, puis relance la recouture.
+
+    Les paquets portent des corrections décidées sous des règles qui ont changé :
+    1,5 n'est plus un facteur usuel (447 événements faux sur 389 sociétés), et la
+    garde de confirmation ne s'éteint plus sur les sociétés en perte (680
+    événements passaient sans contrôle).
+
+    On ne cherche pas à deviner lesquelles restent valides. On DÉFAIT tout —
+    l'opération est exactement réversible, le facteur étant inscrit sur chaque
+    exercice — puis on REFAIT avec les règles d'aujourd'hui.
+
+    ⚠ Contrairement au jeu international, les divisions sont ici LÉGITIMES : la
+    SEC publie les faits tels qu'ils ont été déposés à l'époque, sans
+    rétro-ajustement. On refait donc, on ne se contente pas de défaire.
+
+    Rend (nombre d'exercices remis en base, événements retenus après recouture).
+    """
+    n = 0
+    for e in exercices:
+        f = e.get("_facteur_division")
+        if not isinstance(f, (int, float)) or f in (0, 1.0):
+            continue
+        for cle in ("shares_diluted", "shares_basic"):
+            if isinstance(e.get(cle), (int, float)):
+                e[cle] = e[cle] / f
+        for cle in ("eps_diluted", "eps_basic", "dps"):
+            if isinstance(e.get(cle), (int, float)):
+                e[cle] = e[cle] * f
+        e.pop("_facteur_division", None)
+        n += 1
+
+    evenements = _corriger_divisions(exercices)
+
+    # Les grandeurs par action DÉRIVENT du nombre d'actions : sans ce recalcul,
+    # la moitié de la série resterait sur l'ancienne base.
+    for e in exercices:
+        sh = e.get("shares_diluted")
+        if isinstance(sh, (int, float)) and sh:
+            for cle, source in (("ca_par_action", "revenue"),
+                                ("fcf_par_action", "fcf"),
+                                ("ocf_par_action", "ocf")):
+                v = e.get(source)
+                e[cle] = round(v / sh, 4) if isinstance(v, (int, float)) else None
+    return n, evenements
 
 CACHE = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 
@@ -69,6 +116,9 @@ def main():
     total = touchees = 0
     retirees = {c: 0 for c, _ in SERIES}
     ecartes = 0
+    rebasees = 0
+    div_changees = 0
+    soc_rebasees = set()
     montees = descendues = 0
     mouvements = []
 
@@ -86,6 +136,16 @@ def main():
                 continue
             total += 1
             avant = (r.get("note_q") or {}).get("note_ramenee")
+
+            # ── Les divisions AVANT tout : le reste en dérive ──
+            n_def, evts = refaire_divisions(ex)
+            if n_def:
+                rebasees += n_def
+                soc_rebasees.add(sym)
+            avant_div = len(r.get("divisions_action") or [])
+            if len(evts) != avant_div:
+                div_changees += 1
+            r["divisions_action"] = evts
 
             # ── Les croissances, depuis les séries déjà stockées ──
             neuves = {}
@@ -128,6 +188,8 @@ def main():
           % (total, touchees, time.time() - t0))
     print("[ok] taux retirés (base infinitésimale ou traversée de zéro) : %s"
           % ", ".join("%s %d" % (k, n) for k, n in sorted(retirees.items())))
+    print("[ok] divisions REFAITES : %d exercice(s) remis en base sur %d société(s), "
+          "%d société(s) changent d'événements" % (rebasees, len(soc_rebasees), div_changees))
     print("[ok] ratios hors bande écartés : %d" % ecartes)
     print("[ok] notes ramenées : %d en hausse, %d en baisse" % (montees, descendues))
     if mouvements:

@@ -594,7 +594,19 @@ def _serie_hausses_dividende(dps_par_annee):
 
 # Facteurs de division d'action réellement pratiqués. Une société divise par un
 # nombre simple ; personne ne divise par 3,7.
-_FACTEURS_USUELS = [1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 50]
+#
+# ⚠ 1,5 A ÉTÉ RETIRÉ le 28/08/2026. La bande de tolérance autour de 1,5 —
+# [1,41 ; 1,59] — est l'amplitude ordinaire d'une levée de fonds ou d'une
+# acquisition payée en titres, pas celle d'un « trois pour deux », devenu rare.
+# Mesuré : 447 événements faux sur 389 sociétés américaines, contre au plus 14
+# vraies opérations perdues. Neuf d'entre elles sont nommées et rattrapables à la
+# main si le besoin s'en fait sentir : ROL 2017-2018, WRB 2016-2017, MRTN
+# 2017-2018, AAON 2020-2021, FLO 2008-2009 et 2010-2011, NEOG 2011-2012, CPK
+# 2011-2012, UGI 2011-2012.
+#
+# Le cas qui a révélé le défaut : RBA portait un facteur 1,5 sur DIX exercices
+# consécutifs, ce qui divisait son bénéfice par action de 2,86 $ à 1,907.
+_FACTEURS_USUELS = [2, 2.5, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 50]
 
 
 def _facteur_division(r):
@@ -647,10 +659,18 @@ def _corriger_divisions(exercices):
             if f is not None:
                 na, nb = a.get("net_income"), b.get("net_income")
                 confirme = True
-                if na and nb and na > 0:
+                if na and nb:
                     # Si le résultat net a été multiplié par le même facteur,
                     # c'est une vraie croissance et non une division.
-                    if abs((nb / na) - (sb / sa)) / max(sb / sa, 1e-9) < 0.20:
+                    #
+                    # ⚠ EN VALEUR ABSOLUE. La condition portait `na > 0`, ce qui
+                    # éteignait cette vérification ENTIÈREMENT pour toute société
+                    # en perte : 680 événements américains et 889 internationaux
+                    # passaient sans aucun contrôle. Or une société en perte qui
+                    # lève massivement des fonds est précisément le profil qui
+                    # fabrique un faux facteur — IonQ, résultat 2021 de
+                    # −106 186 000, en est le cas type.
+                    if abs(abs(nb / na) - (sb / sa)) / max(sb / sa, 1e-9) < 0.20:
                         confirme = False
                 if confirme:
                     cumul *= f
@@ -697,8 +717,27 @@ def _piotroski(cur, prev):
     d["roa_en_hausse"] = 1 if (roa_c is not None and roa_p is not None and roa_c > roa_p) else 0
     d["qualite_du_resultat"] = 1 if (ocf is not None and cur.get("net_income") is not None
                                      and ocf > cur["net_income"]) else 0
-    lev_c = _div(cur.get("lt_debt"), cur.get("assets"))
-    lev_p = _div(prev.get("lt_debt"), prev.get("assets"))
+    # ── L'ENDETTEMENT SE JUGE SUR CE QU'ON A, PAS SUR CE QUI MANQUE ──
+    #
+    # Le critère lisait `lt_debt` seule — étiquette us-gaap pure, servie sur la
+    # moitié du parc. Quand elle manque, le zéro ne dit pas « la dette a monté »,
+    # il dit « on ne sait pas » — et il compte pareil. Mesuré le 28/08/2026 :
+    # première cause de zéro d'ignorance du score, 1 643 sociétés côté américain,
+    # environ 8 700 au total et 4 403 points en jeu.
+    #
+    # On juge donc sur la dette TOTALE dès qu'elle existe, et l'on ne retombe sur
+    # la dette longue que faute de mieux. Elle agrège les
+    # emprunts et les baux, et elle est bien plus souvent servie.
+    #
+    # ⚠ Ce score n'est alors plus tout à fait le F-Score de Piotroski, dont la
+    # composante d'endettement est définie sur la dette à LONG TERME. La fiche
+    # doit le dire.
+    _dette_c = (cur.get("dette_totale") if cur.get("dette_totale") is not None
+                else cur.get("lt_debt"))
+    _dette_p = (prev.get("dette_totale") if prev.get("dette_totale") is not None
+                else prev.get("lt_debt"))
+    lev_c = _div(_dette_c, cur.get("assets"))
+    lev_p = _div(_dette_p, prev.get("assets"))
     d["dette_en_baisse"] = 1 if (lev_c is not None and lev_p is not None and lev_c < lev_p) else 0
     cr_c = _div(cur.get("assets_current"), cur.get("liabilities_current"))
     cr_p = _div(prev.get("assets_current"), prev.get("liabilities_current"))
@@ -711,7 +750,19 @@ def _piotroski(cur, prev):
     at_c = _div(cur.get("revenue"), cur.get("assets"))
     at_p = _div(prev.get("revenue"), prev.get("assets"))
     d["rotation_en_hausse"] = 1 if (at_c is not None and at_p is not None and at_c > at_p) else 0
-    return sum(d.values()), d
+
+    # ⚠ LA SOMME NE COMPTE QUE LES CRITÈRES. En Python `True` vaut 1 : poser un
+    # drapeau booléen dans ce dictionnaire donnerait un POINT à toutes les
+    # sociétés qu'il est censé signaler. Mesuré sur le remède initialement
+    # proposé : +1 point à 1 993 sociétés sans aucune donnée de dette — STC 4/9 →
+    # 5/9, VIV 4/9 → 5/9, BBD 2/9 → 3/9 — et silencieusement, puisque aucune note
+    # ne dépasse 9. Le zéro d'ignorance serait devenu un UN d'ignorance.
+    #
+    # Le drapeau ci-dessous est donc à préfixe souligné, et la somme l'ignore.
+    d["_dette_assiette"] = ("dette totale" if cur.get("dette_totale") is not None
+                            else ("long terme" if cur.get("lt_debt") is not None
+                                  else "aucune"))
+    return sum(v for k, v in d.items() if not k.startswith("_")), d
 
 
 def _altman_z(cur, mcap_usd):

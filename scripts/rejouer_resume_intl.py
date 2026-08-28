@@ -77,6 +77,52 @@ COLLECTE = {"accn", "depose_le", "devise", "devise_cotation", "devise_deduite",
             "devises_alignees", "cours_natif", "cours_natif_le", "cours_source"}
 
 
+def defaire_division_fabriquee(exercices):
+    """Défait une correction de division que la source n'appelait pas.
+
+    La source internationale RÉTRO-AJUSTE déjà son historique : elle republie les
+    exercices anciens en actions d'aujourd'hui. La recouture des divisions n'avait
+    donc rien à rattraper — et quand elle trouvait un saut, elle le fabriquait.
+    Mesuré le 28/08/2026 : 1 423 corrections sur 1 187 sociétés, toutes fausses.
+
+    La correction est heureusement EXACTEMENT réversible : elle multiplie les
+    nombres d'actions par un facteur, divise les grandeurs par action par ce même
+    facteur, et inscrit `_facteur_division` sur l'exercice. On applique l'inverse,
+    puis on recalcule les trois grandeurs par action qui en dérivent.
+
+    La signature à surveiller : Ritchie Bros portait 167 829 037,5 actions — une
+    DEMI-ACTION. Un nombre d'actions non entier ne vient jamais d'un dépôt, il
+    vient d'un facteur inventé.
+
+    Rend le nombre d'exercices remis en base.
+    """
+    n = 0
+    for e in exercices:
+        f = e.get("_facteur_division")
+        if not isinstance(f, (int, float)) or f in (0, 1.0):
+            continue
+        for cle in ("shares_diluted", "shares_basic"):
+            if isinstance(e.get(cle), (int, float)):
+                e[cle] = e[cle] / f
+        for cle in ("eps_diluted", "eps_basic", "dps"):
+            if isinstance(e.get(cle), (int, float)):
+                e[cle] = e[cle] * f
+        e.pop("_facteur_division", None)
+        n += 1
+
+    # Les grandeurs par action DÉRIVENT du nombre d'actions : les laisser telles
+    # quelles laisserait la moitié de la série sur l'ancienne base.
+    for e in exercices:
+        sh = e.get("shares_diluted")
+        if isinstance(sh, (int, float)) and sh:
+            for cle, source in (("ca_par_action", "revenue"),
+                                ("fcf_par_action", "fcf"),
+                                ("ocf_par_action", "ocf")):
+                v = e.get(source)
+                e[cle] = round(v / sh, 4) if isinstance(v, (int, float)) else None
+    return n
+
+
 def couverture(e):
     """Résultat d'exploitation / charge d'intérêts, pour un exercice.
 
@@ -105,6 +151,8 @@ def main():
     horodatage = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
     total = rejouees = echecs = 0
     couvertures = 0
+    defaits = 0
+    soc_defaites = set()
     retirees = {"ca": 0, "eps": 0, "fcf": 0, "ocf": 0, "div": 0}
     ratios_ecartes = 0
     montees = descendues = 0
@@ -123,6 +171,13 @@ def main():
             if not ex or not isinstance(ancien, dict):
                 continue
             total += 1
+
+            # Defaire les divisions fabriquees AVANT tout le reste : les
+            # grandeurs par action, les croissances et la note en derivent.
+            n_def = defaire_division_fabriquee(ex)
+            if n_def:
+                defaits += n_def
+                soc_defaites.add(sym)
 
             # La couverture d'intérêts, recalculée sur le dernier exercice.
             c = couverture(ex[-1])
@@ -189,6 +244,9 @@ def main():
 
     print("[ok] %d société(s) lues, %d rejouée(s), %d échec(s) — %.1f s"
           % (total, rejouees, echecs, time.time() - t0))
+    print("[ok] divisions FABRIQUEES defaites : %d exercice(s) sur %d societe(s) — "
+          "la source internationale retro-ajuste deja son historique"
+          % (defaits, len(soc_defaites)))
     print("[ok] couverture d'intérêts calculée sur %d société(s)" % couvertures)
     print("[ok] taux retirés (calculés sur une base qui n'en était pas une) : %s"
           % ", ".join("%s %d" % (k, n) for k, n in sorted(retirees.items())))

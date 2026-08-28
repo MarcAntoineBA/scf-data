@@ -578,11 +578,32 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
     # deux doivent etre sur la meme base — brute, telle que deposee.
     dps_redresses = redresser_dividende_par_action(exercices)
 
-    # La source rétro-ajuste déjà les divisions d'action sur tous les exercices.
-    # On lance quand même la recouture : elle ne trouvera rien (aucun saut), et
-    # si un jour la source change de politique, elle rattrapera. Le résultat est
-    # rendu, vide ou non, pour que la fiche puisse le dire.
-    divisions = _corriger_divisions(exercices)
+    # ── LA RECOUTURE DÉTECTE, MAIS NE CORRIGE PLUS ──
+    #
+    # Le commentaire d'origine disait : « la source rétro-ajuste déjà les
+    # divisions, la recouture ne trouvera rien ». La première moitié est vraie.
+    # La seconde était une SUPPOSITION, et elle était fausse : mesuré le
+    # 28/08/2026, la recouture trouve 1 423 sauts sur 1 187 sociétés et les
+    # corrige tous. Elle ne rattrape rien — elle fabrique.
+    #
+    # La preuve est dans le cache lui-même : O'Reilly y porte 1 044 165 000
+    # actions en 2021, soit 69 611 000 × 15. La division de 2025 est DÉJÀ
+    # appliquée à l'exercice 2021. Idem Alphabet, Amazon, Tesla, NVIDIA.
+    #
+    # Ritchie Bros affichait ainsi 167 110 245 actions en 2021 au lieu de
+    # 111 406 830, et IONQ en avait MOINS en 2022 qu'en 2021 — alors qu'elle n'a
+    # jamais racheté une action.
+    #
+    # On garde la DÉTECTION, sur une copie, et on la journalise. Le jour où la
+    # source changerait de politique, le journal le dirait ; un appel supprimé,
+    # lui, ne dit jamais rien. C'était l'intention d'origine : il lui manquait de
+    # ne pas appliquer.
+    _sauts = _corriger_divisions([dict(e) for e in exercices])
+    if _sauts:
+        print("[info] %d saut(s) d'actions detecte(s) et NON corrige(s) — la "
+              "source internationale est deja retro-ajustee" % len(_sauts),
+              file=sys.stderr)
+    divisions = []
 
     def _moy(cle, i):
         cur = exercices[i].get(cle)
