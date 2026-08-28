@@ -51,7 +51,7 @@ def main():
         return 2
 
     t0 = time.time()
-    small, big, absent, retires, fondus, perimes = run_jobs.collect(manifest)
+    small, big, absent, retires, fondus, perimes, casses = run_jobs.collect(manifest)
     ecrits = set(small) | set(big)
 
     print("%d fichier(s) acheminé(s) en %.1f s : %d versionné(s), %d en pièce jointe"
@@ -59,6 +59,18 @@ def main():
     if absent:
         print("  %d absent(s) du cache local : %s%s"
               % (len(absent), ", ".join(absent[:8]), " …" if len(absent) > 8 else ""))
+    if casses:
+        # Le plus grave des trois refus. Un fichier périmé se rattrape au
+        # passage suivant ; un fichier illisible ne se rattrape pas tout seul,
+        # il faut le reconstruire. Constaté le 28/08/2026 : une écriture
+        # interrompue sur le dossier partagé avait laissé un paquet tronqué à
+        # 80 % de sa taille — assez gros pour passer la garde de poids, assez
+        # intact au début pour passer celle de fraîcheur, et mort pour la fiche.
+        print("  !! %d fichier(s) ILLISIBLES, non publiés — le cache local est "
+              "à réparer :" % len(casses))
+        for x in casses[:10]:
+            print("      %s" % x)
+
     if perimes:
         # Le refus le plus important pour ce poste : il ne fait pas tourner tous
         # les collecteurs, donc ses caches sont parfois plus vieux que ceux du

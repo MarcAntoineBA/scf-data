@@ -63,6 +63,27 @@ CAS = [
      '{"updated":"2026-08-28T05:00:00Z","x":1}', "publié"),
     ("melange_vieux.json", '{"updated":"2026-08-28 05:00 UTC","x":1}',
      '{"updated":"2026-08-28T16:00:00Z","x":1}', "refusé"),
+
+    # ── LE FICHIER QUI NE SE RELIT PAS ────────────────────────────────────
+    # Le 28/08/2026 au soir, une écriture sur le dossier partagé a échoué en
+    # plein milieu — « Input/output error » — et laissé sec_detail_501.json
+    # tronqué à 245 908 octets sur 307 151.
+    #
+    # Les deux autres gardes l'auraient laissé passer : 80 % de la taille, donc
+    # sous le seuil du tiers ; et un début intact, donc un horodatage lisible.
+    # Il serait parti en ligne, et la fiche de neuf sociétés — dont Lennar —
+    # serait morte sur une exception de `json()`, sans que rien ne l'ait dit au
+    # moment de publier.
+    #
+    # Le contenu ci-dessous est un JSON coupé au milieu, comme le vrai.
+    ("tronque.json", '{"updated":"2026-08-28T18:00:00Z","societes":{"LEN":{"a"',
+     '{"updated":"2026-08-28T05:00:00Z","societes":{"LEN":{"a":1}}}', "refusé"),
+
+    # Et le contrôle qui empêche la garde d'être trop zélée : un `.js` n'est pas
+    # du JSON et n'a pas à être validé comme tel. `window.__X__ = {…};` doit
+    # passer.
+    ("jumeau.js", 'window.__X__={"updated":"2026-08-28T18:00:00Z","x":2};',
+     'window.__X__={"updated":"2026-08-28T05:00:00Z","x":1};', "publié"),
 ]
 
 
@@ -91,10 +112,13 @@ def main():
             with open(os.path.join(out_dir, nom), "w", encoding="utf-8") as fh:
                 fh.write(depot)
 
-        small, big, absent, retires, fondus, perimes = run_jobs.collect(
+        small, big, absent, retires, fondus, perimes, casses = run_jobs.collect(
             [c[0] for c in CAS])
         publies = set(small) | set(big)
-        refuses = {p.split(" ")[0] for p in perimes}
+        # Trois refus possibles, et le test ne doit pas les confondre : perime,
+        # fondu, illisible. On les reunit pour le verdict, mais on garde de quoi
+        # dire lequel a parle.
+        refuses = {x.split(" ")[0] for x in (perimes + fondus + casses)}
 
         print("La garde de fraîcheur :")
         for nom, _, _, attendu in CAS:
@@ -109,6 +133,10 @@ def main():
         print()
         print("Le message du refus :")
         msg = perimes[0] if perimes else ""
+        verifie("nomme le fichier tronque",
+                "oui" if any("tronque.json" in x for x in casses) else "non", "oui")
+        verifie("dit qu il est illisible",
+                "oui" if any("illisible" in x for x in casses) else "non", "oui")
         verifie("nomme le fichier", "oui" if "perime.json" in msg else "non", "oui")
         verifie("montre les deux dates",
                 "oui" if ("2026-08-28" in msg and "2026-08-16" in msg) else "non", "oui")

@@ -495,6 +495,28 @@ def run_one(job, timeout):
 _CLES_DATE = ("updated", "generated_at", "genere_le", "last_update", "updated_at")
 
 
+def _json_relisible(chemin):
+    """Le fichier se relit-il ? Pour un `.json` seulement.
+
+    Une écriture interrompue laisse un fichier syntaxiquement mort que ni la
+    garde de poids ni celle de fraîcheur ne voient : le début est intact — donc
+    l'horodatage aussi — et la perte peut rester sous le tiers. Mesuré le
+    28/08/2026 : 245 908 octets sur 307 151, soit 80 %, après un
+    « Input/output error » sur le dossier partagé.
+
+    On ne valide pas les jumeaux `.js` : ce n'est pas du JSON, et un analyseur
+    maison pour du JavaScript coûterait plus qu'il ne protège.
+    """
+    if not chemin.endswith(".json"):
+        return True
+    try:
+        with open(chemin, encoding="utf-8") as fh:
+            json.load(fh)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def _comparable(h):
     """Rend deux horodatages comparables quel que soit leur séparateur.
 
@@ -537,7 +559,7 @@ def collect(manifest):
     Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
     os.makedirs(RELEASE_OUT, exist_ok=True)
-    small, big, absent, retires, fondus, perimes = [], [], [], [], [], []
+    small, big, absent, retires, fondus, perimes, casses = [], [], [], [], [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
@@ -568,6 +590,13 @@ def collect(manifest):
         # fonction, ne peut pas distinguer « plus frais » de « plus pauvre ».
         #
         # Un refus est visible et se corrige ; un appauvrissement silencieux, non.
+        # AVANT les autres gardes : un fichier qui ne se relit pas n'a pas de
+        # taille comparable ni d'horodatage fiable. On ne le publie pas, quelle
+        # que soit sa fraîcheur apparente.
+        if not _json_relisible(src):
+            casses.append("%s (%d Ko, illisible)" % (name, taille // 1024))
+            continue
+
         ancien = next((p for p in (os.path.join(CACHE_OUT, name),
                                    os.path.join(RELEASE_OUT, name)) if os.path.exists(p)), None)
         if ancien:
@@ -609,7 +638,7 @@ def collect(manifest):
             continue
         shutil.copy2(src, dst)
         (big if heavy else small).append(name)
-    return small, big, absent, retires, fondus, perimes
+    return small, big, absent, retires, fondus, perimes, casses
 
 
 def main():
@@ -665,7 +694,7 @@ def main():
             results += list(ex.map(lambda j: run_one(j, timeout), vague))
     elapsed = round(time.time() - t0, 1)
 
-    small, big, absent, retires, fondus, perimes = collect(manifest)
+    small, big, absent, retires, fondus, perimes, casses = collect(manifest)
     changed = small + big
 
     # ── QUI A TRAVAILLÉ, QUI S'EST CONTENTÉ DE RÉPONDRE ───────────────────────
@@ -706,6 +735,13 @@ def main():
         print("    (soit le collecteur a perdu sa base de fusion, soit ce poste "
               "n'a pas accès à toute la source ; dans les deux cas la version "
               "du dépôt est la plus riche, et c'est elle qu'on garde)")
+    if casses:
+        # Le plus grave des trois refus : celui-ci veut dire qu'un fichier du
+        # cache est MORT, pas seulement périmé ou amaigri. Il faut le
+        # reconstruire, pas attendre le passage suivant.
+        print(f"  !! {len(casses)} fichier(s) ILLISIBLES, non publiés — "
+              f"le cache local est à réparer : " + ", ".join(casses[:6]))
+
     if perimes:
         # Un fichier PÉRIMÉ de même poids passait sous la garde de taille. Ce
         # refus-là doit se voir autant que l'autre : c'est celui qui a laissé
