@@ -839,9 +839,23 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
                 # Aucun total déposé : on additionne les deux ensembles disjoints.
                 e["revenue"] = _baux + e["revenue"]
                 e["revenue_total_utilise"] = "loyers + contrats"
-        elif e.get("revenue") is None and _baux is not None:
-            # Un bailleur qui ne dépose ni total ni contrats : les loyers SONT
-            # son chiffre d'affaires, et sans eux la fiche est vide.
+        elif (e.get("revenue") is None and _baux is not None
+                and isinstance(e.get("assets"), (int, float)) and e["assets"] > 0
+                and _baux >= 0.02 * e["assets"]):
+            # ── LES LOYERS SEULS, ET SEULEMENT POUR UN VRAI BAILLEUR ──
+            # Un bailleur qui ne dépose ni total ni contrats : ses loyers SONT
+            # son chiffre d'affaires. Mais une BANQUE dépose aussi des revenus
+            # de crédit-bail, et ce n'est pas son activité. Sans garde, cette
+            # ligne attribuait 80 M$ de recettes à Fifth Third Bancorp, qui en
+            # fait huit milliards et demi — un faux chiffre est pire qu'un vide,
+            # parce que le vide se voit et que le faux se lit.
+            #
+            # Le discriminant est le rapport des loyers à l'actif, et la mesure
+            # du 28/08/2026 le rend évident : sur 237 exercices concernés, 131
+            # tombent SOUS 0,5 % — vingt-neuf banques, dont certaines à zéro
+            # loyer — et 90 se tiennent entre 5 % et 15 %, ce qui est exactement
+            # le rendement locatif d'un parc immobilier. Le seuil de 2 % passe
+            # dans le creux entre les deux populations, pas au milieu de l'une.
             e["revenue"] = _baux
             e["revenue_total_utilise"] = "loyers seuls"
 
