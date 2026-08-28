@@ -886,7 +886,24 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     for _e in exercices:
         _e["interest_expense"] = _charge(_e.get("interest_expense"))
 
-    # D'abord ce qui est logiquement impossible — un résultat brut au-dessus du
+    # ── UNE ANNÉE VIDE N'EST PAS UN EXERCICE ──
+    # Contrepartie de l'ossature en union : elle admet une année dès qu'un
+    # résultat net y est déposé. C'est ce qui a rendu à Investar et à Goldman
+    # Sachs les années où le bilan était là sans le chiffre d'affaires — un vrai
+    # gain. Mais elle admet aussi les tableaux de « pertes depuis la création »
+    # que déposent les sociétés en phase de développement, où une année n'est
+    # qu'une ligne d'annexe. Mesuré après la collecte du 28/08/2026 : 8 exercices
+    # sur 43 513, chez 6 sociétés, ne portaient NI bilan, NI flux, NI revenus,
+    # NI résultat par action. Peu — mais ces années-là gonflent le compteur
+    # d'exercices de la fiche, qui promet alors une profondeur inexistante.
+    ANCRES_EXERCICE = ("revenue", "assets", "ocf", "equity", "liabilities",
+                       "eps_diluted")
+    exercices = [e for e in exercices
+                 if any(isinstance(e.get(k), (int, float)) for k in ANCRES_EXERCICE)]
+    if not exercices:
+        return None
+
+    # Puis ce qui est logiquement impossible — un résultat brut au-dessus du
     # chiffre d'affaires, un poste au-dessus de son propre total. Avant tout
     # calcul : une marge tirée d'un couple impossible est fausse, et elle n'a
     # plus l'air de rien une fois arrondie à deux décimales.
