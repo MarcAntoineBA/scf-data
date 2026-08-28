@@ -134,6 +134,69 @@ def _pct(a, b):
     return round(r * 100, 2) if r is not None else None
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Les ratios dont le dénominateur s'est effondré
+# ─────────────────────────────────────────────────────────────────────────
+# Un ROIC de 804 436 % ou une marge nette de −762 356 % ne sont pas faux : ils
+# sont dépourvus de sens. Le dénominateur a cessé d'être une référence — Lyell
+# Immunopharma perd 274 M$ pour 0,0 M$ de chiffre d'affaires, et une société de
+# Shenzhen porte un capital investi NÉGATIF de 6,7 Md.
+#
+# ⚠ CETTE LISTE NE CONTIENT QUE LES RATIOS BORNÉS PAR NATURE. Les « parts de
+# flux » — investissements sur cash, distribution, recherche sur cash — dépassent
+# légitimement 100 %, et souvent 250 % : mesuré sur China National Nuclear,
+# `capex_ocf` vaut 250 % pour 82 Md de chiffre d'affaires, et c'est exact. Les
+# écarter au même titre détruirait de la donnée juste.
+#
+# ⚠ ET LA BANDE SE JUGE SUR LE RATIO, PAS SUR LE BILAN. Comparer le dénominateur
+# à l'actif total se trompe sur les banques : Eastern Bankshares a 134 M de
+# chiffre d'affaires pour 30,6 Md d'actif — 0,44 % — et une marge nette de
+# 65,8 % parfaitement saine. La matérialité d'un dénominateur se mesure contre le
+# NUMÉRATEUR : une marge dépasse 300 % exactement quand le résultat vaut plus de
+# trois fois le chiffre d'affaires.
+_RATIOS_BORNES = (
+    "roic_1a", "roic_5a", "roic_10a",
+    "roce_1a", "roce_5a", "roce_10a",
+    "roe_1a", "roe_5a", "roe_10a",
+    "marge_brute", "marge_ope", "marge_nette", "marge_fcf",
+)
+
+# Trois cents pour cent. Au-delà, le compte de valeurs écartées cesse presque de
+# bouger quand on desserre — signe que les cas visés sont isolés loin de la
+# population ordinaire. Mesuré : ±200 écarte 6 740 valeurs sur 256 772, ±300 en
+# écarte 4 367, ±500 seulement 2 850.
+_BANDE_RATIO = 300.0
+
+
+def ecarter_ratios_degeneres(resume):
+    """Rend muets les ratios sortis de la bande de plausibilité.
+
+    On n'invente rien et on ne corrige rien : on refuse de prétendre mesurer ce
+    qui n'est pas mesurable. Le barème sait déjà traiter un critère muet, et la
+    fiche affiche « N/A » en gris pour une jauge sans valeur.
+
+    Les valeurs écartées sont CONSERVÉES sous `ratios_ecartes`, parce que
+    l'usage de ce site est d'expliquer plutôt que de masquer — il documente déjà
+    le ROE gonflé par les rachats d'actions au lieu de le cacher. Un lecteur qui
+    voit une case vide a le droit de savoir pourquoi.
+
+    Rend le nombre de ratios écartés.
+    """
+    if not isinstance(resume, dict):
+        return 0
+    ecartes = {}
+    for cle in _RATIOS_BORNES:
+        v = resume.get(cle)
+        if isinstance(v, (int, float)) and abs(v) > _BANDE_RATIO:
+            ecartes[cle] = v
+            resume[cle] = None
+    if ecartes:
+        resume["ratios_ecartes"] = ecartes
+    else:
+        resume.pop("ratios_ecartes", None)
+    return len(ecartes)
+
+
 def _r(v, n=2):
     return round(v, n) if isinstance(v, (int, float)) and math.isfinite(v) else None
 
@@ -343,18 +406,54 @@ def note_quantitative(r):
 # ─────────────────────────────────────────────────────────────────────────
 # Croissances, prédictibilité, scores
 # ─────────────────────────────────────────────────────────────────────────
+# Le plancher sous lequel une base cesse d'être une base, exprimé en part de
+# l'amplitude médiane de la série elle-même — parce qu'une valeur « petite » ne
+# se juge que contre les autres valeurs de la même société.
+#
+# ⚠ CINQ POUR CENT EST UN CHOIX, PAS UNE MESURE. Il isole une base de 0,0001 sur
+# une série d'amplitude 0,8 ; il ne départage pas un cas frontière à 8 %. On le
+# note ici pour que personne ne le prenne un jour pour une constante physique.
+_PLANCHER_BASE = 0.05
+
+
 def _croissance_annuelle(series):
     """[(annee, valeur)] triés → liste des variations en % d'une année sur l'autre.
 
-    Une variation calculée sur une base NÉGATIVE n'a pas de sens : passer de
-    −10 à −5 n'est pas « +50 % » et passer de −5 à +5 n'est pas « +200 % ».
-    Ces cas rendent None plutôt qu'un nombre spectaculaire et faux.
+    TROIS CAS OÙ L'ON NE CALCULE PAS, parce qu'aucun taux n'existe :
+
+    · base NÉGATIVE — passer de −10 à −5 n'est pas « +50 % » et passer de −5 à
+      +5 n'est pas « +200 % » ;
+
+    · base INFINITÉSIMALE — Wuxi Paike passe de 0,0001 à 0,7558 yuan de cash
+      libre par action. Le calcul rendait +755 700 %, et le barème accordait le
+      point plein pour un seuil fixé à 10 %. La base est positive, donc l'ancien
+      test la laissait passer : elle n'en était pas une pour autant ;
+
+    · TRAVERSÉE DE ZÉRO — DyDo Group passe de +0,79 à −40,56 yens par action, et
+      le calcul rendait −5 215,94 %. Une chute ne peut pas dépasser −100 %. Ce
+      nombre n'existe pas, et il s'affichait sur la fiche.
+
+    Mesuré avant correction : 137 points de barème PLEINS attribués à 134
+    sociétés sur une base valant moins de 5 % de l'amplitude de sa propre série.
+
+    Le None n'est pas un aveu d'échec : le barème le traite en critère MUET, qui
+    sort du dénominateur de la note ramenée au lieu de compter pour zéro.
     """
+    # La référence, c'est l'amplitude de la série elle-même : une base de 0,0001
+    # est du bruit chez Wuxi Paike et une valeur ordinaire chez une société dont
+    # tous les montants sont de cet ordre.
+    amplitudes = [abs(v) for _, v in series if v]
+    reference = _mediane(amplitudes) if amplitudes else None
+
     out = []
     for i in range(1, len(series)):
         prev, cur = series[i - 1][1], series[i][1]
         if prev is None or cur is None or prev <= 0:
-            out.append(None)
+            out.append(None)                      # base négative ou absente
+        elif reference and prev < _PLANCHER_BASE * reference:
+            out.append(None)                      # la base est du bruit
+        elif cur < 0:
+            out.append(None)                      # traversée de zéro : pas un taux
         else:
             out.append(round(100 * (cur - prev) / prev, 2))
     return out

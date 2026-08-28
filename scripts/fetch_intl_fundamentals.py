@@ -76,7 +76,8 @@ from datetime import datetime, timezone
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from fondamentaux_communs import (          # noqa: E402
+from fondamentaux_communs import (
+    ecarter_ratios_degeneres,          # noqa: E402
     annee_exercice,
     dedupliquer_exercices,
     _div, _pct, _r,
@@ -637,6 +638,28 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
     if exercices:
         exercices[0]["roiic"] = None
 
+    resume = construire_resume(exercices, divisions, unites_actions)
+    return {"exercices": exercices, "resume": resume}
+
+
+def construire_resume(exercices, divisions=None, unites_actions=None):
+    """Le bloc `resume` d'une société, à partir de ses seuls exercices.
+
+    SORTIE DE `construire()` POUR POUVOIR ÊTRE REJOUÉE HORS LIGNE.
+
+    Les paquets portent tous l'horodatage de leur écriture, pas celui du code qui
+    les a produits. Mesuré le 28/08/2026 : les 512 paquets internationaux
+    dataient de 03:55 et le correctif de `_mediane_fenetre` de 16:16 — douze
+    heures d'écart, et 14 666 « médianes sur cinq ans » calculées sur une seule
+    variation continuaient d'être publiées, portant 2 654,5 points de barème
+    indus sur 2 567 sociétés.
+
+    Recollecter n'était pas la réponse : l'univers fait 19 495 sociétés et la
+    source ne se parcourt qu'en plusieurs jours, alors que TOUT ce dont ce calcul
+    a besoin est déjà écrit dans les paquets. Cette fonction existe pour qu'un
+    correctif de calcul se propage en quelques minutes de processeur, sans une
+    requête — comme `notes_historiques` avant elle.
+    """
     piotroski = piotroski_detail = altman = altman_detail = None
     if len(exercices) >= 2:
         piotroski, piotroski_detail = _piotroski(exercices[-1], exercices[-2])
@@ -690,11 +713,12 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
         "divisions_action": divisions,
         "unites_actions_corrigees": unites_actions,
     }
+    # AVANT la note, pas après : un ratio qu'on s'apprête à déclarer non
+    # mesurable ne doit pas d'abord rapporter un point.
+    ecarter_ratios_degeneres(resume)
     resume["note_q"] = note_quantitative(resume)
-
-    hist = notes_historiques(exercices)
-    resume["note_historique"] = hist
-    return {"exercices": exercices, "resume": resume}
+    resume["note_historique"] = notes_historiques(exercices)
+    return resume
 
 
 def _dernier_cours(serie):
@@ -947,10 +971,20 @@ def univers_marche(tranche=None, plafond=None):
             i_capi = ch.index("marketCapUsd")
         except ValueError:
             continue
+        # Le bêta est la vingtième des 97 colonnes de ce fichier, renseigné sur
+        # 27 017 des 37 574 cotations. Sans lui, `_wacc` rend None — et il
+        # rendait None sur 19 482 sociétés sur 19 495, faute d'être lu.
+        #
+        # Hors du `try` ci-dessus, volontairement : un fichier qui n'aurait pas
+        # la colonne ne doit pas être écarté en entier, il porte quand même son
+        # nom et sa capitalisation.
+        i_beta = ch.index("beta") if "beta" in ch else None
         for sym, v in (d.get("societes") or {}).items():
             if sym not in chemins:
                 continue
-            lignes.append((v[i_capi] or 0, sym, v[i_nom]))
+            b = v[i_beta] if (i_beta is not None and i_beta < len(v)) else None
+            lignes.append((v[i_capi] or 0, sym, v[i_nom],
+                           b if isinstance(b, (int, float)) else None))
     lignes.sort(reverse=True)
     if plafond:
         lignes = lignes[:plafond]
@@ -958,7 +992,7 @@ def univers_marche(tranche=None, plafond=None):
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
     out = {}
-    for capi, sym, nom in lignes:
+    for capi, sym, nom, beta in lignes:
         px, dev = cotations.get(sym, (None, None))
         out[sym] = {
             "nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym),
@@ -970,6 +1004,11 @@ def univers_marche(tranche=None, plafond=None):
             "mcap": capi or None,
             "cours_cotation": px,
             "devise_cotation": dev,
+            # La boucle principale lit déjà `meta.get("beta")` : il ne manquait
+            # que de le mettre là. Sans lui, `_wacc` rend None, et avec lui
+            # `roic_moins_wacc` — « le rendement du capital dépasse-t-il son
+            # coût ? » — cesse d'être vide sur tout l'univers mondial.
+            "beta": beta,
         }
     return out
 

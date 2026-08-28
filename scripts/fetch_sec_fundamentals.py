@@ -231,11 +231,26 @@ CONCEPTS = {
     #
     # La part du groupe se RECONSTRUIT plus bas quand elle manque : total moins
     # minoritaires. Une soustraction, pas une substitution.
-    "net_income": ["NetIncomeLoss"],
+    # `ProfitLossAttributableToOwnersOfParent` est la part du groupe balisée
+    # DIRECTEMENT par un déposant IFRS — sans soustraction, donc sans risque.
+    # Elle vient en second : chez un déposant américain, `NetIncomeLoss` doit
+    # rester prioritaire, et le rang de `_annuels` fait gagner l'étiquette la
+    # plus spécifique.
+    "net_income": ["NetIncomeLoss", "ProfitLossAttributableToOwnersOfParent"],
     "net_income_total": ["ProfitLoss"],
+    # ⚠ LE PLURIEL. La taxonomie IFRS écrit `...NoncontrollingInterests`, avec un
+    # S. Le dictionnaire ne connaissait que le singulier américain, et sur huit
+    # déposants IFRS vérifiés un par un, le singulier collecte ZÉRO date quand le
+    # pluriel en collecte trois à onze.
+    #
+    # Sans lui, `net_income` reste le résultat TOTAL au lieu de la part du
+    # groupe : Grupo Aval surévalué de 30,1 %, JBS de 10,2 %, BTG de 311,9 % sur
+    # 2023 — et le ROE, la marge nette, la distribution et les croissances du
+    # résultat en dérivent toutes.
     "interets_minoritaires_resultat": [
         "NetIncomeLossAttributableToNoncontrollingInterest",
-        "ProfitLossAttributableToNoncontrollingInterest"],
+        "ProfitLossAttributableToNoncontrollingInterest",
+        "ProfitLossAttributableToNoncontrollingInterests"],
     "net_income_common": ["NetIncomeLossAvailableToCommonStockholdersBasic"],
     "interest_expense": ["InterestExpense", "InterestExpenseDebt",
                          "InterestExpenseNonoperating"],
@@ -273,7 +288,22 @@ CONCEPTS = {
     # rachetables — ne sont ni dette ni capitaux propres permanents : le plan
     # comptable américain leur donne une ligne à part, entre les deux. Red Cat
     # Holdings en portait exactement 1 500 004 $, soit tout l'écart de son bilan.
-    "interets_minoritaires_bilan": ["MinorityInterest"],
+    # `MinorityInterest` est le nom américain, `NoncontrollingInterests` le nom
+    # IFRS — même poste, deux taxonomies. Symétrique de ce qui a déjà été fait
+    # pour les capitaux propres quelques lignes plus haut.
+    "interets_minoritaires_bilan": ["MinorityInterest", "NoncontrollingInterests"],
+    # ── LE TÉMOIN QUI DIT SI `equity` INCLUT DÉJÀ LES MINORITAIRES ──
+    # `equity` accepte deux étiquettes : `StockholdersEquity`, qui EXCLUT les
+    # minoritaires, et le repli `...IncludingPortionAttributableToNoncontrolling
+    # Interest`, qui les INCLUT. La reconstruction du passif soustrait les
+    # minoritaires — juste dans le premier cas, faux dans le second, où elle les
+    # retire une seconde fois. Mesuré : 22 exercices reconstruits à tort, jusqu'à
+    # 8,7 % d'écart.
+    #
+    # On collecte donc la seule étiquette exclusive, à part. Si elle porte une
+    # valeur pour un exercice, c'est elle que l'union a retenue — elle vient en
+    # tête de liste et gagne à date égale — et la soustraction est légitime.
+    "equity_part_groupe": ["StockholdersEquity"],
     "capitaux_mezzanine": [
         "TemporaryEquityCarryingAmountAttributableToParent",
         "TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
@@ -307,8 +337,14 @@ CONCEPTS = {
     "inventory": ["InventoryNet"],
 
     # ── Flux de trésorerie (durée) ──
+    # Le troisième nom est celui de la taxonomie IFRS. Sans lui, 267 sociétés
+    # déjà publiées n'avaient AUCUN flux d'exploitation — donc pas de cash libre,
+    # pas de marge de cash libre, pas de distribution sur cash libre, et deux
+    # points de Piotroski perdus pour 264 d'entre elles. Le flux existait dans
+    # leur dépôt ; nous ne demandions pas le bon mot.
     "ocf": ["NetCashProvidedByUsedInOperatingActivities",
-            "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+            "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+            "CashFlowsFromUsedInOperatingActivities"],
     # ── L'INVESTISSEMENT, ET CE QU'ON REFUSE D'APPELER AINSI ──
     #
     # Mesuré le 28/08/2026 : 4 454 exercices sur 41 038 n'ont pas d'investissement
@@ -603,7 +639,8 @@ def _val(serie, fin):
 # Le calcul commun vit dans `fondamentaux_communs` — voir l'en-tête de ce
 # module pour la raison. Ce fichier ne garde que ce qui touche à la SEC.
 # ─────────────────────────────────────────────────────────────────────────
-from fondamentaux_communs import (          # noqa: E402
+from fondamentaux_communs import (
+    ecarter_ratios_degeneres,          # noqa: E402
     annee_exercice,
     dedupliquer_exercices,
     _div, _pct, _r,
@@ -791,8 +828,14 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     # L'ossature est donc l'union des dates d'arrêté des trois flux principaux.
     # Un exercice sans chiffre d'affaires vaut mieux qu'un exercice absent : la
     # case vide se voit, l'année manquante non.
+    # `net_income_total` est l'étiquette IFRS `ProfitLoss` : elle était lue,
+    # rangée, et absente de l'union. Une société qui ne balise QUE le résultat
+    # total — un déposant IFRS qui ne ventile pas la part du groupe — n'avait
+    # donc aucun exercice et disparaissait du parc. BBVA passe de 0 à 11
+    # exercices par ce seul ajout, BSBR 11, VIV 11, NXE 10, BTG 10, TLK 8.
     axe = sorted(set(series["revenue"])
                  | set(series["net_income"])
+                 | set(series["net_income_total"])
                  | set(series["ocf"]))
     if not axe:
         return None
@@ -881,8 +924,16 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         # déduit doit rester distinguable d'un montant déposé.
         if (e.get("liabilities") is None and e.get("assets") is not None
                 and e.get("equity") is not None):
-            e["liabilities"] = (e["assets"] - e["equity"]
-                                - (e.get("interets_minoritaires_bilan") or 0.0)
+            # ⚠ NE SOUSTRAIRE LES MINORITAIRES QUE SI `equity` NE LES CONTIENT PAS.
+            # Le dictionnaire autorise un repli sur l'étiquette « including
+            # portion attributable to noncontrolling interest », qui les inclut
+            # déjà : les retirer une seconde fois creuserait le passif. Mesuré :
+            # 22 exercices reconstruits à tort, jusqu'à 8,7 % d'écart.
+            # Le témoin `equity_part_groupe` porte la seule étiquette exclusive ;
+            # s'il a une valeur, c'est elle que l'union a retenue.
+            minoritaires = ((e.get("interets_minoritaires_bilan") or 0.0)
+                            if e.get("equity_part_groupe") is not None else 0.0)
+            e["liabilities"] = (e["assets"] - e["equity"] - minoritaires
                                 - (e.get("capitaux_mezzanine") or 0.0))
             e["liabilities_reconstruit"] = True
 
@@ -1216,6 +1267,10 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     }
 
     # La note se calcule EN DERNIER : elle lit le résumé qu'on vient de bâtir.
+    # AVANT la note, pas apres : un ratio qu'on s'apprete a declarer non
+    # mesurable ne doit pas d'abord rapporter un point. Un ROIC de 804 436 %
+    # rapportait le point plein sur les trois criteres de rentabilite.
+    ecarter_ratios_degeneres(resume)
     resume["note_q"] = note_quantitative(resume)
     resume["note_historique"] = note_historique
 
