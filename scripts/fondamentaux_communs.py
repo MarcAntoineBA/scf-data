@@ -321,7 +321,17 @@ def note_quantitative(r):
         "criteres_notables": notables,
         "criteres_muets": muets,
         "criteres_nuls_par_nature": nuls,
-        "lecture": _lire(note_ramenee if note_ramenee is not None else total),
+        # ⚠ PAS DE LECTURE QUAND IL N'Y A PAS DE NOTE.
+        # `lecture` valait `_lire(total)` dès que la note ramenée était refusée —
+        # c'est-à-dire précisément quand on a jugé qu'on ne savait PAS noter cette
+        # société. La fiche affichait alors « non notée » et, juste à côté,
+        # « médiocre » : le refus annulé par l'étiquette qui le suit.
+        # Mesuré le 28/08/2026 : 946 sociétés sur 3 462 (27,3 %) sont dans ce cas,
+        # dont Shell — 249 Md$, notée 1,0/20 sur sept critères mesurables, donc
+        # « médiocre ». Ce n'est pas un jugement sur Shell, c'est le constat que
+        # treize de nos vingt critères ne s'appliquent pas à une compagnie
+        # pétrolière intégrée. Une absence de note se dit ; elle ne se qualifie pas.
+        "lecture": _lire(note_ramenee),
         "lecture_bareme_concurrent": _lire(round(total, 1)),
         "profil": profil,
         "par_categorie": {k: {"obtenu": round(v["obtenu"], 1), "possible": v["possible"],

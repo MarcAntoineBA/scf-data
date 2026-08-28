@@ -16,6 +16,7 @@ Run manually: python3 fetch_l1_valuation.py [--force]
 """
 import calendar
 import json
+import struct
 import re
 import sys
 import time
@@ -232,12 +233,269 @@ def fetch_defillama_fees(chain_slug, retries=3):
 # rémunèrent les mineurs, aucun mécanisme ne les reverse aux détenteurs — et garde
 # son fees_m blockchain.info comme mesure d usage.
 # ──────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# BITTENSOR — lire la chaîne, parce qu'aucune source gratuite ne le fait
+#
+# DefiLlama expose bien une chaîne « Bittensor », mais ce qu'elle compte n'est PAS
+# la chaîne : ses 3,6 M$ de frais annuels sont le chiffre d'affaires de **Chutes**,
+# une application d'inférence hébergée sur un subnet. Sa propre méthodologie le dit
+# (« Revenue from Chutes serverless AI compute platform »). Un taux de captation
+# calculé là-dessus n'aurait décrit ni Bittensor ni TAO. Et taostats, la seule
+# autre source, exige une clé (HTTP 401).
+#
+# Bittensor n'a pas de frais de transaction au sens des autres L1. Le seul paiement
+# des utilisateurs au réseau est le **coût d'enregistrement** : le TAO qu'un mineur
+# ou un validateur dépose pour occuper un UID, et que subtensor **recycle** — il
+# quitte TotalIssuance et retourne au pool non émis. C'est un burn sous un autre
+# nom : aucun intermédiaire ne le touche, il bénéficie intégralement aux porteurs.
+# D'où un taux de captation de 100 % PAR CONSTRUCTION, sur un péage minuscule —
+# la nuance se lit dans la captation nette, pas dans le taux.
+#
+# Deux mesures ont été essayées, une seule tient :
+#   ✗ émission programmée − croissance de TotalIssuance. Depuis dTAO, le TAO non
+#     injecté dans les pools de subnets n'est JAMAIS créé : BlockEmission reste à
+#     1 TAO/bloc quand l'émission réelle en vaut la moitié. Cette mesure aurait
+#     compté 110 000 TAO/mois de « recyclage » là où il y en a 3 000 — un facteur 40.
+#   ✓ RAORecycledForRegistration, en deltas PAR SUBNET, positifs seulement. Le
+#     compteur est remis à zéro quand un subnet est désenregistré ; une somme
+#     agrégée perd alors la croissance des autres — mesuré : 26 578 TAO sur douze
+#     mois en agrégé contre 39 808 en deltas par subnet, un tiers de flux effacé.
+#
+# Les clés de stockage Substrate sont twox128(pallet) ++ twox128(item), et twox128
+# est fait de deux xxh64 (graines 0 et 1). Aucune bibliothèque xxhash n'est
+# installée sur les machines de collecte : on l'écrit, et on la VÉRIFIE contre le
+# préfixe connu du pallet System avant de s'en servir (cf. _tao_hachage_valide).
+# ──────────────────────────────────────────────────────────────
+TAO_RPC = "https://archive.chain.opentensor.ai:443"
+TAO_BLOCS_MOIS = 219_000          # 12 s par bloc
+TAO_MOIS = 12
+TAO_PREFIXE_SYSTEM = "26aa394eea5630e07c48ae0c9558cef7"   # twox128("System"), connu
+TAO_BASE_LIBELLE = "Péage d'accès — TAO d'enregistrement recyclé (lu sur la chaîne)"
+
+_XXH_P1 = 0x9E3779B185EBCA87
+_XXH_P2 = 0xC2B2AE3D27D4EB4F
+_XXH_P3 = 0x165667B19E3779F9
+_XXH_P4 = 0x85EBCA77C2B2AE63
+_XXH_P5 = 0x27D4EB2F165667C5
+_XXH_M = 0xFFFFFFFFFFFFFFFF
+
+
+def _xxh_rotl(x, r):
+    return ((x << r) | (x >> (64 - r))) & _XXH_M
+
+
+def _xxh_tour(acc, val):
+    acc = (acc + (val * _XXH_P2)) & _XXH_M
+    acc = _xxh_rotl(acc, 31)
+    return (acc * _XXH_P1) & _XXH_M
+
+
+def xxh64(data, seed=0):
+    n = len(data)
+    i = 0
+    if n >= 32:
+        v1 = (seed + _XXH_P1 + _XXH_P2) & _XXH_M
+        v2 = (seed + _XXH_P2) & _XXH_M
+        v3 = seed & _XXH_M
+        v4 = (seed - _XXH_P1) & _XXH_M
+        while i + 32 <= n:
+            v1 = _xxh_tour(v1, struct.unpack_from("<Q", data, i)[0])
+            v2 = _xxh_tour(v2, struct.unpack_from("<Q", data, i + 8)[0])
+            v3 = _xxh_tour(v3, struct.unpack_from("<Q", data, i + 16)[0])
+            v4 = _xxh_tour(v4, struct.unpack_from("<Q", data, i + 24)[0])
+            i += 32
+        h = (_xxh_rotl(v1, 1) + _xxh_rotl(v2, 7) + _xxh_rotl(v3, 12) + _xxh_rotl(v4, 18)) & _XXH_M
+        for v in (v1, v2, v3, v4):
+            h = ((h ^ _xxh_tour(0, v)) * _XXH_P1 + _XXH_P4) & _XXH_M
+    else:
+        h = (seed + _XXH_P5) & _XXH_M
+    h = (h + n) & _XXH_M
+    while i + 8 <= n:
+        h = (_xxh_rotl(h ^ _xxh_tour(0, struct.unpack_from("<Q", data, i)[0]), 27)
+             * _XXH_P1 + _XXH_P4) & _XXH_M
+        i += 8
+    if i + 4 <= n:
+        h = (_xxh_rotl(h ^ ((struct.unpack_from("<I", data, i)[0] * _XXH_P1) & _XXH_M), 23)
+             * _XXH_P2 + _XXH_P3) & _XXH_M
+        i += 4
+    while i < n:
+        h = (_xxh_rotl(h ^ ((data[i] * _XXH_P5) & _XXH_M), 11) * _XXH_P1) & _XXH_M
+        i += 1
+    h = (h ^ (h >> 33)) * _XXH_P2 & _XXH_M
+    h = (h ^ (h >> 29)) * _XXH_P3 & _XXH_M
+    return (h ^ (h >> 32)) & _XXH_M
+
+
+def twox128(nom):
+    b = nom.encode() if isinstance(nom, str) else nom
+    return struct.pack("<Q", xxh64(b, 0)) + struct.pack("<Q", xxh64(b, 1))
+
+
+def _tao_hachage_valide():
+    """Le hachage maison rend-il bien le préfixe connu du pallet System ?
+
+    Sans ce contrôle, une erreur d'implémentation produirait des clés de stockage
+    qui n'existent pas : la chaîne répondrait « rien » et on publierait un zéro
+    au lieu d'un N/A. Un faux chiffre est pire qu'une case vide.
+    """
+    return twox128("System").hex() == TAO_PREFIXE_SYSTEM
+
+
+def _tao_rpc(method, params=None, retries=3):
+    corps = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method,
+                        "params": params or []}).encode()
+    for essai in range(retries):
+        try:
+            req = Request(TAO_RPC, data=corps,
+                          headers={"Content-Type": "application/json", "User-Agent": UA})
+            with urlopen(req, timeout=45) as rep:
+                out = json.loads(rep.read().decode("utf-8"))
+            if "error" in out:
+                raise RuntimeError(out["error"])
+            return out["result"]
+        except Exception as e:
+            if essai < retries - 1:
+                time.sleep(2 ** (essai + 1))
+                continue
+            sys.stderr.write("[L1] TAO RPC %s : %s (final)\n" % (method, type(e).__name__))
+            return None
+    return None
+
+
+def _tao_u64(hexstr):
+    if not hexstr or hexstr == "0x":
+        return None
+    return struct.unpack("<Q", bytes.fromhex(hexstr[2:])[:8])[0]
+
+
+def _tao_map(item, bloc_hash):
+    """{clé de stockage: valeur} pour une map de SubtensorModule.
+
+    On énumère les clés réelles plutôt que de reconstruire celle de chaque netuid :
+    ça évite d'avoir à deviner le hacheur (Identity vs Twox64Concat) et ça suit les
+    subnets apparus entre deux dates.
+    """
+    prefixe = "0x" + (twox128("SubtensorModule") + twox128(item)).hex()
+    cles, depart = [], None
+    while True:
+        lot = _tao_rpc("state_getKeysPaged", [prefixe, 500, depart, bloc_hash])
+        if not lot:
+            break
+        cles += lot
+        depart = lot[-1]
+        if len(lot) < 500:
+            break
+    if not cles:
+        return None
+    out = {}
+    for i in range(0, len(cles), 200):
+        paquet = _tao_rpc("state_queryStorageAt", [cles[i:i + 200], bloc_hash])
+        if not paquet:
+            return None
+        for bloc in paquet:
+            for cle, val in bloc["changes"]:
+                out[cle] = _tao_u64(val) or 0
+    return out
+
+
+def _tao_prix_mensuels(cg_id="bittensor"):
+    """Cours moyen par mois, pour valoriser chaque mois de recyclage à son cours.
+
+    Tout valoriser au cours du jour donnerait un chiffre qui bouge avec le marché
+    sans qu'un seul TAO de plus n'ait été recyclé — et il ne serait pas comparable
+    aux frais DefiLlama des autres chaînes, qui sont sommés au fil de l'eau.
+    """
+    url = ("https://api.coingecko.com/api/v3/coins/%s/market_chart"
+           "?vs_currency=usd&days=365&interval=daily" % cg_id)
+    try:
+        d = http_get_json(url, timeout=45)
+    except Exception as e:
+        sys.stderr.write("[L1] TAO cours mensuels indisponibles : %s\n" % type(e).__name__)
+        return {}
+    par_mois = {}
+    for ts, p in d.get("prices", []):
+        am = time.gmtime(ts / 1000)[:2]
+        par_mois.setdefault(am, []).append(p)
+    return {k: sum(v) / len(v) for k, v in par_mois.items()}
+
+
+def fetch_captation_tao(prix_courant=None):
+    """Le péage d'accès de Bittensor sur douze mois, en dollars.
+
+    Renvoie le même triplet que fetch_captation — mais frais == revenu == détenteurs,
+    parce qu'il n'y a aucun intermédiaire entre le paiement et le retrait de supply.
+    Pas de courbe mensuelle : régresser une série sur elle-même ne dirait rien, et
+    le graphique de transmission écarte donc TAO.
+    """
+    if not _tao_hachage_valide():
+        sys.stderr.write("[L1] TAO : twox128 maison incorrect, captation abandonnée\n")
+        return None
+    entete = _tao_rpc("chain_getHeader")
+    if not entete:
+        return None
+    tete = int(entete["number"], 16)
+    prix = _tao_prix_mensuels()
+    cle_ts = "0x" + (twox128("Timestamp") + twox128("Now")).hex()
+
+    total_tao = 0.0
+    total_usd = 0.0
+    precedent = None
+    mois_vus = 0
+    for k in range(TAO_MOIS, -1, -1):
+        h = _tao_rpc("chain_getBlockHash", [tete - k * TAO_BLOCS_MOIS])
+        if not h:
+            return None
+        etat = _tao_map("RAORecycledForRegistration", h)
+        if etat is None:
+            return None
+        if precedent is not None:
+            # Deltas par subnet, négatifs écartés : un subnet désenregistré remet
+            # son compteur à zéro et masquerait la croissance de tous les autres.
+            gagne = sum(max(0, v - precedent.get(cle, 0)) for cle, v in etat.items()) / 1e9
+            ts = _tao_u64(_tao_rpc("state_getStorage", [cle_ts, h]))
+            am = time.gmtime(ts / 1000)[:2] if ts else None
+            p = (prix.get(am) if am else None) or prix_courant or 0
+            total_tao += gagne
+            total_usd += gagne * p
+            mois_vus += 1
+        precedent = etat
+
+    if mois_vus < 6 or total_usd <= 0:
+        sys.stderr.write("[L1] TAO : %d mois seulement / %.0f $, captation non publiée\n"
+                         % (mois_vus, total_usd))
+        return None
+    sys.stderr.write("[L1] TAO : %.0f TAO recyclés sur %d mois = %.2f M$\n"
+                     % (total_tao, mois_vus, total_usd / 1e6))
+    return {
+        "frais_usd": total_usd,
+        "revenu_usd": total_usd,
+        "detenteurs_usd": total_usd,
+        "frais_mensuel": None,
+        "detenteurs_mensuel": None,
+        "base": TAO_BASE_LIBELLE,
+        "tao_recycle": round(total_tao),
+    }
+
+
 SOURCE_CAPTATION = (
     "DefiLlama /overview/fees/<chain> lu trois fois — dataType=dailyFees, dailyRevenue, "
     "dailyHoldersRevenue (12 mois glissants, sinon 30 j × 12). Courbes mensuelles en UTC "
     "depuis totalDataChart, mois en cours écarté. BTC : captation nulle par construction "
     "(les frais rémunèrent les mineurs), usage mesuré par blockchain.info. "
-    "DOT : adaptateur muet (HTTP 500)."
+    "DOT : adaptateur muet (HTTP 500). "
+    "TAO : lu directement sur la chaîne (RPC public Bittensor, "
+    "SubtensorModule.RAORecycledForRegistration en deltas par subnet, valorisé au cours "
+    "moyen de chaque mois) — DefiLlama n'y compte que le chiffre d'affaires de Chutes, "
+    "une application."
+)
+
+BASE_CAPTATION_DEFAUT = "Frais réseau (DefiLlama)"
+
+NOTE_TAO_CAPTATION = (
+    "Bittensor n'a pas de frais de transaction : le seul paiement des utilisateurs au "
+    "réseau est le coût d'enregistrement d'un UID, que la chaîne recycle — il quitte le "
+    "supply émis. Aucun intermédiaire ne le touche, d'où une captation de 100 % par "
+    "construction. C'est la captation NETTE qui remet ce péage à son échelle."
 )
 
 NOTE_BTC_CAPTATION = (
@@ -1113,6 +1371,11 @@ def appliquer_captation(entry, capt, mcap_usd, infl, tok):
     entry["capt_detenteurs_m"] = round(h_usd / 1e6, 2) if h_usd is not None else None
     entry["capt_frais_mensuel"]      = capt.get("frais_mensuel")
     entry["capt_detenteurs_mensuel"] = capt.get("detenteurs_mensuel")
+    # Toutes les chaînes n'ont pas la même assiette. Sans ce libellé, le 100 % de
+    # TAO se lirait comme « meilleur que HYPE » alors que le péage mesuré n'est pas
+    # de même nature — un frais d'accès, pas un frais de transaction.
+    entry["capt_base"] = capt.get("base") or (BASE_CAPTATION_DEFAUT if capt else None)
+    entry["capt_tao_recycle"] = capt.get("tao_recycle")
 
     # Taux de captation : sur 100 $ payés par les utilisateurs, combien
     # atteignent le jeton. C est la grandeur qui sépare une chaîne très utilisée
@@ -1139,7 +1402,7 @@ def appliquer_captation(entry, capt, mcap_usd, infl, tok):
     # Garde-fou : capt_frais_m et fees_m viennent de deux appels séparés à la même
     # source. Un écart réel signale un changement d adaptateur en amont, pas un
     # arrondi — on veut le voir dans les logs avant de le voir sur la page.
-    if (tok != "BTC" and entry.get("fees_m") and entry.get("capt_frais_m")
+    if (tok not in ("BTC", "TAO") and entry.get("fees_m") and entry.get("capt_frais_m")
             and abs(entry["capt_frais_m"] - entry["fees_m"]) > 0.05 * entry["fees_m"]):
         sys.stderr.write("[L1] WARN %s frais divergents : fees_m=%s capt_frais_m=%s\n"
                          % (tok, entry["fees_m"], entry["capt_frais_m"]))
@@ -1193,7 +1456,7 @@ PRESERVE_FIELDS = ("fees_m", "tvl_b", "active_addresses_7d_avg",
                    # passager efface le framework ⑧ de la page pendant 4 h.
                    "capt_frais_m", "capt_revenu_m", "capt_detenteurs_m",
                    "capt_frais_mensuel", "capt_detenteurs_mensuel",
-                   "capt_pente_cents", "capt_r2")
+                   "capt_pente_cents", "capt_r2", "capt_base", "capt_tao_recycle")
 PRESERVE_MAX_HOURS = 48  # cap on how stale a preserved value can be
 
 
@@ -1256,6 +1519,9 @@ def captation_seule():
                     "revenu_usd": 0.0, "detenteurs_usd": 0.0,
                     "frais_mensuel": None, "detenteurs_mensuel": None}
             entry["capt_note"] = NOTE_BTC_CAPTATION
+        elif tok == "TAO":
+            capt = fetch_captation_tao(entry.get("price_usd"))
+            entry["capt_note"] = NOTE_TAO_CAPTATION if capt else None
         else:
             capt = fetch_captation(dl_chain)
             entry["capt_note"] = None
@@ -1315,6 +1581,9 @@ def main():
             capt = {"frais_usd": fees_usd, "revenu_usd": 0.0, "detenteurs_usd": 0.0,
                     "frais_mensuel": None, "detenteurs_mensuel": None}
             capt_note = NOTE_BTC_CAPTATION
+        elif tok == "TAO":
+            capt = fetch_captation_tao(cg.get("price_usd"))
+            capt_note = NOTE_TAO_CAPTATION if capt else None
         else:
             capt = fetch_captation(dl_chain)
             capt_note = None
