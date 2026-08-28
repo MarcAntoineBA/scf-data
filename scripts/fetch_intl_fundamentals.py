@@ -665,6 +665,31 @@ def _en_devise_etats(px_usd, date_iso, fx_dev, devise):
     return (px_usd / t) if (t and t > 0) else None
 
 
+def _cotation_vers_etats(px, dev_cot, dev_etats, fx):
+    """Un cours en devise de COTATION, ramené à la devise des ÉTATS.
+
+    Distincte de `_en_devise_etats`, qui part de dollars : la cotation de
+    `univers_actions.json` est en devise locale — 45,12 pour ERAMET, en euros.
+    Lui appliquer la conversion « depuis le dollar » diviserait un euro par le
+    taux de l'euro et donnerait un cours faux d'environ 8 %, assez petit pour
+    passer inaperçu et assez gros pour fausser tous les multiples.
+
+    Le passage se fait par le dollar, qui est le pivot du cache de change :
+    `fx[DEVISE][jour]` vaut ce qu'UNE unité de cette devise vaut en dollars.
+
+    Rend None si un taux manque — une case vide se voit, un multiple faux non.
+    """
+    if px is None or not dev_cot:
+        return None
+    if not dev_etats or dev_cot == dev_etats:
+        return px
+    t_cot = 1.0 if dev_cot == "USD" else _taux(fx.get(dev_cot), None)
+    t_eta = 1.0 if dev_etats == "USD" else _taux(fx.get(dev_etats), None)
+    if not (t_cot and t_eta and t_cot > 0 and t_eta > 0):
+        return None
+    return px * t_cot / t_eta
+
+
 def _cours_au(serie, fin_iso):
     if not serie:
         return None
@@ -794,12 +819,29 @@ def univers_marche(tranche=None, plafond=None):
         return {}
     with f.open(encoding="utf-8") as fh:
         u = json.load(fh)
-    # Le chemin de la source, par symbole.
-    chemins = {}
+    # Le chemin de la source, par symbole — ET LA COTATION.
+    #
+    # Le cours vivait jusqu'ici dans `tradfi_history_cache`, qui ne couvre que
+    # les quelque huit cents titres du tracker. Sur les 11 635 sociétés de la
+    # collecte de marché, 93,6 % n'avaient donc ni cours ni capitalisation :
+    # ni P/E, ni P/B, ni rendement, ni prix juste — la moitié de la fiche
+    # éteinte, sans que rien ne le signale. Mesuré le 28/08/2026 sur ERAMET,
+    # dont le cours (45,12 €) était pourtant à deux clés de là, dans
+    # `univers_actions.json`.
+    #
+    # Le cours y est en devise de COTATION, pas en dollars. C'est une bonne
+    # nouvelle — c'est ce qu'il faut pour la fiche — mais cela impose de le
+    # convertir autrement que la série du tracker, qui est en dollars. D'où
+    # `devise_cotation`, transporté avec lui : sans elle, on referait le bug
+    # Toyota à P/E 0,1, où un cours en yens rencontrait des états en dollars.
+    chemins, cotations = {}, {}
     for t in u.get("titres", []):
         sym = t.get("yahoo") or t.get("sa")
         if sym and t.get("principal"):
             chemins[sym] = t.get("sa")
+            px = t.get("cours")
+            if isinstance(px, (int, float)) and px > 0:
+                cotations[sym] = (px, (t.get("devise") or "").upper() or None)
 
     import glob as _glob
     lignes = []
@@ -827,7 +869,18 @@ def univers_marche(tranche=None, plafond=None):
         lignes = [x for k, x in enumerate(lignes) if k % n == i]
     out = {}
     for capi, sym, nom in lignes:
-        out[sym] = {"nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym)}
+        px, dev = cotations.get(sym, (None, None))
+        out[sym] = {
+            "nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym),
+            # `mcap` et non `capi_usd` seul : la boucle principale lit
+            # `meta.get("mcap")`, et lisait donc None sur tout l'univers de
+            # marché. La capitalisation était calculée, rangée, puis jamais
+            # relue — un écart d'un seul nom de clé, invisible parce qu'il ne
+            # produit aucune erreur, seulement des cases vides.
+            "mcap": capi or None,
+            "cours_cotation": px,
+            "devise_cotation": dev,
+        }
     return out
 
 
@@ -1007,6 +1060,15 @@ def main():
     print("[info] %s : %d titres" % (quoi, len(univers)))
     cours = charger_cours()
     fx = charger_fx()
+    # La date des cotations de l'univers. Elle date le cours de repli : sans
+    # elle, un cours d'il y a six jours se confondrait avec un cours du jour, et
+    # la conversion de change se ferait au mauvais taux.
+    jour_univers = None
+    try:
+        with (CACHE_DIR / "univers_actions.json").open(encoding="utf-8") as fh:
+            jour_univers = str((json.load(fh) or {}).get("updated") or "")[:10] or None
+    except Exception:
+        pass
 
     # Le réseau d'abord, tout entier, en parallèle. La construction ensuite,
     # séquentielle : elle ne gagnerait rien à être concurrente et touche des
@@ -1057,6 +1119,18 @@ def main():
         r["cours_natif"], r["cours_natif_le"] = _dernier_cours(cours.get(sym))
         r["cours_natif"] = _en_devise_etats(r["cours_natif"], r["cours_natif_le"],
                                            fx.get(devise_etats), devise_etats)
+        # Repli sur la cotation de l'univers. La série du tracker ne couvre que
+        # ses quelque huit cents titres ; l'univers en porte 46 992 sur 47 269
+        # cotations principales, soit 99,4 %. Sans ce repli, 93,6 % des sociétés
+        # de la collecte de marché n'avaient aucun cours — et donc ni P/E, ni
+        # P/B, ni rendement, ni prix juste.
+        r["cours_source"] = "tracker" if r["cours_natif"] is not None else None
+        if r["cours_natif"] is None:
+            r["cours_natif"] = _cotation_vers_etats(
+                meta.get("cours_cotation"), devise_cot, devise_etats, fx)
+            if r["cours_natif"] is not None:
+                r["cours_natif_le"] = jour_univers
+                r["cours_source"] = "univers"
         r["devise_cotation"] = devise_cot
         r["devises_alignees"] = brut["_devises_alignees"]
         r["frequence_publication"] = ctx.get("reportingFrequency")
