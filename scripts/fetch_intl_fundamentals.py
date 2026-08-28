@@ -363,6 +363,64 @@ def _nombre(v):
         return None
 
 
+def notes_historiques(exercices):
+    """La note de chaque exercice, en ne connaissant que ce qu'on savait alors.
+
+    ⚠ FONCTION NOMMÉE, ET NON UN BLOC AU MILIEU DE `construire()`.
+    Elle vivait là, donc elle n'était rejouable QUE par une collecte complète —
+    des heures, et sept jours de tranches pour couvrir l'univers. Le jour où le
+    barème change, les paquets déjà écrits gardent l'ancien : la même fiche
+    affiche alors deux définitions du même critère selon la nationalité de la
+    société. C'est arrivé le 28/08/2026 avec le critère du dividende, qui compte
+    désormais les années SANS BAISSE et s'appelait encore « années de hausse »
+    sur les dix-neuf mille paquets internationaux.
+
+    Sortie ici, elle se rejoue hors ligne sur les paquets existants, sans une
+    requête et sans qu'une seconde copie du calcul existe quelque part.
+    """
+    # La note dans le temps. Cinq exercices seulement : on ne la calcule qu'à
+    # partir du troisième, faute de quoi les médianes à cinq ans porteraient sur
+    # deux points et ne voudraient rien dire.
+    hist = []
+    for i in range(2, len(exercices)):
+        sous = exercices[:i + 1]
+        sd = sous[-1]
+        spa = lambda c: [(x["annee"], x.get(c)) for x in sous]
+        n = note_quantitative({
+            "roic_1a": sd.get("roic"),
+            "roic_5a": _mediane_fenetre([x.get("roic") for x in sous[-5:]], 5),
+            "roic_10a": _mediane_fenetre([x.get("roic") for x in sous[-10:]], 10),
+            "marge_brute": sd.get("marge_brute"), "marge_ope": sd.get("marge_ope"),
+            "marge_nette": sd.get("marge_nette"), "capex_ocf": sd.get("capex_ocf"),
+            "predictibilite": _predictibilite(spa("revenue")),
+            "annees_hausse_dividende": _serie_hausses_dividende(spa("dps")),
+            # Le critère NOTÉ est celui sans baisse ; sans cette ligne il serait
+            # muet sur chaque point de l'historique, et la note du passé
+            # deviendrait incomparable à celle d'aujourd'hui — un graphique qui
+            # monte parce qu'un critère s'est mis à compter, pas parce que la
+            # société s'est améliorée.
+            "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(spa("dps")),
+            "dette_ebitda_brut": sd.get("dette_ebitda_brut"),
+            "payout_benefices": sd.get("payout_benefices"),
+            "verse_dividende": bool(sd.get("dps") or sd.get("dividends_paid")),
+            "croissances": {"ca": _croissances(spa("ca_par_action")),
+                            "fcf": _croissances(spa("fcf_par_action")),
+                            "div": _croissances(spa("dps"))},
+        })
+        hist.append({"annee": sd["annee"], "note": n["note"],
+                     "note_ramenee": n["note_ramenee"],
+                     "criteres_notables": n["criteres_notables"],
+                     # Le nombre d'exercices dont ce calcul disposait. Même champ
+                     # que côté SEC, et pour la même raison : ici il vaut trois à
+                     # cinq, donc TOUTES ces notes reposent sur une série courte
+                     # où les médianes à cinq et dix ans sont bornées par la
+                     # longueur disponible. La fiche les affiche en demi-teinte
+                     # plutôt que de les faire passer pour des notes de même
+                     # solidité que celles d'un déposant de vingt ans.
+                     "n_exercices_connus": len(sous)})
+    return hist
+
+
 def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=None):
     res = brut["resultat"]
     dates = res.get("datekey") or []
@@ -634,46 +692,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
     }
     resume["note_q"] = note_quantitative(resume)
 
-    # La note dans le temps. Cinq exercices seulement : on ne la calcule qu'à
-    # partir du troisième, faute de quoi les médianes à cinq ans porteraient sur
-    # deux points et ne voudraient rien dire.
-    hist = []
-    for i in range(2, len(exercices)):
-        sous = exercices[:i + 1]
-        sd = sous[-1]
-        spa = lambda c: [(x["annee"], x.get(c)) for x in sous]
-        n = note_quantitative({
-            "roic_1a": sd.get("roic"),
-            "roic_5a": _mediane_fenetre([x.get("roic") for x in sous[-5:]], 5),
-            "roic_10a": _mediane_fenetre([x.get("roic") for x in sous[-10:]], 10),
-            "marge_brute": sd.get("marge_brute"), "marge_ope": sd.get("marge_ope"),
-            "marge_nette": sd.get("marge_nette"), "capex_ocf": sd.get("capex_ocf"),
-            "predictibilite": _predictibilite(spa("revenue")),
-            "annees_hausse_dividende": _serie_hausses_dividende(spa("dps")),
-            # Le critère NOTÉ est celui sans baisse ; sans cette ligne il serait
-            # muet sur chaque point de l'historique, et la note du passé
-            # deviendrait incomparable à celle d'aujourd'hui — un graphique qui
-            # monte parce qu'un critère s'est mis à compter, pas parce que la
-            # société s'est améliorée.
-            "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(spa("dps")),
-            "dette_ebitda_brut": sd.get("dette_ebitda_brut"),
-            "payout_benefices": sd.get("payout_benefices"),
-            "verse_dividende": bool(sd.get("dps") or sd.get("dividends_paid")),
-            "croissances": {"ca": _croissances(spa("ca_par_action")),
-                            "fcf": _croissances(spa("fcf_par_action")),
-                            "div": _croissances(spa("dps"))},
-        })
-        hist.append({"annee": sd["annee"], "note": n["note"],
-                     "note_ramenee": n["note_ramenee"],
-                     "criteres_notables": n["criteres_notables"],
-                     # Le nombre d'exercices dont ce calcul disposait. Même champ
-                     # que côté SEC, et pour la même raison : ici il vaut trois à
-                     # cinq, donc TOUTES ces notes reposent sur une série courte
-                     # où les médianes à cinq et dix ans sont bornées par la
-                     # longueur disponible. La fiche les affiche en demi-teinte
-                     # plutôt que de les faire passer pour des notes de même
-                     # solidité que celles d'un déposant de vingt ans.
-                     "n_exercices_connus": len(sous)})
+    hist = notes_historiques(exercices)
     resume["note_historique"] = hist
     return {"exercices": exercices, "resume": resume}
 

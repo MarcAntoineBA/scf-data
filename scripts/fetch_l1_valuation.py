@@ -266,6 +266,12 @@ def fetch_defillama_fees(chain_slug, retries=3):
 # installée sur les machines de collecte : on l'écrit, et on la VÉRIFIE contre le
 # préfixe connu du pallet System avant de s'en servir (cf. _tao_hachage_valide).
 # ──────────────────────────────────────────────────────────────
+# Seul le point d entree « archive » sert l etat d il y a un an : les deux autres
+# repondent « State already discarded » passe quelques jours (mesure du 28/08/2026).
+# Mais l archive est elle-meme derriere un repartiteur qui sert parfois un noeud
+# elague — d ou l insistance. Ne PAS basculer sur les autres URL en secours : elles
+# echoueraient a coup sur sur les blocs anciens, et chaque bascule est une tentative
+# perdue (quatre releves sur treize manquants au premier essai).
 TAO_RPC = "https://archive.chain.opentensor.ai:443"
 TAO_BLOCS_MOIS = 219_000          # 12 s par bloc
 TAO_MOIS = 12
@@ -341,23 +347,33 @@ def _tao_hachage_valide():
     return twox128("System").hex() == TAO_PREFIXE_SYSTEM
 
 
-def _tao_rpc(method, params=None, retries=3):
+def _tao_rpc(method, params=None, essais=8):
+    """Un appel JSON-RPC, insistant.
+
+    Le message d erreur est journalise EN ENTIER : la premiere version ne disait que
+    « RuntimeError », et il a fallu rejouer l appel a la main pour apprendre que le
+    repartiteur avait servi un noeud elague. Un log qui ne nomme pas la cause coute
+    une session.
+    """
     corps = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method,
                         "params": params or []}).encode()
-    for essai in range(retries):
+    dernier = ""
+    for essai in range(essais):
         try:
             req = Request(TAO_RPC, data=corps,
                           headers={"Content-Type": "application/json", "User-Agent": UA})
             with urlopen(req, timeout=45) as rep:
                 out = json.loads(rep.read().decode("utf-8"))
             if "error" in out:
-                raise RuntimeError(out["error"])
+                dernier = json.dumps(out["error"], ensure_ascii=False)[:180]
+                raise RuntimeError(dernier)
             return out["result"]
         except Exception as e:
-            if essai < retries - 1:
-                time.sleep(2 ** (essai + 1))
+            dernier = dernier or ("%s: %s" % (type(e).__name__, e))
+            if essai < essais - 1:
+                time.sleep(1.5 * (essai + 1))
                 continue
-            sys.stderr.write("[L1] TAO RPC %s : %s (final)\n" % (method, type(e).__name__))
+            sys.stderr.write("[L1] TAO RPC %s abandonne : %s\n" % (method, dernier))
             return None
     return None
 
@@ -407,10 +423,19 @@ def _tao_prix_mensuels(cg_id="bittensor"):
     """
     url = ("https://api.coingecko.com/api/v3/coins/%s/market_chart"
            "?vs_currency=usd&days=365&interval=daily" % cg_id)
-    try:
-        d = http_get_json(url, timeout=45)
-    except Exception as e:
-        sys.stderr.write("[L1] TAO cours mensuels indisponibles : %s\n" % type(e).__name__)
+    d = None
+    for essai in range(4):
+        try:
+            d = http_get_json(url, timeout=45)
+            break
+        except Exception as e:
+            if essai < 3:
+                time.sleep(4 * (essai + 1))
+                continue
+            sys.stderr.write("[L1] TAO cours mensuels indisponibles (%s) : le recyclage "
+                             "sera valorisé au cours du jour, pas mois par mois\n"
+                             % type(e).__name__)
+    if not d:
         return {}
     par_mois = {}
     for ts, p in d.get("prices", []):
@@ -441,13 +466,16 @@ def fetch_captation_tao(prix_courant=None):
     total_usd = 0.0
     precedent = None
     mois_vus = 0
+    manques = 0
     for k in range(TAO_MOIS, -1, -1):
         h = _tao_rpc("chain_getBlockHash", [tete - k * TAO_BLOCS_MOIS])
-        if not h:
-            return None
-        etat = _tao_map("RAORecycledForRegistration", h)
+        etat = _tao_map("RAORecycledForRegistration", h) if h else None
         if etat is None:
-            return None
+            # Un mois perdu ne fait pas tomber la mesure : le delta suivant se
+            # calcule contre le dernier etat connu et couvre alors deux mois. La
+            # somme telescope, seule la valorisation perd un peu de finesse.
+            manques += 1
+            continue
         if precedent is not None:
             # Deltas par subnet, négatifs écartés : un subnet désenregistré remet
             # son compteur à zéro et masquerait la croissance de tous les autres.
@@ -461,11 +489,11 @@ def fetch_captation_tao(prix_courant=None):
         precedent = etat
 
     if mois_vus < 6 or total_usd <= 0:
-        sys.stderr.write("[L1] TAO : %d mois seulement / %.0f $, captation non publiée\n"
+        sys.stderr.write("[L1] TAO : %d intervalle(s) seulement / %.0f $, captation non publiée\n"
                          % (mois_vus, total_usd))
         return None
-    sys.stderr.write("[L1] TAO : %.0f TAO recyclés sur %d mois = %.2f M$\n"
-                     % (total_tao, mois_vus, total_usd / 1e6))
+    sys.stderr.write("[L1] TAO : %.0f TAO recyclés sur %d intervalle(s) (%d relevé(s) manquant(s)) "
+                     "= %.2f M$\n" % (total_tao, mois_vus, manques, total_usd / 1e6))
     return {
         "frais_usd": total_usd,
         "revenu_usd": total_usd,
