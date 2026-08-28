@@ -51,7 +51,7 @@ def main():
         return 2
 
     t0 = time.time()
-    small, big, absent, retires, fondus = run_jobs.collect(manifest)
+    small, big, absent, retires, fondus, perimes = run_jobs.collect(manifest)
     ecrits = set(small) | set(big)
 
     print("%d fichier(s) acheminé(s) en %.1f s : %d versionné(s), %d en pièce jointe"
@@ -59,6 +59,15 @@ def main():
     if absent:
         print("  %d absent(s) du cache local : %s%s"
               % (len(absent), ", ".join(absent[:8]), " …" if len(absent) > 8 else ""))
+    if perimes:
+        # Le refus le plus important pour ce poste : il ne fait pas tourner tous
+        # les collecteurs, donc ses caches sont parfois plus vieux que ceux du
+        # dépôt. Publier reviendrait à remonter le temps.
+        print("  ! %d fichier(s) PLUS ANCIENS que la copie du dépôt, non publiés :"
+              % len(perimes))
+        for x in perimes[:10]:
+            print("      %s" % x)
+
     if fondus:
         # Le refus est le comportement voulu, mais il doit se VOIR : c'est en
         # laissant cet avertissement au milieu de cinq cents lignes de journal

@@ -27,6 +27,7 @@ import filecmp
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -491,6 +492,28 @@ def run_one(job, timeout):
                     code=None, why=_sans_chemin_perso(f"{type(e).__name__}: {e}")[:200])
 
 
+_CLES_DATE = ("updated", "generated_at", "genere_le", "last_update", "updated_at")
+
+
+def _horodatage_interne(chemin):
+    """La date que le fichier se donne à lui-même, ou None.
+
+    On lit le DÉBUT du fichier : ces caches portent leur horodatage dans leurs
+    premières lignes, et un cache de plusieurs mégaoctets n'a pas à être chargé
+    en entier pour être daté.
+    """
+    try:
+        with open(chemin, encoding="utf-8", errors="replace") as fh:
+            debut = fh.read(3000)
+    except OSError:
+        return None
+    for cle in _CLES_DATE:
+        m = re.search(r'"%s"\s*:\s*"(\d{4}-\d{2}-\d{2}[^"]*)"' % cle, debut)
+        if m:
+            return m.group(1)
+    return None
+
+
 def collect(manifest):
     """Range les fichiers du manifeste qui ont RÉELLEMENT changé, selon leur poids.
 
@@ -504,7 +527,7 @@ def collect(manifest):
     Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
     os.makedirs(RELEASE_OUT, exist_ok=True)
-    small, big, absent, retires, fondus = [], [], [], [], []
+    small, big, absent, retires, fondus, perimes = [], [], [], [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
@@ -543,6 +566,26 @@ def collect(manifest):
                 fondus.append(f"{name} ({avant//1024} Ko → {taille//1024} Ko)")
                 continue          # ← on NE PUBLIE PAS : la copie du dépôt reste
 
+            # ── ET LA FRAÎCHEUR, PAS SEULEMENT LE POIDS ──
+            # La garde ci-dessus ne voit qu'un appauvrissement. Un fichier PÉRIMÉ
+            # de même taille passait donc en silence. Mesuré le 28/08/2026 : trois
+            # collecteurs SEC — initiés, rachats, gérants 13F — publiaient une
+            # donnée du 16 août, douze jours de retard, alors que le runner les
+            # produit chaque nuit. La cause était un acheminement lancé depuis le
+            # PC, dont le cache local datait du 16 et pesait exactement pareil.
+            #
+            # Ce poste ne fait pas tourner tous les collecteurs : ses caches
+            # vieillissent pendant que ceux du runner avancent, et chaque
+            # acheminement risque de remonter le temps.
+            #
+            # On ne refuse que si les DEUX versions se datent elles-mêmes : sans
+            # horodatage, la garde de poids reste seule juge, comme avant.
+            h_neuf = _horodatage_interne(src)
+            h_vieux = _horodatage_interne(ancien)
+            if h_neuf and h_vieux and h_neuf < h_vieux:
+                perimes.append(f"{name} ({h_vieux[:16]} → {h_neuf[:16]})")
+                continue          # ← on NE PUBLIE PAS : le dépôt est plus frais
+
         # Un fichier peut changer de camp (il grossit avec l'historique qu'il accumule) :
         # on nettoie l'ancienne place, sinon le site continuerait de lire une copie
         # figée pendant que la nouvelle est publiée ailleurs.
@@ -556,7 +599,7 @@ def collect(manifest):
             continue
         shutil.copy2(src, dst)
         (big if heavy else small).append(name)
-    return small, big, absent, retires, fondus
+    return small, big, absent, retires, fondus, perimes
 
 
 def main():
@@ -612,7 +655,7 @@ def main():
             results += list(ex.map(lambda j: run_one(j, timeout), vague))
     elapsed = round(time.time() - t0, 1)
 
-    small, big, absent, retires, fondus = collect(manifest)
+    small, big, absent, retires, fondus, perimes = collect(manifest)
     changed = small + big
 
     # ── QUI A TRAVAILLÉ, QUI S'EST CONTENTÉ DE RÉPONDRE ───────────────────────
@@ -653,6 +696,16 @@ def main():
         print("    (soit le collecteur a perdu sa base de fusion, soit ce poste "
               "n'a pas accès à toute la source ; dans les deux cas la version "
               "du dépôt est la plus riche, et c'est elle qu'on garde)")
+    if perimes:
+        # Un fichier PÉRIMÉ de même poids passait sous la garde de taille. Ce
+        # refus-là doit se voir autant que l'autre : c'est celui qui a laissé
+        # trois collecteurs SEC publier douze jours de retard.
+        print(f"  ! {len(perimes)} fichier(s) PLUS ANCIENS que la copie du dépôt, "
+              f"non publiés : " + ", ".join(perimes[:6])
+              + (" …" if len(perimes) > 6 else ""))
+        print("    (ce poste ne fait pas tourner tous les collecteurs ; ses caches "
+              "vieillissent pendant que ceux du runner avancent)")
+
     if muets:
         # Sorti en succès, n'a rien écrit. Ni erreur ni collecte : exactement la
         # forme que prend une panne quand personne ne la regarde.
