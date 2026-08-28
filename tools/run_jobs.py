@@ -521,12 +521,27 @@ def collect(manifest):
         # rien pour le dire : la publication réussissait, le collecteur sortait en
         # succès, seule la profondeur des graphes du site avait disparu. Un tiers de
         # perte n'arrive pas par le jeu normal de la donnée ; on le nomme.
+        #
+        # ⚠ ET ON REFUSE, on ne se contente plus de NOMMER. Mesuré le 28/08/2026 :
+        # un acheminement lancé depuis le PC a écrasé 93 caches du dépôt par des
+        # versions plus pauvres — l'archive d'open interest passée de 135 à 67 Ko,
+        # le calendrier macro de 53 à 12 Ko. L'avertissement était bien imprimé,
+        # au milieu de cinq cents lignes de journal, et la publication a réussi.
+        #
+        # La cause : ce poste ne collecte qu'une partie du parc. Plusieurs
+        # sources lui sont fermées — la cotation Yahoo bride son adresse — et ses
+        # collecteurs à cadence rapide réécrivent donc des fichiers appauvris
+        # toutes les cinq minutes. Comparer les CONTENUS, comme le faisait cette
+        # fonction, ne peut pas distinguer « plus frais » de « plus pauvre ».
+        #
+        # Un refus est visible et se corrige ; un appauvrissement silencieux, non.
         ancien = next((p for p in (os.path.join(CACHE_OUT, name),
                                    os.path.join(RELEASE_OUT, name)) if os.path.exists(p)), None)
         if ancien:
             avant = os.path.getsize(ancien)
             if avant > 50_000 and taille < avant * 0.66:
                 fondus.append(f"{name} ({avant//1024} Ko → {taille//1024} Ko)")
+                continue          # ← on NE PUBLIE PAS : la copie du dépôt reste
 
         # Un fichier peut changer de camp (il grossit avec l'historique qu'il accumule) :
         # on nettoie l'ancienne place, sinon le site continuerait de lire une copie
@@ -632,9 +647,12 @@ def main():
         print(f"  {len(absent)} fichier(s) du manifeste jamais produit(s) : "
               + ", ".join(absent[:8]) + (" …" if len(absent) > 8 else ""))
     if fondus:
-        print(f"  ! {len(fondus)} fichier(s) ont FONDU d'un tiers ou plus — base de "
-              f"fusion probablement perdue : " + ", ".join(fondus[:6])
-              + (" …" if len(fondus) > 6 else ""))
+        print(f"  ! {len(fondus)} fichier(s) ont FONDU d'un tiers ou plus et n'ont "
+              f"PAS été publiés — la copie du dépôt reste en place : "
+              + ", ".join(fondus[:6]) + (" …" if len(fondus) > 6 else ""))
+        print("    (soit le collecteur a perdu sa base de fusion, soit ce poste "
+              "n'a pas accès à toute la source ; dans les deux cas la version "
+              "du dépôt est la plus riche, et c'est elle qu'on garde)")
     if muets:
         # Sorti en succès, n'a rien écrit. Ni erreur ni collecte : exactement la
         # forme que prend une panne quand personne ne la regarde.
