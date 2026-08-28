@@ -623,7 +623,7 @@ def devise_du_deposant(facts):
     return max(couverture, key=lambda u: (couverture[u], points.get(u, 0)))
 
 
-def _annuels(facts, concept_noms, instant=False, devise=None):
+def _annuels(facts, concept_noms, instant=False, devise=None, millesimes=False):
     """{date_de_fin: (valeur, accn, date_de_depot)} pour les exercices publiés.
 
     ⚠ RECOUDRE LES ÉTIQUETTES, NE PAS EN CHOISIR UNE.
@@ -768,14 +768,68 @@ def _annuels(facts, concept_noms, instant=False, devise=None):
             depose = p.get("filed") or ""
             prec = out.get(fin)
             if prec is None:
-                out[fin] = (float(val), p.get("accn"), depose, rang)
+                # Cinquième et sixième places : la valeur la plus ANCIENNE pour
+                # cette étiquette, et sa date de dépôt. Un exercice déjà déposé
+                # ne change jamais de nombre d'actions — SAUF division. Leur
+                # rapport est donc le facteur exact, là où le comparer à
+                # l'exercice voisin oblige à deviner.
+                out[fin] = [float(val), p.get("accn"), depose, rang, float(val), depose]
             elif rang < prec[3]:
-                # étiquette plus spécifique pour la même date : elle l'emporte
-                out[fin] = (float(val), p.get("accn"), depose, rang)
-            elif rang == prec[3] and depose >= prec[2]:
-                # même étiquette, dépôt plus récent : c'est le chiffre corrigé
-                out[fin] = (float(val), p.get("accn"), depose, rang)
+                # étiquette plus spécifique pour la même date : elle l'emporte,
+                # et l'on repart de zéro pour les millésimes — comparer deux
+                # étiquettes différentes ne mesure rien.
+                out[fin] = [float(val), p.get("accn"), depose, rang, float(val), depose]
+            elif rang == prec[3]:
+                if depose >= prec[2]:
+                    # même étiquette, dépôt plus récent : c'est le chiffre corrigé
+                    prec[0], prec[1], prec[2] = float(val), p.get("accn"), depose
+                if depose < prec[5]:
+                    prec[4], prec[5] = float(val), depose
+    if millesimes:
+        return {k: (v[0], v[1], v[2], v[4], v[5]) for k, v in out.items()}
     return {k: (v[0], v[1], v[2]) for k, v in out.items()}
+
+
+def facteurs_de_division(facts, devise=None):
+    """Les facteurs de division LUS dans les millésimes, par date de fin d'exercice.
+
+    Un exercice déjà déposé ne change jamais de nombre d'actions, sauf division.
+    Le rapport entre la valeur la plus récemment déposée et la plus ancienne EST
+    donc le facteur — sans tolérance à régler, sans exercice voisin à interroger.
+
+    O'Reilly exercice 2023 : 60 998 000 actions dans les dépôts de 2024 et 2025,
+    puis 914 976 000 dans celui de 2026. Rapport 15,0001.
+
+    ⚠ TROIS GARDES, dont une SANS LAQUELLE CE REMÈDE DÉTRUIT CSX :
+
+      · `_facteur_division` PLAFONNE. CSX exercice 2008 donne un rapport de
+        1000,0000 et 2009 de 2999,85 : ses vieux dépôts expriment les actions en
+        MILLIERS, pas en unités. Sans ce plafond, on multiplierait CSX par mille.
+      · l'étiquette doit être la MÊME des deux côtés — `_annuels` s'en charge en
+        repartant de zéro quand une étiquette plus spécifique l'emporte.
+      · la tolérance reste utile : 15,0001 et 3,0013 doivent s'arrondir.
+
+    LE BÉNÉFICE PAR ACTION EN SECOURS. Alphabet n'a aucun nombre d'actions de
+    2013 à 2021 — elle les balise par catégorie A/B/C et l'API jette les faits
+    dimensionnés. Le BPA, lui, porte l'information : exercice 2020 à 58,61 puis
+    2,93, rapport 20,0034. Il varie à l'INVERSE des actions, d'où l'inversion.
+    """
+    out = {}
+    for cle, inverse in (("shares_diluted", False), ("eps_diluted", True)):
+        serie = _annuels(facts, CONCEPTS[cle], devise=devise, millesimes=True)
+        for fin, v in serie.items():
+            if fin in out:
+                continue          # le nombre d'actions a la priorité
+            recente, _, _, ancienne, _ = v
+            if not ancienne or not recente:
+                continue
+            r = (ancienne / recente) if inverse else (recente / ancienne)
+            if r <= 1.0:
+                continue
+            f = _facteur_division(r)
+            if f is not None:
+                out[fin] = (f, cle)
+    return out
 
 
 def _val(serie, fin):
@@ -1325,7 +1379,14 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
 
     # Les divisions d'action enfin : tout ce qui suit se calcule « par action »
     # et serait faux sur une série non recousue.
-    divisions = _corriger_divisions(exercices)
+    # Les facteurs LUS dans les millesimes, quand les depots en portent. Ils
+    # REMPLACENT l inference : le rapport entre deux depots d un meme exercice est
+    # exact, celui entre deux exercices voisins vaut « facteur x derive de
+    # l annee » — et c est cette derive qui faisait rater O Reilly d un dixieme
+    # de point de tolerance, CSX d un rachat, Tesla d une dilution.
+    divisions = _corriger_divisions(
+        exercices,
+        facteurs_lus={fin: f for fin, (f, _src) in facteurs_de_division(facts, devise).items()})
 
     # ── SECOND PASSAGE : les rendements, sur CAPITAUX MOYENS ────────────────
     # Un rendement rapporte un FLUX de l'année (le résultat) à un STOCK (les

@@ -623,7 +623,7 @@ def _facteur_division(r):
     return None
 
 
-def _corriger_divisions(exercices):
+def _corriger_divisions(exercices, facteurs_lus=None):
     """Recoud les séries PAR ACTION que les divisions d'action coupent en deux.
 
     LE PIÈGE, ET IL EST SILENCIEUX. La SEC conserve les dépôts TELS QU'ILS ONT
@@ -651,6 +651,75 @@ def _corriger_divisions(exercices):
     evenements = []
     cumul = 1.0
     facteurs = [1.0] * n          # facteur à appliquer au NOMBRE D'ACTIONS de l'année
+
+    # ── QUAND LES MILLÉSIMES PARLENT, ON NE DEVINE PLUS ──
+    #
+    # `facteurs_lus` vient des dépôts eux-mêmes : {date_de_fin: facteur}, où un
+    # facteur signifie que CET exercice a été retraité. Le rapport entre deux
+    # dépôts d'un même exercice EST le facteur — alors que le rapport entre deux
+    # exercices voisins vaut « facteur × dérive de l'année », et c'est cette
+    # dérive qui faisait rater O'Reilly d'un dixième de point de tolérance.
+    #
+    # Les exercices à corriger sont ceux qui PRÉCÈDENT le plus ancien retraité :
+    # eux seuls sont restés sur l'ancienne base.
+    #
+    # ⚠ ET L'ON N'INFÈRE PLUS DU TOUT. Garder les deux compterait le même
+    # événement deux fois : chez O'Reilly, ×15 par les millésimes et ×15 par le
+    # saut de 2022 à 2023, soit ×225.
+    if facteurs_lus:
+        # ── DEUX DIVISIONS DU MÊME FACTEUR SONT DEUX ÉVÉNEMENTS ──
+        #
+        # Regrouper par valeur les confondrait : CSX a divisé par trois en 2011
+        # ET en 2021, et ses quatre dates portant le facteur 3 se réduisaient à
+        # un seul événement daté de 2009 — la division de 2021 disparaissait,
+        # douze exercices restaient faux.
+        #
+        # Une division retraite les deux ou trois exercices les plus récents au
+        # moment du dépôt : les dates d'un même événement sont donc CONTIGUËS. On
+        # coupe à quatre ans, au-delà desquels plus aucun 10-K ne retraite.
+        par_facteur = {}
+        for fin, f in facteurs_lus.items():
+            par_facteur.setdefault(f, []).append(fin)
+        grappes = []                      # [(facteur, date la plus ancienne)]
+        for f, dates in par_facteur.items():
+            dates.sort()
+            debut = dates[0]
+            prec = dates[0]
+            for d in dates[1:]:
+                # Quatre ans d'écart : ce n'est plus le même retraitement.
+                if d[:4].isdigit() and prec[:4].isdigit() and \
+                        int(d[:4]) - int(prec[:4]) > 4:
+                    grappes.append((f, debut))
+                    debut = d
+                prec = d
+            grappes.append((f, debut))
+
+        for i, e in enumerate(exercices):
+            fin = e.get("fin") or ""
+            c = 1.0
+            for f, d in grappes:
+                if fin and fin < d:
+                    c *= f
+            facteurs[i] = c
+        evenements = [{"entre": None, "et": None, "facteur": f,
+                       "source": "millésimes", "depuis": d}
+                      for f, d in sorted(grappes, key=lambda t: t[1])]
+        cumul = max(facteurs) if facteurs else 1.0
+        if cumul == 1.0:
+            return []
+        for i, e in enumerate(exercices):
+            f = facteurs[i]
+            if f == 1.0:
+                continue
+            for cle in ("shares_diluted", "shares_basic"):
+                if e.get(cle) is not None:
+                    e[cle] = e[cle] * f
+            for cle in ("eps_diluted", "eps_basic", "dps"):
+                if e.get(cle) is not None:
+                    e[cle] = e[cle] / f
+            e["_facteur_division"] = round(f, 4)
+        return evenements
+
     for i in range(n - 1, 0, -1):
         a, b = exercices[i - 1], exercices[i]
         sa, sb = a.get("shares_diluted"), b.get("shares_diluted")
