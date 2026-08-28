@@ -150,9 +150,34 @@ def _get(url, accept_404=False):
 # la formulation la plus spécifique.
 CONCEPTS = {
     # ── Compte de résultat (durée) ──
+    # ⚠ LES SOCIÉTÉS CHANGENT D'ÉTIQUETTE, ET LA SÉRIE S'ARRÊTE SANS RIEN DIRE.
+    #
+    # Mesuré le 28/08/2026 à la source : 154 sociétés avaient un dernier exercice
+    # plus ancien dans notre paquet SEC que dans le paquet international, dont 84
+    # avec au moins trois ans de retard et 53 valant plus d'un milliard de dollars.
+    # La fiche d'Agnico Eagle affichait 640 M$ de chiffre d'affaires pour une
+    # société qui en fait 11,9 milliards — les chiffres de 2009, seize ans plus
+    # tôt, sans que rien à l'écran ne dise leur âge.
+    #
+    # La cause n'était ni un filtre ni une taxonomie manquante : c'est que ces
+    # sociétés ont CESSÉ d'employer l'étiquette qu'on leur demandait.
+    #   · Agnico Eagle : `us-gaap:Revenues` s'arrête en 2009 ; elle publie depuis
+    #     sous `ifrs-full:Revenue`, qui va jusqu'à 2025 — dix-huit exercices.
+    #   · Morgan Stanley : `Revenues` s'arrête en 2014 ; elle publie depuis sous
+    #     `RevenuesNetOfInterestExpense`, jusqu'à 2025. Wells Fargo pareil, en 2019.
+    #     Une banque ne présente pas un « chiffre d'affaires » mais un produit net
+    #     bancaire, et l'étiquette américaine a suivi.
+    #
+    # On les ajoute donc toutes. La recouture existante fait le reste : elle prend
+    # la première étiquette qui renseigne une date, dans l'ordre de cette liste,
+    # et les dates que la première ne couvre pas sont servies par les suivantes.
     "revenue": ["RevenueFromContractWithCustomerExcludingAssessedTax",
                 "RevenueFromContractWithCustomerIncludingAssessedTax",
-                "Revenues", "SalesRevenueNet", "SalesRevenueGoodsNet"],
+                "Revenues", "SalesRevenueNet", "SalesRevenueGoodsNet",
+                # Les banques et courtiers : produit net, intérêts déduits.
+                "RevenuesNetOfInterestExpense",
+                # Les déposants passés aux normes internationales.
+                "Revenue", "RevenueFromContractsWithCustomers"],
     "cogs": ["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold",
              "CostOfServices"],
     "gross_profit": ["GrossProfit"],
@@ -198,8 +223,14 @@ CONCEPTS = {
     "assets_current": ["AssetsCurrent"],
     "liabilities": ["Liabilities"],
     "liabilities_current": ["LiabilitiesCurrent"],
+    # `Equity` et `EquityAttributableToOwnersOfParent` sont les noms des normes
+    # internationales. Sans eux, les déposants passés aux IFRS — Agnico Eagle,
+    # Vale, Petrobras, Alcon — rendaient des capitaux propres vides, et avec eux
+    # le rendement des capitaux, la valeur comptable par action, l'Altman Z et le
+    # coût du capital. Un poste manquant en emporte six.
     "equity": ["StockholdersEquity",
-               "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+               "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+               "EquityAttributableToOwnersOfParent", "Equity"],
     # ── Les deux postes qui manquaient au bilan, et qui l'empêchaient de
     #    s'équilibrer ──
     # Mesuré le 28/08/2026 : sur 27 732 bilans américains complets, 19,3 %
@@ -281,7 +312,74 @@ INSTANTS = {"assets", "assets_current", "liabilities", "liabilities_current",
 FORMES_ANNUELLES = ("10-K", "20-F", "40-F")
 
 
-def _annuels(facts, concept_noms, instant=False):
+# Les devises rencontrées pendant la construction d'UNE société. Remise à zéro
+# par `construire`, lue à la fin pour écrire `resume["devise"]`.
+#
+# Un accumulateur de module plutôt qu'une valeur de retour : `_annuels` est
+# appelée une fois par concept — quarante fois par société — et lui faire rendre
+# un couple obligerait à modifier quarante points d'appel pour une information
+# qui ne varie pas d'un concept à l'autre.
+#
+# ⚠ Le collecteur est SÉQUENTIEL (un débit de 0,11 s entre requêtes, pas de fils
+# d'exécution). Un accumulateur partagé serait dangereux dans un pool de threads ;
+# ici il ne l'est pas, et le collecteur international, lui, ne s'en sert pas.
+_DEVISES_VUES = set()
+
+
+def devise_du_deposant(facts):
+    """La devise dans laquelle CE déposant publie ses montants.
+
+    Décidée UNE fois pour toute la société, puis imposée à chaque concept.
+
+    Sans cette décision commune, chaque concept choisissait son unité dans son
+    coin : LG Display rendait un chiffre d'affaires en wons et des capitaux
+    propres en dollars, dans le même tableau, sans que rien ne le dise. Deux
+    nombres justes qui, mis côte à côte, en font un faux — c'est la forme
+    d'erreur que ce dépôt a déjà payée plusieurs fois.
+
+    Le dollar l'emporte dès qu'il apparaît sur un poste principal : les déposants
+    étrangers publient leurs deux colonnes dans le même document, et c'est celle
+    en dollars qui se compare au reste de l'univers.
+    """
+    # On choisit sur la COUVERTURE DES POSTES, pas sur la simple présence du
+    # dollar. Une première version prenait le dollar dès qu'il apparaissait
+    # quelque part : LG Display, qui ne le publie que sur un poste, se retrouvait
+    # amputée de onze exercices sur douze — la règle censée corriger un défaut en
+    # créait un pire. Cinq autres sociétés y perdaient leurs capitaux propres.
+    #
+    # La bonne question n'est pas « le dollar existe-t-il ? » mais « le dollar
+    # porte-t-il AUTANT DE POSTES que la monnaie locale ? ». S'il les porte tous,
+    # c'est la colonne comparable et on la prend. Sinon la société ne publie
+    # qu'en local, et il faut le dire plutôt que de l'amputer.
+    postes = (("Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax",
+               "Revenue", "RevenuesNetOfInterestExpense"),
+              ("Assets",),
+              ("StockholdersEquity", "Equity",
+               "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"),
+              ("NetIncomeLoss", "ProfitLoss"))
+    couverture, points = {}, {}
+    for groupe in postes:
+        vues_groupe = set()
+        for espace in ("us-gaap", "ifrs-full"):
+            bloc = facts.get(espace) or {}
+            for nom in groupe:
+                for u, pts in ((bloc.get(nom) or {}).get("units") or {}).items():
+                    if u.isalpha() and len(u) == 3:
+                        vues_groupe.add(u)
+                        points[u] = points.get(u, 0) + len(pts)
+        for u in vues_groupe:
+            couverture[u] = couverture.get(u, 0) + 1
+    if not couverture:
+        return None
+    meilleure = max(couverture.values())
+    if couverture.get("USD", 0) >= meilleure:
+        return "USD"
+    # Sinon : la devise qui couvre le plus de postes, départagée par le nombre de
+    # points quand deux monnaies en couvrent autant.
+    return max(couverture, key=lambda u: (couverture[u], points.get(u, 0)))
+
+
+def _annuels(facts, concept_noms, instant=False, devise=None):
     """{date_de_fin: (valeur, accn, date_de_depot)} pour les exercices publiés.
 
     ⚠ RECOUDRE LES ÉTIQUETTES, NE PAS EN CHOISIR UNE.
@@ -306,18 +404,85 @@ def _annuels(facts, concept_noms, instant=False):
         jours). Sans ce filtre, les cumuls de neuf mois entrent dans la série
         annuelle et y dessinent de fausses chutes de 25 %.
     """
+    # ── DEUX TAXONOMIES, PAS UNE ──
+    #
+    # On ne lisait que `us-gaap`. Or un déposant étranger — formulaire 20-F ou
+    # 40-F — publie sous `ifrs-full` dès qu'il passe aux normes internationales,
+    # ce que beaucoup ont fait entre 2010 et 2013. Sa série s'arrêtait donc net à
+    # la date du basculement, sans erreur, sans case vide : juste un dernier
+    # exercice qui cesse de bouger.
+    #
+    # Mesuré le 28/08/2026 : 154 sociétés avaient un dernier exercice PLUS ANCIEN
+    # dans le paquet SEC que dans le paquet international, dont 84 avec au moins
+    # trois ans de retard, et 53 valant plus d'un milliard de dollars — 1 568 Md$
+    # de capitalisation cumulée. Agnico Eagle s'arrêtait en 2009 : la fiche
+    # affichait 640 M$ de chiffre d'affaires pour une société qui en fait 11,9 Md$.
+    # Même cas pour Petrobras, Vale, Itaú, Bradesco, Barrick, Alcon, LG Display.
+    #
+    # `us-gaap` reste PRIORITAIRE : quand les deux taxonomies portent le même
+    # concept, c'est la version américaine qui fait foi pour un déposant
+    # américain — mais on ne CHOISIT pas entre les deux : on les RECOUD, exactement
+    # comme on recoud les étiquettes.
+    #
+    # Une première version écrivait `us.get(nom) or ifrs.get(nom)`. C'était le même
+    # défaut d'un cran plus loin : Agnico Eagle porte `Assets` dans les DEUX
+    # taxonomies — jusqu'à 2009 sous `us-gaap`, jusqu'à 2025 sous `ifrs-full` — et
+    # le `or` retenait la première, donc la périmée. L'actif restait vide de 2010
+    # à 2025 pour six sociétés, et avec lui le rendement de l'actif, le ratio
+    # d'écarts d'acquisition et l'équilibre du bilan.
     us = facts.get("us-gaap") or {}
+    ifrs = facts.get("ifrs-full") or {}
     out = {}          # fin -> (valeur, accn, depose, rang_du_concept)
+    # Chaque (taxonomie, nom) est une source distincte. L'ordre place `us-gaap`
+    # avant `ifrs-full` à rang égal : pour une date que les deux couvrent, la
+    # version américaine fait foi chez un déposant américain.
+    sources = []
     for rang, nom in enumerate(concept_noms):
-        bloc = us.get(nom)
-        if not bloc:
-            continue
+        if nom in us:
+            sources.append((rang * 2, us[nom]))
+        if nom in ifrs:
+            sources.append((rang * 2 + 1, ifrs[nom]))
+    for rang, bloc in sources:
         unites = bloc.get("units") or {}
-        # L'unité la plus peuplée (USD, USD/shares, shares…). Les autres sont des
-        # doublons en devise étrangère ou des unités marginales.
-        cle_unite = max(unites, key=lambda u: len(unites[u]), default=None)
-        if not cle_unite:
+        # ── LE CHOIX DE L'UNITÉ, ET POURQUOI IL NE PEUT PAS ÊTRE « LA PLUS PEUPLÉE » ──
+        #
+        # Cette ligne prenait l'unité la plus peuplée, en supposant que les
+        # autres seraient « des doublons en devise étrangère ». C'est l'inverse
+        # pour un déposant ÉTRANGER : sa devise de publication est l'unité la
+        # plus fournie, et le dollar la minoritaire.
+        #
+        # Mesuré le 28/08/2026 à la source (companyfacts de Nebius, CIK 1513845,
+        # même dépôt 20-F) : Revenues {RUB: 39 valeurs, USD: 19}. Le max() prenait
+        # donc les roubles — 800 125 000 000 — et la fiche affichait 800 milliards
+        # de dollars de chiffre d'affaires pour une société qui en fait neuf. Huit
+        # sociétés confirmées dans le même cas : Nebius, VinFast (dongs), JD.com,
+        # NIO, JinkoSolar, HUYA, Gaotu, ECARX.
+        #
+        # On prend donc le DOLLAR quand il existe. Ces déposants publient leurs
+        # deux colonnes dans le même document : le jumeau en dollars est là, à
+        # côté, et c'est celui qui se compare au reste de l'univers.
+        #
+        # ⚠ On ne se contente pas de préférer : on RETIENT la devise choisie, pour
+        # que l'appelant sache ce qu'il manipule. Elle était écrite « USD » en
+        # dur plus bas, ce qui rendait l'anomalie invisible en aval.
+        if not unites:
             continue
+        monetaires = [u for u in unites if u.isalpha() and len(u) == 3]
+        if monetaires:
+            # La devise de la société, décidée une fois pour toutes. Si ce
+            # concept ne la porte pas, on le LAISSE VIDE plutôt que de prendre
+            # une autre monnaie : une case vide se voit, un mélange non.
+            if devise and devise in unites:
+                cle_unite = devise
+            elif devise:
+                continue
+            else:
+                cle_unite = max(monetaires, key=lambda u: len(unites[u]))
+            _DEVISES_VUES.add(cle_unite)
+        else:
+            # Ni devise à trois lettres : des actions, des taux, des unités par
+            # action. La plus peuplée reste le bon choix.
+            cle_unite = max(unites, key=lambda u: len(unites[u]))
         for p in unites[cle_unite]:
             forme = (p.get("form") or "").split("/")[0]   # « 10-K/A » compte comme « 10-K »
             if forme not in FORMES_ANNUELLES:
@@ -523,9 +688,14 @@ def historique_note(exercices):
 # Construction de la série annuelle d'une société
 # ─────────────────────────────────────────────────────────────────────────
 def construire(facts, mcap_usd=None, beta=None, cours=None):
+    _DEVISES_VUES.clear()
+    # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
+    # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
+    # ne mêle pas deux monnaies.
+    devise = devise_du_deposant(facts)
     series = {}
     for cle, noms in CONCEPTS.items():
-        series[cle] = _annuels(facts, noms, instant=(cle in INSTANTS))
+        series[cle] = _annuels(facts, noms, instant=(cle in INSTANTS), devise=devise)
 
     # Les dates d'arrêté du chiffre d'affaires font l'ossature. Si une société
     # n'a pas de chiffre d'affaires publié (rare, mais les holdings financières
@@ -857,6 +1027,22 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     # La note se calcule EN DERNIER : elle lit le résumé qu'on vient de bâtir.
     resume["note_q"] = note_quantitative(resume)
     resume["note_historique"] = note_historique
+
+    # ── LA DEVISE RÉELLEMENT LUE, et non « USD » par principe ──
+    # Un déposant étranger publie ses montants dans sa monnaie ET en dollars, dans
+    # le même document. On préfère le dollar, mais quand il manque, il faut le
+    # DIRE : Nebius publiait 800 125 000 000 roubles, que la fiche présentait comme
+    # 800 milliards de dollars — plus qu'Apple et Microsoft réunis.
+    devises = {d for d in _DEVISES_VUES if d and d != "USD"}
+    if "USD" in _DEVISES_VUES or not devises:
+        resume["devise"] = "USD"
+    else:
+        # Une seule devise étrangère : c'est celle des états. Plusieurs : on ne
+        # tranche pas, on nomme la mieux fournie et on signale l'ambiguïté.
+        resume["devise"] = sorted(devises)[0]
+        resume["devise_deduite"] = True
+        if len(devises) > 1:
+            resume["devises_multiples"] = sorted(devises)
 
     return {"exercices": exercices, "resume": resume}
 
@@ -1245,7 +1431,11 @@ def main():
             bati["resume"]["cours_natif"] = meta["cours_cotation"]
             bati["resume"]["cours_natif_le"] = jour_univers
             bati["resume"]["cours_source"] = "univers"
-        bati["resume"]["devise"] = "USD"
+        # ⚠ La devise est posée par `construire`, qui SAIT laquelle il a lue. Elle
+        # était écrite « USD » en dur ici, ce qui écrasait la vérité et rendait
+        # invisible le cas des déposants étrangers publiant en roubles, en dongs
+        # ou en yuans. On ne la touche plus.
+        bati["resume"].setdefault("devise", "USD")
 
         # Le détail est REGROUPÉ PAR INITIALE, pas écrit un fichier par société.
         # Deux raisons, l'une technique et l'autre humaine :
