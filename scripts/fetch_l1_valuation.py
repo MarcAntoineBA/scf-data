@@ -14,6 +14,7 @@ Run by launchd (scf.l1valuation) every 4h.
 
 Run manually: python3 fetch_l1_valuation.py [--force]
 """
+import calendar
 import json
 import re
 import sys
@@ -207,6 +208,162 @@ def fetch_defillama_fees(chain_slug, retries=3):
     if total_7d:
         return float(total_7d) * 52.0
     return None
+
+
+# ──────────────────────────────────────────────────────────────
+# CAPTATION DE VALEUR — le jeton capte-t-il ce que la chaîne produit ?
+#
+# Trois grandeurs, une requête chacune, toutes issues du MÊME adaptateur DefiLlama
+# pour que la cascade reste additive :
+#   dailyFees           — ce que les utilisateurs paient (frais bruts)
+#   dailyRevenue        — ce qui reste au protocole une fois payés les fournisseurs
+#                         de ressources (mineurs, validateurs, séquenceur, LP)
+#   dailyHoldersRevenue — ce qui atteint réellement le jeton : burn, rachats
+#                         (Assistance Fund d Hyperliquid), distribution aux stakers
+#
+# L écart entre les deux dernières est tout le framework : une chaîne peut dégager
+# des centaines de millions de revenus sans qu un dollar ne remonte au jeton
+# (TON, TRX, APT), une autre en reverser plus de la moitié (HYPE).
+#
+# ⚠ Bitcoin est traité à part. L adaptateur DefiLlama « Bitcoin » n agrège qu une
+# fraction des frais mineurs (5 M$/an contre 85 M$ chez blockchain.info, la source
+# déjà utilisée pour fees_m) : mélanger les deux échelles donnerait un taux de
+# captation faux. BTC reçoit donc une captation NULLE PAR CONSTRUCTION — ses frais
+# rémunèrent les mineurs, aucun mécanisme ne les reverse aux détenteurs — et garde
+# son fees_m blockchain.info comme mesure d usage.
+# ──────────────────────────────────────────────────────────────
+SOURCE_CAPTATION = (
+    "DefiLlama /overview/fees/<chain> lu trois fois — dataType=dailyFees, dailyRevenue, "
+    "dailyHoldersRevenue (total1y, sinon 30j × 12). Courbes mensuelles agrégées en UTC "
+    "depuis totalDataChart, mois en cours écarté. BTC : captation nulle par construction "
+    "(les frais rémunèrent les mineurs), usage mesuré par blockchain.info. "
+    "DOT : adaptateur muet (HTTP 500)."
+)
+
+NOTE_BTC_CAPTATION = (
+    "Les frais rémunèrent les mineurs (budget de sécurité) : aucun mécanisme ne les reverse "
+    "aux détenteurs. Captation nulle par construction — la valorisation de BTC relève de la "
+    "prime monétaire."
+)
+
+
+def _capt_serie(chain_slug, data_type, avec_courbe, retries=3):
+    """Un appel /overview/fees avec un dataType donné. None si la source se tait."""
+    url = (f"https://api.llama.fi/overview/fees/{chain_slug}"
+           f"?excludeTotalDataChartBreakdown=true&dataType={data_type}")
+    if not avec_courbe:
+        url += "&excludeTotalDataChart=true"
+    for attempt in range(retries):
+        try:
+            return http_get_json(url, timeout=30)
+        except HTTPError as e:
+            if e.code == 404:
+                return None
+            if attempt < retries - 1:
+                time.sleep(2 ** (attempt + 1))
+                continue
+            sys.stderr.write(f"[L1] captation {chain_slug}/{data_type} HTTP {e.code} (final)\n")
+            return None
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(2 ** (attempt + 1))
+                continue
+            sys.stderr.write(f"[L1] captation {chain_slug}/{data_type} {type(e).__name__} (final)\n")
+            return None
+    return None
+
+
+def _capt_annualiser(payload):
+    """Une année révolue si elle existe, sinon 30 j × 12, sinon 7 j × 52."""
+    if not payload:
+        return None
+    for cle, facteur in (("total1y", 1.0), ("total30d", 12.0), ("total7d", 52.0)):
+        v = payload.get(cle)
+        if v:
+            return float(v) * facteur
+    return None
+
+
+def _capt_mensualiser(courbe, n_mois=24):
+    """[[ts secondes, valeur du jour], …] → [[ts ms du 1er du mois, somme], …]
+
+    Le mois en cours est écarté : incomplet, il dessine une chute qui n existe pas.
+    Tout est calculé en UTC — l agrégation par mois est la seule opération de cette
+    page où le fuseau de la machine déplacerait des points d un mois à l autre.
+    """
+    if not courbe:
+        return None
+    cumul = {}
+    for point in courbe:
+        try:
+            ts, val = int(point[0]), point[1]
+        except (TypeError, ValueError, IndexError):
+            continue
+        if val is None:
+            continue
+        annee, mois = time.gmtime(ts)[:2]
+        cumul[(annee, mois)] = cumul.get((annee, mois), 0.0) + float(val)
+    if not cumul:
+        return None
+    en_cours = time.gmtime()[:2]
+    cles = sorted(k for k in cumul if k != en_cours)[-n_mois:]
+    return [[calendar.timegm((a, m, 1, 0, 0, 0, 0, 0, 0)) * 1000, round(cumul[(a, m)], 2)]
+            for a, m in cles]
+
+
+def _capt_transmission(frais_mensuel, detenteurs_mensuel, min_mois=6):
+    """Pente et R² de la régression « revenu détenteurs ~ frais », mois par mois.
+
+    La pente répond à la question du framework en une seule grandeur : un dollar de
+    frais supplémentaire, combien de cents part-il vers le jeton ? Le R² dit si le
+    lien est mécanique (rachat indexé sur les frais, Hyperliquid) ou distendu.
+
+    Sans ce couplage, un taux de captation élevé peut n être qu un accident de
+    calendrier — une distribution ponctuelle qui ne se reproduira pas.
+    """
+    if not frais_mensuel or not detenteurs_mensuel:
+        return None, None
+    par_mois = {int(p[0]): float(p[1]) for p in detenteurs_mensuel}
+    xs, ys = [], []
+    for ts, f in frais_mensuel:
+        y = par_mois.get(int(ts))
+        if y is None or f is None:
+            continue
+        xs.append(float(f))
+        ys.append(y)
+    n = len(xs)
+    if n < min_mois:
+        return None, None
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    if sxx <= 0 or syy <= 0:
+        return None, None
+    pente = sxy / sxx
+    r2 = (sxy * sxy) / (sxx * syy)
+    return round(pente, 4), round(r2, 3)
+
+
+def fetch_captation(chain_slug):
+    """Le triplet frais → revenu → détenteurs, plus les deux courbes mensuelles.
+
+    None si l adaptateur ne répond pas du tout (Polkadot renvoie HTTP 500 ici comme
+    sur /overview/fees, cf. fetch_dot_fees).
+    """
+    frais = _capt_serie(chain_slug, "dailyFees", True)
+    if frais is None:
+        return None
+    revenu = _capt_serie(chain_slug, "dailyRevenue", False)
+    detenteurs = _capt_serie(chain_slug, "dailyHoldersRevenue", True)
+    return {
+        "frais_usd":          _capt_annualiser(frais),
+        "revenu_usd":         _capt_annualiser(revenu),
+        "detenteurs_usd":     _capt_annualiser(detenteurs),
+        "frais_mensuel":      _capt_mensualiser(frais.get("totalDataChart")),
+        "detenteurs_mensuel": _capt_mensualiser((detenteurs or {}).get("totalDataChart")),
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -937,6 +1094,57 @@ def resolve_staking(tok):
     return None, None, "unavailable"
 
 
+def appliquer_captation(entry, capt, mcap_usd, infl, tok):
+    """Écrit dans `entry` les maillons de la captation et ce qu ils donnent.
+
+    Isolée de la boucle principale pour que le mode --captation-seule recalcule
+    EXACTEMENT les mêmes grandeurs : deux copies de ces formules finiraient par
+    diverger, et la page ne dirait plus laquelle elle affiche.
+    """
+    # ── Captation de valeur : les trois maillons, puis ce qu ils donnent ──
+    # frais → revenu protocole → revenu détenteurs. Les trois viennent du même
+    # appel, donc frais ≥ revenu ≥ détenteurs et la cascade est additive.
+    capt = capt or {}
+    f_usd = capt.get("frais_usd")
+    r_usd = capt.get("revenu_usd")
+    h_usd = capt.get("detenteurs_usd")
+    entry["capt_frais_m"]      = round(f_usd / 1e6, 1) if f_usd is not None else None
+    entry["capt_revenu_m"]     = round(r_usd / 1e6, 2) if r_usd is not None else None
+    entry["capt_detenteurs_m"] = round(h_usd / 1e6, 2) if h_usd is not None else None
+    entry["capt_frais_mensuel"]      = capt.get("frais_mensuel")
+    entry["capt_detenteurs_mensuel"] = capt.get("detenteurs_mensuel")
+
+    # Taux de captation : sur 100 $ payés par les utilisateurs, combien
+    # atteignent le jeton. C est la grandeur qui sépare une chaîne très utilisée
+    # dont le jeton ne capte rien d une chaîne dont le jeton encaisse le péage.
+    entry["capt_taux_pct"] = (round(100.0 * h_usd / f_usd, 2)
+                              if (f_usd and h_usd is not None) else None)
+    # Rendement de captation : le même flux rapporté à la capitalisation —
+    # l équivalent crypto du shareholder yield.
+    entry["capt_rendement_pct"] = (round(100.0 * h_usd / mcap_usd, 3)
+                                   if (mcap_usd and h_usd is not None) else None)
+    # Captation nette : ce rendement moins la dilution. Un rachat massif ne veut
+    # rien dire si l émission le dépasse — c est le cas de HYPE, et ça ne se voit
+    # que là.
+    entry["capt_nette_pct"] = (round(entry["capt_rendement_pct"] - infl, 2)
+                               if (entry["capt_rendement_pct"] is not None
+                                   and infl is not None) else None)
+    # Transmission : la pente en CENTS de revenu détenteurs par dollar de frais
+    # marginal, et le R² qui dit si le lien est mécanique ou fortuit.
+    pente, r2 = _capt_transmission(capt.get("frais_mensuel"),
+                                   capt.get("detenteurs_mensuel"))
+    entry["capt_pente_cents"] = round(pente * 100.0, 1) if pente is not None else None
+    entry["capt_r2"] = r2
+
+    # Garde-fou : capt_frais_m et fees_m viennent de deux appels séparés à la même
+    # source. Un écart réel signale un changement d adaptateur en amont, pas un
+    # arrondi — on veut le voir dans les logs avant de le voir sur la page.
+    if (tok != "BTC" and entry.get("fees_m") and entry.get("capt_frais_m")
+            and abs(entry["capt_frais_m"] - entry["fees_m"]) > 0.05 * entry["fees_m"]):
+        sys.stderr.write("[L1] WARN %s frais divergents : fees_m=%s capt_frais_m=%s\n"
+                         % (tok, entry["fees_m"], entry["capt_frais_m"]))
+
+
 def _cache_age_hours():
     """Âge de la donnée, lu DANS le cache — et seulement à défaut sur le fichier.
 
@@ -979,7 +1187,13 @@ def is_fresh():
 
 
 PRESERVE_FIELDS = ("fees_m", "tvl_b", "active_addresses_7d_avg",
-                   "active_addresses_history")
+                   "active_addresses_history",
+                   # Captation : trois appels DefiLlama de plus par chaîne, donc
+                   # trois occasions de plus de flancher. Sans ce filet, un 502
+                   # passager efface le framework ⑧ de la page pendant 4 h.
+                   "capt_frais_m", "capt_revenu_m", "capt_detenteurs_m",
+                   "capt_frais_mensuel", "capt_detenteurs_mensuel",
+                   "capt_pente_cents", "capt_r2")
 PRESERVE_MAX_HOURS = 48  # cap on how stale a preserved value can be
 
 
@@ -1012,7 +1226,65 @@ def doit_refuser(n_marche, n_avant):
     return n_marche == 0 or (n_avant >= 5 and n_marche < n_avant / 2)
 
 
+def captation_seule():
+    """Rejouer la SEULE captation sur le cache deja ecrit, sans toucher au reste.
+
+    Pourquoi un mode a part : relancer la collecte entiere pour ajouter un framework
+    fait repasser par CoinGecko, qui repond 429 des la deuxieme sollicitation en
+    tarif gratuit. On perdrait les cours et price_history pour gagner trois champs.
+    Ici on ne reecrit que les champs capt_*, et on laisse `updated` tel quel : il
+    date le marche, pas la captation, et le mentir rendrait la page fausse.
+    """
+    if not CACHE_JSON.exists():
+        sys.stderr.write("[L1] Aucun cache a enrichir - lancer la collecte complete d abord.\n")
+        return 1
+    with open(CACHE_JSON, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    tokens = payload.get("tokens") or {}
+    if not tokens:
+        sys.stderr.write("[L1] Cache sans tokens - refus.\n")
+        return 1
+
+    touches = 0
+    for tok, cg_id, dl_chain, name in TOKENS:
+        entry = tokens.get(tok)
+        if entry is None:
+            continue
+        if tok == "BTC":
+            frais_btc = entry.get("fees_m")
+            capt = {"frais_usd": frais_btc * 1e6 if frais_btc else None,
+                    "revenu_usd": 0.0, "detenteurs_usd": 0.0,
+                    "frais_mensuel": None, "detenteurs_mensuel": None}
+            entry["capt_note"] = NOTE_BTC_CAPTATION
+        else:
+            capt = fetch_captation(dl_chain)
+            entry["capt_note"] = None
+        mcap_usd = (entry.get("mcap_b") or 0) * 1e9 or None
+        appliquer_captation(entry, capt, mcap_usd, entry.get("inflation"), tok)
+        if entry.get("capt_taux_pct") is not None:
+            touches += 1
+        time.sleep(0.3)
+
+    payload["captation_updated"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+    payload.setdefault("sources", {})["captation"] = SOURCE_CAPTATION
+    payload.setdefault("audit_urls", {})["defillama_holders"] = (
+        "https://defillama.com/fees/chains?dataType=dailyHoldersRevenue")
+
+    if touches < 5:
+        sys.stderr.write("[L1] REFUS : seulement %d chaines avec un taux de captation.\n" % touches)
+        return 1
+
+    with open(CACHE_JSON, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    js_payload = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    CACHE_JS.write_text("window.__L1_VALUATION_LIVE__=%s;" % js_payload, encoding="utf-8")
+    sys.stderr.write("[L1] Captation : %d/%d chaines renseignees.\n" % (touches, len(TOKENS)))
+    return 0
+
+
 def main():
+    if "--captation-seule" in sys.argv:
+        return captation_seule()
     force = "--force" in sys.argv
     if is_fresh() and not force:
         sys.stderr.write("[L1] Cache is fresh (<4h). Use --force to refresh anyway.\n")
@@ -1037,6 +1309,15 @@ def main():
             fees_usd = fetch_dot_fees()
         else:
             fees_usd = fetch_defillama_fees(dl_chain)
+
+        # Captation de valeur — cf. le bloc de fonctions plus haut pour le cas BTC.
+        if tok == "BTC":
+            capt = {"frais_usd": fees_usd, "revenu_usd": 0.0, "detenteurs_usd": 0.0,
+                    "frais_mensuel": None, "detenteurs_mensuel": None}
+            capt_note = NOTE_BTC_CAPTATION
+        else:
+            capt = fetch_captation(dl_chain)
+            capt_note = None
 
         mcap_usd = cg.get("mcap_usd")
         fdv_usd  = cg.get("fdv_usd")
@@ -1105,7 +1386,10 @@ def main():
             "active_addresses_source": addr_src,
             "active_addresses_history": addr_hist,
             "price_history": price_hist,
+            "capt_note":     capt_note,
         }
+
+        appliquer_captation(entry, capt, mcap_usd, infl, tok)
 
         # Derived ratios
         if entry["mcap_b"] and entry["fees_m"]:
@@ -1174,6 +1458,7 @@ def main():
             "tvl":            "DefiLlama /v2/chains",
             "fees":           "DefiLlama /overview/fees/<chain> (total1y or total30d × 12)",
             "btc_fees":       "blockchain.info /charts/transaction-fees-usd (30d avg × 365)",
+            "captation":      SOURCE_CAPTATION,
             "staking_apy_inflation": f"Snapshot manuel {STAKING_SNAPSHOT_DATE} (StakingRewards.com + docs officielles) · SOL via getInflationRate on-chain",
             "active_addresses": "CoinMetrics community AdrActCnt (BTC/ETH/ADA/TRX/XRP — adresses actives chain-level, 7+ ans, frais) + DefiLlama /chains activeUsers24h (SOL/BNB/AVAX/HYPE — valeur courante chain-level, historique auto-accumulé ; HYPE = couche L1 on-chain, le feed perp-DEX Hyperliquid Foundation étant gelé depuis avril 2026). DOT/NEAR/SUI/APT/TON/TAO exclus (pas de feed DAA public comparable).",
         },
@@ -1181,6 +1466,7 @@ def main():
             "coingecko":     "https://www.coingecko.com/en/coins/",
             "defillama":     "https://defillama.com/chains",
             "defillama_fees": "https://defillama.com/fees/chains",
+            "defillama_holders": "https://defillama.com/fees/chains?dataType=dailyHoldersRevenue",
             "stakingrewards": "https://www.stakingrewards.com/",
         },
         "tokens":   tokens_out,
