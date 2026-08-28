@@ -139,6 +139,10 @@ DEPENDANCES = {
     # collecte de marché : les cotations américaines PRINCIPALES, soit
     # 3 790 sociétés avec un CIK contre 315 auparavant.
     "secfunda": ["marche", "univers"],
+    # L'axe métier se DÉRIVE de la collecte de marché et de l'univers :
+    # aucune requête réseau, trois secondes et demie, mais rien du tout
+    # si l'un des deux n'a pas encore écrit.
+    "secteursmonde": ["marche", "univers"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────

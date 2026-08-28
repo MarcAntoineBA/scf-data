@@ -2614,6 +2614,20 @@
         "screener_2.json"
       ],
       "witness": "screener_index.json"
+    },
+    {
+      "id": "secteursmonde",
+      "script": "fetch_secteurs_monde.py",
+      "args": [],
+      "schedule": "toutes les 24 h",
+      "per_day": 1.0,
+      "cadence": "daily",
+      "category": "public",
+      "outputs": [
+        "secteurs_monde.js",
+        "secteurs_monde.json"
+      ],
+      "witness": "secteurs_monde.json"
     }
   ]
 }
