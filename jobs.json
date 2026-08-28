@@ -1876,6 +1876,23 @@
       "witness": "sec_rachats_cache.json"
     },
     {
+      "id": "actionnariat",
+      "script": "fetch_actionnariat.py",
+      "args": [
+        "--trimestres",
+        "1"
+      ],
+      "schedule": "toutes les 24 h",
+      "per_day": 1.0,
+      "cadence": "daily",
+      "category": "public",
+      "outputs": [
+        "actionnariat_cache.js",
+        "actionnariat_cache.json"
+      ],
+      "witness": "actionnariat_cache.json"
+    },
+    {
       "id": "sentiment.fng",
       "script": "refresh_sentiment_fng.sh",
       "args": [],
