@@ -651,6 +651,123 @@ def main():
     _capi_non_verifiables = [0]
     _capi_depot = [0]
     _capi_absurdes = [0]
+    _capi_converties = [0]
+
+    def _med(x):
+        x = sorted(x)
+        return x[len(x) // 2] if x else None
+
+    def calibrer_capitalisations(lignes, taux):
+        """{(place, devise du cours): facteur} — le taux entre la devise de la
+        CAPITALISATION et celle du COURS, lu dans le fichier lui-même.
+
+        `marketCap` est libellé dans la devise de la PLACE, `price` dans la
+        sienne. À Londres une société qui cote en dollars a sa capitalisation en
+        livres, et le code appliquait le taux du dollar à un montant en livres :
+        2 466 lignes fausses sur 37 645, dont 64 cotations principales et quinze
+        sociétés à fiche complète.
+
+        ⚠ AUCUNE TABLE ÉCRITE À LA MAIN. Le peso chilien, le peso argentin et le
+        tenge kazakh n'ont de taux nulle part : une table les mettrait à zéro et
+        SUPPRIMERAIT Costco à Santiago au lieu de le corriger. Le facteur, lui,
+        se mesure — et il donne au passage le taux manquant.
+        """
+        mesures, croise = {}, {}
+        juste = {}
+        for v in lignes.values():
+            px, sh, dev = v.get("price"), v.get("sharesOut"), \
+                (v.get("priceCurrency") or "USD").upper()
+            mc = v.get("marketCap")
+            place = (v.get("exchange") or "").strip()
+            r = taux.get(dev)
+            verifiable = (isinstance(px, (int, float)) and isinstance(sh, (int, float))
+                          and px > 0 and sh > 0)
+            if verifiable and r:
+                nom = (v.get("name") or "").strip()
+                if nom:
+                    juste.setdefault(nom, []).append(px * sh * r)
+            if verifiable and isinstance(mc, (int, float)) and mc > 0:
+                mesures.setdefault((place, dev), []).append(mc / (px * sh))
+
+        facteurs = {}
+        for cle, vals in mesures.items():
+            m = _med(vals)
+            if m and m > 0:
+                facteurs[cle] = m
+
+        # ── Chemin 2 : la devise d'une place se DÉDUIT de ses couples mesurés ──
+        # Le facteur vaut taux(cours) / taux(place) : une seule devise connue
+        # explique tous les couples d'une même place à la fois.
+        par_place = {}
+        for (place, dev), f in facteurs.items():
+            par_place.setdefault(place, {})[dev] = f
+        devise_place = {}
+        for place, couples in par_place.items():
+            meilleur, err_min = None, None
+            for X, rx in taux.items():
+                if not rx:
+                    continue
+                err = 0.0
+                for dev, f in couples.items():
+                    rd = taux.get(dev)
+                    if not rd:
+                        err = None
+                        break
+                    att = rd / rx
+                    err = max(err, abs(f - att) / max(att, 1e-12))
+                if err is None:
+                    continue
+                if err_min is None or err < err_min:
+                    meilleur, err_min = X, err
+            if meilleur and err_min is not None and err_min <= 0.02:
+                devise_place[place] = meilleur
+
+        # ── Chemin 3 : la cotation croisée, EN DERNIER RECOURS ──
+        # Bruité — sur Shanghai il rendrait 1,4736 avec un écart interquartile de
+        # 1,489, qui n'est pas un taux de change mais la prime des actions A. On
+        # exige donc trois appariements et un écart resserré.
+        for sym, v in lignes.items():
+            mc = v.get("marketCap")
+            if not isinstance(mc, (int, float)) or mc <= 0:
+                continue
+            px, sh = v.get("price"), v.get("sharesOut")
+            if (isinstance(px, (int, float)) and isinstance(sh, (int, float))
+                    and px > 0 and sh > 0):
+                continue
+            place = (v.get("exchange") or "").strip()
+            dev = (v.get("priceCurrency") or "USD").upper()
+            if (place, dev) in facteurs or place in devise_place:
+                continue
+            r = taux.get(dev)
+            ref = _med(juste.get((v.get("name") or "").strip()) or [])
+            if r and ref:
+                croise.setdefault((place, dev), []).append(mc * r / ref)
+        for cle, vals in croise.items():
+            if len(vals) < 3:
+                continue
+            vs = sorted(vals)
+            q1, q3 = vs[len(vs) // 4], vs[(3 * len(vs)) // 4]
+            if q1 <= 0 or (q3 / q1) > 1.02:
+                continue
+            m = _med(vals)
+            if m and m > 0:
+                facteurs[cle] = m
+
+        return facteurs, devise_place
+
+    _FACTEURS, _DEVISE_PLACE = calibrer_capitalisations(lignes, taux)
+
+    def facteur_capi(place, dev):
+        """Le facteur de conversion de la capitalisation, ou None."""
+        f = _FACTEURS.get((place, dev))
+        if f is not None:
+            return f
+        X = _DEVISE_PLACE.get(place)
+        if X:
+            rd, rx = taux.get(dev), taux.get(X)
+            if rd and rx:
+                return rd / rx
+        return None
 
     def capi_usd(v):
         """La capitalisation en dollars — recalculée quand on peut la vérifier.
@@ -722,6 +839,28 @@ def main():
         # milliards, soit 1,29 %. Le seuil laisse une marge de 2,7 fois au record
         # réel. On ne publie pas un nombre qu'on sait faux — et on le COMPTE,
         # une exclusion silencieuse étant un autre mensonge.
+        # ── LA CAPITALISATION N'EST PAS DANS LA DEVISE DU COURS ──
+        #
+        # C'était le défaut : `r` est le taux de la devise du COURS, appliqué à
+        # `mc` qui est dans la devise de la PLACE. À Londres, une société qui
+        # cote en dollars a sa capitalisation en livres.
+        #
+        # Le facteur a été mesuré dans le fichier lui-même — voir
+        # `calibrer_capitalisations`. Il ramène `mc` dans la devise du cours,
+        # dont le taux est connu.
+        f = facteur_capi(pl, dev)
+        if f and f > 0 and abs(f - 1.0) > 0.02:
+            _capi_converties[0] += 1
+            v["_capi_facteur"] = round(f, 6)
+            mc = mc / f
+
+        # ⚠ CE GARDE-FOU EST INERTE SUR LE DÉFAUT QU'IL VISAIT, et il faut le
+        # dire : il ne voit rien quand le facteur est INFÉRIEUR à 1 — 2 246 des
+        # 2 466 lignes fausses étaient SOUS-évaluées, et aucun plafond sur le
+        # nombre d'actions ne détecte une sous-évaluation. Il ne voyait pas non
+        # plus Costco à Santiago, dont les 4,00 × 10¹¹ actions implicites
+        # passaient sous la barre. Il reste comme dernier filet, après la
+        # conversion, où il ne devrait plus jamais se déclencher.
         if isinstance(px, (int, float)) and px > 0 and mc > 0:
             if (mc / px) > ACTIONS_IMPLICITES_MAX:
                 _capi_absurdes[0] += 1
@@ -747,6 +886,13 @@ def main():
           "laissés à la source ; %d non vérifiables (pas de nombre d'actions)"
           % (len(lignes) - _capi_non_verifiables[0] - _capi_depot[0],
              _capi_incoherentes[0], _capi_depot[0], _capi_non_verifiables[0]))
+    if _capi_converties[0]:
+        # Une correction silencieuse est invisible : c'est ainsi que 2 466 lignes
+        # fausses ont vécu sans que personne ne les compte.
+        print("[ok] %d capitalisations converties depuis la devise de leur PLACE "
+              "vers celle du cours — %d couple(s) mesuré(s) dans le fichier, "
+              "%d place(s) dont la devise a été déduite"
+              % (_capi_converties[0], len(_FACTEURS), len(_DEVISE_PLACE)))
     if _capi_absurdes[0]:
         print("[ok] %d société(s) écartée(s) : leur capitalisation supposerait plus "
               "de %d milliards d'actions, donc elle n'est pas dans la devise du "
