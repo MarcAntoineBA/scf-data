@@ -47,8 +47,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fetch_sec_fundamentals import historique_note            # noqa: E402
 from fondamentaux_communs import (                            # noqa: E402
     _corriger_divisions, _croissances, ecarter_ratios_degeneres, note_quantitative,
-    _mediane_fenetre, _wacc, beta_plausible,
+    _mediane_fenetre, _wacc, beta_plausible, cours_ancres, cours_a_la_date,
 )
+from datetime import datetime                                 # noqa: E402
 
 
 def facteurs_des_millesimes(evenements):
@@ -134,6 +135,112 @@ CACHE = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 # (clé de la croissance, champ par action de l'exercice)
 SERIES = (("ca", "ca_par_action"), ("eps", "eps_diluted"),
           ("fcf", "fcf_par_action"), ("ocf", "ocf_par_action"), ("div", "dps"))
+
+
+# Le pas maximal toléré dans une série de nombres d'actions APRÈS recouture.
+# Un saut qui subsiste est un défaut du paquet ou une entrée en bourse ; dans les
+# deux cas, transporter une capitalisation à travers lui donnerait un faux.
+SAUT_ACTIONS_MAX = 5.0
+
+
+def charger_rapports_cours():
+    """{symbole: ({jours: rapport de cours}, jour du fichier)}.
+
+    ⚠ DES RAPPORTS, PAS DES COURS. `cours_ancres` appelée avec un cours de 1 rend
+    `1 / (1 + chNy/100)`, c'est-à-dire le rapport entre le cours d'alors et celui
+    d'aujourd'hui. Un rapport n'a pas de monnaie : plus de conversion, plus de
+    devise à croire, et une erreur d'échelle constante se simplifie.
+
+    Le jour retenu est celui d'écriture du fichier (`genere_le`), pas
+    « aujourd'hui » : un fichier de trois jours daterait ses ancres de trois
+    jours de trop, et l'erreur se cumulerait avec la tolérance de six mois.
+    """
+    out = {}
+    for pth in sorted(glob.glob(os.path.join(CACHE, "marche_[0-9]*.json"))):
+        try:
+            with open(pth, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        ch = d.get("champs") or []
+        i = {n: ch.index(n) for n in ("ch1y", "ch3y", "ch5y", "ch10y") if n in ch}
+        if not i:
+            continue
+        jour = (d.get("genere_le") or d.get("updated") or "")[:10] or None
+        for sym, v in (d.get("societes") or {}).items():
+            def lire(nom):
+                k = i.get(nom)
+                return v[k] if (k is not None and k < len(v)) else None
+            a = cours_ancres(1.0, lire("ch1y"), lire("ch3y"),
+                             lire("ch5y"), lire("ch10y"))
+            if a:
+                out[sym] = (a, jour)
+    return out
+
+
+def refaire_mcap(exercices, variations, jour_ref):
+    """Comble la capitalisation manquante en transportant un RAPPORT.
+
+        mcap(exercice) = mcap_du_dernier × cours(exercice)/cours(aujourd'hui)
+                                         × actions(exercice)/actions(dernier)
+
+    ⚠ ON EFFACE D'ABORD LES SIENNES. Une règle qui se durcit doit atteindre ce
+    qui est déjà écrit ; sans ce nettoyage, une reconstruction d'un passage
+    antérieur survivrait à la garde qui la refuse.
+
+    ⚠ LA GARDE DES DEVISES TIENT EN AMONT : `ecarter_marche_devise.py` a effacé
+    `mcap_estime` sur les 170 sociétés à états non dollars. Sans capitalisation
+    de référence, il n'y a rien à transporter.
+
+    Rend le nombre d'exercices comblés.
+    """
+    for e in exercices:
+        if e.get("mcap_source") == "ancre":
+            e["mcap_estime"] = None
+            e.pop("mcap_source", None)
+            e.pop("mcap_ecart_jours", None)
+
+    if not variations or not jour_ref:
+        return 0
+    try:
+        ref_date = datetime.fromisoformat(jour_ref)
+    except Exception:
+        return 0
+
+    serie = [e.get("shares_diluted") for e in exercices]
+    serie = [x for x in serie if isinstance(x, (int, float)) and x > 0]
+    for k in range(1, len(serie)):
+        if max(serie[k] / serie[k - 1], serie[k - 1] / serie[k]) > SAUT_ACTIONS_MAX:
+            return 0
+
+    ref = None
+    for e in reversed(exercices):
+        if (e.get("mcap_estime") or 0) > 0 and e.get("shares_diluted"):
+            ref = e
+            break
+    if ref is None:
+        return 0
+    sh_ref = ref["shares_diluted"]
+
+    n = 0
+    for e in exercices:
+        if e is ref or (e.get("mcap_estime") or 0) > 0:
+            continue
+        sh, fin_e = e.get("shares_diluted"), e.get("fin")
+        if not sh or sh <= 0 or not fin_e:
+            continue
+        try:
+            jours = (ref_date - datetime.fromisoformat(fin_e)).days
+        except Exception:
+            continue
+        rapport, ecart = cours_a_la_date(variations, jours)
+        if rapport is None or rapport <= 0:
+            continue
+        e["mcap_estime"] = round(ref["mcap_estime"] * rapport * sh / sh_ref)
+        e["mcap_source"] = "ancre"
+        e["mcap_ecart_jours"] = ecart
+        n += 1
+    return n
 
 
 def charger_beta_marche():
@@ -235,6 +342,11 @@ def main():
         print("[fatal] aucun paquet sec_detail_NNN.json", file=sys.stderr)
         return 2
 
+    rapports = charger_rapports_cours()
+    print("[info] rapports de cours reconstruits pour %d cotation(s)" % len(rapports))
+    mcaps = 0
+    soc_mcap = set()
+
     betas, refuses = charger_beta_marche()
     print("[info] bêta lu pour %d cotation(s) ; %d hors bande refusé(s)"
           % (len(betas), len(refuses)))
@@ -316,6 +428,16 @@ def main():
                         retirees[cle] += 1
             r["croissances"] = neuves
 
+            # ── La capitalisation historique, APRÈS la recouture des
+            # divisions (elle en dépend : le nombre d'actions vient d'être remis
+            # sur sa base) et AVANT le coût du capital (qui en dépend). ──
+            _r = rapports.get(sym)
+            if _r:
+                n_m = refaire_mcap(ex, _r[0], _r[1])
+                if n_m:
+                    mcaps += n_m
+                    soc_mcap.add(sym)
+
             # ── Le coût du capital, avec le bêta que la collecte n'a pas lu ──
             # Avant la note : elle ne lit pas le WACC aujourd'hui, mais l'ordre
             # du collecteur doit être respecté pour que ça reste vrai demain.
@@ -359,6 +481,9 @@ def main():
           % ", ".join("%s %d" % (k, n) for k, n in sorted(retirees.items())))
     print("[ok] divisions REFAITES : %d exercice(s) remis en base sur %d société(s), "
           "%d société(s) changent d'événements" % (rebasees, len(soc_rebasees), div_changees))
+    print("[ok] capitalisation historique reconstruite : %d exercice(s) sur "
+          "%d société(s) — quatre ancres, tolérance six mois"
+          % (mcaps, len(soc_mcap)))
     print("[ok] coût du capital : %d exercice(s) sur %d société(s) — le bêta "
           "dormait dans les fichiers de marché" % (waccs, len(soc_wacc)))
     print("[ok] coût du capital EFFACÉ : %d exercice(s) sur %d société(s) — coût "

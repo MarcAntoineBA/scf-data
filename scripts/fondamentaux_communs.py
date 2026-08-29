@@ -1223,6 +1223,61 @@ def _corriger_unite_actions(exercices):
             e["shares_ecarte"] = "incohérent avec le bénéfice par action déposé"
     return corrections
 
+# ── LE COURS D'IL Y A UN, TROIS, CINQ ET DIX ANS ──────────────────────────
+#
+# Les fichiers de marché portent le cours du jour ET ses variations sur un, trois,
+# cinq et dix ans. Le cours d'alors s'en déduit : `price / (1 + chNy/100)`.
+#
+# ⚠ VÉRIFIÉ AVANT D'ÊTRE UTILISÉ. Comparé au cours réel sur 1 316 relevés de
+# titres américains : sur les sociétés SANS dividende, le biais est nul à tous
+# les horizons (+0,23 %, −2,24 %, −0,00 %, −0,04 % à 1, 3, 5 et 10 ans). Si ces
+# variations avaient été des rendements TOTAUX, l'écart aurait crû avec le
+# dividende ; il ne le fait pas.
+#
+# L'écart qu'on observe sur les titres à fort rendement (+44,78 % à dix ans) vient
+# de la RÉFÉRENCE, pas de la formule : `tradfi_history_cache` est une série
+# AJUSTÉE des dividendes, et un cours ajusté du passé est plus bas que le cours
+# réellement coté. Pour une capitalisation, c'est le cours réel qu'il faut.
+TOLERANCE_ANCRE_JOURS = 180
+
+
+def cours_ancres(price, ch1y=None, ch3y=None, ch5y=None, ch10y=None):
+    """{jours avant aujourd'hui: cours d'alors}, depuis le cours et ses variations.
+
+    Quatre points, pas une série. Rend un dictionnaire vide si le cours manque.
+    """
+    if not isinstance(price, (int, float)) or price <= 0:
+        return {}
+    out = {}
+    for v, ans in ((ch1y, 1), (ch3y, 3), (ch5y, 5), (ch10y, 10)):
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > -99:
+            c = price / (1.0 + v / 100.0)
+            if c > 0 and math.isfinite(c):
+                out[int(round(ans * 365.25))] = c
+    return out
+
+
+def cours_a_la_date(ancres, jours_ecoules, tolerance=TOLERANCE_ANCRE_JOURS):
+    """(cours, écart en jours) pour une date, ou (None, None) si trop loin d'une ancre.
+
+    ⚠ SIX MOIS EST LA LIMITE DE L'HONNÊTE. À 270 jours on gagnerait deux fois
+    plus d'exercices — et on daterait une capitalisation de 2021 avec un cours de
+    2022. L'écart retenu est RENDU, pour que la fiche puisse le dire au lecteur
+    au lieu de présenter une approximation comme une mesure.
+
+    ⚠ ON N'INTERPOLE PAS entre deux ancres. Les années intermédiaires restent
+    vides : une capitalisation devinée nourrirait ensuite un jugement de création
+    de valeur, et un jugement bâti sur une interpolation n'est pas un jugement.
+    """
+    if not ancres or jours_ecoules is None or jours_ecoules < 0:
+        return None, None
+    proche = min(ancres, key=lambda k: abs(k - jours_ecoules))
+    ecart = abs(proche - jours_ecoules)
+    if ecart > tolerance:
+        return None, None
+    return ancres[proche], ecart
+
+
 # ── LA BANDE DE PLAUSIBILITÉ DU BÊTA ──────────────────────────────────────
 #
 # Le bêta de marché va de −20 833 à 1 877 dans les fichiers `marche_NN.json`.
