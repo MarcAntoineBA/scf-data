@@ -27,6 +27,7 @@ Lancé par scf.these_bulleia.refresh (4×/jour).
 import csv
 import io
 import json
+import math
 import shutil
 import sys
 import time
@@ -427,12 +428,36 @@ def build_payload():
     return payload, len(ok), len(failed)
 
 
+def scrub_non_finis(o):
+    """Remplace toute valeur non finie par None, recursivement.
+
+    yfinance rend NaN pour un exercice absent (le 1er de la serie CapEx, une
+    seance non cloturee...). json.dumps ecrit alors un `NaN` nu : illisible pour
+    json.loads / JSON.parse, et surtout contagieux cote navigateur, ou un
+    Math.max sur la serie renvoie NaN et fait planter tout le script de
+    graphiques. None devient `null` : un trou que Chart.js sait dessiner.
+    """
+    if isinstance(o, dict):
+        return dict((k, scrub_non_finis(v)) for k, v in o.items())
+    if isinstance(o, (list, tuple)):
+        return [scrub_non_finis(v) for v in o]
+    if isinstance(o, float) and o != o:
+        return None
+    if isinstance(o, float) and not math.isfinite(o):
+        return None
+    return o
+
+
 def write_outputs(payload):
-    OUT_JSON.write_text(json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
+    payload = scrub_non_finis(payload)
+    # allow_nan=False : si une valeur non finie echappait au nettoyage, on echoue
+    # ici plutot que de publier un cache que seul le navigateur declarera casse.
+    OUT_JSON.write_text(json.dumps(payload, separators=(",", ":"),
+                                   ensure_ascii=False, allow_nan=False))
     js = (
         f"/* these_bulleia_cache.js — generated {payload['meta']['updated_at']} */\n"
         f"window.__THESE_BULLEIA__ = "
-        f"{json.dumps(payload, separators=(',', ':'), ensure_ascii=False)};\n"
+        f"{json.dumps(payload, separators=(',', ':'), ensure_ascii=False, allow_nan=False)};\n"
     )
     OUT_JS.write_text(js)
     # Symlinks dans le repo public
