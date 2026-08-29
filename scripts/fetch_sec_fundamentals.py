@@ -78,6 +78,8 @@ import sys
 import time
 import gzip
 import math
+import re
+import unicodedata
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -212,7 +214,23 @@ CONCEPTS = {
                 # Les banques et courtiers : produit net, intérêts déduits.
                 "RevenuesNetOfInterestExpense",
                 # Les déposants passés aux normes internationales.
-                "Revenue", "RevenueFromContractsWithCustomers"],
+                "Revenue", "RevenueFromContractsWithCustomers",
+                # ── DEUX ÉTIQUETTES IFRS DE PLUS, EN QUEUE ──────────────
+                #
+                # HSBC rendait onze exercices et zéro chiffre d'affaires,
+                # Novartis dix et zéro : la devise était juste, l'étiquette
+                # manquait. HSBC écrit `RevenueAndOperatingIncome` (le produit
+                # net bancaire, 27 exercices) ; Novartis, qui ne publie aucun
+                # total sous ce nom, écrit `RevenueFromSaleOfGoods` (ses ventes
+                # nettes, 27 exercices).
+                #
+                # EN QUEUE : `_annuels` recoud les étiquettes date par date et
+                # l'ordre ne départage que les dates couvertes plusieurs fois.
+                # Une étiquette de fin de liste ne peut donc que combler un trou.
+                # C'est ce qui rend `RevenueFromSaleOfGoods` inoffensive chez un
+                # industriel qui publie aussi un total : le total est devant.
+                "RevenueAndOperatingIncome", "RevenueFromSaleOfGoods",
+                "RevenueFromRenderingOfServices"],
     # ── DEUX SÉRIES DE CONTRÔLE, POUR UN DÉFAUT QUI DÉCAPITE LES FONCIÈRES ──
     #
     # Le revenu « contrats clients » de la norme 606 est, par construction, un
@@ -554,6 +572,22 @@ FORMES_ANNUELLES = ("10-K", "20-F", "40-F")
 # d'exécution). Un accumulateur partagé serait dangereux dans un pool de threads ;
 # ici il ne l'est pas, et le collecteur international, lui, ne s'en sert pas.
 _DEVISES_VUES = set()
+# Les monnaies écartées parce qu'elles ont cessé d'être utilisées. On les garde
+# pour pouvoir DIRE combien de sociétés sont concernées : un correctif dont on ne
+# sait pas mesurer l'effet est un correctif qu'on ne saura pas défendre.
+_DEVISES_ECARTEES = set()
+
+
+# Le dollar ne l'emporte que s'il porte au moins cette fraction des points de
+# la monnaie de publication. En dessous, c'est une colonne de courtoisie jointe
+# sur un ou deux exercices — assez pour toucher les quatre postes principaux,
+# pas assez pour être la série.
+#
+# Mesuré sur vingt-deux déposants étrangers : les colonnes de courtoisie vont de
+# 0,000 à 0,337, les vrais déposants en dollars valent 1,000 exactement (le
+# dollar y EST la monnaie dominante, donc le rapport vaut un par construction).
+# Aucun cas entre les deux. Le seuil est posé au milieu du vide.
+PART_COURTOISIE = 0.60
 
 
 def devise_du_deposant(facts):
@@ -604,6 +638,10 @@ def devise_du_deposant(facts):
         return [p for p in pts
                 if (p.get("form") or "").split("/")[0] in FORMES_ANNUELLES]
 
+    # `derniers` relève, pour chaque monnaie, l'année du fait le plus récent.
+    # Sans lui, on compare l'histoire au lieu de l'usage — voir la garde plus bas.
+    derniers = {}
+
     def compter(annuel):
         couv, pts_par_devise = {}, {}
         for groupe in postes:
@@ -619,6 +657,12 @@ def devise_du_deposant(facts):
                             continue
                         vues_groupe.add(u)
                         pts_par_devise[u] = pts_par_devise.get(u, 0) + len(retenus)
+                        for p in retenus:
+                            fin = (p.get("end") or "")[:4]
+                            if fin.isdigit():
+                                an = int(fin)
+                                if an > derniers.get(u, 0):
+                                    derniers[u] = an
             for u in vues_groupe:
                 couv[u] = couv.get(u, 0) + 1
         return couv, pts_par_devise
@@ -631,8 +675,53 @@ def devise_du_deposant(facts):
         couverture, points = compter(False)
     if not couverture:
         return None
+    # ── LES MONNAIES ENCORE EN USAGE, ET ELLES SEULES ──────────────────
+    #
+    # Une société qui change de monnaie de publication garde pour toujours plus
+    # de points dans l'ancienne : c'est l'histoire qui pèse, pas l'usage.
+    # Nebius Group publiait en roubles jusqu'en 2023 — l'ère Yandex — et publie
+    # en dollars depuis. Compter les points sans regarder les dates faisait
+    # préférer le rouble : une série plus profonde, plus ancienne, et sur une
+    # activité que la société a cédée. Diageo, Constellium et OR Royalties ont la
+    # même signature, dans l'autre sens.
+    #
+    # Un an de tolérance, pas zéro : deux monnaies publiées le même exercice
+    # peuvent différer d'un an selon la clôture et le poste. Deux ans
+    # laisseraient repasser Diageo.
+    if derniers:
+        recent = max(derniers.values())
+        vivantes = {u for u, an in derniers.items() if an >= recent - 1}
+        if vivantes and not vivantes >= set(couverture):
+            ecartees = sorted(set(couverture) - vivantes)
+            couverture = {u: v for u, v in couverture.items() if u in vivantes}
+            points = {u: v for u, v in points.items() if u in vivantes}
+            if not couverture:
+                # Aucune monnaie « vivante » ne couvre de poste : on ne tranche
+                # pas sur une liste vide, on rend la main à l'ancien comptage.
+                couverture, points = compter(True)
+                if not couverture:
+                    couverture, points = compter(False)
+            elif ecartees:
+                _DEVISES_ECARTEES.update(ecartees)
+
     meilleure = max(couverture.values())
+    # La meilleure monnaie qui ne soit PAS le dollar : c'est elle qui sert de
+    # point de comparaison pour démasquer une colonne de courtoisie.
+    autres = {u: v for u, v in couverture.items() if u != "USD"}
+    locale = (max(autres, key=lambda u: (autres[u], points.get(u, 0)))
+              if autres else None)
     if couverture.get("USD", 0) >= meilleure:
+        # Le déposant ne publie qu'en dollars : rien à départager.
+        if locale is None or not points.get(locale):
+            return "USD"
+        # ── LA COLONNE DE COURTOISIE ────────────────────────────────────
+        #
+        # Le dollar touche les quatre postes, mais sur combien d'exercices ?
+        # SAP : 4 points en dollars contre 114 en euros. La règle de couverture
+        # seule retenait le dollar et faisait tomber SAP de dix-neuf exercices à
+        # UN, Taiwan Semiconductor de vingt-quatre à huit, sans erreur visible.
+        if points.get("USD", 0) / points[locale] < PART_COURTOISIE:
+            return locale
         return "USD"
     # Sinon : la devise qui couvre le plus de postes, départagée par le nombre de
     # points quand deux monnaies en couvrent autant.
@@ -1814,6 +1903,15 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
 # ─────────────────────────────────────────────────────────────────────────
 # Univers et correspondance ticker → CIK
 # ─────────────────────────────────────────────────────────────────────────
+# Les places où cote une société américaine. Sert à reconnaître qu'un point dans
+# un symbole sépare une CATÉGORIE d'actions (`BRK.B`) et non une place étrangère
+# (`MC.PA`). Mesuré le 30/08/2026 : ce discriminant laisse passer les douze
+# symboles concernés — 1 166 Md$, dont Berkshire Hathaway pour 1 081 — et écarte
+# les 16 306 autres.
+PLACES_AMERICAINES = {"NYSE", "NASDAQ", "NYSEAMERICAN", "NYSE AMERICAN",
+                      "AMEX", "OTCMKTS", "BATS", "NYSEARCA", "CBOE"}
+
+
 def univers_marche(tranche=None):
     """Les cotations américaines PRINCIPALES de la collecte de marché.
 
@@ -1871,14 +1969,53 @@ def univers_marche(tranche=None):
     # l'univers, et son cours rencontrerait des états en dollars.
     principales = set()
     cotations = {}
+    # ── LE PONT VERS LA COTATION PRINCIPALE ─────────────────────────────
+    #
+    # `univers_actions.json` porte déjà, sur chaque ligne américaine, le nom de
+    # la cotation principale de la même société : ASML → ASML.AS, TSM → 2330.TW,
+    # SAP → SAP.DE. Sans ce pont, l'histoire longue qu'on vient de collecter
+    # reste rangée sous le symbole américain, et le lecteur qui ouvre la fiche
+    # d'Amsterdam ou de Taipei continue de voir cinq exercices.
+    #
+    # On garde AUSSI le nom de chaque ligne : le pont n'est accepté que si les
+    # deux portent le même. Le dépôt a détruit trente fiches justes ce matin pour
+    # avoir arbitré sur la place plutôt que sur le nom.
+    principal_de, noms_titres = {}, {}
     for t in u.get("titres", []):
         sym = t.get("yahoo") or t.get("sa")
-        if sym and t.get("principal"):
+        if not sym:
+            continue
+        if t.get("nom"):
+            noms_titres[sym] = t["nom"]
+        pr = t.get("principal_de")
+        if pr and pr != sym:
+            principal_de[sym] = pr
+        if t.get("principal"):
             principales.add(sym)
             px = t.get("cours")
             if isinstance(px, (int, float)) and px > 0 \
                and (t.get("devise") or "").upper() == "USD":
                 cotations[sym] = px
+
+    def _memes_noms(a, b):
+        """Deux libellés désignent-ils le même émetteur ?
+
+        Comparaison sobre — accents retirés, ponctuation et formes juridiques
+        jetées — parce que les deux libellés viennent de la MÊME collecte et ne
+        diffèrent au pire que par la casse et un suffixe de forme.
+        """
+        formes = {"corporation", "incorporated", "company", "limited", "holdings",
+                  "holding", "group", "plc", "ltd", "llc", "inc", "co", "sa",
+                  "se", "ag", "nv", "bv", "ab", "asa", "oyj", "spa", "the",
+                  "and", "aktiengesellschaft", "adr", "ads", "sponsored"}
+        def noyau(x):
+            t2 = unicodedata.normalize("NFD", (x or "").lower())
+            t2 = "".join(c for c in t2 if unicodedata.category(c) != "Mn")
+            t2 = re.sub(r"[^a-z0-9 ]+", " ", t2)
+            return " ".join(m for m in t2.split()
+                            if len(m) > 1 and m not in formes)
+        na, nb = noyau(a), noyau(b)
+        return bool(na) and na == nb
 
     lignes = []
     for pth in _glob.glob(str(CACHE_DIR / "marche_[0-9]*.json")):
@@ -1893,6 +2030,12 @@ def univers_marche(tranche=None):
         except ValueError:
             continue
         i_ind = ch.index("industry") if "industry" in ch else None
+        # Le pays de l'ÉMETTEUR : c'est lui qui distingue un certificat
+        # étranger d'une seconde ligne américaine.
+        i_pays = ch.index("country") if "country" in ch else None
+        # La place, qui sert à reconnaître une catégorie d'actions américaine
+        # d'un suffixe de place étrangère.
+        i_place = ch.index("exchange") if "exchange" in ch else None
         # ── LES VARIATIONS DE COURS, POUR LA CAPITALISATION HISTORIQUE ──
         #
         # ch1y, ch3y, ch5y, ch10y donnent le rapport entre le cours d'alors et
@@ -1906,8 +2049,45 @@ def univers_marche(tranche=None):
         i_ch = {n: ch.index(n) for n in ("ch1y", "ch3y", "ch5y", "ch10y") if n in ch}
         jour_m = (d.get("genere_le") or d.get("updated") or "")[:10] or None
         for sym, v in (d.get("societes") or {}).items():
-            # Un ticker à suffixe n'est pas américain ; un chemin non plus.
-            if "." in sym or "/" in sym or sym not in principales:
+            # Un chemin n'est jamais un ticker américain.
+            if "/" in sym:
+                continue
+            # ── LE POINT N'EST PAS TOUJOURS UNE PLACE ───────────────────
+            #
+            # Un point signale d'ordinaire une cotation étrangère — `MC.PA`,
+            # `2330.TW`, `ASML.AS` — et c'est vrai 16 306 fois. Ça ne l'est pas
+            # douze fois : chez une américaine, le point sépare la CATÉGORIE
+            # d'actions. `BRK.B`, `LEN.B`, `MKC.V`, `BF.A`, `WSO.B`, `MOG.B`,
+            # `TAP.A`. Berkshire Hathaway — 1 081 Md$, quatrième capitalisation
+            # mondiale — restait ainsi à cinq exercices au lieu de dix-neuf.
+            #
+            # Le discriminant, mesuré : place américaine ET pays des États-Unis.
+            # Il laisse passer les douze et écarte les 16 306 autres.
+            if "." in sym:
+                place = (v[i_place] if (i_place is not None and i_place < len(v))
+                         else "") or ""
+                pays_us = (v[i_pays] if (i_pays is not None and i_pays < len(v))
+                           else None)
+                if pays_us != "United States" or place.upper() not in PLACES_AMERICAINES:
+                    continue
+            # ── LA PORTE DES CERTIFICATS ÉTRANGERS ──────────────────────
+            #
+            # La règle « cotation principale » écartait 138 des 215 géants qui
+            # déposent pourtant à la SEC — TSMC, ASML, HSBC, Novartis, SAP —
+            # parce qu'un certificat américain n'est jamais la cotation
+            # principale d'une société étrangère. Or c'est précisément chez ces
+            # sociétés que l'historique manque : leur cotation principale vient
+            # de la source internationale, qui s'arrête à CINQ ans, quand leur
+            # formulaire 20-F entre dans ce même XBRL, sur vingt.
+            #
+            # On garde donc la règle pour les sociétés américaines — elle a été
+            # payée par 231 lignes aux capitalisations impossibles — et on
+            # n'ouvre qu'aux émetteurs ÉTRANGERS, qui n'ont par construction
+            # qu'une seule ligne américaine.
+            pays = (v[i_pays] if (i_pays is not None and i_pays < len(v))
+                    else None)
+            etranger = bool(pays) and pays != "United States"
+            if sym not in principales and not etranger:
                 continue
             var = cours_ancres(
                 1.0,
@@ -1917,13 +2097,60 @@ def univers_marche(tranche=None):
                            v[i_ind] if i_ind is not None else None,
                            var or None, jour_m))
     lignes.sort(reverse=True)
+
+    # ── UNE SEULE LIGNE PAR ÉMETTEUR ────────────────────────────────────
+    #
+    # La porte des certificats ouvre souvent DEUX lignes pour la même société :
+    # la cotée (ASML) et celle de gré à gré (ASMLF), même émetteur, même CIK.
+    # Mesuré : 663 symboles pour environ 560 émetteurs. Deux paquets identiques
+    # feraient deux fiches identiques.
+    #
+    # On garde la plus courte — la cotée porte le ticker nu, la grise y ajoute
+    # un F. À longueur égale, l'ordre de capitalisation tranche, et il est déjà
+    # figé par le tri ci-dessus.
+    # ⚠ Les cotations PRINCIPALES entrent aussi dans le registre des noms vus.
+    # Sans ça, le dédoublonnage ne comparait qu'entre lignes non principales et
+    # laissait passer toute jumelle d'une principale : BABAF survivait à côté de
+    # BABA, NOKBF à côté de NOK. Trente-six doublons collectés pour rien.
+    # ── PREMIER TEMPS : les noms que porte déjà une cotation PRINCIPALE ──
+    noms_principaux = {(x[2] or "").strip().lower()
+                       for x in lignes if x[1] in principales and x[2]}
+
+    # ── SECOND TEMPS : on jette, puis on départage ce qui reste ─────────
+    vus, gardees = {}, []
+    for x in lignes:
+        cle = (x[2] or "").strip().lower()
+        if not cle or x[1] in principales:
+            gardees.append(x)
+            continue
+        if cle in noms_principaux:
+            continue          # jumelle d'une principale : rien à en tirer
+        prec = vus.get(cle)
+        if prec is None:
+            vus[cle] = x
+            gardees.append(x)
+        elif len(x[1]) < len(prec[1]):
+            gardees[gardees.index(prec)] = x
+            vus[cle] = x
+    if len(gardees) != len(lignes):
+        print("[info] %d ligne(s) de gré à gré écartées (même émetteur qu'une "
+              "ligne déjà retenue)" % (len(lignes) - len(gardees)))
+    lignes = gardees
+
     if tranche:
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
 
     out = {}
     for capi, sym, nom, ind, var, jour_m in lignes:
+        pr = principal_de.get(sym)
+        # La garde : même nom des deux côtés, sinon pas de pont. Un pont refusé
+        # ne coûte qu'une fiche moins profonde ; un pont faux met les états d'une
+        # société sur la fiche d'une autre.
+        if pr and not _memes_noms(noms_titres.get(sym), noms_titres.get(pr)):
+            pr = None
         out[sym] = {"nom": nom, "mcap": capi, "secteur_suivi": ind,
+                    "principal_de": pr,
                     "cours_cotation": cotations.get(sym),
                     # Les quatre ancres de cours et la date du fichier qui les
                     # porte : sans elles, `combler_mcap_par_ancres` se tait.
@@ -2144,12 +2371,27 @@ def fusionner_faits(vieux, neuf):
 
 
 def charger_cik():
+    """La correspondance ticker → CIK, indexée SOUS LES DEUX ÉCRITURES.
+
+    La SEC écrit les catégories d'actions avec un tiret — `BRK-B`, `BF-A`,
+    `MKC-V` — quand la collecte de marché les écrit avec un point — `BRK.B`.
+    Interroger cette table avec la forme du marché ne rendait donc rien, et
+    Berkshire Hathaway restait à cinq exercices au lieu de dix-neuf.
+
+    On range la forme à point EN PLUS, jamais à la place : `setdefault` protège
+    le cas — improbable mais gratuit à couvrir — où un vrai ticker à point
+    existerait déjà.
+    """
     d = _get("https://www.sec.gov/files/company_tickers.json")
     out = {}
     for v in (d or {}).values():
         t = (v.get("ticker") or "").upper()
-        if t:
-            out[t] = str(v.get("cik_str")).zfill(10)
+        if not t:
+            continue
+        cik = str(v.get("cik_str")).zfill(10)
+        out[t] = cik
+        if "-" in t:
+            out.setdefault(t.replace("-", "."), cik)
     return out
 
 
@@ -2356,6 +2598,24 @@ def main():
         univers = charger_univers()
         if not univers:
             return 1
+    # ⚠ LA LISTE COMPLÈTE, GARDÉE AVANT TOUTE RESTRICTION.
+    #
+    # La garde du miroir refuse de se poser sur un symbole déjà collecté. Si elle
+    # consultait `univers` APRÈS `--tickers` ou `--tranche`, elle ne verrait
+    # qu'un septième — ou qu'un seul symbole — et laisserait le miroir écraser
+    # une société bien collectée. Or toute la mise au point passe par
+    # `--tickers` : le défaut serait réintroduit exactement là où on ne le
+    # regarde plus.
+    tous_les_symboles = set(univers)
+    if opts["tranche"] and opts["source"] == "marche":
+        # `--tranche` a déjà écrémé dans `univers_marche` : on redemande la liste
+        # entière, sans tranche, uniquement pour la garde. C'est une lecture de
+        # fichiers déjà en cache, sans appel réseau.
+        try:
+            tous_les_symboles = set(univers_marche(None))
+        except Exception as exc:
+            print("[warn] liste complète indisponible pour la garde du miroir : %s"
+                  % exc, file=sys.stderr)
     if opts["tickers"]:
         univers = {k: v for k, v in univers.items() if k.upper() in opts["tickers"]}
         print(f"[info] restreint à {len(univers)} symbole(s) demandé(s)")
@@ -2379,6 +2639,7 @@ def main():
     index = {}
     paquets = {}
     ok = sans_cik = echecs = 0
+    miroirs = 0
     # Un compteur ne se répare pas : on garde les NOMS. Quatre chemins, qui ne
     # se soignent pas pareil — et « construction refusée » est le seul où c'est
     # notre code qui dit non à une donnée existante.
@@ -2503,6 +2764,63 @@ def main():
         }
         paquets.setdefault(_initiale(sym), {})[sym] = detail
 
+        # ── LE MIROIR SOUS LA COTATION PRINCIPALE ───────────────────────
+        #
+        # Sans lui, dix-neuf exercices d'ASML restent rangés sous `ASML` et la
+        # fiche d'`ASML.AS` — celle qu'ouvre un lecteur européen — continue
+        # d'afficher les cinq exercices de la source internationale.
+        #
+        # Le paquet est le même, à deux champs près : le symbole affiché, et une
+        # trace de sa provenance pour que la fiche puisse le dire.
+        principal = meta.get("principal_de")
+        # ── LE MIROIR NE SE POSE PAS SUR UNE SOCIÉTÉ DÉJÀ COLLECTÉE ─────
+        #
+        # Le pont ne mène pas toujours à l'étranger : beaucoup de lignes
+        # américaines de gré à gré pointent vers l'AUTRE ligne américaine de la
+        # même société — BABAF → BABA, NOKBF → NOK, ERIXF → ERIC. Trente-six cas
+        # mesurés le 29/08/2026.
+        #
+        # Le miroir écrasait alors une entrée que le collecteur venait de
+        # construire, avec les mêmes états mais SANS cotation, puisqu'un miroir
+        # est muet là-dessus par construction. Alibaba y perdait son cours et sa
+        # devise de cotation, qui étaient justes.
+        #
+        # Un miroir n'apporte quelque chose que là où la cotation principale
+        # n'est pas collectable directement — c'est-à-dire à l'étranger.
+        if principal and principal in tous_les_symboles:
+            principal = None
+        if principal:
+            miroir = dict(detail)
+            miroir["symbole"] = principal
+            miroir["miroir_de"] = sym
+            # ── LE MIROIR SE TAIT SUR LA COTATION ───────────────────────
+            #
+            # Il a été construit contre le CERTIFICAT américain : sa devise de
+            # cotation est le dollar et son cours celui du certificat. Or la
+            # fiche qu'il sert cote ailleurs — 2330.TW en dollars de Taïwan,
+            # ASML.AS en euros — et un certificat vaut rarement UNE action :
+            # celui d'Alibaba en vaut huit, mesuré sur nos propres données.
+            #
+            # Transporter ce cours donnerait un rapport cours/bénéfice faux d'un
+            # facteur huit sans rien qui le signale. Et annoncer « devises non
+            # alignées » pour ASML.AS, dont les états ET la cotation sont en
+            # euros, serait faux dans l'autre sens.
+            #
+            # La fiche a déjà le cours de la cotation principale par son fichier
+            # de marché. Le miroir n'a donc rien à en dire.
+            #
+            # ⚠ Copie PROFONDE du résumé : `dict()` partagerait le
+            # sous-dictionnaire, et effacer le cours du miroir effacerait celui
+            # du paquet américain.
+            r_mir = dict(detail["resume"])
+            for cle in ("cours_natif", "cours_natif_le", "cours_source",
+                        "devise_cotation", "devises_alignees", "devise_deduite"):
+                r_mir[cle] = None
+            r_mir["montants_marche"] = "ecartes"
+            miroir["resume"] = r_mir
+            paquets.setdefault(_initiale(principal), {})[principal] = miroir
+            miroirs += 1
+
         r = dict(bati["resume"])
         r.pop("piotroski_detail", None)
         r.pop("altman_detail", None)
@@ -2518,6 +2836,20 @@ def main():
         r["cik"] = cik
         r["nom_sec"] = facts_doc.get("entityName")
         index[sym] = r
+        if principal:
+            # L'index sert le tri, le filtrage et la note : sans cette seconde
+            # entrée, la cotation principale resterait absente du classement
+            # alors que son paquet de détail existe.
+            #
+            # Mêmes silences que dans le paquet de détail : l'index ne doit pas
+            # non plus prêter à la cotation principale le cours du certificat.
+            r_idx = dict(r)
+            r_idx["miroir_de"] = sym
+            for cle in ("cours_natif", "cours_natif_le", "cours_source",
+                        "devise_cotation", "devises_alignees", "devise_deduite"):
+                r_idx[cle] = None
+            r_idx["montants_marche"] = "ecartes"
+            index[principal] = r_idx
         ok += 1
         if i % 50 == 0:
             print(f"[info] {i}/{len(univers)} — {ok} société(s) construites")
@@ -2526,6 +2858,10 @@ def main():
             break
 
     # Ce qui vient d'être collecté s'AJOUTE à ce qui existe.
+    if miroirs:
+        print("[info] %d paquet(s) aussi rangés sous leur cotation principale "
+              "— c'est cette fiche-là que le lecteur ouvre" % miroirs)
+
     index, paquets = _fusionner_sec(index, paquets)
 
     charge = {

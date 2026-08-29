@@ -424,7 +424,21 @@ def _cle_fragment(mot):
     Hong Kong, 72xx à Tokyo, 60xx à Shanghai.
     """
     s = unicodedata.normalize("NFKD", (mot or "?")).encode("ascii", "ignore").decode().upper()
-    s = s.lstrip(" .-'\"")
+    # ── LE MIROIR EXACT DE `norm()` CÔTÉ PAGE ───────────────────────────
+    #
+    # On retirait la ponctuation de TÊTE, et seulement cinq caractères :
+    # `lstrip(" .-'\"")`. La page, elle, retire TOUT caractère non
+    # alphanumérique, où qu'il soit — `replace(/[^a-z0-9]/g, "")`.
+    #
+    # « 1&1 AG » : ici « 1 » puis « & », qui n'est pas un chiffre, donc rangé
+    # dans `univers_0.json` ; là-bas « 11ag », donc cherché dans
+    # `univers_11.json`. Les deux fonctions se croisaient sans se rencontrer,
+    # sans erreur. Quatre cotations sur 47 272 étaient introuvables par leur nom,
+    # dont 1&1 AG (4,7 Md$) et 1-800-FLOWERS.
+    #
+    # Cette formulation-ci ne peut pas re-diverger : elle ne tient aucune liste
+    # de caractères, elle garde ce qui est alphanumérique et jette le reste.
+    s = "".join(c for c in s if c.isalnum())
     if not s:
         return None
     c = s[0]
