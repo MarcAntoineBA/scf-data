@@ -832,6 +832,43 @@ def facteurs_de_division(facts, devise=None):
     return out
 
 
+def exercices_confirmes(facts, devise=None):
+    """{date_de_fin: date du dépôt le plus récent} pour les exercices JAMAIS retraités.
+
+    ⚠ L'ABSENCE DE MILLÉSIME DIVERGENT EST UNE INFORMATION, ET C'EST L'INVERSE
+    DE CE QU'ON EN FAISAIT. `facteurs_de_division` ne retient que les exercices
+    dont la valeur a CHANGÉ entre deux dépôts. Ceux dont elle n'a PAS changé
+    étaient jetés — alors qu'ils prouvent quelque chose de fort : une division
+    d'action retraite TOUJOURS les exercices antérieurs, donc un exercice
+    redéposé à l'identique après une date n'a connu aucune division depuis.
+
+    Cas qui l'a fait écrire : VNET Group. L'exercice 2023 vaut 901 143 138
+    actions diluées dans les dépôts de 2024, 2025 ET 2026. L'inférence voyait le
+    saut à 1 742 346 367 en 2024 et concluait à une division ×2, rebasant treize
+    ans d'historique par action. VNET n'a pas divisé : il a émis.
+
+    On rend la date du dépôt le plus récent, parce que la répétition seule ne
+    prouve rien — deux dépôts ANTÉRIEURS au saut n'avaient rien à retraiter.
+    L'appelant exige un dépôt postérieur.
+    """
+    out = {}
+    for cle in ("shares_diluted", "eps_diluted"):
+        serie = _annuels(facts, CONCEPTS[cle], devise=devise, millesimes=True)
+        for fin, v in serie.items():
+            recente, _, depose_r, ancienne, depose_a = v
+            if not recente or not ancienne:
+                continue
+            if not depose_r or not depose_a or depose_r <= depose_a:
+                continue          # une seule vue : elle ne confirme rien
+            # Identiques à un cheveu près : les dépôts arrondissent parfois le
+            # dernier chiffre d'un nombre d'actions.
+            if abs(recente - ancienne) / max(abs(ancienne), 1e-9) > 1e-6:
+                continue
+            if fin not in out or depose_r > out[fin]:
+                out[fin] = depose_r
+    return out
+
+
 def _val(serie, fin):
     v = serie.get(fin)
     return v[0] if v else None
@@ -1398,7 +1435,15 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
     # de point de tolerance, CSX d un rachat, Tesla d une dilution.
     divisions = _corriger_divisions(
         exercices,
-        facteurs_lus={fin: f for fin, (f, _src) in facteurs_de_division(facts, devise).items()})
+        facteurs_lus={fin: f for fin, (f, _src) in facteurs_de_division(facts, devise).items()},
+        # ⚠ L'ABSENCE DE MILLÉSIME DIVERGENT EST UNE INFORMATION, ET C'EST
+        # L'INVERSE DE CE QU'ON EN FAISAIT. Un exercice redéposé À L'IDENTIQUE
+        # après une date n'a connu aucune division depuis — une division retraite
+        # TOUJOURS les exercices antérieurs. Sans cette table, l'inférence lisait
+        # chez VNET Group une division ×2 en 2024 et rebasait treize ans
+        # d'historique par action, alors que l'exercice 2023 vaut 901 143 138
+        # actions diluées dans les dépôts de 2024, 2025 ET 2026.
+        confirmes=exercices_confirmes(facts, devise))
 
     # ── SECOND PASSAGE : les rendements, sur CAPITAUX MOYENS ────────────────
     # Un rendement rapporte un FLUX de l'année (le résultat) à un STOCK (les

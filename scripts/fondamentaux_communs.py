@@ -623,7 +623,7 @@ def _facteur_division(r):
     return None
 
 
-def _corriger_divisions(exercices, facteurs_lus=None):
+def _corriger_divisions(exercices, facteurs_lus=None, confirmes=None):
     """Recoud les séries PAR ACTION que les divisions d'action coupent en deux.
 
     LE PIÈGE, ET IL EST SILENCIEUX. La SEC conserve les dépôts TELS QU'ILS ONT
@@ -725,6 +725,24 @@ def _corriger_divisions(exercices, facteurs_lus=None):
         sa, sb = a.get("shares_diluted"), b.get("shares_diluted")
         if sa and sb and sa > 0:
             f = _facteur_division(sb / sa)
+            # ── L'EXERCICE PRÉCÉDENT A-T-IL ÉTÉ REDÉPOSÉ SANS CHANGER ? ──
+            #
+            # Une division d'action RETRAITE toujours les exercices antérieurs.
+            # Un exercice redéposé à l'identique par un dépôt POSTÉRIEUR au saut
+            # prouve donc que le saut n'était pas une division.
+            #
+            # Mesuré sur VNET Group : l'exercice 2023 vaut 901 143 138 actions
+            # dans les dépôts de 2024, 2025 et 2026. L'inférence y lisait une
+            # division ×2 en 2024 et rebasait treize ans d'historique par action.
+            # VNET n'a pas divisé, il a émis — 901 M actions de base devenues
+            # 1 594 M sur le seul exercice 2024.
+            #
+            # ⚠ LA DATE DU DÉPÔT EST LA CONDITION. Deux dépôts antérieurs au saut
+            # ne prouvent rien : ils n'avaient rien à retraiter encore.
+            if f is not None and confirmes:
+                vu = confirmes.get(a.get("fin"))
+                if vu and b.get("fin") and vu > b["fin"]:
+                    f = None
             if f is not None:
                 na, nb = a.get("net_income"), b.get("net_income")
                 confirme = True
