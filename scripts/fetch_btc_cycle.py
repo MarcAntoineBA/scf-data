@@ -197,13 +197,15 @@ def block_tip(sess):
 #
 # Sources : Coinmetrics (BTC, ETH) · Yahoo v8 puis TradingView en repli (S&P 500,
 # or) · TradingView CRYPTOCAP:BTC.D (dominance).
-ROT_START = "2013-01-01"
-# ⚠ La dominance TradingView est COUPÉE à 2018. Avant, l'indice CRYPTOCAP ne
-# couvrait qu'une poignée d'actifs : il affiche 98-99 % en 2016 (réalité ≈ 87 %)
-# et 72 % en mai 2017 (réalité ≈ 47 %). Le niveau ne redevient conforme aux
-# capitalisations réelles qu'à partir de 2018 — vérifié contre les repères
-# connus (janv. 2018 ≈ 37 % · août 2019 ≈ 71 % · janv. 2021 ≈ 68 %).
-ROT_DOM_START = "2018-01-01"
+ROT_START = "2010-07-18"          # premier prix BTC de Coinmetrics : historique maximal
+# ⚠ La dominance TradingView est PUBLIÉE EN ENTIER (2014+), mais elle n'est
+# FIABLE qu'à partir de 2018 : avant, l'indice CRYPTOCAP ne couvrait qu'une
+# poignée d'actifs, il affiche 98-99 % en 2016 (réalité ≈ 87 %) et 72 % en mai
+# 2017 (réalité ≈ 47 %). Les repères connus sont retrouvés à partir de 2018
+# (janv. 2018 ≈ 37 % · août 2019 ≈ 71 % · janv. 2021 ≈ 68 %). La page hachure
+# la portion antérieure au lieu de la couper ; la clé dominance_fiable_depuis
+# porte cette frontière jusqu'au front.
+ROT_DOM_FIABLE = "2018-01-01"
 
 
 def _asof(mapping, stale_days):
@@ -385,7 +387,7 @@ def build_rotations(sess, btc_by_date):
 
     series = {
         "btc_dom": [[_u(day), round(f_dom(day), 2)] for day in grid
-                    if day >= ROT_DOM_START and f_dom(day) is not None],
+                    if f_dom(day) is not None],
         "eth_btc": ratio(f_eth, f_btc),
         "eth_spx": ratio(f_eth, f_spx),
         "eth_gold": ratio(f_eth, f_gold),
@@ -404,10 +406,11 @@ def build_rotations(sess, btc_by_date):
             "gold": gold_src,
             "dominance": "TradingView CRYPTOCAP:BTC.D (hebdo)" if dom else "indisponible",
         },
-        "dominance_start": ROT_DOM_START,
+        "dominance_fiable_depuis": ROT_DOM_FIABLE,
         "dominance_note": (
-            "Dominance coupée à 2018 : avant, l'indice CRYPTOCAP ne couvrait qu'une "
-            "poignée d'actifs et affichait mécaniquement 98-99 % (réalité ≈ 87 %)."),
+            "Avant 2018, l'indice CRYPTOCAP ne couvrait qu'une poignée d'actifs et "
+            "affichait mécaniquement 98-99 % de dominance (réalité ≈ 87 %). La portion "
+            "antérieure est publiée mais signalée comme non fiable."),
     }
 
 
@@ -1195,8 +1198,15 @@ def sanity(p):
         assert age < 21, f"rotations[{k}] s'arrête il y a {age:.0f} jours"
     if "btc_dom" in rot:
         dv = [r[1] for r in rot["btc_dom"]]
-        assert 20 < min(dv) and max(dv) < 95, (
-            f"btc_dom hors plage plausible ({min(dv):.1f}-{max(dv):.1f} %) — "
+        assert 20 < min(dv) and max(dv) <= 100, (
+            f"btc_dom hors plage plausible ({min(dv):.1f}-{max(dv):.1f} %)")
+        # La partie FIABLE (2018+) doit, elle, rester sous 95 % : si l'univers
+        # CRYPTOCAP rebougeait, c'est là que ça se verrait.
+        t_ok = int(datetime.strptime(ROT_DOM_FIABLE, "%Y-%m-%d")
+                   .replace(tzinfo=timezone.utc).timestamp())
+        rec = [r[1] for r in rot["btc_dom"] if r[0] >= t_ok]
+        assert rec and 20 < min(rec) and max(rec) < 95, (
+            f"btc_dom post-{ROT_DOM_FIABLE[:4]} hors plage ({min(rec):.1f}-{max(rec):.1f} %) — "
             "l'univers CRYPTOCAP a peut-être encore bougé")
     # composite_weekly : historique non régressif + son DERNIER point doit coïncider
     # avec la jauge live (même formule), sinon divergence silencieuse historique/live.
