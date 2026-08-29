@@ -25,7 +25,7 @@ import math
 import shutil
 import sys
 import time
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -106,13 +106,14 @@ def _session():
 
 
 # ─────────────────────── Fetch helpers ─────────────────────────
-def cm_metric(sess, metric, start="2010-07-18"):
+def cm_metric(sess, metric, start="2010-07-18", asset="btc", min_points=500):
     """Coinmetrics community : série quotidienne complète d'une métrique.
-    Retourne (dates[str], values[float]) triées asc. Lève en cas d'échec."""
+    Retourne (dates[str], values[float]) triées asc. Lève en cas d'échec.
+    `asset` : btc par défaut, eth pour les rotations de capital."""
     out_d, out_v = [], []
     url = CM
     params = {
-        "assets": "btc", "metrics": metric, "frequency": "1d",
+        "assets": asset, "metrics": metric, "frequency": "1d",
         "start_time": start, "page_size": 10000,
     }
     for _ in range(60):  # pagination guard
@@ -129,8 +130,8 @@ def cm_metric(sess, metric, start="2010-07-18"):
         if not nxt:
             break
         url, params = nxt, None
-    if len(out_v) < 500:
-        raise RuntimeError(f"Coinmetrics {metric}: trop peu de points ({len(out_v)})")
+    if len(out_v) < min_points:
+        raise RuntimeError(f"Coinmetrics {asset}/{metric}: trop peu de points ({len(out_v)})")
     # dédup/tri par date
     pair = sorted(dict(zip(out_d, out_v)).items())
     return [p[0] for p in pair], [p[1] for p in pair]
@@ -179,6 +180,235 @@ def block_tip(sess):
         except Exception as e:
             log(f"WARN tip {url}: {e}")
     return None
+
+
+# ══════════ Rotations de capital (widget « Qui mène le cycle ? ») ══════════
+# Six ratios hebdomadaires qui répondent à UNE question : à chaque moment du
+# cycle, quel actif capte le capital ? Même grammaire que les graphes séculaires
+# du pane TradFi (bandes de régime dérivées de la courbe elle-même), transposée
+# à l'échelle des cycles crypto.
+#
+#   btc_dom  · dominance BTC (%)   ↑ Bitcoin mène   ↓ Altcoins mènent
+#   eth_btc  · ETH / BTC           ↑ Ethereum       ↓ Bitcoin
+#   eth_spx  · ETH / S&P 500       ↑ Ethereum       ↓ Actions
+#   eth_gold · ETH / once d'or     ↑ Ethereum       ↓ Or
+#   btc_spx  · BTC / S&P 500       ↑ Bitcoin        ↓ Actions
+#   btc_gold · BTC / once d'or     ↑ Bitcoin        ↓ Or
+#
+# Sources : Coinmetrics (BTC, ETH) · Yahoo v8 puis TradingView en repli (S&P 500,
+# or) · TradingView CRYPTOCAP:BTC.D (dominance).
+ROT_START = "2013-01-01"
+# ⚠ La dominance TradingView est COUPÉE à 2018. Avant, l'indice CRYPTOCAP ne
+# couvrait qu'une poignée d'actifs : il affiche 98-99 % en 2016 (réalité ≈ 87 %)
+# et 72 % en mai 2017 (réalité ≈ 47 %). Le niveau ne redevient conforme aux
+# capitalisations réelles qu'à partir de 2018 — vérifié contre les repères
+# connus (janv. 2018 ≈ 37 % · août 2019 ≈ 71 % · janv. 2021 ≈ 68 %).
+ROT_DOM_START = "2018-01-01"
+
+
+def _asof(mapping, stale_days):
+    """Accès « dernière valeur connue à cette date », avec péremption : au-delà
+    de stale_days sans cotation on renvoie None plutôt qu'un chiffre fantôme."""
+    import bisect
+    keys = sorted(mapping)
+    vals = [mapping[k] for k in keys]
+
+    def f(day):
+        i = bisect.bisect_right(keys, day) - 1
+        if i < 0:
+            return None
+        d0 = datetime.strptime(keys[i], "%Y-%m-%d")
+        d1 = datetime.strptime(day, "%Y-%m-%d")
+        if (d1 - d0).days > stale_days:
+            return None
+        return vals[i]
+    return f
+
+
+def _sig(x, n=6):
+    """Arrondi à n chiffres significatifs — six séries hebdo, autant ne pas
+    écrire 17 décimales de bruit flottant dans un cache que la page inline."""
+    if x is None or x == 0 or not math.isfinite(x):
+        return x
+    return round(x, max(0, n - 1 - int(math.floor(math.log10(abs(x))))))
+
+
+def _u(day):
+    return int(datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+
+
+def _weekly_grid(first, last):
+    """Dimanches de first→last, PLUS la dernière date réelle si elle tombe en
+    milieu de semaine : le dernier point du graphe doit porter la date de la
+    dernière donnée, pas celle du dimanche précédent (même exigence que
+    price_weekly, cf. le garde-fou de sanity())."""
+    d = datetime.strptime(first, "%Y-%m-%d")
+    d += timedelta(days=(6 - d.weekday()) % 7)
+    end = datetime.strptime(last, "%Y-%m-%d")
+    out = []
+    while d <= end:
+        out.append(d.strftime("%Y-%m-%d"))
+        d += timedelta(days=7)
+    if not out or out[-1] != last:
+        out.append(last)
+    return out
+
+
+def _yahoo_daily(symbol, start=ROT_START):
+    """Yahoo v8 quotidien. curl_cffi (impersonation TLS) comme fetch_tradfi_cycle,
+    repli requests nu si le module manque. `range=max` renverrait du MENSUEL :
+    il faut period1/period2 explicites pour obtenir le pas quotidien."""
+    p1, p2 = _u(start), int(time.time())
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?period1={p1}&period2={p2}&interval=1d")
+    try:
+        from curl_cffi import requests as creq
+        j = creq.get(url, impersonate="chrome110", timeout=45).json()
+    except Exception as e:
+        log(f"rotations: curl_cffi indispo/échec sur {symbol} ({e}) — repli requests")
+        r = requests.get(url, headers=UA, timeout=45)
+        r.raise_for_status()
+        j = r.json()
+    res = (j.get("chart") or {}).get("result")
+    if not res:
+        raise RuntimeError(f"Yahoo {symbol} : réponse vide")
+    res = res[0]
+    ts = res.get("timestamp") or []
+    cl = ((res.get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
+    out = {}
+    for t, c in zip(ts, cl):
+        if c is None:
+            continue
+        out[datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%d")] = float(c)
+    if len(out) < 200:
+        raise RuntimeError(f"Yahoo {symbol} : trop peu de points ({len(out)})")
+    return out
+
+
+def _tv_weekly(symbol, bars=2000, timeout=35):
+    """Bougies hebdo du WebSocket public TradingView (même mécanique que
+    scripts/fetch_tv_others.py). Seule source gratuite de CRYPTOCAP:BTC.D avec
+    historique ; sert aussi de repli pour le S&P 500 et l'or."""
+    import re as _re
+    import websocket  # websocket-client
+    ws = websocket.create_connection(
+        "wss://data.tradingview.com/socket.io/websocket?from=chart%2F&date="
+        + str(int(time.time())) + "&type=chart",
+        origin="https://www.tradingview.com", timeout=15,
+        header=["User-Agent: " + UA["User-Agent"]])
+
+    def send(d):
+        s = json.dumps(d, separators=(",", ":"))
+        ws.send("~m~" + str(len(s)) + "~m~" + s)
+
+    sess_id = "cs_anon_" + str(int(time.time()))[-8:]
+    buf = ""
+    try:
+        send({"m": "set_auth_token", "p": ["unauthorized_user_token"]})
+        send({"m": "chart_create_session", "p": [sess_id, ""]})
+        send({"m": "resolve_symbol",
+              "p": [sess_id, "sds_sym_1", '={"symbol":"' + symbol + '","adjustment":"splits"}']})
+        send({"m": "create_series", "p": [sess_id, "sds_1", "s1", "sds_sym_1", "1W", bars, ""]})
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            msg = ws.recv()
+            if not isinstance(msg, str):
+                continue
+            if msg.startswith("~m~") and "~h~" in msg:   # heartbeat : renvoyer tel quel
+                ws.send(msg)
+                continue
+            buf += msg
+            if "series_completed" in buf:
+                break
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
+    out = {}
+    for m in _re.finditer(r'\{"i":\d+,"v":\[([^\]]+)\]\}', buf):
+        p = m.group(1).split(",")
+        if len(p) < 5:
+            continue
+        try:
+            day = datetime.fromtimestamp(int(float(p[0])), timezone.utc).strftime("%Y-%m-%d")
+            out[day] = float(p[4])          # v = [time, open, high, low, close, volume]
+        except Exception:
+            continue
+    if len(out) < 100:
+        raise RuntimeError(f"TradingView {symbol} : trop peu de bougies ({len(out)})")
+    return out
+
+
+def build_rotations(sess, btc_by_date):
+    """Six séries hebdo prêtes à tracer. L'appelant encapsule dans un try :
+    si une source tombe, merge_preserve conserve l'ancien bloc."""
+    d, v = cm_metric(sess, "PriceUSD", start="2015-08-01", asset="eth", min_points=1000)
+    eth_by_date = dict(zip(d, v))
+    log(f"rotations : ETH {len(eth_by_date)} pts {d[0]}→{d[-1]}")
+
+    def source_pair(name, yahoo_sym, tv_sym):
+        try:
+            m = _yahoo_daily(yahoo_sym)
+            log(f"rotations : {name} Yahoo {len(m)} pts")
+            return m, "Yahoo Finance v8 (quotidien)", 6
+        except Exception as e:
+            log(f"WARN rotations {name} Yahoo : {e} — repli TradingView")
+            m = _tv_weekly(tv_sym)
+            log(f"rotations : {name} TradingView {len(m)} pts")
+            return m, f"TradingView {tv_sym} (hebdo)", 10
+
+    spx, spx_src, spx_stale = source_pair("S&P 500", "%5EGSPC", "SP:SPX")
+    gold, gold_src, gold_stale = source_pair("Or", "GC=F", "TVC:GOLD")
+    try:
+        dom = _tv_weekly("CRYPTOCAP:BTC.D")
+        log(f"rotations : dominance {len(dom)} bougies")
+    except Exception as e:
+        log(f"WARN rotations dominance : {e}")
+        dom = {}
+
+    f_btc, f_eth = _asof(btc_by_date, 6), _asof(eth_by_date, 6)
+    f_spx, f_gold = _asof(spx, spx_stale), _asof(gold, gold_stale)
+    f_dom = _asof(dom, 10) if dom else (lambda day: None)
+
+    last = min(max(btc_by_date), max(eth_by_date))
+    grid = _weekly_grid(ROT_START, last)
+
+    def ratio(fa, fb):
+        out = []
+        for day in grid:
+            a, b = fa(day), fb(day)
+            if a is None or b is None or not b:
+                continue
+            out.append([_u(day), _sig(a / b)])
+        return out
+
+    series = {
+        "btc_dom": [[_u(day), round(f_dom(day), 2)] for day in grid
+                    if day >= ROT_DOM_START and f_dom(day) is not None],
+        "eth_btc": ratio(f_eth, f_btc),
+        "eth_spx": ratio(f_eth, f_spx),
+        "eth_gold": ratio(f_eth, f_gold),
+        "btc_spx": ratio(f_btc, f_spx),
+        "btc_gold": ratio(f_btc, f_gold),
+    }
+    series = {k: s for k, s in series.items() if len(s) >= 60}
+    if not series:
+        raise RuntimeError("aucune série de rotation constructible")
+    return {
+        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "series": series,
+        "sources": {
+            "crypto": "Coinmetrics community API — BTC & ETH, PriceUSD quotidien",
+            "sp500": spx_src,
+            "gold": gold_src,
+            "dominance": "TradingView CRYPTOCAP:BTC.D (hebdo)" if dom else "indisponible",
+        },
+        "dominance_start": ROT_DOM_START,
+        "dominance_note": (
+            "Dominance coupée à 2018 : avant, l'indice CRYPTOCAP ne couvrait qu'une "
+            "poignée d'actifs et affichait mécaniquement 98-99 % (réalité ≈ 87 %)."),
+    }
 
 
 # ─────────────────────── Math helpers ──────────────────────────
@@ -835,7 +1065,24 @@ def build():
         },
     ]
 
-    # 9) Composite cycle 0-100 (recalculé aussi après merge-preserve dans main)
+    # 9) Rotations de capital — jamais bloquant : une source qui tombe ne doit
+    #    pas priver la page de ses 6 indicateurs de cycle.
+    #    Sautées en mode --no-onchain (job « live » horaire) : ce sont des séries
+    #    HEBDOMADAIRES, 3 rafraîchissements par jour suffisent largement, et on
+    #    évite 4 appels externes (dont un WebSocket TradingView) à chaque heure.
+    #    merge_preserve remet alors le bloc de la veille.
+    rotations = None
+    if "--no-onchain" in sys.argv:
+        log("--no-onchain : rotations sautées (merge-preserve restaurera)")
+    else:
+        try:
+            rotations = build_rotations(sess, dict(zip(pdates, prices)))
+            log("rotations : " + " · ".join(
+                f"{k} {len(v)} pts" for k, v in rotations["series"].items()))
+        except Exception as e:
+            log(f"WARN rotations : {e}")
+
+    # 10) Composite cycle 0-100 (recalculé aussi après merge-preserve dans main)
     composite = compute_composite(table, price_w[-1][0] if price_w else None)
 
     payload = {
@@ -868,6 +1115,7 @@ def build():
         "rainbow": rainbow,
         "returns": returns,
         "halving": halving,
+        "rotations": rotations,
     }
     return payload
 
@@ -886,6 +1134,17 @@ def merge_preserve(new):
         if not new.get(key) and old.get(key):
             new[key] = old[key]
             log(f"merge-preserve: {key} conservé depuis l'ancien cache")
+    # rotations : bloc entier, puis série par série (une source tombée ne doit
+    # pas effacer les cinq autres ratios déjà publiés).
+    if not new.get("rotations") and old.get("rotations"):
+        new["rotations"] = old["rotations"]
+        log("merge-preserve: rotations conservées depuis l'ancien cache")
+    elif new.get("rotations") and old.get("rotations"):
+        os_, ns_ = old["rotations"].get("series", {}), new["rotations"].get("series", {})
+        for k, v in os_.items():
+            if len(ns_.get(k) or []) < len(v) * 0.9:
+                ns_[k] = v
+                log(f"merge-preserve: rotations[{k}] conservée (nouvelle série plus courte)")
     # table : restaure la valeur si elle est tombée à None
     if old.get("table"):
         oldmap = {r["key"]: r for r in old["table"]}
@@ -925,6 +1184,20 @@ def sanity(p):
         assert len(nu) > 400, f"nupl_series trop courte ({len(nu)} pts)"
         ns = [r[1] for r in nu if r[1] is not None]
         assert ns and max(ns) < 1.0 and min(ns) > -2.5, f"nupl_series hors plage (min={min(ns):.2f} max={max(ns):.2f})"
+    # rotations : chaque ratio doit couvrir >1 an et finir au plus tard à la date
+    # du dernier prix (un ratio figé sur une source morte est un mensonge muet).
+    rot = (p.get("rotations") or {}).get("series") or {}
+    for k, s in rot.items():
+        assert len(s) >= 60, f"rotations[{k}] trop courte ({len(s)} pts)"
+        vs = [r[1] for r in s if r[1] is not None]
+        assert vs and min(vs) > 0, f"rotations[{k}] contient une valeur nulle/négative"
+        age = (p["meta"]["updated_unix"] - s[-1][0]) / 86400
+        assert age < 21, f"rotations[{k}] s'arrête il y a {age:.0f} jours"
+    if "btc_dom" in rot:
+        dv = [r[1] for r in rot["btc_dom"]]
+        assert 20 < min(dv) and max(dv) < 95, (
+            f"btc_dom hors plage plausible ({min(dv):.1f}-{max(dv):.1f} %) — "
+            "l'univers CRYPTOCAP a peut-être encore bougé")
     # composite_weekly : historique non régressif + son DERNIER point doit coïncider
     # avec la jauge live (même formule), sinon divergence silencieuse historique/live.
     cw = p.get("composite_weekly") or []
