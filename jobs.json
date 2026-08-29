@@ -606,6 +606,20 @@
       "witness": "flux_physiques_cache.js"
     },
     {
+      "id": "reservesorust",
+      "script": "fetch_reserves_or_ust.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "reserves_or_ust_cache.js",
+        "reserves_or_ust_cache.json"
+      ],
+      "witness": "reserves_or_ust_cache.js"
+    },
+    {
       "id": "frbudget",
       "script": "fetch_atlas_france_budget.py",
       "args": [],
