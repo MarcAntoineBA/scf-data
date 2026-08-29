@@ -1,21 +1,16 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-08-28T14:06:46Z",
-  "total": 25,
-  "ok": 24,
-  "secs": 4075.2,
-  "changed": 38,
-  "versionnes": 30,
-  "pieces_jointes": 8,
-  "absents": 26,
+  "ts": "2026-08-29T00:04:58Z",
+  "total": 26,
+  "ok": 26,
+  "secs": 3558.4,
+  "changed": 40,
+  "versionnes": 31,
+  "pieces_jointes": 9,
+  "absents": 24,
   "muets": [],
-  "failed": [
-   {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-08-28T14:06:46Z"
+ "updated": "2026-08-29T00:04:58Z"
 }
