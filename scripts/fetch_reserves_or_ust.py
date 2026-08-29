@@ -98,7 +98,7 @@ OZ_PAR_TONNE = 32150.7466          # onces troy fines dans une tonne
 DEBUT = 1968                       # premier fixing LBMA : 01/04/1968
 
 # Cle FRED : libre et publique (https://fred.stlouisfed.org/docs/api/api_key.html).
-FRED_KEY = os.environ.get("FRED_API_KEY", "1410940b18c0dbb6ebcfef7c3c2cba3e")
+FRED_KEY = os.environ.get("FRED_API_KEY", "")
 
 
 def _get(url, timeout=120, accept=None, essais=3):
@@ -421,6 +421,11 @@ def construire(brut):
             "ust_date": ust_live_d,
             "gold_t": round(t_live),
             "fx_date": max(cofer),
+            # Composantes brutes du calcul : le panneau recalcule la part de
+            # l'or toutes les 60 s avec le spot du moment, sans re-collecter.
+            "fx_md": round(fx_live / 1e9, 1),
+            "ust_md": round(ust_live / 1e9, 1),
+            "oz_par_tonne": OZ_PAR_TONNE,
         },
         "history": hist,
         "croisements": croisements,
