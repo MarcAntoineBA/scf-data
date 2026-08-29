@@ -406,22 +406,46 @@ def charger_univers():
         return {}, {}
     with f.open(encoding="utf-8") as fh:
         d = json.load(fh)
-    par_sa, meta = {}, {}
+    par_sa, par_nu, meta = {}, {}, {}
+    # ⚠ UN TICKER NU EST AMBIGU 7 620 FOIS SUR 75 888.
+    #
+    # L'ancien code indexait le dernier segment de chaque chemin comme clé de
+    # secours — l'intention était juste (« les cotations américaines arrivent
+    # tantôt nues, tantôt préfixées »), mais un ticker n'est unique que sur sa
+    # place. Le 7203 de Toyota existe à Tokyo ET à Riyad ; le RCO de Rémy
+    # Cointreau à Paris ET à Francfort.
+    #
+    # Résultat mesuré : la ligne de Francfort héritait du symbole RCO.PA, et
+    # comme la jointure garde le premier arrivé, Rémy Cointreau disparaissait au
+    # profit de Resources Connection, Inc. Même chose pour Capgemini (17 salariés
+    # au lieu de 417 610), Publicis, Sopra Steria, Grifols, Fortescue.
+    #
+    # On compte donc les porteurs de chaque segment AVANT d'indexer, et l'on
+    # n'indexe que les segments portés par un seul chemin.
+    porteurs = {}
+    for t in d.get("titres", []):
+        sa = t.get("sa") or ""
+        if "/" in sa:
+            porteurs.setdefault(sa.split("/")[-1], set()).add(sa)
+
     for t in d.get("titres", []):
         sym = t.get("yahoo") or t.get("sa")
         if not sym:
             continue
         sa = t.get("sa") or ""
         par_sa[sa] = sym
-        # Les cotations américaines arrivent tantôt nues (« NVDA ») tantôt
-        # préfixées (« otc/TCEFF ») selon l'appel. On indexe les deux formes.
         if "/" in sa:
-            par_sa.setdefault(sa.split("/")[-1], sym)
+            seg = sa.split("/")[-1]
+            if len(porteurs.get(seg) or ()) == 1:
+                par_nu.setdefault(seg, sym)
         else:
-            par_sa.setdefault(sa.lower(), sym)
+            par_nu.setdefault(sa.lower(), sym)
         meta[sym] = {"nom": t.get("nom"), "place": t.get("place"),
                      "principal": t.get("principal")}
-    return par_sa, meta
+    ambigus = sum(1 for v in porteurs.values() if len(v) > 1)
+    print("[info] index de secours : %d ticker(s) nu(s) retenu(s), %d écarté(s) "
+          "pour ambiguïté" % (len(par_nu), ambigus))
+    return par_sa, par_nu, meta
 
 
 # Au-delà de ce seuil, une « croissance » n'est plus une prévision mais un
@@ -551,7 +575,7 @@ def main():
     champs_pence = {"price", "high52", "low52", "ma50", "ma200", "atr",
                     "priceTarget", "eps", "dividend"}
 
-    par_sa, meta = charger_univers()
+    par_sa, par_nu, meta = charger_univers()
     print("[info] univers de correspondance : %d chemins connus" % len(par_sa))
 
     brut, muets, doublons = {}, [], 0
@@ -606,14 +630,30 @@ def main():
     # ── Jointure sur nos symboles ──
     lignes, sans_symbole = {}, 0
     croissances_ecartees = [0]
+    # ⚠ DEUX PASSES, ET L'ORDRE COMPTE. La jointure garde le premier arrivé :
+    # une ligne rattachée par le secours et arrivée tôt volait la place d'une
+    # correspondance EXACTE arrivée tard. C'est ainsi que la ligne de Francfort
+    # de Resources Connection prenait le symbole de Rémy Cointreau.
+    reste = []
     for k, v in brut.items():
-        sym = par_sa.get(k) or par_sa.get(k.split("/")[-1]) or par_sa.get(k.lower())
+        sym = par_sa.get(k)
+        if sym:
+            if sym not in lignes:
+                lignes[sym] = _nettoyer(v, champs_pence, croissances_ecartees)
+        else:
+            reste.append((k, v))
+    par_secours = 0
+    for k, v in reste:
+        sym = par_nu.get(k.split("/")[-1]) or par_nu.get(k.lower())
         if not sym:
             sans_symbole += 1
             continue
         if sym in lignes:
             continue
         lignes[sym] = _nettoyer(v, champs_pence, croissances_ecartees)
+        par_secours += 1
+    print("[info] %d ligne(s) rattachée(s) par le ticker nu, après les "
+          "correspondances exactes" % par_secours)
 
     print("[ok] %d lignes rattachées à un symbole, %d sans correspondance"
           % (len(lignes), sans_symbole))
