@@ -1,7 +1,11 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1787994846.6352801,
- "motifs": [],
- "verifie_le": "2026-08-29 18:41 UTC"
+ "en_panne": true,
+ "depuis": 1788040187.8373003,
+ "derniere_alerte": 1788040187.8373003,
+ "motifs": [
+  "fj_news_cache.json : 3.4 h (seuil 3 h) — fil d'actualités : « maj il y a Nh »",
+  "news_cache.json : 3.4 h (seuil 3 h) — dépêches (repli du fil d'actualités)",
+  "macro_calendar_cache.json : 11.2 h (seuil 6 h) — calendrier macro"
+ ],
+ "verifie_le": "2026-08-29 21:49 UTC"
 }
