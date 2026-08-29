@@ -1,21 +1,21 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-08-28T17:47:50Z",
+  "ts": "2026-08-29T11:43:30Z",
   "total": 38,
   "ok": 32,
-  "secs": 3131.5,
-  "changed": 1734,
-  "versionnes": 1729,
-  "pieces_jointes": 5,
-  "absents": 32,
+  "secs": 1092.6,
+  "changed": 1315,
+  "versionnes": 1309,
+  "pieces_jointes": 6,
+  "absents": 31,
   "muets": [
-   "gtrends.serpapi (132.5 h)"
+   "gtrends.serpapi (150.4 h)"
   ],
   "failed": [
    {
     "job": "marche",
-    "why": "[fatal] 0 sociétés collectées contre 37574 au passage précédent, soit 100 % de moins. Aucune cause normale — jour férié, place fermée — ne fait perdre un quart de l'univers. On garde les fragments exi"
+    "why": "ValueError: not enough values to unpack (expected 3, got 2)"
    },
    {
     "job": "desk.complet",
@@ -39,5 +39,5 @@
    }
   ]
  },
- "updated": "2026-08-28T17:47:50Z"
+ "updated": "2026-08-29T11:43:30Z"
 }
