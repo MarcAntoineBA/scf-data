@@ -892,6 +892,7 @@ from fondamentaux_communs import (
     redresser_dividende_par_action,
     TAUX_SANS_RISQUE, PRIME_DE_RISQUE, _wacc,
     beta_plausible,
+    cours_ancres, cours_a_la_date,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
 )
 
@@ -1045,7 +1046,86 @@ def historique_note(exercices):
 # ─────────────────────────────────────────────────────────────────────────
 # Construction de la série annuelle d'une société
 # ─────────────────────────────────────────────────────────────────────────
-def construire(facts, mcap_usd=None, beta=None, cours=None):
+# Le pas maximal toléré dans une série de nombres d'actions APRÈS recouture. Un
+# saut qui subsiste est un défaut, ou une entrée en bourse : dans les deux cas,
+# transporter une capitalisation à travers lui donnerait un faux.
+SAUT_ACTIONS_MAX = 5.0
+
+
+def combler_mcap_par_ancres(exercices, variations, jour_ref):
+    """Comble la capitalisation manquante en transportant un RAPPORT, pas un montant.
+
+        mcap(exercice) = mcap_du_dernier × cours(exercice)/cours(aujourd'hui)
+                                         × actions(exercice)/actions(dernier)
+
+    le premier rapport valant exactement `1 / (1 + chNy/100)`.
+
+    ⚠ POURQUOI CETTE FONCTION EXISTE ICI ET PAS SEULEMENT DANS LE REJEU. Un
+    correctif qui ne vit que dans le rejeu est détruit au passage suivant du
+    collecteur, en silence. La règle doit être là où la donnée est fabriquée.
+
+    ⚠ POURQUOI UN RAPPORT ET NON UN MONTANT. Calculer `cours × actions`
+    obligerait à connaître la devise des états, l'unité du nombre d'actions et un
+    taux de change — trois occasions de se tromper — et produirait un montant qui
+    ne se raccorde pas à celui du dernier exercice, d'où des sauts de ×3 000 sur
+    le graphique. Un rapport n'a ni monnaie ni unité, et vaut 1 au dernier
+    exercice.
+
+    ⚠ ON NE COMBLE QUE LES VIDES : les titres à vraie série de cours gardent la
+    leur, exercice par exercice.
+
+    ⚠ QUATRE ANCRES, PAS UNE SÉRIE, et six mois de tolérance. On n'interpole pas
+    entre deux ancres : une capitalisation devinée nourrirait un jugement de
+    création de valeur, et un jugement bâti sur une interpolation n'en est pas un.
+    L'écart retenu est inscrit sous `mcap_ecart_jours`.
+
+    Rend le nombre d'exercices comblés.
+    """
+    if not variations or not jour_ref or not exercices:
+        return 0
+    try:
+        ref_date = datetime.fromisoformat(jour_ref)
+    except Exception:
+        return 0
+
+    serie = [e.get("shares_diluted") for e in exercices]
+    serie = [x for x in serie if isinstance(x, (int, float)) and x > 0]
+    for k in range(1, len(serie)):
+        if max(serie[k] / serie[k - 1], serie[k - 1] / serie[k]) > SAUT_ACTIONS_MAX:
+            return 0
+
+    ref = None
+    for e in reversed(exercices):
+        if (e.get("mcap_estime") or 0) > 0 and e.get("shares_diluted"):
+            ref = e
+            break
+    if ref is None:
+        return 0
+    sh_ref = ref["shares_diluted"]
+
+    n = 0
+    for e in exercices:
+        if e is ref or (e.get("mcap_estime") or 0) > 0:
+            continue
+        sh, fin_e = e.get("shares_diluted"), e.get("fin")
+        if not sh or sh <= 0 or not fin_e:
+            continue
+        try:
+            jours = (ref_date - datetime.fromisoformat(fin_e)).days
+        except Exception:
+            continue
+        rapport, ecart = cours_a_la_date(variations, jours)
+        if rapport is None or rapport <= 0:
+            continue
+        e["mcap_estime"] = round(ref["mcap_estime"] * rapport * sh / sh_ref)
+        e["mcap_source"] = "ancre"
+        e["mcap_ecart_jours"] = ecart
+        n += 1
+    return n
+
+
+def construire(facts, mcap_usd=None, beta=None, cours=None,
+               variations=None, jour_marche=None):
     _DEVISES_VUES.clear()
     # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
     # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
@@ -1507,6 +1587,33 @@ def construire(facts, mcap_usd=None, beta=None, cours=None):
         e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
                                 if (e.get("roic") is not None and e.get("wacc") is not None) else None)
 
+    # ── LA CAPITALISATION HISTORIQUE QUE LA SÉRIE DE COURS NE COUVRE PAS ──
+    #
+    # Seuls les huit cents titres du tracker ont une vraie série de cours. Pour
+    # tous les autres, la boucle ci-dessus n'a posé une capitalisation que sur le
+    # DERNIER exercice — celle d'aujourd'hui, faute de mieux — et le coût du
+    # capital n'avait donc qu'une barre au bord droit d'un graphique de vingt.
+    #
+    # Les fichiers de marché portent la variation du cours sur un, trois, cinq et
+    # dix ans : quatre ancres, dont on déduit le rapport entre le cours d'alors
+    # et celui d'aujourd'hui. Un rapport suffit, puisqu'on TRANSPORTE la
+    # capitalisation du dernier exercice au lieu de recalculer un montant.
+    #
+    # ⚠ ET ON REPASSE `_wacc` SUR CE QU'ON VIENT DE COMBLER : le coût du capital
+    # se calcule dans la boucle ci-dessus, donc avant que ces capitalisations
+    # n'existent. Sans ce second passage, l'exercice gagnerait sa capitalisation
+    # et pas le coût du capital qui en dépend — le contraire du but.
+    if combler_mcap_par_ancres(exercices, variations, jour_marche):
+        for e in exercices:
+            if e.get("mcap_source") != "ancre":
+                continue
+            e["wacc"] = _wacc(e.get("mcap_estime"), e.get("dette_totale"),
+                              e.get("interest_expense"), e.get("_taux_nopat"), beta)
+            e["roic_moins_wacc"] = (
+                round(e["roic"] - e["wacc"], 2)
+                if (e.get("roic") is not None and e.get("wacc") is not None)
+                else None)
+
     # ROIIC — rendement du capital NOUVELLEMENT investi. Il répond à la question
     # que le ROIC élude : la croissance récente crée-t-elle autant de valeur que
     # l'existant ? Variation du résultat d'exploitation après impôt sur variation
@@ -1750,21 +1857,41 @@ def univers_marche(tranche=None):
         except ValueError:
             continue
         i_ind = ch.index("industry") if "industry" in ch else None
+        # ── LES VARIATIONS DE COURS, POUR LA CAPITALISATION HISTORIQUE ──
+        #
+        # ch1y, ch3y, ch5y, ch10y donnent le rapport entre le cours d'alors et
+        # celui d'aujourd'hui — quatre ancres qui font passer le coût du capital
+        # d'une barre à trois pour la plupart des sociétés. Elles sont dans ce
+        # fichier depuis toujours et personne ne les lisait.
+        #
+        # ⚠ `genere_le` ET NON `updated` : les fichiers de marché datent leur
+        # écriture sous ce nom-là. Chercher `updated` rend None sans lever
+        # d'erreur, et la reconstruction se tait entièrement.
+        i_ch = {n: ch.index(n) for n in ("ch1y", "ch3y", "ch5y", "ch10y") if n in ch}
+        jour_m = (d.get("genere_le") or d.get("updated") or "")[:10] or None
         for sym, v in (d.get("societes") or {}).items():
             # Un ticker à suffixe n'est pas américain ; un chemin non plus.
             if "." in sym or "/" in sym or sym not in principales:
                 continue
+            var = cours_ancres(
+                1.0,
+                *[v[i_ch[n]] if (n in i_ch and i_ch[n] < len(v)) else None
+                  for n in ("ch1y", "ch3y", "ch5y", "ch10y")])
             lignes.append((v[i_capi] or 0, sym, v[i_nom],
-                           v[i_ind] if i_ind is not None else None))
+                           v[i_ind] if i_ind is not None else None,
+                           var or None, jour_m))
     lignes.sort(reverse=True)
     if tranche:
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
 
     out = {}
-    for capi, sym, nom, ind in lignes:
+    for capi, sym, nom, ind, var, jour_m in lignes:
         out[sym] = {"nom": nom, "mcap": capi, "secteur_suivi": ind,
-                    "cours_cotation": cotations.get(sym)}
+                    "cours_cotation": cotations.get(sym),
+                    # Les quatre ancres de cours et la date du fichier qui les
+                    # porte : sans elles, `combler_mcap_par_ancres` se tait.
+                    "variations": var, "jour_marche": jour_m}
 
     # Le bêta, comme pour l'univers suivi : sans lui, pas de coût des fonds
     # propres, donc pas de WACC — et on préfère un champ vide à un bêta supposé,
@@ -1786,6 +1913,46 @@ def univers_marche(tranche=None):
             print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
     combler_beta_marche(out)
     return out
+
+
+def combler_variations_marche(cible):
+    """Range les quatre ancres de cours et la date du fichier dans chaque `meta`.
+
+    Jumelle de `combler_beta_marche` : même parcours, même source, autre colonne.
+    Elle sert l'univers du tracker, que `univers_marche` ne construit pas.
+    """
+    import glob as _g
+    n = 0
+    try:
+        for pth in sorted(_g.glob(str(CACHE_DIR / "marche_[0-9]*.json"))):
+            try:
+                with open(pth, encoding="utf-8") as fh:
+                    d = json.load(fh)
+            except Exception:
+                continue
+            ch = d.get("champs") or []
+            i_ch = {x: ch.index(x) for x in ("ch1y", "ch3y", "ch5y", "ch10y")
+                    if x in ch}
+            if not i_ch:
+                continue
+            jour_m = (d.get("genere_le") or d.get("updated") or "")[:10] or None
+            for sym, v in (d.get("societes") or {}).items():
+                e = cible.get(sym)
+                if e is None or e.get("variations"):
+                    continue
+                var = cours_ancres(
+                    1.0,
+                    *[v[i_ch[x]] if (x in i_ch and i_ch[x] < len(v)) else None
+                      for x in ("ch1y", "ch3y", "ch5y", "ch10y")])
+                if var:
+                    e["variations"] = var
+                    e["jour_marche"] = jour_m
+                    n += 1
+    except Exception as exc:
+        print("[warn] variations de marché illisibles : %s" % exc, file=sys.stderr)
+    if n:
+        print("[info] ancres de cours pour %d société(s)" % n)
+    return n
 
 
 def combler_beta_marche(cible):
@@ -1884,6 +2051,10 @@ def charger_univers():
         except Exception as e:
             print("[warn] bêtas illisibles : %s" % e, file=sys.stderr)
     combler_beta_marche(univers)
+    # Les ancres de cours, pour que l'univers du tracker en bénéficie aussi :
+    # ses huit cents titres ont une vraie série de cours, mais pas tous, et un
+    # champ vide vaut mieux qu'une branche qui ne s'exécute jamais.
+    combler_variations_marche(univers)
     return univers
 
 
@@ -2233,7 +2404,9 @@ def main():
             continue
         try:
             bati = construire(faits, meta.get("mcap"),
-                              beta=meta.get("beta"), cours=cours.get(sym))
+                              beta=meta.get("beta"), cours=cours.get(sym),
+                              variations=meta.get("variations"),
+                              jour_marche=meta.get("jour_marche"))
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
             echecs += 1

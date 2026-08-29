@@ -86,6 +86,7 @@ from fondamentaux_communs import (
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
     _corriger_divisions, _piotroski, _altman_z, _wacc,
     beta_plausible,
+    cours_ancres, cours_a_la_date,
     effacer_l_impossible,
     redresser_dividende_par_action,
     _taux_impot_reel, _taux_pour_nopat, _charge, _corriger_unite_actions,
@@ -458,7 +459,88 @@ def notes_historiques(exercices):
     return hist
 
 
-def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=None):
+# Le pas maximal toléré dans une série de nombres d'actions. La source
+# internationale RÉTRO-AJUSTE son historique : un saut n'y a aucune raison
+# d'exister, c'est un défaut du paquet (Enel ×153, Sino Green ×111). Mesuré : à
+# ×5 on écarte 385 sociétés sur 19 430 pour 320 reconstructions perdues sur
+# 34 267, moins de 1 %.
+SAUT_ACTIONS_MAX = 5.0
+
+
+def combler_mcap_par_ancres(exercices, variations, jour_ref):
+    """Comble la capitalisation manquante en transportant un RAPPORT, pas un montant.
+
+        mcap(exercice) = mcap_du_dernier × cours(exercice)/cours(aujourd'hui)
+                                         × actions(exercice)/actions(dernier)
+
+    le premier rapport valant exactement `1 / (1 + chNy/100)`, lu dans les
+    colonnes ch1y, ch3y, ch5y et ch10y des fichiers de marché.
+
+    ⚠ POURQUOI CETTE FONCTION EXISTE ICI ET PAS SEULEMENT DANS LE REJEU. Un
+    correctif qui ne vit que dans le rejeu est détruit au passage suivant du
+    collecteur, en silence — et l'univers international se parcourant par
+    tranches, la destruction s'étalerait sur une semaine, société par société.
+
+    ⚠ POURQUOI UN RAPPORT ET NON UN MONTANT. Calculer `cours × actions`
+    obligerait à croire la devise déclarée des états — 141 sociétés en portent
+    une impossible, des chinoises cotées à Hong Kong « publiant en yens » —,
+    l'unité du nombre d'actions, et un taux de change. Le premier essai a produit
+    278 sauts de plus de ×20 (Mrugesh ×49 867, LATAM ×48 538). Un rapport de deux
+    cours n'a pas de monnaie ; un rapport de deux nombres d'actions se moque de
+    l'unité ; et au dernier exercice le rapport vaut 1, donc la courbe se
+    raccorde exactement.
+
+    ⚠ ON NE COMBLE QUE LES VIDES, et l'on n'interpole PAS entre deux ancres : les
+    années intermédiaires restent vides. L'écart à l'ancre est inscrit sous
+    `mcap_ecart_jours`, pour qu'une approximation ne se lise pas comme une mesure.
+
+    Rend le nombre d'exercices comblés.
+    """
+    if not variations or not jour_ref or not exercices:
+        return 0
+    try:
+        ref_date = datetime.fromisoformat(jour_ref)
+    except Exception:
+        return 0
+
+    serie = [e.get("shares_diluted") for e in exercices]
+    serie = [x for x in serie if isinstance(x, (int, float)) and x > 0]
+    for k in range(1, len(serie)):
+        if max(serie[k] / serie[k - 1], serie[k - 1] / serie[k]) > SAUT_ACTIONS_MAX:
+            return 0
+
+    ref = None
+    for e in reversed(exercices):
+        if (e.get("mcap_estime") or 0) > 0 and e.get("shares_diluted"):
+            ref = e
+            break
+    if ref is None:
+        return 0
+    sh_ref = ref["shares_diluted"]
+
+    n = 0
+    for e in exercices:
+        if e is ref or (e.get("mcap_estime") or 0) > 0:
+            continue
+        sh, fin_e = e.get("shares_diluted"), e.get("fin")
+        if not sh or sh <= 0 or not fin_e:
+            continue
+        try:
+            jours = (ref_date - datetime.fromisoformat(fin_e)).days
+        except Exception:
+            continue
+        rapport, ecart = cours_a_la_date(variations, jours)
+        if rapport is None or rapport <= 0:
+            continue
+        e["mcap_estime"] = round(ref["mcap_estime"] * rapport * sh / sh_ref)
+        e["mcap_source"] = "ancre"
+        e["mcap_ecart_jours"] = ecart
+        n += 1
+    return n
+
+
+def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
+               devise=None, variations=None, jour_marche=None):
     res = brut["resultat"]
     dates = res.get("datekey") or []
     # La ligne « TTM » n'est pas un exercice : c'est un cumul glissant. La
@@ -708,6 +790,28 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None, devise=N
                           e.get("_taux_nopat"), beta)
         e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
                                 if (e.get("roic") is not None and e.get("wacc") is not None) else None)
+
+    # ── LA CAPITALISATION HISTORIQUE QUE LA SÉRIE DE COURS NE COUVRE PAS ──
+    #
+    # La boucle ci-dessus n'a posé une capitalisation que là où une vraie série
+    # de cours existe — huit cents titres. Pour les 19 000 autres, une seule
+    # barre au bord droit d'un graphique. Les quatre ancres des fichiers de
+    # marché comblent le reste, en transportant un rapport.
+    #
+    # ⚠ ET ON REPASSE `_wacc` SUR CE QU'ON VIENT DE COMBLER : le coût du capital
+    # se calcule dans la boucle ci-dessus, donc avant que ces capitalisations
+    # n'existent. Sans ce second passage, l'exercice gagnerait sa capitalisation
+    # et pas le coût du capital qui en dépend — le contraire du but.
+    if combler_mcap_par_ancres(exercices, variations, jour_marche):
+        for e in exercices:
+            if e.get("mcap_source") != "ancre":
+                continue
+            e["wacc"] = _wacc(e.get("mcap_estime"), e.get("dette_totale"),
+                              e.get("interest_expense"), e.get("_taux_nopat"), beta)
+            e["roic_moins_wacc"] = (
+                round(e["roic"] - e["wacc"], 2)
+                if (e.get("roic") is not None and e.get("wacc") is not None)
+                else None)
 
     for i in range(1, len(exercices)):
         a, b = exercices[i - 1], exercices[i]
@@ -1078,6 +1182,19 @@ def univers_marche(tranche=None, plafond=None):
         # la colonne ne doit pas être écarté en entier, il porte quand même son
         # nom et sa capitalisation.
         i_beta = ch.index("beta") if "beta" in ch else None
+        # ── LES VARIATIONS DE COURS, POUR LA CAPITALISATION HISTORIQUE ──
+        #
+        # ch1y, ch3y, ch5y, ch10y donnent le rapport entre le cours d'alors et
+        # celui d'aujourd'hui. Quatre ancres qui font passer le coût du capital
+        # d'une barre à trois pour 12 769 sociétés. Elles sont dans ce fichier
+        # depuis toujours et personne ne les lisait.
+        #
+        # ⚠ `genere_le` ET NON `updated` : c'est sous ce nom que ces fichiers
+        # datent leur écriture. Chercher `updated` rend None sans lever d'erreur
+        # et fait taire la reconstruction entière.
+        i_ch = {n: ch.index(n) for n in ("ch1y", "ch3y", "ch5y", "ch10y")
+                if n in ch}
+        jour_m = (d.get("genere_le") or d.get("updated") or "")[:10] or None
         for sym, v in (d.get("societes") or {}).items():
             if sym not in chemins:
                 continue
@@ -1088,7 +1205,11 @@ def univers_marche(tranche=None, plafond=None):
             # et le relevé qui a fixé ±8 sont dans `fondamentaux_communs`.
             b = beta_plausible(
                 v[i_beta] if (i_beta is not None and i_beta < len(v)) else None)
-            lignes.append((v[i_capi] or 0, sym, v[i_nom], b))
+            var = cours_ancres(
+                1.0,
+                *[v[i_ch[n]] if (n in i_ch and i_ch[n] < len(v)) else None
+                  for n in ("ch1y", "ch3y", "ch5y", "ch10y")])
+            lignes.append((v[i_capi] or 0, sym, v[i_nom], b, var or None, jour_m))
     lignes.sort(reverse=True)
     if plafond:
         lignes = lignes[:plafond]
@@ -1096,7 +1217,7 @@ def univers_marche(tranche=None, plafond=None):
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
     out = {}
-    for capi, sym, nom, beta in lignes:
+    for capi, sym, nom, beta, var, jour_m in lignes:
         px, dev = cotations.get(sym, (None, None))
         out[sym] = {
             "nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym),
@@ -1113,6 +1234,10 @@ def univers_marche(tranche=None, plafond=None):
             # `roic_moins_wacc` — « le rendement du capital dépasse-t-il son
             # coût ? » — cesse d'être vide sur tout l'univers mondial.
             "beta": beta,
+            # Les quatre ancres de cours et la date du fichier qui les porte :
+            # sans elles, `combler_mcap_par_ancres` se tait.
+            "variations": var,
+            "jour_marche": jour_m,
         }
     return out
 
@@ -1338,7 +1463,9 @@ def main():
 
         try:
             bati = construire(brut, meta.get("mcap"), meta.get("beta"), cours.get(sym),
-                              fx_dev=fx.get(devise_etats), devise=devise_etats)
+                              fx_dev=fx.get(devise_etats), devise=devise_etats,
+                              variations=meta.get("variations"),
+                              jour_marche=meta.get("jour_marche"))
         except Exception as e:
             print("[warn] %s : %s" % (sym, e), file=sys.stderr)
             echecs += 1
