@@ -211,6 +211,89 @@ def chemin_du_titre(symbole):
     return "quote/%s/%s" % (place, ticker)
 
 
+# Les formes juridiques ne distinguent pas deux sociétés : « Repsol S.A. » et
+# « Repsol » sont la même, « Zeta Inc. » et « Sany Heavy Industry Co.,Ltd » ne le
+# sont pas. On les retire avant de comparer.
+_FORMES = ("corporation", "incorporated", "company", "limited", "holdings",
+           "holding", "group", "plc", "ltd", "llc", "inc", "co", "sa", "se",
+           "ag", "nv", "bv", "ab", "asa", "oyj", "spa", "pcl", "tbk", "berhad",
+           "bhd", "pjsc", "psc", "saog", "sae", "aps", "as", "oy", "kgaa",
+           # Les formes écrites en toutes lettres, que l'abréviation masquait :
+           # sans elles, « OMV Aktiengesellschaft » et « OMV AG » ne se
+           # reconnaissent pas.
+           "aktiengesellschaft", "aktiebolag", "nyilvanosan", "mukodo",
+           "reszvenytarsasag", "societe", "anonyme", "anonima", "publica",
+           "public", "joint", "stock", "jsc", "ojsc", "pjs", "pt", "tbk",
+           "the", "and")
+
+
+def _sans_accents(t):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", t)
+                   if unicodedata.category(c) != "Mn")
+
+
+def _noyau(nom):
+    """Le nom d'une société, réduit à ce qui la distingue.
+
+    ⚠ LES MOTS D'UNE SEULE LETTRE SONT JETÉS. « ENA S.p.A. » se découpait en
+    « ena s p a » une fois la ponctuation retirée, et ces trois lettres isolées
+    faussaient toute comparaison — elles venaient d'une forme juridique, pas du
+    nom.
+    """
+    import re as _re
+    t = _sans_accents((nom or "").lower())
+    t = _re.sub(r"[^a-z0-9 ]+", " ", t)
+    mots = [m for m in t.split() if len(m) > 1 and m not in _FORMES]
+    return " ".join(mots)
+
+
+def _premier(noyau):
+    """Le premier mot significatif — celui qui porte l'identité."""
+    p = (noyau or "").split()
+    return p[0] if p else ""
+
+
+def _noms_concordent(attendu, rendu):
+    """Deux noms désignent-ils la même société ?
+
+    ⚠ C'EST LE SEUL DISCRIMINANT QUI TIENT. La place échoue (les états de Repsol
+    vivent à Madrid alors qu'elle est cotée à Francfort), la devise échoue (287
+    holdings des îles Caïman publient en yuans, dont Tencent), l'ordre de
+    grandeur échoue (Bure Equity a un revenu négatif). Le nom, lui, tranche :
+    vérifié à l'aveugle sur vingt cas, vingt verdicts justes.
+    """
+    import difflib
+    a, b = _noyau(attendu), _noyau(rendu)
+    if not a and not b:
+        # ⚠ UN NOYAU VIDE DES DEUX CÔTÉS ne prouve pas que les sociétés
+        # diffèrent : il prouve que la méthode ne s'applique pas. « T&L Co.,
+        # Ltd. » se réduit à « t l », deux lettres isolées que la règle jette.
+        # On compare alors les noms entiers, ponctuation et casse mises à part.
+        na = "".join(c for c in _sans_accents((attendu or "").lower()) if c.isalnum())
+        nb = "".join(c for c in _sans_accents((rendu or "").lower()) if c.isalnum())
+        return bool(na) and na == nb
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    # ⚠ LE PREMIER MOT PORTE L'IDENTITÉ, et c'est lui qui doit concorder.
+    # « endesa » n'est pas « ena », « sany » n'est pas « zeta », « swatch » n'est
+    # pas « mc ». Mais « omv aktiengesellschaft » EST « omv », et « halyk bank
+    # kazakhstan » EST « halyk savings bank kazakhstan » — deux cas qu'une
+    # exigence de longueur sur la sous-chaîne détruisait.
+    pa, pb = _premier(a), _premier(b)
+    if not pa or not pb:
+        return False
+    if pa != pb and not (pa.startswith(pb) or pb.startswith(pa)) :
+        return False
+    if len(pa) >= 4 and len(pb) >= 4 and pa[:4] != pb[:4]:
+        return False
+    if a in b or b in a:
+        return True
+    return difflib.SequenceMatcher(None, a, b).ratio() >= 0.72
+
+
 # Le même marché sous deux noms. La source n'est pas cohérente avec elle-même :
 # Shenzhen s'écrit « she » et « shz », Shanghai « sha » et « shh », Kuala Lumpur
 # « kls » et « klse », Singapour « sgx » et « sgxc », et l'AIM londonien répond
@@ -263,27 +346,41 @@ def chercher_chemin(symbole, nom, place_attendue=None):
         d = _get(BASE + "/api/search?q=" + urllib.parse.quote(terme))
         if not d:
             continue
+        # ⚠ ON GARDE LE NOM. La réponse rend un COUPLE — `s` le chemin, `n` le
+        # nom de l'émetteur — et l'ancienne boucle jetait `n`. C'est pourtant lui
+        # qui tranche : la place échoue (les états de Repsol vivent à Madrid
+        # alors qu'elle cote à Francfort), la devise échoue, l'ordre de grandeur
+        # échoue. Le nom, non.
         candidats = []
         for item in (d.get("data") or d.get("results") or []):
-            s = item.get("s") if isinstance(item, dict) else None
-            if s and "/" in s:
-                candidats.append(s)
+            if not isinstance(item, dict):
+                continue
+            s2 = item.get("s")
+            if s2 and "/" in s2:
+                candidats.append((s2, item.get("n") or item.get("name") or ""))
         if not candidats:
             continue
-        if not place_attendue:
-            # Sans place attendue, on garde l'ancien comportement — mais ce cas
-            # ne doit plus se produire depuis l'appelant.
-            return "quote/" + candidats[0]
-        # La correspondance EXACTE place + ticker d'abord : c'est la seule qui
-        # ne demande aucun jugement.
+        if not nom:
+            # Sans nom attendu on ne peut rien trancher : mieux vaut ne rien
+            # rendre qu'adopter un homonyme. C'est la doctrine du fichier — une
+            # fiche vide se voit, une fiche d'une autre société non.
+            return None
+        # Le nom d'abord ; à nom concordant, la place et le ticker départagent.
         cible = (symbole.split(".")[0] or "").replace("-", ".").lower()
-        for s2 in candidats:
+        bons = [(s2, n2) for s2, n2 in candidats if _noms_concordent(nom, n2)]
+        if not bons:
+            continue
+        for s2, _n2 in bons:
             pl, _, tk = s2.partition("/")
-            if _meme_place(pl, place_attendue) and tk.lower() == cible:
+            if place_attendue and _meme_place(pl, place_attendue) and tk.lower() == cible:
                 return "quote/" + s2
-        for s2 in candidats:
-            if _meme_place(s2.partition("/")[0], place_attendue):
+        for s2, _n2 in bons:
+            if place_attendue and _meme_place(s2.partition("/")[0], place_attendue):
                 return "quote/" + s2
+        # Aucun sur la place attendue, mais le nom concorde : c'est le cas
+        # LÉGITIME de Repsol, OMV, South32, Covestro — leurs états vivent
+        # ailleurs que leur cotation. On accepte.
+        return "quote/" + bons[0][0]
     return None
 
 
@@ -1575,6 +1672,13 @@ def main():
             if r["cours_natif"] is not None:
                 r["cours_natif_le"] = jour_univers
                 r["cours_source"] = "univers"
+        # ⚠ UNE FICHE TROUVÉE PAR RECHERCHE DOIT SE DÉCLARER. Le drapeau
+        # existait déjà mais n'alimentait qu'un compteur de fin de passage : rien
+        # dans le paquet ne distinguait une fiche bâtie sur le chemin attendu
+        # d'une fiche bâtie sur un chemin deviné. C'est ce silence qui a rendu
+        # 161 substitutions invisibles pendant des semaines.
+        if brut.get("_trouve_par_recherche"):
+            r["chemin_par_recherche"] = True
         r["devise_cotation"] = devise_cot
         r["devises_alignees"] = brut["_devises_alignees"]
         # ⚠ CE QUI A RÉELLEMENT ÉTÉ FAIT DES GRANDEURS DE MARCHÉ.
