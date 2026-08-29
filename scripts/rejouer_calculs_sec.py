@@ -143,6 +143,39 @@ SERIES = (("ca", "ca_par_action"), ("eps", "eps_diluted"),
 SAUT_ACTIONS_MAX = 5.0
 
 
+def grandeurs_de_substitution(exercices, resume):
+    """Pose `fonds_propres_sur_actif` et `capex_sur_ca` au résumé, si absentes.
+
+    Ce sont les deux remplaçants que `_SUBSTITUTS` demande et que les paquets
+    déjà publiés n'ont pas : les collecteurs viennent de les ajouter, mais la
+    donnée en ligne date d'avant. Sans elles, le barème de substitution perd son
+    remplaçant le plus fécond — les fonds propres rapportés au bilan, qui
+    répondent pour 830 sociétés américaines et 2 339 internationales.
+
+    ⚠ NULLES PLUTÔT QUE ZÉRO : un ratio sans dénominateur n'est pas nul, il est
+    inconnu, et la note fait la différence entre les deux.
+
+    Rend le nombre de grandeurs posées.
+    """
+    if not exercices or not isinstance(resume, dict):
+        return 0
+    d = exercices[-1]
+    n = 0
+    if resume.get("fonds_propres_sur_actif") is None:
+        cp, act = d.get("equity"), d.get("assets")
+        if (isinstance(cp, (int, float)) and isinstance(act, (int, float))
+                and act > 0):
+            resume["fonds_propres_sur_actif"] = round(100.0 * cp / act, 2)
+            n += 1
+    if resume.get("capex_sur_ca") is None:
+        cx, ca = d.get("capex"), d.get("revenue")
+        if (isinstance(cx, (int, float)) and isinstance(ca, (int, float))
+                and ca > 0):
+            resume["capex_sur_ca"] = round(100.0 * abs(cx) / ca, 2)
+            n += 1
+    return n
+
+
 def charger_rapports_cours():
     """{symbole: ({jours: rapport de cours}, jour du fichier)}.
 
@@ -453,6 +486,10 @@ def main():
             ecartes += ecarter_ratios_degeneres(r)
 
             # ── Ce qui s'en déduit ──
+            # Les deux grandeurs du barème de substitution AVANT la note : c'est
+            # elle qui les consomme, et un paquet publié avant ce jour ne les a
+            # pas.
+            grandeurs_de_substitution(ex, r)
             r["note_q"] = note_quantitative(r)
             try:
                 r["note_historique"] = historique_note(ex)

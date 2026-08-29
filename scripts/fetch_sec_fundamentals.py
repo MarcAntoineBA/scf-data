@@ -507,8 +507,24 @@ CONCEPTS = {
             "DepreciationAmortizationAndAccretionNet",
             "DepreciationAndAmortization", "Depreciation",
         "DepreciationAndAmortisationExpense"],
+    # ⚠ LES DEUX PREMIÈRES SONT US-GAAP, ET ELLES SEULES ÉTAIENT CHERCHÉES.
+    # Aucun déposant en normes internationales — tous les étrangers cotés aux
+    # États-Unis, qui remplissent un 20-F — ne les produit. Couverture mesurée le
+    # 29/08/2026 : 44,4 % côté SEC contre 74,7 % côté international.
+    #
+    # À l'écran, 5 283 fiches affirmaient « X ne verse pas de dividende » et
+    # 1 925 d'entre elles versaient : Taiwan Semiconductor 11,07 Md$ en 2024,
+    # Shell, Citigroup, Novo Nordisk, Unilever, Danaher, BAT, Petrobras.
+    #
+    # ⚠ `DividendsRecognisedAsDistributionsToOwnersPerShare` n'est PAS ajoutée :
+    # elle est dimensionnée par catégorie d'actions dans la plupart des dépôts,
+    # et l'API rend alors une valeur par catégorie. En additionner ou en choisir
+    # une donnerait un montant faux ; on préfère la case vide.
     "dps": ["CommonStockDividendsPerShareDeclared",
-            "CommonStockDividendsPerShareCashPaid"],
+            "CommonStockDividendsPerShareCashPaid",
+            "DividendsPerShareDeclared",
+            "DividendsDeclaredPerShare",
+            "DividendsPaidPerShare"],
 }
 
 # Un fait de DURÉE (chiffre d'affaires) porte un début et une fin ; un fait
@@ -1011,6 +1027,26 @@ def entrees_bareme(exs):
         "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(pa("dps")),
         "dette_ebitda_brut": d.get("dette_ebitda_brut"),
         "payout_benefices": d.get("payout_benefices"),
+        # ── DEUX GRANDEURS POUR LE BARÈME DE SUBSTITUTION ──
+        #
+        # Une banque n'a pas d'EBITDA mais elle a des fonds propres et un bilan :
+        # c'est de leur rapport que dépend sa solidité. Une foncière a un flux
+        # d'exploitation erratique mais un chiffre d'affaires stable. Ces deux
+        # ratios remplacent `dette_ebitda_brut` et `capex_ocf` quand le dépôt se
+        # tait — voir `_SUBSTITUTS` dans `fondamentaux_communs`.
+        #
+        # ⚠ NULS PLUTÔT QUE ZÉRO quand un terme manque : un ratio sans
+        # dénominateur n'est pas nul, il est inconnu, et la note distingue les deux.
+        "fonds_propres_sur_actif": (
+            _r(100.0 * d["equity"] / d["assets"], 2)
+            if (isinstance(d.get("equity"), (int, float))
+                and isinstance(d.get("assets"), (int, float))
+                and d["assets"] > 0) else None),
+        "capex_sur_ca": (
+            _r(100.0 * abs(d["capex"]) / d["revenue"], 2)
+            if (isinstance(d.get("capex"), (int, float))
+                and isinstance(d.get("revenue"), (int, float))
+                and d["revenue"] > 0) else None),
         "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
         "croissances": {
             "ca":  _croissances(pa("ca_par_action")),

@@ -261,6 +261,47 @@ _BAREME = [
 _CRITERES_INDUSTRIELS = {"marge_brute", "capex_ocf"}
 
 
+# ── LE BARÈME DE SUBSTITUTION ─────────────────────────────────────────────
+#
+# 4 550 sociétés sur 22 977 n'ont AUCUNE note — Apollo Global Management, PNC
+# Financial, Banco Bradesco, Brixmor Property. Non pas parce qu'elles seraient
+# mauvaises, mais parce que la note exige DIX critères notables et que six leur
+# manquent systématiquement : roic_1a, roic_5a, roic_10a, marge_brute, marge_ope,
+# capex_ocf, plus dette_ebitda_brut.
+#
+# Or elles portent DÉJÀ de quoi répondre autrement. Pour une banque, le levier
+# est le métier : son rendement se lit sur les capitaux propres, pas sur un
+# capital investi qu'elle ne publie pas. Sa solidité se lit sur ses fonds propres
+# rapportés au bilan, pas sur une dette rapportée à un EBITDA qui n'existe pas.
+#
+# ⚠ LE DÉCLENCHEUR EST LE SILENCE DU CRITÈRE, JAMAIS UNE ÉTIQUETTE SECTORIELLE.
+# C'est le principe déjà tenu par le champ `profil` : « ce qu'on OBSERVE, pas un
+# secteur qu'on devine ». Un industriel qui ne publie pas son capital investi en
+# bénéficie donc aussi, et c'est juste : la raison de son silence est la même.
+#
+# ⚠ MESURÉ AVANT D'ÊTRE ÉCRIT : 444 sociétés américaines et 1 880 internationales
+# franchissent le seuil de dix critères grâce à ces quatre remplacements.
+#
+#   critère muet          remplaçant                    seuils      sens
+_SUBSTITUTS = {
+    "roic_1a":  ("roe_1a",  "ROE 1 an (à défaut de ROIC)",            20, 10, "haut"),
+    "roic_5a":  ("roe_5a",  "ROE médian 5 ans (à défaut de ROIC)",    20, 10, "haut"),
+    "roic_10a": ("roe_10a", "ROE médian 10 ans (à défaut de ROIC)",   20, 10, "haut"),
+    # Une banque n'a pas d'EBITDA ; elle a des fonds propres et un bilan, et
+    # c'est de leur rapport que dépend sa solidité. Le sens s'inverse : ici plus
+    # il y en a, mieux c'est.
+    "dette_ebitda_brut": ("fonds_propres_sur_actif",
+                          "Fonds propres / bilan (à défaut de dette/EBITDA)",
+                          10, 5, "haut"),
+    # Le flux d'exploitation d'une foncière est erratique ; son chiffre
+    # d'affaires ne l'est pas.
+    "capex_ocf": ("capex_sur_ca", "CAPEX / chiffre d'affaires (à défaut de CAPEX / flux)",
+                  20, 40, "bas"),
+    "marge_brute": ("marge_nette", "Marge nette (à défaut de marge brute)",
+                    20, 10, "haut"),
+}
+
+
 def _noter_critere(v, haut, bas, sens):
     if v is None:
         return None
@@ -307,7 +348,7 @@ def note_quantitative(r):
     details, par_categorie = [], {}
     total = 0.0
     notables = 0
-    muets, nuls = [], []
+    muets, nuls, substitues = [], [], []
 
     for cat, cle, libelle, haut, bas, sens in _BAREME:
         v = plat.get(cle)
@@ -328,6 +369,26 @@ def note_quantitative(r):
             pt = 1.0
             fait_nul = True
 
+        # ── LE REMPLACEMENT, QUAND LE DÉPÔT SE TAIT ──
+        #
+        # Déclenché par le SILENCE du critère, jamais par un secteur deviné. Il
+        # ne s'applique donc qu'ici, après que `_noter_critere` a rendu None.
+        #
+        # ⚠ IL SE DÉCLARE. Le détail porte `substitue` et le nom du critère
+        # remplacé, pour que la fiche puisse l'écrire. Une note obtenue autrement
+        # qui ne le dit pas est une note qui ment.
+        substitue = None
+        if pt is None and cle in _SUBSTITUTS:
+            cle2, libelle2, haut2, bas2, sens2 = _SUBSTITUTS[cle]
+            v2 = plat.get(cle2)
+            pt2 = _noter_critere(v2, haut2, bas2, sens2)
+            if pt2 is not None:
+                substitue = {"remplace": cle, "cle": cle2, "libelle": libelle2,
+                             "valeur": v2, "seuil_haut": haut2,
+                             "seuil_bas": bas2, "sens": sens2}
+                v, pt, haut, bas, sens = v2, pt2, haut2, bas2, sens2
+                libelle = libelle2
+
         if pt is None:
             statut = "muet"          # le dépôt ne publie pas la ligne
             muets.append(cle)
@@ -337,15 +398,22 @@ def note_quantitative(r):
             total += pt
             notables += 1
         else:
-            statut = "note"
+            statut = "substitue" if substitue else "note"
             total += pt
             notables += 1
+            if substitue:
+                substitues.append(substitue)
 
-        details.append({
+        d_detail = {
             "categorie": cat, "cle": cle, "libelle": libelle,
             "valeur": v, "seuil_haut": haut, "seuil_bas": bas, "sens": sens,
             "point": pt, "statut": statut,
-        })
+        }
+        if substitue:
+            # La fiche doit pouvoir dire QUEL critère a remplacé QUOI, et non
+            # afficher un ROE sous l'étiquette d'un ROIC.
+            d_detail["substitue"] = substitue
+        details.append(d_detail)
         d = par_categorie.setdefault(cat, {"obtenu": 0.0, "possible": 0, "notables": 0})
         d["possible"] += 1
         if pt is not None:
@@ -357,7 +425,12 @@ def note_quantitative(r):
     # inférence, et elle serait fausse pour les industriels qui ne publient pas
     # cette ligne non plus.
     sans_marge = plat.get("marge_brute") is None
-    if sans_marge and plat.get("roic_1a") is None:
+    if substitues:
+        # Le profil le plus informatif l'emporte : dire « barème substitué » vaut
+        # mieux que « sans marge brute publiée », qui décrit la cause au lieu de
+        # ce qui a été fait.
+        profil = "bareme_substitue"
+    elif sans_marge and plat.get("roic_1a") is None:
         profil = "sans_marge_ni_capital_investi"
     elif sans_marge:
         profil = "sans_marge_brute_publiee"
@@ -384,6 +457,10 @@ def note_quantitative(r):
         "criteres_notables": notables,
         "criteres_muets": muets,
         "criteres_nuls_par_nature": nuls,
+        # Les critères obtenus par remplacement, nommés. La fiche doit pouvoir
+        # écrire « rendement des capitaux propres, à défaut du capital investi »
+        # plutôt qu'afficher un chiffre sous une étiquette qui n'est pas la sienne.
+        "criteres_substitues": substitues,
         # ⚠ PAS DE LECTURE QUAND IL N'Y A PAS DE NOTE.
         # `lecture` valait `_lire(total)` dès que la note ramenée était refusée —
         # c'est-à-dire précisément quand on a jugé qu'on ne savait PAS noter cette

@@ -63,6 +63,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fetch_intl_fundamentals import construire_resume        # noqa: E402
 from fondamentaux_communs import (                            # noqa: E402
     _pct, _wacc, beta_plausible, cours_ancres, cours_a_la_date,
+    note_quantitative,
 )
 
 CACHE = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -145,6 +146,39 @@ def couverture(e):
 # Le pas maximal toléré dans une série de nombres d'actions. Voir la garde dans
 # `refaire_mcap` : le relevé qui a fixé ce chiffre y est écrit en entier.
 SAUT_ACTIONS_MAX = 5.0
+
+
+def grandeurs_de_substitution(exercices, resume):
+    """Pose `fonds_propres_sur_actif` et `capex_sur_ca` au résumé, si absentes.
+
+    Ce sont les deux remplaçants que `_SUBSTITUTS` demande et que les paquets
+    déjà publiés n'ont pas : les collecteurs viennent de les ajouter, mais la
+    donnée en ligne date d'avant. Sans elles, le barème de substitution perd son
+    remplaçant le plus fécond — les fonds propres rapportés au bilan, qui
+    répondent pour 830 sociétés américaines et 2 339 internationales.
+
+    ⚠ NULLES PLUTÔT QUE ZÉRO : un ratio sans dénominateur n'est pas nul, il est
+    inconnu, et la note fait la différence entre les deux.
+
+    Rend le nombre de grandeurs posées.
+    """
+    if not exercices or not isinstance(resume, dict):
+        return 0
+    d = exercices[-1]
+    n = 0
+    if resume.get("fonds_propres_sur_actif") is None:
+        cp, act = d.get("equity"), d.get("assets")
+        if (isinstance(cp, (int, float)) and isinstance(act, (int, float))
+                and act > 0):
+            resume["fonds_propres_sur_actif"] = round(100.0 * cp / act, 2)
+            n += 1
+    if resume.get("capex_sur_ca") is None:
+        cx, ca = d.get("capex"), d.get("revenue")
+        if (isinstance(cx, (int, float)) and isinstance(ca, (int, float))
+                and ca > 0):
+            resume["capex_sur_ca"] = round(100.0 * abs(cx) / ca, 2)
+            n += 1
+    return n
 
 
 def charger_cours_marche():
@@ -485,6 +519,16 @@ def main():
                     neuf[cle] = val
                 elif neuf.get(cle) is None and cle in COLLECTE:
                     neuf[cle] = val
+            # ── LE BARÈME DE SUBSTITUTION A BESOIN DE DEUX GRANDEURS ──
+            #
+            # `construire_resume` a déjà calculé la note, mais sans ces deux
+            # remplaçants : les paquets publiés datent d'avant les collecteurs
+            # qui les écrivent. On les pose et l'on REFAIT la note — c'est la
+            # seule façon de propager le barème de substitution sans attendre
+            # plusieurs jours de collecte internationale.
+            if grandeurs_de_substitution(ex, neuf):
+                neuf["note_q"] = note_quantitative(neuf)
+
             neuf["resume_rejoue_le"] = horodatage
 
             # Les paquets d'avant ce jour n'ont pas `montants_marche`, et le

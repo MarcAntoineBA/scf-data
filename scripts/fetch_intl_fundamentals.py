@@ -889,6 +889,26 @@ def construire_resume(exercices, divisions=None, unites_actions=None):
         "couverture_interets": d.get("couverture_interets"),
         "goodwill_actifs": d.get("goodwill_actifs"),
         "payout_benefices": d.get("payout_benefices"),
+        # ── DEUX GRANDEURS POUR LE BARÈME DE SUBSTITUTION ──
+        #
+        # Une banque n'a pas d'EBITDA mais elle a des fonds propres et un bilan :
+        # c'est de leur rapport que dépend sa solidité. Une foncière a un flux
+        # d'exploitation erratique mais un chiffre d'affaires stable. Ces deux
+        # ratios remplacent `dette_ebitda_brut` et `capex_ocf` quand le dépôt se
+        # tait — voir `_SUBSTITUTS` dans `fondamentaux_communs`.
+        #
+        # ⚠ NULS PLUTÔT QUE ZÉRO quand un terme manque : un ratio sans
+        # dénominateur n'est pas nul, il est inconnu, et la note distingue les deux.
+        "fonds_propres_sur_actif": (
+            _r(100.0 * d["equity"] / d["assets"], 2)
+            if (isinstance(d.get("equity"), (int, float))
+                and isinstance(d.get("assets"), (int, float))
+                and d["assets"] > 0) else None),
+        "capex_sur_ca": (
+            _r(100.0 * abs(d["capex"]) / d["revenue"], 2)
+            if (isinstance(d.get("capex"), (int, float))
+                and isinstance(d.get("revenue"), (int, float))
+                and d["revenue"] > 0) else None),
         "payout_benefices_10a": med("payout_benefices", 10),
         "payout_fcf": d.get("payout_fcf"),
         "piotroski": piotroski, "piotroski_detail": piotroski_detail,
