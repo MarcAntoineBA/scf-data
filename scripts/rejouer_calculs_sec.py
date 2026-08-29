@@ -47,10 +47,41 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fetch_sec_fundamentals import historique_note            # noqa: E402
 from fondamentaux_communs import (                            # noqa: E402
     _corriger_divisions, _croissances, ecarter_ratios_degeneres, note_quantitative,
+    _mediane_fenetre, _wacc, beta_plausible,
 )
 
 
-def refaire_divisions(exercices):
+def facteurs_des_millesimes(evenements):
+    """Reconstruit `facteurs_lus` depuis les événements déjà stockés.
+
+    ⚠ SANS ÇA, LE REJEU DÉGRADE. `_corriger_divisions` appelé sans `facteurs_lus`
+    retombe sur l'inférence, alors que sa propre règle dit « quand les millésimes
+    parlent, on ne devine plus ». Les facteurs lus viennent du XBRL brut, absent
+    du paquet — mais l'ÉVÉNEMENT, lui, est là, avec sa provenance et sa date.
+
+    Mesuré sur les paquets réels : sans cette reconstruction, Hub Group perd sa
+    division ×2 de 2021 (son chiffre d'affaires par action chutait alors de 40 %
+    une année où le chiffre d'affaires montait, et sa note de 5,3 à 3,3), Macy's
+    perd son ×2,5 de 2024, et Chord Energy voyait son facteur lu remplacé par un
+    ×0,0667 inféré — qui n'est pas un regroupement d'actions mais l'annulation
+    des actions d'Oasis Petroleum à sa sortie de faillite.
+
+    `_corriger_divisions` regroupe ensuite par facteur et retient la date la plus
+    ancienne de chaque grappe : une entrée par événement suffit à le reproduire.
+    Deux divisions du même facteur restent deux événements dès qu'elles sont
+    séparées de plus de quatre ans — et c'est bien pour ça qu'elles l'étaient.
+    """
+    lus = {}
+    for ev in (evenements or []):
+        if ev.get("source") != "millésimes":
+            continue
+        f, depuis = ev.get("facteur"), ev.get("depuis")
+        if isinstance(f, (int, float)) and f and depuis:
+            lus[depuis] = f
+    return lus or None
+
+
+def refaire_divisions(exercices, facteurs_lus=None):
     """Remet les séries sur leur base brute, puis relance la recouture.
 
     Les paquets portent des corrections décidées sous des règles qui ont changé :
@@ -82,7 +113,9 @@ def refaire_divisions(exercices):
         e.pop("_facteur_division", None)
         n += 1
 
-    evenements = _corriger_divisions(exercices)
+    # ⚠ `facteurs_lus` REPASSÉ. Sans lui, cette ligne retombe sur l'inférence et
+    # écrase des corrections lues dans les dépôts par des corrections devinées.
+    evenements = _corriger_divisions(exercices, facteurs_lus)
 
     # Les grandeurs par action DÉRIVENT du nombre d'actions : sans ce recalcul,
     # la moitié de la série resterait sur l'ancienne base.
@@ -103,6 +136,96 @@ SERIES = (("ca", "ca_par_action"), ("eps", "eps_diluted"),
           ("fcf", "fcf_par_action"), ("ocf", "ocf_par_action"), ("div", "dps"))
 
 
+def charger_beta_marche():
+    """Le bêta de chaque cotation, depuis les fichiers de marché locaux.
+
+    Le cache sectoriel `tradfi_fundamentals_cache.json` ne porte que 641 titres.
+    Les fichiers `marche_NN.json` en portent 27 013, et le collecteur les ouvre
+    déjà pour bâtir la liste des cotations principales. Mesuré sur le parc SEC :
+    2 828 sociétés sans coût du capital ont un bêta qui les attend là.
+
+    ⚠ Passé par `beta_plausible` — la même bande que les collecteurs, pas une
+    copie. Sans elle, un bêta de 95 donnerait un coût des fonds propres à trois
+    chiffres, et la fiche afficherait une destruction de valeur inventée.
+
+    Rend (les bêtas retenus, les symboles explicitement REFUSÉS). Les seconds
+    comptent autant : une société dont le bêta est refusé doit perdre le coût du
+    capital qu'un passage antérieur lui avait donné.
+    """
+    betas, refuses = {}, set()
+    for pth in sorted(glob.glob(os.path.join(CACHE, "marche_[0-9]*.json"))):
+        try:
+            with open(pth, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        ch = d.get("champs") or []
+        if "beta" not in ch:
+            continue
+        i_b = ch.index("beta")
+        for sym, v in (d.get("societes") or {}).items():
+            brut = v[i_b] if i_b < len(v) else None
+            b = beta_plausible(brut)
+            if b is not None:
+                betas[sym] = b
+            elif brut not in (None, 0):
+                refuses.add(sym)
+    return betas, refuses
+
+
+def refaire_wacc(exercices, resume, beta, refuse=False):
+    """Recalcule le coût du capital, puis les trois fenêtres du résumé.
+
+    Les quatre termes de `_wacc` sont déjà dans chaque exercice — capitalisation,
+    dette, charge d'intérêts, taux d'impôt. Seul le bêta venait d'ailleurs.
+
+    ⚠ Ce rejeu ne reconstruit PAS le résumé (c'est tout son intérêt : il ne peut
+    pas perdre une clé). Il faut donc réécrire à la main les quatre champs qui
+    dérivent du WACC, avec la même fenêtre médiane que le collecteur.
+
+    ⚠ La garde des devises n'est pas recopiée : `ecarter_marche_devise.py` a déjà
+    effacé `mcap_estime` sur les sociétés dont les états ne sont pas en dollars,
+    et sans capitalisation `_wacc` rend None. Elle tient en amont.
+
+    ⚠ On n'efface pas par ignorance : sans bêta ici et sans refus explicite, la
+    collecte en avait peut-être un — le cache sectoriel en porte 641.
+
+    Rend (exercices gagnés, exercices effacés).
+    """
+    if beta is None and not refuse:
+        return 0, 0
+    n = efface = 0
+    for e in exercices:
+        mc = e.get("mcap_estime")
+        w = None
+        if beta is not None and isinstance(mc, (int, float)) and mc > 0:
+            w = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
+                      e.get("_taux_nopat"), beta)
+        avant = e.get("wacc")
+        if w is None:
+            if avant is not None:
+                e["wacc"] = None
+                e["roic_moins_wacc"] = None
+                efface += 1
+            continue
+        e["wacc"] = w
+        r = e.get("roic")
+        e["roic_moins_wacc"] = (round(r - w, 2)
+                                if isinstance(r, (int, float)) else None)
+        if avant is None:
+            n += 1
+
+    if not exercices:
+        return n, efface
+    dernier = exercices[-1]
+    resume["wacc_1a"] = dernier.get("wacc")
+    for fen in (5, 10):
+        resume["wacc_%da" % fen] = _mediane_fenetre(
+            [e.get("wacc") for e in exercices[-fen:]], fen)
+    resume["roic_moins_wacc"] = dernier.get("roic_moins_wacc")
+    return n, efface
+
+
 def main():
     essai = "--essai" in sys.argv
     t0 = time.time()
@@ -112,12 +235,20 @@ def main():
         print("[fatal] aucun paquet sec_detail_NNN.json", file=sys.stderr)
         return 2
 
+    betas, refuses = charger_beta_marche()
+    print("[info] bêta lu pour %d cotation(s) ; %d hors bande refusé(s)"
+          % (len(betas), len(refuses)))
+
     horodatage = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    waccs = effaces = 0
+    soc_wacc = set()
+    soc_effacee = set()
     total = touchees = 0
     retirees = {c: 0 for c, _ in SERIES}
     ecartes = 0
     rebasees = 0
     div_changees = 0
+    decouvertes = []
     soc_rebasees = set()
     montees = descendues = 0
     mouvements = []
@@ -138,14 +269,41 @@ def main():
             avant = (r.get("note_q") or {}).get("note_ramenee")
 
             # ── Les divisions AVANT tout : le reste en dérive ──
-            n_def, evts = refaire_divisions(ex)
-            if n_def:
-                rebasees += n_def
-                soc_rebasees.add(sym)
-            avant_div = len(r.get("divisions_action") or [])
-            if len(evts) != avant_div:
-                div_changees += 1
-            r["divisions_action"] = evts
+            #
+            # ⚠ ON RE-JUGE, ON NE DÉCOUVRE PAS. Les règles n'ont fait que se
+            # durcir (1,5 retiré des facteurs usuels, garde de confirmation
+            # rallumée sur les sociétés en perte) : elles ne peuvent que RETIRER
+            # des événements. Un événement AJOUTÉ vient donc d'une inférence
+            # faite sans les millésimes — que le paquet ne contient pas, et qui
+            # sont justement la preuve qu'une division a eu lieu ou non.
+            #
+            # Mesuré : le rejeu inventait pour VNET Group une division ×2 entre
+            # 2023 et 2024. Demandé à la SEC : l'exercice 2023 vaut 901 143 138
+            # actions dans les dépôts de 2024, 2025 ET 2026 — jamais retraité, et
+            # une division retraite toujours. VNET a émis, pas divisé : ses
+            # actions de base passent de 901 M à 1 594 M sur le seul 2024. Treize
+            # ans de bénéfice par action allaient être divisés par deux.
+            avant_ex = json.loads(json.dumps(ex))
+            avant_div = list(r.get("divisions_action") or [])
+            n_def, evts = refaire_divisions(
+                ex, facteurs_des_millesimes(avant_div))
+            connus = {(e.get("facteur"), e.get("entre"), e.get("depuis"))
+                      for e in avant_div}
+            neufs = [e for e in evts
+                     if (e.get("facteur"), e.get("entre"), e.get("depuis"))
+                     not in connus]
+            if neufs:
+                # Rien n'est touché : ni les séries, ni la liste d'événements.
+                # La prochaine collecte aura les millésimes et tranchera.
+                ex[:] = avant_ex
+                decouvertes.append((sym, neufs))
+            else:
+                if n_def:
+                    rebasees += n_def
+                    soc_rebasees.add(sym)
+                if len(evts) != len(avant_div):
+                    div_changees += 1
+                r["divisions_action"] = evts
 
             # ── Les croissances, depuis les séries déjà stockées ──
             neuves = {}
@@ -157,6 +315,17 @@ def main():
                     if anc.get(fen) is not None and neuves[cle].get(fen) is None:
                         retirees[cle] += 1
             r["croissances"] = neuves
+
+            # ── Le coût du capital, avec le bêta que la collecte n'a pas lu ──
+            # Avant la note : elle ne lit pas le WACC aujourd'hui, mais l'ordre
+            # du collecteur doit être respecté pour que ça reste vrai demain.
+            n_w, n_e = refaire_wacc(ex, r, betas.get(sym), sym in refuses)
+            if n_w:
+                waccs += n_w
+                soc_wacc.add(sym)
+            if n_e:
+                effaces += n_e
+                soc_effacee.add(sym)
 
             # ── Les ratios hors bande ──
             ecartes += ecarter_ratios_degeneres(r)
@@ -190,6 +359,20 @@ def main():
           % ", ".join("%s %d" % (k, n) for k, n in sorted(retirees.items())))
     print("[ok] divisions REFAITES : %d exercice(s) remis en base sur %d société(s), "
           "%d société(s) changent d'événements" % (rebasees, len(soc_rebasees), div_changees))
+    print("[ok] coût du capital : %d exercice(s) sur %d société(s) — le bêta "
+          "dormait dans les fichiers de marché" % (waccs, len(soc_wacc)))
+    print("[ok] coût du capital EFFACÉ : %d exercice(s) sur %d société(s) — coût "
+          "des fonds propres négatif, ou bêta hors bande"
+          % (effaces, len(soc_effacee)))
+    if decouvertes:
+        # Ce n'est pas un avertissement décoratif : c'est la liste des sociétés
+        # dont une division reste à trancher, et seule une collecte le peut.
+        print("[!!] %d société(s) où le rejeu aurait INVENTÉ une division — "
+              "laissées intactes, à trancher par une collecte :" % len(decouvertes))
+        for sym, evs in decouvertes[:10]:
+            print("      %-8s %s" % (sym, ", ".join(
+                "×%s entre %s et %s" % (e.get("facteur"), e.get("entre"),
+                                        e.get("et")) for e in evs)))
     print("[ok] ratios hors bande écartés : %d" % ecartes)
     print("[ok] notes ramenées : %d en hausse, %d en baisse" % (montees, descendues))
     if mouvements:
