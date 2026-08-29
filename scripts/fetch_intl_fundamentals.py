@@ -211,12 +211,51 @@ def chemin_du_titre(symbole):
     return "quote/%s/%s" % (place, ticker)
 
 
-def chercher_chemin(symbole, nom):
+# Le même marché sous deux noms. La source n'est pas cohérente avec elle-même :
+# Shenzhen s'écrit « she » et « shz », Shanghai « sha » et « shh », Kuala Lumpur
+# « kls » et « klse », Singapour « sgx » et « sgxc », et l'AIM londonien répond
+# sous « aim » comme sous « lon ». Refuser un chemin sur ce seul motif casserait
+# 5 200 collectes parfaitement justes — mesuré.
+ALIAS_PLACES = {
+    "she": "shz", "shz": "shz", "sha": "shh", "shh": "shh",
+    "klse": "kls", "kls": "kls", "sgxc": "sgx", "sgx": "sgx",
+    "aim": "lon", "lon": "lon", "tpex": "tpex", "tpe": "tpe",
+}
+
+
+def _meme_place(a, b):
+    """Deux codes de place désignent-ils le même marché ?"""
+    if not a or not b:
+        return False
+    a, b = a.lower(), b.lower()
+    return ALIAS_PLACES.get(a, a) == ALIAS_PLACES.get(b, b)
+
+
+def chercher_chemin(symbole, nom, place_attendue=None):
     """Repli : l'API de recherche du site rend le chemin canonique.
 
     Elle existe pour les cas où notre table de places se trompe ou ne connaît
     pas la place — ce qui est arrivé trois fois sur trente-trois marchés. Mieux
     vaut demander au site où il range un titre que de le deviner.
+
+    ⚠ UN TICKER N'EST UNIQUE QUE SUR SA PLACE, ET CETTE BOUCLE L'IGNORAIT.
+    Elle retenait le PREMIER résultat contenant une barre oblique, quelle que
+    soit la bourse. « 6031 » désigne Sany Heavy Industry à Hong Kong ET Zeta Inc.
+    à Tokyo ; « MC » désigne Swatch à Zurich, LVMH à Paris et une société à
+    Bangkok ; « ASG » désigne Assicurazioni Generali à Francfort et une société
+    vietnamienne à Hô-Chi-Minh-Ville.
+
+    Mesuré sur les paquets publiés : 118 sociétés portaient les états d'un autre
+    émetteur, pour 1 913 Md$ de capitalisation cumulée — Fastned avec les comptes
+    d'une société de Jakarta (facteur 29 598), Generali avec ceux d'une société
+    de Hô-Chi-Minh (facteur 40). Avec une note sur 20, un ROIC, un coût du
+    capital et un Piotroski calculés dessus.
+
+    ⚠ ET SI AUCUN RÉSULTAT N'EST SUR LA BONNE PLACE, ON REND None. La fiche reste
+    vide, ce qui est la doctrine de ce fichier : « une source dont le format bouge
+    doit se signaler bruyamment, pas livrer des trous qu'on prendrait pour des
+    lignes non publiées ». Une fiche vide se voit ; une fiche juste-mais-d'une-
+    autre-société, non.
     """
     for terme in (symbole.split(".")[0], nom):
         if not terme:
@@ -224,10 +263,27 @@ def chercher_chemin(symbole, nom):
         d = _get(BASE + "/api/search?q=" + urllib.parse.quote(terme))
         if not d:
             continue
+        candidats = []
         for item in (d.get("data") or d.get("results") or []):
             s = item.get("s") if isinstance(item, dict) else None
             if s and "/" in s:
-                return "quote/" + s
+                candidats.append(s)
+        if not candidats:
+            continue
+        if not place_attendue:
+            # Sans place attendue, on garde l'ancien comportement — mais ce cas
+            # ne doit plus se produire depuis l'appelant.
+            return "quote/" + candidats[0]
+        # La correspondance EXACTE place + ticker d'abord : c'est la seule qui
+        # ne demande aucun jugement.
+        cible = (symbole.split(".")[0] or "").replace("-", ".").lower()
+        for s2 in candidats:
+            pl, _, tk = s2.partition("/")
+            if _meme_place(pl, place_attendue) and tk.lower() == cible:
+                return "quote/" + s2
+        for s2 in candidats:
+            if _meme_place(s2.partition("/")[0], place_attendue):
+                return "quote/" + s2
     return None
 
 
@@ -1378,7 +1434,15 @@ def precharger(univers, parallele):
         brut = etats(chemin) if chemin else None
         trouve_par_recherche = False
         if brut is None:
-            autre = chercher_chemin(sym, meta.get("nom"))
+            # ⚠ LA PLACE ATTENDUE VIENT DU CHEMIN DÉJÀ CONSTRUIT, pas d'une
+            # nouvelle déduction : `chemin` a été bâti par `chemin_du_titre` ou
+            # fourni par `meta["chemin_sa"]`, tous deux vérifiés en amont.
+            # Sans elle, le repli adoptait le premier ticker homonyme trouvé sur
+            # n'importe quelle bourse du monde — 118 fiches portaient ainsi les
+            # états d'un autre émetteur.
+            _p = (chemin or "").split("/")
+            place_att = _p[1] if len(_p) > 2 else None
+            autre = chercher_chemin(sym, meta.get("nom"), place_att)
             if autre and autre != chemin:
                 brut = etats(autre)
                 if brut is not None:
