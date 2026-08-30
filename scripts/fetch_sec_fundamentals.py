@@ -1915,7 +1915,51 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
     if len(exercices) >= 2:
         piotroski, piotroski_detail = _piotroski(exercices[-1], exercices[-2])
     if exercices:
-        altman, altman_detail = _altman_z(exercices[-1], mcap_usd)
+        # ── LA CAPITALISATION DOIT ÊTRE DANS LA DEVISE DU BILAN ──
+        # `_altman_z` met en rapport la capitalisation et les dettes
+        # (0,6 × capi / dettes). `mcap_usd` est en DOLLARS, `liabilities` dans
+        # la devise de DÉPÔT : pour qui dépose en wons ou en pesos, ce terme est
+        # multiplié par le taux de change.
+        #
+        # Le biais a un sens : le taux USD→locale dépasse 1 pour presque toutes
+        # ces devises, donc le terme est trop petit, donc le Z est trop bas,
+        # donc la fiche ACCUSE. Mesuré sur la production le 30/08/2026 : 76 des
+        # 163 sociétés SEC déposant hors dollar publiaient un Z faux — LPL 0,71,
+        # EMA 0,62, NOA 1,17 — tous sous le seuil de « détresse » de 1,81.
+        #
+        # ⚠ On ne CONVERTIT pas : cette filière ne porte aucune table de taux,
+        # elle a été écrite pour des déposants américains. On refuse donc le
+        # score, et le détail des termes reste publié — même règle que celle
+        # que cette fonction s'applique pour les cinq termes : une case vide se
+        # discute, un « zone de détresse » faux se croit.
+        #
+        # Le jour où des taux arriveront ici, la conversion remplacera ce refus.
+        if (devise or "USD") == "USD":
+            altman, altman_detail = _altman_z(exercices[-1], mcap_usd)
+        else:
+            # ⚠ _altman_z(cur, None) sort AVANT de calculer quoi que ce soit
+            # et rend un détail VIDE — vérifié. On recalcule donc ici les quatre
+            # termes qui ne dépendent pas de la capitalisation, pour que la
+            # fiche ait quand même de quoi montrer.
+            _c = exercices[-1]
+            _A = _c.get("assets")
+            altman = None
+            altman_detail = {}
+            if _A and _A > 0:
+                _fr = None
+                if (_c.get("assets_current") is not None
+                        and _c.get("liabilities_current") is not None):
+                    _fr = _c["assets_current"] - _c["liabilities_current"]
+                altman_detail = {
+                    "fonds_de_roulement": round(1.2 * _fr / _A, 3) if _fr is not None else None,
+                    "reserves": (round(1.4 * _c["retained_earnings"] / _A, 3)
+                                 if _c.get("retained_earnings") is not None else None),
+                    "resultat_exploitation": (round(3.3 * _c["operating_income"] / _A, 3)
+                                              if _c.get("operating_income") is not None else None),
+                    "capitalisation_sur_dettes": None,   # devise non convertible ici
+                    "rotation": (round(1.0 * _c["revenue"] / _A, 3)
+                                 if _c.get("revenue") is not None else None),
+                }
 
     # ── Croissances par action ──
     def par_annee(cle):
