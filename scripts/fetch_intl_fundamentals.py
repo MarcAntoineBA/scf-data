@@ -1497,22 +1497,55 @@ def univers_marche(tranche=None, plafond=None):
     if tranche:
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
-    def _cours_sous_unite(px, ref):
+    # Les places qui cotent en SOUS-UNITÉ par convention de bourse. Ce n'est pas
+    # une déduction sur les chiffres, c'est une règle du marché : Johannesburg
+    # cote en centimes de rand, Londres en pence, Tel-Aviv en agorot.
+    #
+    # Le seuil dit à partir de quand l'unité principale n'a plus de sens
+    # boursier. Une action à 1 000 £ existe (quelques-unes à Londres), une action
+    # à 5 000 £ non — c'est un cours en pence.
+    PLACES_SOUS_UNITE = {
+        "ZAR": ("centimes de rand", 1500.0),
+        "GBP": ("pence", 1000.0),
+        "ILS": ("agorot", 1500.0),
+    }
+
+    def _cours_sous_unite(px, ref, devise=None):
         """Le cours est-il en pence, agorot ou centimes plutôt qu'en unité ?
 
         Rend le cours corrigé, et un drapeau disant si la correction a eu lieu.
 
-        On n'accepte QUE le facteur cent, et seulement s'il est net : entre 50 et
-        200. En dessous, c'est un décalage de date de cotation — les deux fichiers
-        ne sont pas écrits à la même minute — et corriger reviendrait à remplacer
-        un cours frais par un cours d'hier.
+        DEUX CHEMINS, dans cet ordre :
+
+        1. LA RÉFÉRENCE — `mcap / sharesOut`. On n'accepte QUE le facteur cent,
+           et seulement s'il est net : entre 50 et 200. En dessous, c'est un
+           décalage de date de cotation — les deux fichiers ne sont pas écrits à
+           la même minute — et corriger remplacerait un cours frais par un cours
+           d'hier.
+
+        2. LA PLACE, quand la référence manque. Sans ce repli, le cours restait
+           en centimes SANS QUE RIEN NE LE SIGNALE. Mesuré le 30/08/2026 sur cinq
+           paquets : 5 fiches sur 12 en sous-unité, soit 42 % — FSR.JO 9 613 pour
+           96 R, SHP.JO 30 700 pour 307 R, STJ.L 1 176 pour 11,77 £, DANE.TA
+           42 500 pour 425 ₪. Sur la même place, Standard Bank était corrigée
+           (elle avait une référence) et FirstRand non : deux fiches justes, trois
+           fausses d'un facteur cent, dans le même tableau.
+
+        ⚠ La référence garde la priorité : elle MESURE la société, alors que la
+        place ne fait qu'appliquer une convention. Quand les deux existent, la
+        mesure gagne.
         """
         if not (isinstance(px, (int, float)) and px > 0):
             return px, False
-        if not (isinstance(ref, (int, float)) and ref > 0):
-            return px, False
-        r = px / ref
-        return (px / 100.0, True) if 50.0 <= r <= 200.0 else (px, False)
+        # 1. La mesure, quand elle existe.
+        if isinstance(ref, (int, float)) and ref > 0:
+            r = px / ref
+            return (px / 100.0, True) if 50.0 <= r <= 200.0 else (px, False)
+        # 2. La convention de place, à défaut.
+        conv = PLACES_SOUS_UNITE.get((devise or "").upper())
+        if conv and px > conv[1]:
+            return px / 100.0, True
+        return px, False
 
     n_sous_unite = 0
     out = {}
@@ -1530,7 +1563,7 @@ def univers_marche(tranche=None, plafond=None):
         # donnait Londres à 1,00, sa médiane étant diluée par les cotations
         # secondaires étrangères. C'est l'invariant qui tranche, société par
         # société.
-        px, _corr = _cours_sous_unite(px, cours_ref.get(sym))
+        px, _corr = _cours_sous_unite(px, cours_ref.get(sym), dev)
         if _corr:
             n_sous_unite += 1
         out[sym] = {
