@@ -556,6 +556,11 @@ CHAMPS = {
     # bilan
     "assets":              ("bilan", ["assets"]),
     "assets_current":      ("bilan", ["assetsc"]),
+    # ── LE TÉMOIN DE LA PART DU GROUPE ──
+    # Volontairement SANS repli : c'est justement l'absence de repli qui en fait
+    # un témoin. S'il a une valeur, `equity` a été pris sur la part du groupe et
+    # les minoritaires peuvent être retranchés ; sinon, ils y sont déjà.
+    "equity_part_groupe": ("bilan", ["totalCommonEquity"]),
     "liabilities":       ("bilan", ["liabilities", "totalLiabilitiesIns",
                                     "totalLiabilitiesRE"]),
     "liabilities_current": ("bilan", ["currentLiabilities"]),
@@ -846,8 +851,19 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         # est une identité comptable : on la retourne, et on marque le résultat.
         if (e.get("liabilities") is None and e.get("assets") is not None
                 and e.get("equity") is not None):
-            e["liabilities"] = (e["assets"] - e["equity"]
-                                - (e.get("interets_minoritaires_bilan") or 0.0)
+            # ⚠ NE SOUSTRAIRE LES MINORITAIRES QUE SI `equity` NE LES CONTIENT PAS.
+            #
+            # `equity` est pris sur `totalCommonEquity` — la part du GROUPE — et
+            # à défaut sur `equity`, qui inclut les minoritaires. Les retrancher
+            # dans le second cas les compte deux fois et creuse le passif.
+            #
+            # C'est la garde qui existe côté américain, et qui manquait ici. Là-bas
+            # elle était présente mais son témoin ne pouvait jamais exister ; ici
+            # elle était absente. Les deux erreurs se ressemblent peu et donnent
+            # le même résultat : un passif déduit faux.
+            minoritaires = ((e.get("interets_minoritaires_bilan") or 0.0)
+                            if e.get("equity_part_groupe") is not None else 0.0)
+            e["liabilities"] = (e["assets"] - e["equity"] - minoritaires
                                 - (e.get("capitaux_mezzanine") or 0.0))
             e["liabilities_reconstruit"] = True
 
@@ -1412,6 +1428,9 @@ def univers_marche(tranche=None, plafond=None):
 
     import glob as _glob
     lignes = []
+    # Le cours vu par la collecte de marché, par symbole. Sert uniquement à
+    # démasquer les cours rangés en sous-unité dans l'univers.
+    cours_ref = {}
     for p in _glob.glob(str(CACHE_DIR / "marche_[0-9][0-9].json")):
         try:
             with open(p, encoding="utf-8") as fh:
@@ -1432,6 +1451,12 @@ def univers_marche(tranche=None, plafond=None):
         # la colonne ne doit pas être écarté en entier, il porte quand même son
         # nom et sa capitalisation.
         i_beta = ch.index("beta") if "beta" in ch else None
+        # ── DE QUOI DÉMASQUER UN COURS EN SOUS-UNITÉ ──
+        # `capitalisation ÷ nombre d'actions` EST le cours, dans la devise de la
+        # place. C'est le seul témoin qui ne dépende ni d'une liste de places ni
+        # d'une convention de nommage.
+        i_mc = ch.index("marketCap") if "marketCap" in ch else None
+        i_sh = ch.index("sharesOut") if "sharesOut" in ch else None
         # ── LES VARIATIONS DE COURS, POUR LA CAPITALISATION HISTORIQUE ──
         #
         # ch1y, ch3y, ch5y, ch10y donnent le rapport entre le cours d'alors et
@@ -1459,6 +1484,12 @@ def univers_marche(tranche=None, plafond=None):
                 1.0,
                 *[v[i_ch[n]] if (n in i_ch and i_ch[n] < len(v)) else None
                   for n in ("ch1y", "ch3y", "ch5y", "ch10y")])
+            # Le cours de référence, quand les deux colonnes sont là.
+            _mc = (v[i_mc] if (i_mc is not None and i_mc < len(v)) else None)
+            _sh = (v[i_sh] if (i_sh is not None and i_sh < len(v)) else None)
+            if (isinstance(_mc, (int, float)) and isinstance(_sh, (int, float))
+                    and _mc and _sh):
+                cours_ref[sym] = _mc / _sh
             lignes.append((v[i_capi] or 0, sym, v[i_nom], b, var or None, jour_m))
     lignes.sort(reverse=True)
     if plafond:
@@ -1466,9 +1497,42 @@ def univers_marche(tranche=None, plafond=None):
     if tranche:
         i, n = tranche
         lignes = [x for x in lignes if int(_initiale(x[1])) % n == i]
+    def _cours_sous_unite(px, ref):
+        """Le cours est-il en pence, agorot ou centimes plutôt qu'en unité ?
+
+        Rend le cours corrigé, et un drapeau disant si la correction a eu lieu.
+
+        On n'accepte QUE le facteur cent, et seulement s'il est net : entre 50 et
+        200. En dessous, c'est un décalage de date de cotation — les deux fichiers
+        ne sont pas écrits à la même minute — et corriger reviendrait à remplacer
+        un cours frais par un cours d'hier.
+        """
+        if not (isinstance(px, (int, float)) and px > 0):
+            return px, False
+        if not (isinstance(ref, (int, float)) and ref > 0):
+            return px, False
+        r = px / ref
+        return (px / 100.0, True) if 50.0 <= r <= 200.0 else (px, False)
+
+    n_sous_unite = 0
     out = {}
     for capi, sym, nom, beta, var, jour_m in lignes:
         px, dev = cotations.get(sym, (None, None))
+        # ── LE COURS EN SOUS-UNITÉ ──
+        #
+        # `univers_actions.json` range le cours de Londres, de Tel-Aviv et de
+        # Johannesburg en pence, agorot et centimes, sous l'étiquette de la
+        # devise majeure. Vérifié : Reckitt Benckiser à 5 116 GBP pour 51,32
+        # réels, AstraZeneca à 12 114 pour 119,70, NICE à 31 410 ILS pour 310,50.
+        # Tous leurs multiples étaient faux d'un facteur cent.
+        #
+        # On ne se fie pas à une liste de places : une première mesure par place
+        # donnait Londres à 1,00, sa médiane étant diluée par les cotations
+        # secondaires étrangères. C'est l'invariant qui tranche, société par
+        # société.
+        px, _corr = _cours_sous_unite(px, cours_ref.get(sym))
+        if _corr:
+            n_sous_unite += 1
         out[sym] = {
             "nom": nom, "capi_usd": capi, "chemin_sa": chemins.get(sym),
             # `mcap` et non `capi_usd` seul : la boucle principale lit

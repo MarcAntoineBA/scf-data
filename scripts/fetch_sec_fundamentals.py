@@ -275,7 +275,20 @@ CONCEPTS = {
     "sga": ["SellingGeneralAndAdministrativeExpense"],
     "ga": ["GeneralAndAdministrativeExpense"],
     "sm": ["SellingAndMarketingExpense"],
-    "opex": ["OperatingExpenses", "CostsAndExpenses", "OperatingCostsAndExpenses"],
+    # ⚠ `CostsAndExpenses` N'EST PAS UN REPLI DE `OperatingExpenses`.
+    #
+    # Le premier est le TOTAL des charges — coût des ventes compris — le second
+    # les seules charges d'exploitation. Les empiler faisait soustraire le coût
+    # des ventes deux fois dans la reconstruction du résultat d'exploitation :
+    # Chevron 2025 publiait −93 070 M$ et une marge de −50,46 % là où le vrai
+    # résultat est +15 144 M$ et la marge +8,2 %. 445 exercices, 82 sociétés,
+    # 2 321 Md$.
+    #
+    # C'est la règle que ce fichier s'est donnée ailleurs : « on n'accepte un
+    # repli que s'il désigne EXACTEMENT le même concept ». On sépare, et chaque
+    # concept porte sa propre formule.
+    "opex": ["OperatingExpenses", "OperatingCostsAndExpenses"],
+    "charges_totales": ["CostsAndExpenses", "BenefitsLossesAndExpenses"],
     "autres_non_ope": ["OtherNonoperatingIncomeExpense", "NonoperatingIncomeExpense"],
     "operating_income": ["OperatingIncomeLoss",
         "ProfitLossFromOperatingActivities"],
@@ -333,15 +346,46 @@ CONCEPTS = {
         "EarningsPerShareBasicAndDiluted",
         "BasicAndDilutedEarningsLossPerShare",
         "NetIncomeLossPerOutstandingLimitedPartnershipUnitBasicNetOfTax"],
+    # ── LE NOMBRE D'ACTIONS DES DÉPOSANTS IFRS ──────────────────────────
+    #
+    # Les étiquettes ci-dessous sont toutes us-gaap. Un déposant de formulaire
+    # 20-F publie en IFRS, sous `WeightedAverageShares`. Sans nombre d'actions,
+    # SIX critères du barème meurent d'un coup : chiffre d'affaires par action,
+    # flux par action, bénéfice par action, et leurs trois croissances. Mesuré :
+    # 475 paquets servis ont au moins deux exercices de produits et AUCUN nombre
+    # d'actions — 12 849 Md$. SAP en fait partie, avec onze exercices et pas de
+    # note.
+    #
+    # ⚠ ET C'EST UNE ÉTIQUETTE QUE CE DÉPÔT AVAIT RANGÉE PARMI CELLES « À NE
+    # JAMAIS AJOUTER », pour un motif exact : Grupo Aeroportuario del Pacífico y
+    # déclare un facteur mille, quatre exercices d'affilée.
+    #
+    # Mesuré sur douze déposants IFRS, rapport au nombre d'actions du marché :
+    # SAP 1,010 · ASML 1,012 · TSMC 1,000 · Mitsubishi UFJ 1,013 · Sony 1,030 ·
+    # Toyota 1,119 · Novartis 1,020 · Unilever 1,014 · AB InBev 1,024 ·
+    # Eni 1,038 · HDFC 0,498 (l'étiquette est juste, c'est le témoin de marché
+    # qui compte les actions en circulation et non la moyenne pondérée) ·
+    # PAC 849,180.
+    #
+    # Onze sur douze tombent juste, et le douzième se démasque tout seul :
+    # `_corriger_unite_actions()` compare le nombre d'actions à
+    # `net_income / eps_diluted`, corrige les puissances de mille dans les deux
+    # sens et EFFACE le nombre quand l'écart n'en est pas une. Chez PAC, ce
+    # témoin donne 5,053e8 contre 5,053e11 déclarés : facteur mille exact, donc
+    # corrigé. Cette garde n'existait pas quand la note a été écrite.
     "shares_diluted": ["WeightedAverageNumberOfDilutedSharesOutstanding",
         "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
         "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
-        "WeightedAverageLimitedPartnershipUnitsOutstandingDiluted"],
+        "WeightedAverageLimitedPartnershipUnitsOutstandingDiluted",
+        "WeightedAverageShares",
+        "WeightedAverageNumberOfOrdinarySharesOutstanding"],
     "shares_basic": ["WeightedAverageNumberOfSharesOutstandingBasic",
                      "WeightedAverageNumberOfSharesOutstanding",
         "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
         "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
-        "WeightedAverageLimitedPartnershipUnitsOutstanding"],
+        "WeightedAverageLimitedPartnershipUnitsOutstanding",
+        "WeightedAverageShares",
+        "WeightedAverageNumberOfOrdinarySharesOutstanding"],
 
     # ── Bilan (instant) ──
     "assets": ["Assets"],
@@ -555,6 +599,42 @@ INSTANTS = {"assets", "assets_current", "liabilities", "liabilities_current",
             # Deux postes de BILAN, donc pris à une date et non sur une période :
             # les demander comme des flux ne rendrait rien du tout.
             "interets_minoritaires_bilan", "capitaux_mezzanine",
+            # ⚠ ET LE TÉMOIN QUI GOUVERNE LEUR SOUSTRACTION.
+            #
+            # `equity_part_groupe` porte `StockholdersEquity`, un solde de bilan.
+            # Il était absent de cet ensemble, donc demandé comme un flux : aucun
+            # fait ne pouvait correspondre. Mesuré avant correction — 0 exercice
+            # renseigné sur 46 923 côté SEC et 98 804 côté international, soit
+            # 0,0000 %.
+            #
+            # Conséquence : la garde qui autorise à retrancher les intérêts
+            # minoritaires du passif reconstruit ne s'ouvrait JAMAIS. 12 672
+            # passifs déduits les contenaient donc, et la ligne de contrôle du
+            # bilan — « LA ligne qui rend le bilan vérifiable » — ne tombait plus
+            # juste. Intel 2025 : 223 508 M$ de passif + capitaux face à 211 429
+            # d'actif, 12,1 Md$ de trop.
+            #
+            # Une garde dont le témoin ne peut pas exister n'est pas une garde
+            # prudente : c'est une branche morte qui inverse le comportement.
+            "equity_part_groupe",
+            # ⚠ ET LE TÉMOIN QUI GOUVERNE LEUR SOUSTRACTION.
+            #
+            # `equity_part_groupe` porte `StockholdersEquity`, un solde de bilan.
+            # Il était absent de cet ensemble, donc demandé comme un flux : aucun
+            # fait ne pouvait correspondre. Mesuré avant correction — 0 exercice
+            # renseigné sur 46 923 côté SEC et 98 804 côté international, soit
+            # 0,0000 %.
+            #
+            # Conséquence : la garde qui autorise à retrancher les intérêts
+            # minoritaires du passif reconstruit ne s'ouvrait JAMAIS. 12 672
+            # passifs déduits les contenaient donc, et la ligne de contrôle du
+            # bilan — « LA ligne qui rend le bilan vérifiable » — ne tombait plus
+            # juste. Intel 2025 : 223 508 M$ de passif + capitaux face à 211 429
+            # d'actif, 12,1 Md$ de trop.
+            #
+            # Une garde dont le témoin ne peut pas exister n'est pas une garde
+            # prudente : c'est une branche morte qui inverse le comportement.
+            "equity_part_groupe",
             "goodwill", "retained_earnings", "inventory"}
 
 FORMES_ANNUELLES = ("10-K", "20-F", "40-F")
@@ -1470,17 +1550,50 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
         # laquelle a servi : un chiffre reconstruit doit pouvoir être distingué
         # d'un chiffre déposé.
         if e["operating_income"] is None:
-            if e["gross_profit"] is not None and e["opex"] is not None:
+            if (e.get("charges_totales") is not None
+                    and e.get("revenue") is not None):
+                # ── LE TOTAL DES CHARGES SE RETRANCHE DES PRODUITS ──
+                # `CostsAndExpenses` contient déjà le coût des ventes : c'est du
+                # chiffre d'affaires qu'il faut le retirer, jamais de la marge
+                # brute. Chevron 2025 : 184 432 − 169 288 = 15 144 M$, et non
+                # 76 218 − 169 288 = −93 070.
+                e["operating_income"] = e["revenue"] - e["charges_totales"]
+                e["_ope_source"] = "produits moins total des charges"
+            elif e["gross_profit"] is not None and e["opex"] is not None:
                 e["operating_income"] = e["gross_profit"] - e["opex"]
                 e["_ope_source"] = "brut moins charges d’exploitation"
-            elif e["gross_profit"] is not None and (e["rd"] is not None or e["sga"] is not None):
-                e["operating_income"] = e["gross_profit"] - (e["rd"] or 0) - (e["sga"] or 0)
-                e["_ope_source"] = "brut moins R&D et frais généraux"
             elif e["pretax"] is not None and e["autres_non_ope"] is not None:
-                # Le résultat avant impôt comprend le non-opérationnel : on le
-                # retire pour revenir à l'exploitation.
+                # ── REMONTÉE DEVANT LES DEUX BRANCHES « MARGE BRUTE » ──
+                #
+                # C'est une identité comptable — le résultat avant impôt comprend
+                # le non opérationnel, on le retire pour revenir à
+                # l'exploitation — et la mesure du parc le confirme : rapport au
+                # résultat avant impôt de 0,99 en médiane, quartiles [0,91 ; 1,02],
+                # contre [0,87 ; 1,64] pour la branche « brut moins R&D ».
+                #
+                # L'ordre des quatre reconstructions suit désormais leur ordre de
+                # COMPLÉTUDE, qui est aussi celui de leur justesse mesurée.
                 e["operating_income"] = e["pretax"] - e["autres_non_ope"]
                 e["_ope_source"] = "avant impôt moins non opérationnel"
+            elif e["gross_profit"] is not None and (e["rd"] is not None or e["sga"] is not None):
+                # ── LA PLUS PARTIELLE DES QUATRE, ET ELLE EST BORNÉE ──
+                #
+                # Elle ignore les restructurations, les amortissements
+                # d'incorporels et la recherche acquise. Johnson & Johnson y
+                # affiche 42,6 % de marge d'exploitation pour 25 % réels.
+                #
+                # Au-delà de DEUX FOIS le résultat avant impôt — soit au-delà du
+                # troisième quartile mesuré, 1,64 — la reconstruction a
+                # manifestement oublié des charges. On n'écrit rien : une case
+                # vide se voit, une marge surévaluée de soixante-dix pour cent se
+                # lit comme une marge.
+                _oi = e["gross_profit"] - (e["rd"] or 0) - (e["sga"] or 0)
+                _pt = e.get("pretax")
+                if (_pt is not None and _pt > 0 and _oi > 2.0 * _pt):
+                    e["_ope_source"] = "reconstruction refusée : trop partielle"
+                else:
+                    e["operating_income"] = _oi
+                    e["_ope_source"] = "brut moins R&D et frais généraux"
         else:
             e["_ope_source"] = "déposé"
 
