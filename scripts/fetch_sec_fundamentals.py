@@ -2922,22 +2922,38 @@ def main():
         # de marché : il l'a fait parce que les états ne sont pas en dollars, et
         # la cotation américaine, elle, l'est. Remettre le cours ici referait
         # précisément le croisement de monnaies qu'on vient d'écarter.
-        if bati["resume"].get("devises_alignees") is False:
-            bati["resume"]["cours_source"] = None
-        else:
-            bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
-                _dernier_cours(cours.get(sym))
-            # Repli sur la cotation de l'univers. La série du tracker ne couvre
-            # que ses huit cents titres ; sans ce repli, 90 % des sociétés
-            # américaines n'avaient aucun cours — donc ni P/E, ni rendement, ni
-            # prix juste. Ici la conversion est inutile : la cotation retenue est
-            # en dollars, et les états d'un déposant SEC le sont aussi.
-            bati["resume"]["cours_source"] = \
-                "tracker" if bati["resume"]["cours_natif"] is not None else None
-            if bati["resume"]["cours_natif"] is None and meta.get("cours_cotation"):
-                bati["resume"]["cours_natif"] = meta["cours_cotation"]
-                bati["resume"]["cours_natif_le"] = jour_univers
-                bati["resume"]["cours_source"] = "univers"
+        # ── LE COURS EST RENSEIGNÉ DANS TOUS LES CAS ──
+        # Cette branche sautait tout le renseignement du cours quand les devises
+        # n'étaient pas alignées. Ce qui est faux dans ce cas, ce sont les
+        # RAPPORTS entre une capitalisation en dollars et un bilan en devise
+        # locale — `mcap_estime`, `wacc`, `ecart_roic_wacc` — et ceux-là sont
+        # écartés plus haut, à juste titre.
+        #
+        # Un cours n'est pas un rapport : il est libellé dans sa propre devise
+        # de cotation, il ne se mélange à rien, et il ne devient faux dans
+        # aucune monnaie. Il disparaissait par voisinage.
+        #
+        # Mesuré sur la production le 30/08/2026 : les 163 déposants SEC hors
+        # dollar n'avaient AUCUN cours — British American Tobacco, LG Display,
+        # Sibanye, Ambev — alors que le jeu de marché les sert (BTI 56,13 $,
+        # HMY 20,23 $).
+        #
+        # `montants_marche = "ecartes"` reste posé : la fiche annonce toujours
+        # que les multiples sont écartés. Aucune conversion n'est ajoutée —
+        # `devise_cotation` nomme la monnaie du cours, `devises_alignees` reste
+        # à faux, et la fiche lit déjà ces deux champs.
+        bati["resume"]["cours_natif"], bati["resume"]["cours_natif_le"] = \
+            _dernier_cours(cours.get(sym))
+        # Repli sur la cotation de l'univers. La série du tracker ne couvre
+        # que ses huit cents titres ; sans ce repli, 90 % des sociétés
+        # américaines n'avaient aucun cours — donc ni P/E, ni rendement, ni
+        # prix juste.
+        bati["resume"]["cours_source"] = \
+            "tracker" if bati["resume"]["cours_natif"] is not None else None
+        if bati["resume"]["cours_natif"] is None and meta.get("cours_cotation"):
+            bati["resume"]["cours_natif"] = meta["cours_cotation"]
+            bati["resume"]["cours_natif_le"] = jour_univers
+            bati["resume"]["cours_source"] = "univers"
         # ⚠ La devise est posée par `construire`, qui SAIT laquelle il a lue. Elle
         # était écrite « USD » en dur ici, ce qui écrasait la vérité et rendait
         # invisible le cas des déposants étrangers publiant en roubles, en dongs
