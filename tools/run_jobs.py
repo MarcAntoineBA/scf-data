@@ -525,6 +525,117 @@ def run_one(job, timeout):
 _CLES_DATE = ("updated", "generated_at", "genere_le", "last_update", "updated_at")
 
 
+
+# ══════════════════════════════════════════════════════════════════════════
+# LES TÉMOINS — la garde qui regarde DEDANS
+# ══════════════════════════════════════════════════════════════════════════
+# Les deux gardes ci-dessous regardent l'enveloppe : le poids et la date.
+# Mesuré le 30/08/2026, elles ont laissé passer un cache qui perdait 66 cours
+# sur 690 — NVIDIA, Oracle, Qualcomm, Samsung — parce qu'il gardait 93 % de son
+# poids et portait un horodatage plus récent.
+#
+# ⚠ ON NE COMPARE PAS « LA RICHESSE ». Un compte de champs non nuls ou un taux
+# de remplissage protège aussi la donnée fausse : un fichier entièrement rempli
+# de zéros passerait haut la main. On compare des VALEURS NOMMÉES dont on sait
+# ce qu'elles doivent valoir.
+#
+# Pour ajouter un cache : une entrée ici, avec une fonction qui rend
+# {nom_du_témoin: valeur} — et rien d'autre à faire.
+
+def _t_tradfi_fund(d):
+    """Le cours de quelques poids lourds, et le compte global de cours."""
+    out = {}
+    tous = []
+    for sec in (d.get("sectors") or []):
+        tous.extend(sec.get("stocks") or [])
+    par = {}
+    for x in tous:
+        if x.get("symbol") and x["symbol"] not in par:
+            par[x["symbol"]] = x
+    for sym in ("NVDA", "MSFT", "AAPL", "JPM", "MC.PA", "7203.T"):
+        x = par.get(sym)
+        if x and isinstance(x.get("price_usd"), (int, float)):
+            out["cours " + sym] = True
+    n = sum(1 for x in tous if isinstance(x.get("price_usd"), (int, float)))
+    if n:
+        out["_compte:cours"] = n
+    return out
+
+
+def _t_marche(d):
+    """Le jeu de marché : un cours pour les mêmes témoins."""
+    out = {}
+    lignes = d.get("lignes") or d.get("rows") or []
+    if isinstance(d, list):
+        lignes = d
+    n = 0
+    for l in lignes:
+        if isinstance(l, dict) and isinstance(l.get("price"), (int, float)):
+            n += 1
+    if n:
+        out["_compte:cours"] = n
+    return out
+
+
+# {motif de nom de fichier: (extracteur, libellé lisible)}
+TEMOINS = {
+    "tradfi_fundamentals_cache": (_t_tradfi_fund, "fondamentaux TradFi"),
+}
+
+
+def _temoins_de(chemin):
+    """Les témoins d'un fichier, ou None si on ne sait pas le lire.
+
+    None n'est PAS un échec : c'est « on ne sait pas », et la garde s'abstient.
+    Refuser ce qu'on ne sait pas lire bloquerait toute la publication au premier
+    format inattendu."""
+    nom = os.path.basename(chemin)
+    fn = None
+    for motif, (f, _lib) in TEMOINS.items():
+        if motif in nom:
+            fn = f
+            break
+    if not fn:
+        return None
+    try:
+        with open(chemin, encoding="utf-8", errors="replace") as h:
+            brut = h.read()
+        # Les caches existent en .json (machine) et en .js (window.__X__ = {...}).
+        # On accepte les deux : c'est le même contenu, et refuser le .js
+        # laisserait sans garde exactement le fichier que la page lit.
+        i = brut.find("{")
+        j = brut.rfind("}")
+        if i < 0 or j <= i:
+            return None
+        d = json.loads(brut[i:j + 1])
+        return fn(d)
+    except Exception:
+        return None
+
+
+def _temoins_perdus(src, ancien):
+    """Ce qui était là avant et ne l'est plus. Liste vide = rien à signaler.
+
+    ⚠ Un témoin absent des DEUX côtés ne compte pas : on ne reproche pas à une
+    collecte de ne pas réparer un trou qu'elle n'a pas creusé."""
+    neuf = _temoins_de(src)
+    vieux = _temoins_de(ancien)
+    if neuf is None or vieux is None:
+        return []
+    perdus = []
+    for cle, avant in vieux.items():
+        if cle.startswith("_compte:"):
+            # Un compte : on tolère le bruit normal d'une collecte, on refuse
+            # l'effondrement. Le seuil est haut (5 %) parce qu'un cours qui
+            # manque est un cours qu'on n'affiche pas — pas un arrondi.
+            apres = neuf.get(cle, 0)
+            if isinstance(avant, int) and avant >= 50 and apres < avant * 0.95:
+                perdus.append("%s %d → %d" % (cle.split(":", 1)[1], avant, apres))
+        elif avant and cle not in neuf:
+            perdus.append(cle)
+    return perdus
+
+
 def _json_relisible(chemin):
     """Le fichier se relit-il ? Pour un `.json` seulement.
 
@@ -589,7 +700,7 @@ def collect(manifest):
     Le comparant reste le même dans les deux cas : la copie précédente, où qu'elle soit.
     """
     os.makedirs(RELEASE_OUT, exist_ok=True)
-    small, big, absent, retires, fondus, perimes, casses = [], [], [], [], [], [], []
+    small, big, absent, retires, fondus, perimes, casses, vides = [], [], [], [], [], [], [], []
     for name in manifest:
         src = os.path.join(CACHE_DIR, name)
         if not os.path.exists(src):
@@ -657,6 +768,17 @@ def collect(manifest):
                 perimes.append(f"{name} ({h_vieux[:16]} → {h_neuf[:16]})")
                 continue          # ← on NE PUBLIE PAS : le dépôt est plus frais
 
+            # ── ET LE CONTENU, PAS SEULEMENT L'ENVELOPPE ──
+            # Les deux gardes ci-dessus regardent le poids et la date. Mesuré le
+            # 30/08/2026, elles ont laissé passer un cache qui perdait 66 cours
+            # sur 690 — NVIDIA, Oracle, Qualcomm, Samsung — en gardant 93 % de
+            # son poids et un horodatage plus récent. Une collecte qui échoue à
+            # moitié publie exactement par ce trou-là.
+            manque = _temoins_perdus(src, ancien)
+            if manque:
+                vides.append("%s (%s)" % (name, ", ".join(manque[:4])))
+                continue          # ← on NE PUBLIE PAS : le dépôt est plus complet
+
         # Un fichier peut changer de camp (il grossit avec l'historique qu'il accumule) :
         # on nettoie l'ancienne place, sinon le site continuerait de lire une copie
         # figée pendant que la nouvelle est publiée ailleurs.
@@ -670,7 +792,7 @@ def collect(manifest):
             continue
         shutil.copy2(src, dst)
         (big if heavy else small).append(name)
-    return small, big, absent, retires, fondus, perimes, casses
+    return small, big, absent, retires, fondus, perimes, casses, vides
 
 
 def main():
@@ -726,7 +848,7 @@ def main():
             results += list(ex.map(lambda j: run_one(j, timeout), vague))
     elapsed = round(time.time() - t0, 1)
 
-    small, big, absent, retires, fondus, perimes, casses = collect(manifest)
+    small, big, absent, retires, fondus, perimes, casses, vides = collect(manifest)
     changed = small + big
 
     # ── QUI A TRAVAILLÉ, QUI S'EST CONTENTÉ DE RÉPONDRE ───────────────────────
@@ -783,6 +905,19 @@ def main():
               + (" …" if len(perimes) > 6 else ""))
         print("    (ce poste ne fait pas tourner tous les collecteurs ; ses caches "
               "vieillissent pendant que ceux du runner avancent)")
+
+    if vides:
+        # Le refus qui manquait. Les trois ci-dessus regardent l'ENVELOPPE — le
+        # poids, la date, la relisibilité. Celui-ci regarde le CONTENU, et c'est
+        # le seul qui aurait vu passer le cache du 30/08/2026 : 66 cours perdus
+        # sur 690, 93 % du poids conservé, horodatage plus récent. NVIDIA,
+        # Oracle, Qualcomm et Samsung sans cotation, et les deux gardes d'accord.
+        print(f"  !! {len(vides)} fichier(s) ont PERDU des valeurs témoins et "
+              f"n'ont PAS été publiés : " + ", ".join(vides[:6])
+              + (" …" if len(vides) > 6 else ""))
+        print("    (la collecte a réussi mais rendu moins que la fois d'avant — "
+              "un repli plus pauvre, une source bridée, un lot en échec avalé ; "
+              "la version du dépôt est la plus complète, et c'est elle qu'on garde)")
 
     if muets:
         # Sorti en succès, n'a rien écrit. Ni erreur ni collecte : exactement la

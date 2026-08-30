@@ -51,7 +51,7 @@ def main():
         return 2
 
     t0 = time.time()
-    small, big, absent, retires, fondus, perimes, casses = run_jobs.collect(manifest)
+    small, big, absent, retires, fondus, perimes, casses, vides = run_jobs.collect(manifest)
     ecrits = set(small) | set(big)
 
     print("%d fichier(s) acheminé(s) en %.1f s : %d versionné(s), %d en pièce jointe"
@@ -79,6 +79,20 @@ def main():
               % len(perimes))
         for x in perimes[:10]:
             print("      %s" % x)
+
+    if vides:
+        # Le refus qui manquait, et le seul qui regarde le CONTENU. Les trois
+        # ci-dessus pèsent le fichier, le datent et le relisent ; aucun ne
+        # compte ce qu'il porte. Mesuré le 30/08/2026 : un cache passé de 690 à
+        # 624 cours — NVIDIA, Oracle, Qualcomm, Samsung sans cotation — avec
+        # 93 % du poids conservé et un horodatage plus récent. Les trois gardes
+        # ont dit oui.
+        print("  !! %d fichier(s) ont PERDU des valeurs TÉMOINS et n'ont PAS "
+              "été publiés — la copie du dépôt est plus complète :" % len(vides))
+        for x in vides[:10]:
+            print("      %s" % x)
+        print("     (la collecte a réussi mais rendu moins que la fois d'avant : "
+              "un repli plus pauvre, une source bridée, un lot en échec avalé)")
 
     if fondus:
         # Le refus est le comportement voulu, mais il doit se VOIR : c'est en

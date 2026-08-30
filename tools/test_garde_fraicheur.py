@@ -112,7 +112,7 @@ def main():
             with open(os.path.join(out_dir, nom), "w", encoding="utf-8") as fh:
                 fh.write(depot)
 
-        small, big, absent, retires, fondus, perimes, casses = run_jobs.collect(
+        small, big, absent, retires, fondus, perimes, casses, vides = run_jobs.collect(
             [c[0] for c in CAS])
         publies = set(small) | set(big)
         # Trois refus possibles, et le test ne doit pas les confondre : perime,
