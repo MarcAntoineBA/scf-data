@@ -1249,8 +1249,24 @@ def combler_mcap_par_ancres(exercices, variations, jour_ref):
     return n
 
 
+# Les libellés d'industrie qui désignent un financier. Ils viennent de la colonne
+# `industry` des fichiers de marché — « Banks - Diversified », « Insurance -
+# Life », « Asset Management ». Cette liste ne sert QU'À une chose : autoriser la
+# lecture de `GrossProfit` comme produit net bancaire. Elle doit donc rester
+# étroite : chaque mot ajouté ici ouvre la porte à une marge brute prise pour un
+# chiffre d'affaires.
+_MOTS_FINANCIERS = ("bank", "insur", "financ", "credit", "mortgage", "reinsur",
+                    "brokerage", "thrift", "savings", "asset manage",
+                    "capital markets")
+
+
+def _est_financiere(secteur):
+    t = (secteur or "").lower()
+    return any(m in t for m in _MOTS_FINANCIERS)
+
+
 def construire(facts, mcap_usd=None, beta=None, cours=None,
-               variations=None, jour_marche=None):
+               variations=None, jour_marche=None, secteur=None):
     _DEVISES_VUES.clear()
     # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
     # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
@@ -1378,6 +1394,33 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
                 and (_deja or e.get("revenue") is None)):
             e["revenue"] = _pin + _pcom
             e["revenue_total_utilise"] = "produit net bancaire"
+
+        # ── LE PRODUIT NET BANCAIRE DES BANQUES IFRS ────────────────────
+        #
+        # Santander et BBVA ne déposent NI le total de produits, NI les deux
+        # composantes ci-dessus. Elles déclarent leur « margen bruto » — leur
+        # vraie ligne de produits — sous `ifrs-full:GrossProfit`. Vérifié contre
+        # la réalité : Santander 2024, 61,88 Md€ contre 62,2 publiés ; BBVA,
+        # 35,48 contre 35,5. Sans cette branche, Santander sortait avec TROIS
+        # exercices et BBVA avec ZÉRO.
+        #
+        # ⚠ `GrossProfit` EST LA MARGE BRUTE CHEZ TOUT INDUSTRIEL, et c'est
+        # l'étiquette la plus piégée qu'on ait rencontrée. La première condition
+        # écrite ici — pas de produits, pas de coût des ventes, une charge
+        # d'intérêts, une marge brute — attrapait 21 sociétés dont DIX-SEPT non
+        # financières : Targa Resources, Atmos Energy, AES, Tetra Tech, Meritage
+        # Homes. Targa aurait affiché 2 Md$ de produits au lieu de 16.
+        #
+        # La mesure a tranché contre la première idée. La condition retenue y
+        # ajoute le SECTEUR, qui vit déjà dans la méta : elle attrape quatre
+        # sociétés — Santander sous ses deux cotations, BBVA, BBVA Argentine —
+        # et zéro non-financière.
+        if (e.get("revenue") is None and e.get("cogs") is None
+                and e.get("gross_profit") is not None
+                and e.get("interest_expense") is not None
+                and _est_financiere(secteur)):
+            e["revenue"] = e["gross_profit"]
+            e["revenue_total_utilise"] = "produit net bancaire (marge brute IFRS)"
 
         if e["pretax"] is None and e["net_income"] is not None and e["tax"] is not None:
             e["pretax"] = e["net_income"] + e["tax"]
@@ -2703,7 +2746,8 @@ def main():
             bati = construire(faits, meta.get("mcap"),
                               beta=meta.get("beta"), cours=cours.get(sym),
                               variations=meta.get("variations"),
-                              jour_marche=meta.get("jour_marche"))
+                              jour_marche=meta.get("jour_marche"),
+                              secteur=meta.get("secteur_suivi"))
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
             echecs += 1
