@@ -1013,7 +1013,34 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
             e["ca_par_action"] = e["fcf_par_action"] = e["ocf_par_action"] = None
         cp, base = _moy("equity", i)
         e["_base_capital"] = base
-        e["roe"] = _pct(e["net_income"], cp) if (cp and cp > 0) else None
+        # ── LE ROE SE CALCULE SUR LES CAPITAUX PART DU GROUPE ──
+        # `net_income` est le résultat part du groupe — `net_income_total` existe
+        # à côté, preuve que la distinction est faite. Mais `equity` contient les
+        # intérêts minoritaires quand la source ne sert pas `totalCommonEquity` :
+        # on divisait un numérateur net de minoritaires par un dénominateur qui
+        # les contient, et le ROE sortait mécaniquement sous-estimé.
+        #
+        # Mesuré le 30/08/2026 sur cinq paquets : 47 des 134 exercices portant
+        # des minoritaires étaient concernés, soit 35 %. 3994.T publiait 3,91 %
+        # au lieu de 4,99 % — ses minoritaires pèsent 27 % du bilan.
+        #
+        # ⚠ On ne retranche QUE si `equity` les contient. C'est la garde écrite
+        # plus haut pour la reconstruction du passif : quand `equity_part_groupe`
+        # existe, `equity` EST déjà la part du groupe, et retrancher une seconde
+        # fois compterait les minoritaires deux fois. Le dépôt a déjà payé cette
+        # erreur ; on réutilise sa garde au lieu d'en écrire une qui divergerait.
+        #
+        # ⚠ Le ROIC et le ROCE ne sont pas touchés : ils rapportent un résultat
+        # d'exploitation, AVANT répartition, à un capital qui doit rester total.
+        # ⚠ `cp` est une MOYENNE de deux exercices : on retranche donc une
+        # moyenne de minoritaires, pas la valeur d'une seule année. Mélanger un
+        # solde de clôture et une moyenne creuserait un écart artificiel de la
+        # taille de la variation annuelle des minoritaires.
+        _mi, _ = _moy("interets_minoritaires_bilan", i)
+        if e.get("equity_part_groupe") is not None or not _mi:
+            _mi = 0.0
+        cp_groupe = (cp - _mi) if (cp and _mi) else cp
+        e["roe"] = _pct(e["net_income"], cp_groupe) if (cp_groupe and cp_groupe > 0) else None
         act, _ = _moy("assets", i)
         e["roa"] = _pct(e["net_income"], act) if (act and act > 0) else None
         ci, _ = _moy("_capital_investi", i)
