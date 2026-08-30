@@ -978,6 +978,42 @@ def main():
     # ── Fallback: yahooquery bulk endpoints for failed tickers ──
     # yahooquery's summary_detail + key_stats + financial_data are bulk calls
     # (1 HTTP round-trip for 40 tickers). Recovers most yfinance .info fails.
+    # ── Les enregistrements de la collecte précédente ──
+    # Construits AVANT le repli, parce que c'est le repli qui en a besoin : il
+    # ne sait produire que quinze des cinquante-deux champs, et sans eux il
+    # appauvrit la société qu'il récupère.
+    _ANCIENS = {}
+    for _s in (prev_cache.get("sectors", []) if prev_cache else []):
+        for _st in _s.get("stocks", []):
+            if _st.get("symbol"):
+                _ANCIENS[_st["symbol"]] = _st
+
+    # Les deux seuls champs qui bougent d'heure en heure. On ne les reprend
+    # JAMAIS d'une collecte précédente : afficher le cours d'hier pour celui du
+    # jour, sans le dire, est pire que ne rien afficher — la page sait retomber
+    # sur le jeu de marché, qui est frais.
+    _PERISSABLES = ("price_usd", "perf_30d")
+
+    def _fusionner_repli(sym, frais, tq):
+        """Le repli complète le passé, il ne l'efface pas."""
+        anc = _ANCIENS.get(sym)
+        if anc:
+            fusion = {k: v for k, v in anc.items() if k not in _PERISSABLES}
+            fusion.update({k: v for k, v in frais.items() if v is not None})
+            fusion["_stale_funda"] = True
+        else:
+            fusion = dict(frais)
+        fusion.setdefault("price_usd", None)
+        fusion.setdefault("perf_30d", None)
+        if tq.get("price") is not None:
+            fusion["price_usd"] = tq["price"]
+        if tq.get("mcap"):
+            fusion["mcap_b"] = round(tq["mcap"] / 1e9, 2)
+            fusion["_mcap_source"] = "tracker"
+        if tq.get("perf_30d") is not None:
+            fusion["perf_30d"] = tq["perf_30d"]
+        return fusion
+
     if failed:
         try:
             from yahooquery import Ticker as _YQT
@@ -1093,7 +1129,15 @@ def main():
 
                         name = (p or {}).get("longName") or (p or {}).get("shortName") or sym
 
-                        fundamentals[sym] = {
+                        # ⚠ Ces quinze champs sont TOUT ce que ce repli sait
+                        # produire — le chemin principal en écrit cinquante-deux.
+                        # Écrit tel quel, cet enregistrement écrasait le pays,
+                        # les marges, le chiffre d'affaires, la valeur comptable
+                        # et le cours ; et comme le rattrapage par le cache
+                        # précédent saute les symboles déjà présents, il les
+                        # perdait DÉFINITIVEMENT. Mesuré : 202 sociétés sur 826,
+                        # NVIDIA comprise, réduites à quinze champs.
+                        _frais = {
                             "symbol": sym,
                             "name": name,
                             "currency": ccy,
@@ -1110,6 +1154,8 @@ def main():
                             "beta": beta,
                             "perf_1y": perf_1y,
                         }
+                        fundamentals[sym] = _fusionner_repli(
+                            sym, _frais, tracker_quotes.get(sym, {}))
                         recovered += 1
                     except Exception as e:
                         print(f"[warn] yahooquery {sym}: {e}", file=sys.stderr)
