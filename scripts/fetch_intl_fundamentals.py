@@ -451,13 +451,36 @@ def etats(chemin):
 # déjà fait mordre ailleurs — deux nombres justes qui en produisent un faux.
 CHAMPS = {
     # compte de résultat
-    "revenue":           ("resultat", ["revenue", "operatingRevenue"]),
+    # ── LES QUATRE FORMES DE COMPTE DE RÉSULTAT ─────────────────────────
+    #
+    # La source ne sert pas le même compte de résultat à tout le monde : elle a
+    # une forme industrielle, une forme assurance (« Ins »), une forme
+    # immobilière (« RE ») et une forme financement (« Fin »). On n'en lisait
+    # qu'une, et 1 484 sociétés sortaient sans aucun chiffre d'affaires —
+    # Allianz, Ping An, Zurich, AXA, AIA, Tokio Marine, Munich Re, Generali,
+    # Vonovia, Goodman Group, Link REIT, Bajaj Finance.
+    #
+    # Vérifié avant d'être écrit : produits − charges = résultat d'exploitation
+    # à 0,0 % chez Allianz, Munich Re, Generali, AXA, Goodman, Vonovia et Link
+    # REIT. Et les montants tombent juste : Munich Re 62,3 Md€, Generali 57,8,
+    # Goodman 4,06 Md A$.
+    #
+    # ⚠ EN QUEUE, et c'est ce qui protège les 18 000 autres : le résolveur prend
+    # le PREMIER nom qui rend une valeur, donc un ajout en fin de liste ne peut
+    # que combler un vide. Et ces clefs n'existent que dans leur schéma —
+    # contrôlé sur Nestlé, LVMH et Erste Group : zéro clef « Ins », « RE » ou
+    # « Fin » chez elles.
+    "revenue":           ("resultat", ["revenue", "operatingRevenue",
+                                       "revenueIns", "revenueRE", "revenueFin"]),
     "cogs":              ("resultat", ["cor"]),
     "gross_profit":      ("resultat", ["gp"]),
     "rd":                ("resultat", ["rnd"]),
-    "sga":               ("resultat", ["sgna"]),
-    "opex":              ("resultat", ["opex"]),
-    "operating_income":  ("resultat", ["opinc"]),
+    "sga":               ("resultat", ["sgna", "sgaIns", "sgnaRE"]),
+    "opex":              ("resultat", ["opex", "totalOpexIns",
+                                       "totalOperatingExpensesRE",
+                                       "totalOperatingExpensesFin"]),
+    "operating_income":  ("resultat", ["opinc", "opincIns",
+                                       "operatingIncomeRE"]),
     "pretax":            ("resultat", ["pretax", "ebtExcl"]),
     "tax":               ("resultat", ["taxexp"]),
     # `netinccmn` est le résultat PART DU COMMUN, `netinc` le total. Les
@@ -471,7 +494,8 @@ CHAMPS = {
     # 25,67 % là où le vrai est 10,99 %.
     "net_income":        ("resultat", ["netinccmn"]),
     "net_income_total":  ("resultat", ["netinc"]),
-    "interest_expense":  ("resultat", ["interestExpense"]),
+    "interest_expense":  ("resultat", ["interestExpense",
+                                       "interestExpenseRE", "intExpFin"]),
     "eps_diluted":       ("resultat", ["epsdil"]),
     "eps_basic":         ("resultat", ["epsBasic"]),
     "shares_diluted":    ("resultat", ["sharesDiluted"]),
@@ -481,7 +505,8 @@ CHAMPS = {
     # bilan
     "assets":              ("bilan", ["assets"]),
     "assets_current":      ("bilan", ["assetsc"]),
-    "liabilities":         ("bilan", ["liabilities"]),
+    "liabilities":       ("bilan", ["liabilities", "totalLiabilitiesIns",
+                                    "totalLiabilitiesRE"]),
     "liabilities_current": ("bilan", ["currentLiabilities"]),
     "equity":              ("bilan", ["totalCommonEquity", "equity"]),
     # Les participations ne donnant pas le contrôle. `totalCommonEquity` désigne
@@ -530,16 +555,17 @@ CHAMPS = {
     "inventory":           ("bilan", ["inventory"]),
     # flux de trésorerie
     "ocf":            ("flux", ["ncfo"]),
-    "capex":          ("flux", ["capex"]),
+    "capex":          ("flux", ["capex", "capexIns"]),
     "sbc":            ("flux", ["sbcomp"]),
     "dividends_paid": ("flux", ["commonDividendCF"]),
-    "buybacks":       ("flux", ["commonRepurchased"]),
+    "buybacks":          ("flux", ["commonRepurchased",
+                                   "commonRepurchasedIns"]),
     # ── CE QUE LA SOCIÉTÉ REPREND AU MARCHÉ ──
     # Sans ce champ, le retour à l'actionnaire n'additionne que ce qu'on rend.
     # Xcel Energy affichait 1,282 Md$ de retour pour 3,349 Md$ d'émissions la
     # même année : son retour réel est NÉGATIF. Il est dans le même bloc de flux,
     # à la même requête, et il n'était pas demandé.
-    "emissions_actions": ("flux", ["commonIssued"]),
+    "emissions_actions": ("flux", ["commonIssued", "commonIssuedIns"]),
     "dna":            ("flux", ["totalDepAmorCF"]),
 }
 
