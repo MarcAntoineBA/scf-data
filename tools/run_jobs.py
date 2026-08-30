@@ -47,6 +47,36 @@ CACHE_OUT = os.path.join(ROOT, "cache")
 # En dessous, l'historique git est au contraire précieux — on voit quelle valeur a
 # changé, et quand.
 GIT_SIZE_LIMIT = 1_000_000
+
+# ── LES FICHIERS QUI NE PARTENT JAMAIS EN PIÈCE JOINTE ────────────────────
+#
+# Le seuil ci-dessus vise les caches MONOLITHIQUES : douze fichiers qui pèsent
+# 93 des 114 Mo, réécrits en entier à chaque collecte, et dont personne ne
+# relira la version d'avant-hier.
+#
+# Les paquets DÉCOUPÉS sont l'exact contraire : chacun est l'unité que le site
+# va chercher pour ouvrir UNE fiche. S'il part en pièce jointe, il quitte le
+# dépôt — `release/` est dans le `.gitignore` — et la route `/data/` rend 404.
+#
+# Mesuré le 30/08/2026 en production : `intl_detail_237.json` renvoyait 404 et
+# soixante-cinq sociétés n'avaient aucune fiche. Six autres paquets venaient de
+# franchir le seuil, une dizaine étaient à 0,98 Mo.
+#
+# Et le poids n'est pas l'argument qu'on croit : Cloudflare sert ces fichiers
+# compressés — 749 Ko deviennent 114 Ko sur le réseau.
+# ⚠ UN MOTIF EXACT, PAS UN PRÉFIXE. « actionnariat_ » attraperait
+# `actionnariat_cache.json` (2,3 Mo) et « univers_ » attraperait
+# `univers_actions.json` — deux caches monolithiques que le seuil doit
+# justement continuer d'écarter. On ne reconnaît donc que les NOMS DE PAQUET :
+# trois chiffres pour les fiches, une ou deux lettres ou chiffres pour les
+# fragments de recherche.
+TOUJOURS_VERSIONNES = re.compile(
+    r"^(?:sec_detail|intl_detail|actionnariat)_\d{3}\.(?:json|js)$"
+    r"|^univers_[0-9A-Z]{1,2}\.(?:json|js)$")
+
+
+def _toujours_versionne(nom):
+    return bool(TOUJOURS_VERSIONNES.match(nom))
 RELEASE_OUT = os.path.join(ROOT, "release")
 MANIFEST = os.path.join(ROOT, "cache_manifest.txt")
 
@@ -566,7 +596,9 @@ def collect(manifest):
             absent.append(name)
             continue
         taille = os.path.getsize(src)
-        heavy = taille >= GIT_SIZE_LIMIT
+        # Un paquet de fiches reste versionné quelle que soit sa taille : la
+        # pièce jointe est un canal que la route `/data/` du site ne lit pas.
+        heavy = taille >= GIT_SIZE_LIMIT and not _toujours_versionne(name)
         dst = os.path.join(RELEASE_OUT if heavy else CACHE_OUT, name)
 
         # Un fichier qui FOND est le signe qu'un collecteur a perdu sa base de fusion :

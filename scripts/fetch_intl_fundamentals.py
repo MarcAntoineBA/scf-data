@@ -314,6 +314,57 @@ def _meme_place(a, b):
     return ALIAS_PLACES.get(a, a) == ALIAS_PLACES.get(b, b)
 
 
+def chercher_chemins_par_nom(nom, exclure=None, maxi=3):
+    """Les chemins que la recherche associe à ce NOM, la cotation d'origine d'abord.
+
+    POURQUOI ELLE EXISTE, alors que `chercher_chemin` fait déjà un repli
+
+    `chercher_chemin` interroge d'abord avec le TICKER. Pour une ligne secondaire
+    — `etr/RHO`, `bit/1ATCA`, `lon/HHPD` — la recherche par ticker ne rend que
+    des reflets de la même place, dont celui qui vient d'échouer. Le repli
+    tournait donc à vide.
+
+    Interrogée par le NOM, la même recherche rend la cotation d'origine EN
+    PREMIER : `swx/ROP` pour Roche, `bme/CABK` pour CaixaBank, `sto/ATCO.A` pour
+    Atlas Copco, `tpe/2317` pour Hon Hai, `hel/NDA.FI` pour Nordea. Cinq fois
+    sur six sur l'échantillon relevé.
+
+    ⚠ LA GARDE DE NOM RESTE ENTIÈRE. On relâche la contrainte de place — c'est
+    tout l'objet — mais chaque candidat passe par `_noms_concordent`, la fonction
+    resserrée après que 118 fiches ont porté les états d'un autre émetteur pour
+    1 913 Md$ de capitalisation. Le nom tranche, jamais la place.
+
+    Les lignes de gré à gré sont écartées : elles portent le nom du bon émetteur
+    mais la source n'y sert pas d'états, et les essayer ne coûterait que du
+    temps.
+    """
+    if not nom:
+        return []
+    d = _get(BASE + "/api/search?q=" + urllib.parse.quote(nom))
+    if not d:
+        return []
+    out = []
+    for item in (d.get("data") or d.get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        s2 = item.get("s")
+        n2 = item.get("n") or item.get("name") or ""
+        if not s2 or "/" not in s2:
+            continue
+        if s2.partition("/")[0].lower() in ("otc", "otcmkts", "pink"):
+            continue
+        cand = "quote/" + s2
+        if exclure and cand == exclure:
+            continue
+        if not _noms_concordent(nom, n2):
+            continue
+        if cand not in out:
+            out.append(cand)
+        if len(out) >= maxi:
+            break
+    return out
+
+
 def chercher_chemin(symbole, nom, place_attendue=None):
     """Repli : l'API de recherche du site rend le chemin canonique.
 
@@ -1571,6 +1622,28 @@ def precharger(univers, parallele):
                 if brut is not None:
                     chemin = autre
                     trouve_par_recherche = True
+            if brut is None:
+                # ── SECONDE PISTE : PAR LE NOM, SANS CONTRAINTE DE PLACE ──
+                #
+                # La première passe interroge la recherche avec le TICKER, qui ne
+                # rend que des reflets de la même place — dont celui qui vient
+                # d'échouer. Mesuré : 102 sociétés de plus de 20 Md$ restaient
+                # sans aucun état pour cette seule raison, 4 763 Md$ — Roche,
+                # CaixaBank, Atlas Copco, Hon Hai, Nordea, SingTel.
+                #
+                # Interrogée par le NOM, la recherche rend la cotation d'origine
+                # en premier. On essaie jusqu'à trois candidats ; le premier qui
+                # rend des états gagne.
+                #
+                # ⚠ Chaque candidat a déjà passé `_noms_concordent`. On relâche
+                # la place, jamais le nom.
+                for cand in chercher_chemins_par_nom(meta.get("nom"),
+                                                     exclure=chemin):
+                    b2 = etats(cand)
+                    if b2 is not None:
+                        brut, chemin = b2, cand
+                        trouve_par_recherche = True
+                        break
         return sym, brut, chemin, trouve_par_recherche
 
     out = {}
