@@ -162,11 +162,40 @@ def positions(cik, acc):
     return par_cusip
 
 
+# Les suffixes de forme juridique et les mentions de catégorie de titre, retirés
+# sur des MOTS ENTIERS. La liste sert à une expression régulière, pas à des
+# `replace` successifs — voir la raison juste en dessous.
+_SUFFIXES_13F = (
+    "INC", "CORP", "CORPORATION", "CO", "LTD", "PLC", "LP", "NV", "SA", "AG",
+    "HOLDINGS", "HLDNGS", "GROUP", "THE", "TR", "TRUST",
+    "CLASS", "CL", "COM", "CAP", "STK", "ORD", "SHS", "NEW", "UNIT", "UNITS",
+    "SPONSORED", "SPON", "ADR", "ADS", "A", "B", "C",
+)
+_RE_SUFFIXES = re.compile(r"\b(?:%s)\b" % "|".join(_SUFFIXES_13F))
+
+
 def _norm(s):
-    s = re.sub(r"[^A-Za-z0-9 ]+", " ", (s or "").upper())
-    for m in (" INC", " CORP", " CO", " LTD", " PLC", " CLASS A", " CL A", " COM",
-              " HOLDINGS", " GROUP", " THE", " NV", " SA", " AG"):
-        s = s.replace(m, " ")
+    """Le nom d'un émetteur, ramené à ce qui identifie la SOCIÉTÉ.
+
+    ⚠ LE RETRAIT SE FAIT SUR DES MOTS ENTIERS. Une première version enchaînait
+    des `s.replace(" CORP", " ")`, et `str.replace` ne connaît pas les frontières
+    de mots : « NVIDIA CORPORATION » devenait « NVIDIA ORATION », « LAM RESEARCH
+    CORP (COM NEW) » devenait « LAM RESEARCH M NEW ». Ces noms-là ne pouvaient
+    plus correspondre à rien, et le rapprochement échouait en silence.
+
+    ⚠ LA PARENTHÈSE DE CATÉGORIE PART EN PREMIER. Un dépôt 13F désigne une LIGNE
+    DE TITRE, pas une société : « ALPHABET INC (CAP STK CL A) », « TSMC
+    (SPONSORED ADR) ». L'univers, lui, nomme la société. Sans ce retrait les deux
+    ne se rencontrent jamais.
+
+    Mesuré le 30/08/2026 avant correction : 39 des 60 lignes d'encombrement sans
+    ticker — Alphabet (18 gérants), NVIDIA (12), TSMC (11), Lam Research (8).
+    """
+    s = (s or "").upper()
+    # La catégorie de titre d'abord : elle décrit le titre, pas l'émetteur.
+    s = re.sub(r"\([^)]*\)", " ", s)
+    s = re.sub(r"[^A-Z0-9 ]+", " ", s)
+    s = _RE_SUFFIXES.sub(" ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
