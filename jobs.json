@@ -2675,20 +2675,6 @@
       "witness": "these_web3_cache.json"
     },
     {
-      "id": "these_singularite.refresh",
-      "script": "fetch_these_singularite.py",
-      "args": [],
-      "schedule": "2 créneau(x)/jour",
-      "per_day": 2.0,
-      "cadence": "6h",
-      "category": "public",
-      "outputs": [
-        "these_singularite_cache.js",
-        "these_singularite_cache.json"
-      ],
-      "witness": "these_singularite_cache.json"
-    },
-    {
       "id": "trackerstf",
       "script": "fetch_trackers_tf.py",
       "args": [],
