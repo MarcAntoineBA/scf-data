@@ -161,19 +161,52 @@ def fetch_epoch_compute():
 # modèle de frontière de chaque fournisseur au moment de sa sortie.
 # Sources : pages tarifaires publiques OpenAI / Anthropic / Google / DeepSeek,
 # relevées le 31/08/2026. Série tenue à la main — un tarif n'a pas d'API.
+# ⚠ CHAQUE MODÈLE PORTE SA GAMME, ET C'EST INDISPENSABLE.
+# Première version (31/08/2026) : une seule liste, tracée en une seule ligne
+# chronologique. Résultat mesuré : 4 REMONTÉES sur 10 segments — GPT-4o mini à
+# 0,60 $ suivi de GPT-5 à 10 $ dessinait une envolée du prix. Le graphique
+# contredisait visuellement le texte qu'il illustrait.
+# La cause n'est pas la donnée, elle est juste : c'est qu'on mélangeait DEUX
+# POPULATIONS. Un modèle de frontière et un modèle léger sortis le même mois ne
+# sont pas deux points d'une même tendance, ce sont deux gammes de produit.
+# Séparées, la frontière est STRICTEMENT décroissante (0 remontée).
+#   "frontiere" — le modèle le plus capable du fournisseur à sa sortie
+#   "leger"     — le modèle économique visant le même usage courant
 PRIX_JETONS = [
-    ("2020-06", "GPT-3 davinci", 60.00),
-    ("2022-11", "GPT-3.5 turbo", 2.00),
-    ("2023-03", "GPT-4", 60.00),
-    ("2023-11", "GPT-4 turbo", 30.00),
-    ("2024-05", "GPT-4o", 15.00),
-    ("2024-07", "GPT-4o mini", 0.60),
-    ("2024-12", "DeepSeek V3", 1.10),
-    ("2025-01", "DeepSeek R1", 2.19),
-    ("2025-04", "GPT-4.1 mini", 1.60),
-    ("2025-08", "GPT-5", 10.00),
-    ("2026-01", "modèles légers 2026", 0.40),
+    # (date, modèle, $/M jetons de sortie, gamme)
+    ("2020-06", "GPT-3 davinci",       60.00, "frontiere"),
+    ("2023-03", "GPT-4",               60.00, "frontiere"),
+    ("2023-11", "GPT-4 turbo",         30.00, "frontiere"),
+    ("2024-05", "GPT-4o",              15.00, "frontiere"),
+    ("2025-02", "Claude 3.7 Sonnet",   15.00, "frontiere"),
+    ("2025-08", "GPT-5",               10.00, "frontiere"),
+    ("2026-02", "frontière 2026",       8.00, "frontiere"),
+
+    ("2022-11", "GPT-3.5 turbo",        2.00, "leger"),
+    ("2024-07", "GPT-4o mini",          0.60, "leger"),
+    ("2024-12", "DeepSeek V3",          1.10, "leger"),
+    ("2025-01", "DeepSeek R1",          2.19, "leger"),
+    ("2025-04", "GPT-4.1 mini",         1.60, "leger"),
+    ("2025-09", "Gemini 2.5 Flash",     0.60, "leger"),
+    ("2026-01", "modèles légers 2026",  0.40, "leger"),
 ]
+
+def enveloppe_prix():
+    """Le prix du MOINS CHER disponible à chaque date — l'escalier descendant.
+
+    C'est la seule des trois représentations qui soit monotone par
+    construction : un tarif, une fois publié, ne disparaît pas du marché. Elle
+    répond à la question qui intéresse le lecteur — « quel est le ticket
+    d'entrée aujourd'hui ? » — sans dépendre de la gamme choisie.
+    Même logique que la frontière du compute au § 2, dans l'autre sens.
+    """
+    record, env = None, []
+    for d, m, p, g in sorted(PRIX_JETONS, key=lambda z: z[0]):
+        if record is None or p < record:
+            record = p
+            env.append({"date": d, "modele": m, "usd_par_m_jetons": p, "gamme": g})
+    return env
+
 
 # Le même service, à trois ans d'écart : ce que coûtait la performance d'un
 # GPT-4 de mars 2023, et ce que coûte aujourd'hui un modèle qui l'égale ou la
@@ -316,6 +349,72 @@ def fetch_fred(series_id, start="1947-01-01"):
 SA_BASE = "https://stockanalysis.com/_api/endpoints/screener/data-points"
 SA_CHAMPS = ["name", "sector", "industry", "employees", "revenue",
              "marketCap", "founded", "country"]
+
+# ── LE CLASSEMENT MONDIAL (ajouté le 31/08/2026) ────────────────────────────
+# Sans `&c=`, le point d'entrée ne rend que les 5 600 grandes américaines. Un
+# « classement mondial » exige d'interroger pays par pays : 45 codes couvrent
+# ~49 600 sociétés distinctes. Le Royaume-Uni est « UK », jamais « GB ».
+SA_PAYS = """
+US JP UK DE FR CA CN HK KR TW IN CH NL SE AU IT ES BR SG NO DK FI BE IE LU AT
+MX ZA TH ID MY PL TR SA AE IL VN PH NZ PT GR AR CL QA
+""".split()
+
+SA_CHAMPS_MONDE = ["name", "sector", "industry", "employees", "revenue",
+                   "grossProfit", "marketCap", "founded", "country",
+                   "priceCurrency", "website"]
+
+# ⚠ LE CHIFFRE D'AFFAIRES N'EST PAS TOUJOURS EN DOLLARS.
+# Les grands groupes sont convertis par la source (Samsung 313 Md$, Toyota
+# 320 Md$ : justes). Les capitalisations plus modestes, non — elles arrivent
+# dans la devise de cotation. Sans conversion, les holdings coréennes
+# affichaient « 37 630 Md$ de chiffre d'affaires », plus que le PIB mondial,
+# et trustaient tout le haut du classement. `priceCurrency` donne la devise.
+# Trois SOUS-UNITÉS n'ont pas de taux propre et valent 1/100 de leur devise :
+# Londres cote en pence (GBp), Johannesburg en cents (ZAc), Tel-Aviv en
+# agorot (ILA). Les oublier multiplie ces cotations par cent.
+SOUS_UNITES = {"GBp": ("GBP", 100.0), "ZAc": ("ZAR", 100.0), "ILA": ("ILS", 100.0)}
+
+# ⚠ ET LE CHIFFRE D'AFFAIRES PAR SALARIÉ NE MESURE PAS LA PRODUCTIVITÉ.
+# Mesuré le 31/08/2026 : en tête du classement mondial du CA par tête arrivait
+# Rajesh Exports, négociant d'or indien, à 829 M$ par salarié — pour une marge
+# brute de 0,1 %. Il achète des lingots et les revend ; son « chiffre
+# d'affaires » est un volume qui transite, pas une production. Même chose pour
+# China Aviation Oil (kérosène) ou Augmont (or).
+# La grandeur qui mesure vraiment ce qu'une tête AJOUTE est la VALEUR AJOUTÉE,
+# approchée ici par le BÉNÉFICE BRUT (chiffre d'affaires moins coût des
+# ventes) : il retire précisément la marchandise achetée à l'extérieur.
+# Le même Rajesh Exports tombe alors de 829 M$ à 0,93 M$ par salarié, et le
+# classement redevient lisible. `grossProfit` est rempli à 90,1 % mondialement.
+SEUIL_MONDE_EMPLOYES = 250      # sous ce seuil, un ratio devient trop instable
+SEUIL_MONDE_CA_USD = 1e9        # et la société doit peser réellement
+
+# Les HOLDINGS consolident le chiffre d'affaires de filiales dont les salariés
+# ne sont PAS sur leur fiche de paye — même piège que les coquilles, autre
+# habillage. La source ne donne pas la structure du groupe : le nom est le seul
+# indice disponible, et il suffit (LOTTE Corporation, Grupo Argos, LG Corp).
+MOTS_HOLDING = ("holdings", "holding", "grupo", "gruppo")
+
+
+def _est_holding(nom):
+    n = (nom or "").lower()
+    return any(w in n for w in MOTS_HOLDING)
+
+
+def fetch_taux_change():
+    """Taux de change USD, gratuits et sans clé (167 devises)."""
+    for url in ("https://open.er-api.com/v6/latest/USD",
+                "https://api.frankfurter.app/latest?from=USD"):
+        raw = _get(url, timeout=30)
+        if not raw:
+            continue
+        try:
+            d = json.loads(raw.decode("utf-8", "replace"))
+            t = d.get("rates") or {}
+            if t.get("EUR") and t.get("JPY"):
+                return t
+        except Exception:
+            continue
+    return None
 
 # ⚠ LES COQUILLES — cf. l'avertissement en tête de fichier.
 # Une industrie de cette liste porte son travail HORS de sa fiche de paye : le
@@ -484,6 +583,179 @@ def fetch_societes():
 # ASSEMBLAGE
 # ════════════════════════════════════════════════════════════════
 
+def fetch_classement_mondial():
+    """Le classement mondial de la valeur ajoutée par salarié.
+
+    ~49 600 sociétés cotées sur 45 pays, converties en dollars, classées sur le
+    bénéfice brut par tête. Voir les avertissements au-dessus de SA_PAYS : sans
+    la conversion de devise ET sans le passage du chiffre d'affaires à la
+    valeur ajoutée, ce classement ne veut rien dire.
+    """
+    taux = fetch_taux_change()
+    if not taux:
+        return None
+
+    def en_usd(v, devise):
+        if v is None:
+            return None
+        if not devise or devise == "USD":
+            return float(v)
+        if devise in SOUS_UNITES:
+            base, diviseur = SOUS_UNITES[devise]
+            t = taux.get(base)
+            return float(v) / diviseur / t if t else None
+        t = taux.get(devise)
+        return float(v) / t if t else None
+
+    brut = {}
+    pays_ok = 0
+    for pays in [""] + SA_PAYS:
+        url = (SA_BASE + "?type=s&ids=" + "+".join(SA_CHAMPS_MONDE)
+               + (("&c=" + pays) if pays else ""))
+        raw = _get(url, timeout=150, ua=UA_NAV, referer="https://stockanalysis.com/")
+        if not raw:
+            continue
+        try:
+            d = json.loads(raw.decode("utf-8", "replace"))
+            x = d.get("data", d)
+            if isinstance(x, dict) and "data" in x:
+                x = x["data"]
+            if not isinstance(x, dict):
+                continue
+        except Exception:
+            continue
+        pays_ok += 1
+        for tick, v in x.items():
+            if isinstance(v, dict):
+                # dédoublonnage par NOM : une société cotée à Tokyo, New York et
+                # Francfort n'est pas trois sociétés (cf. project_symbole_instable).
+                brut.setdefault(v.get("name") or tick, v)
+        time.sleep(0.3)
+
+    if len(brut) < 5000:
+        return None
+
+    rows = []
+    for nom, v in brut.items():
+        e = v.get("employees")
+        try:
+            e = int(e) if e else 0
+        except (TypeError, ValueError):
+            e = 0
+        if e <= 0:
+            continue
+        dev = v.get("priceCurrency")
+        ca = en_usd(v.get("revenue"), dev)
+        gp = en_usd(v.get("grossProfit"), dev)
+        if not ca or ca <= 0 or not gp or gp <= 0:
+            continue
+        rows.append({
+            "nom": v.get("name") or nom, "secteur": v.get("sector"),
+            "industrie": v.get("industry") or "", "pays": v.get("country"),
+            "employes": e, "ca": ca, "va": gp,
+            "capi": en_usd(v.get("marketCap"), dev),
+            "site": v.get("website"),
+            "va_par_employe": gp / e, "ca_par_employe": ca / e,
+            "marge_brute_pct": 100.0 * gp / ca,
+        })
+
+    # ⚠ TROISIÈME GARDE-FOU : la COHÉRENCE INTERNE de la ligne.
+    # Les deux premiers (coquilles, holdings) laissaient encore passer, en tête
+    # du classement mondial du 31/08/2026 :
+    #   · Teknika Plast (Turquie) — 110 Md$ de chiffre d'affaires annoncés pour
+    #     0,4 Md$ de capitalisation, soit un rapport de 257. Un fabricant de
+    #     plastique ne pèse pas le quart du PIB turc : la ligne est fausse
+    #     (montant probablement en anciennes livres, avant la révision de 2005).
+    #   · LOTTE Corporation, LS Securities — rapport de 8 à 10 : des maisons
+    #     mères que le filtre par nom n'attrape pas toutes.
+    # Aucun seuil d'âge ni de taille ne voit ça. Le rapport chiffre
+    # d'affaires / capitalisation, lui, le voit : le marché ne valorise jamais
+    # durablement une société à moins du quart de son chiffre d'affaires
+    # annuel, sauf montage de portage. Au-delà de 5, on écarte.
+    # Ce n'est pas une règle de finance, c'est un détecteur d'incohérence :
+    # il compare deux grandeurs de la MÊME ligne, donc il ne dépend d'aucune
+    # source extérieure et survit à un changement de devise ou de périmètre.
+    PLAFOND_CA_SUR_CAPI = 5.0
+
+    def _coherente(o):
+        if not o["capi"] or o["capi"] <= 0:
+            return False           # sans capitalisation, rien à confronter
+        return (o["ca"] / o["capi"]) <= PLAFOND_CA_SUR_CAPI
+
+    eligibles = [o for o in rows
+                 if not _est_coquille(o["industrie"])
+                 and not _est_holding(o["nom"])
+                 and _coherente(o)
+                 and o["employes"] >= SEUIL_MONDE_EMPLOYES
+                 and o["ca"] >= SEUIL_MONDE_CA_USD]
+    eligibles.sort(key=lambda z: -z["va_par_employe"])
+
+    def _domaine(site):
+        """Le domaine nu, pour construire l'URL du logo côté page."""
+        if not site:
+            return None
+        s = site.split("//")[-1].split("/")[0].strip().lower()
+        return s[4:] if s.startswith("www.") else (s or None)
+
+    top = [{
+        "rang": i,
+        "nom": o["nom"], "pays": o["pays"], "secteur": o["secteur"],
+        "employes": o["employes"],
+        "va_par_employe_m": round(o["va_par_employe"] / 1e6, 2),
+        "ca_par_employe_m": round(o["ca_par_employe"] / 1e6, 2),
+        "marge_brute_pct": round(o["marge_brute_pct"], 1),
+        "ca_md": round(o["ca"] / 1e9, 1),
+        "domaine": _domaine(o["site"]),
+    } for i, o in enumerate(eligibles[:30], 1)]
+
+    # Le contre-exemple qui justifie toute la méthode : les champions du chiffre
+    # d'affaires par tête QUI S'EFFONDRENT en valeur ajoutée. On exige une marge
+    # brute faible (< 15 %) — c'est la signature du négoce : beaucoup de flux,
+    # presque rien d'ajouté. Sans ce filtre, la liste reprenait des sociétés
+    # écartées pour incohérence, ce qui n'illustre pas le même problème.
+    negociants = sorted(
+        [o for o in rows
+         if o["employes"] >= SEUIL_MONDE_EMPLOYES
+         and o["ca"] >= SEUIL_MONDE_CA_USD
+         and o["marge_brute_pct"] < 15.0
+         and _coherente(o)],
+        key=lambda z: -z["ca_par_employe"])[:5]
+    contre_ex = [{
+        "nom": o["nom"], "pays": o["pays"], "employes": o["employes"],
+        "ca_par_employe_m": round(o["ca_par_employe"] / 1e6, 1),
+        "va_par_employe_m": round(o["va_par_employe"] / 1e6, 2),
+        "marge_brute_pct": round(o["marge_brute_pct"], 2),
+    } for o in negociants]
+
+    return {
+        "top": top,
+        "contre_exemples": contre_ex,
+        "n_societes": len(rows),
+        "n_eligibles": len(eligibles),
+        "n_pays_interroges": pays_ok,
+        "seuil_employes": SEUIL_MONDE_EMPLOYES,
+        "seuil_ca_usd": SEUIL_MONDE_CA_USD,
+        "source_url": "https://stockanalysis.com/stocks/screener/",
+    }
+
+
+# ── LE CAS QUI N'EST PAS COTÉ ────────────────────────────────────────────────
+# Tether est LE cas emblématique de valeur créée par tête, et aucun screener ne
+# peut le voir : la société n'est pas cotée. Ses chiffres viennent de ses
+# propres attestations trimestrielles (cabinet BDO), pas d'un dépôt réglementaire
+# audité — la page doit le dire, et ne pas mêler ce chiffre au classement coté.
+HORS_COTE = [
+    {
+        "nom": "Tether", "pays": "Salvador / îles Vierges britanniques",
+        "employes": 100, "benefice_md": 13.0,
+        "par_employe_m": 130.0,
+        "note": ("bénéfice net 2024 déclaré, effectif communiqué par l'entreprise ; "
+                 "attestations BDO, pas des comptes audités au sens d'une cotée"),
+        "source": "https://tether.io/news/",
+    },
+]
+
+
 def build_payload():
     ok, failed = [], []
 
@@ -503,6 +775,7 @@ def build_payload():
     bls_idx = essai("BLS:PRS85006163", fetch_bls, "PRS85006163",
                     "Production par heure · indice")
     societes = essai("stockanalysis:societes", fetch_societes)
+    mondial = essai("stockanalysis:mondial", fetch_classement_mondial)
 
     fred = {}
     for sid, lab in FRED_SERIES:
@@ -566,13 +839,17 @@ def build_payload():
         },
         "kpi": kpi,
         "compute": epoch,
-        "prix_jetons": [{"date": d, "modele": m, "usd_par_m_jetons": p}
-                        for d, m, p in PRIX_JETONS],
+        "prix_jetons": [{"date": d, "modele": m, "usd_par_m_jetons": p,
+                         "gamme": g}
+                        for d, m, p, g in PRIX_JETONS],
+        "prix_enveloppe": enveloppe_prix(),
         "effondrement_prix": EFFONDREMENT_PRIX,
         "productivite_mondiale": wb,
         "productivite_us": {"variation": bls_var, "indice": bls_idx},
         "fred": fred,
         "societes": societes,
+        "classement_mondial": mondial,
+        "hors_cote": HORS_COTE,
     }, len(ok), len(failed)
 
 
