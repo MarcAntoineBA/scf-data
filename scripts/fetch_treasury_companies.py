@@ -238,9 +238,28 @@ SHARES_HIST = {
     # -> 419,76 M affichés contre 425,50 M réels, soit une mNAV trop basse de
     # 1,3% et une capitalisation sous-estimée de 0,76 Md$). La couverture donne
     # les classes A+B : 364 585 501 + 19 640 250 au 24 juil. 2026.
-    "mstr": [("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)"),
+    # Les points ANTÉRIEURS viennent de la moyenne pondérée trimestrielle
+    # (us-gaap:WeightedAverageNumberOfSharesOutstandingBasic). Ils servent au
+    # graphe d'historique de mNAV, qui serait sinon limité à quelques mois.
+    # PRUDENCE : cette moyenne est publiée dans l'ÉCHELLE DE L'ÉPOQUE. MSTR a
+    # fait un split 10:1 en 2024 et ne retraite l'historique qu'à partir du
+    # dépôt du 30/09/2023 ; remonter au-delà mélangerait deux échelles et
+    # donnait une mNAV de 0,07 en 2022 (au lieu de ~0,7). On s'arrête donc
+    # au 30/09/2024, dernier point dont la continuité avec l'ancre est
+    # vérifiée (ratios 1,00 → 1,30 → 1,07 → 1,03 → 1,17 : aucune rupture).
+    "mstr": [("2024-09-30", 197273000, "10-Q : moyenne pondérée du T3 2024"),
+             ("2025-03-31", 256473000, "10-Q : moyenne pondérée du T1 2025"),
+             ("2025-06-30", 275244000, "10-Q : moyenne pondérée du T2 2025"),
+             ("2025-09-30", 284376000, "10-Q : moyenne pondérée du T3 2025"),
+             ("2026-03-31", 333913000, "10-Q : moyenne pondérée du T1 2026"),
+             ("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)"),
              ("2026-07-24", 384225751, "10-Q du 3 août 2026 (classes A+B)")],
-    "bmnr": [("2026-05-31", 579652432, "10-Q : actions émises au 31 mai 2026"),
+    # BMNR : un REGROUPEMENT INVERSE a eu lieu en 2024 (49,8 M -> 2,5 M). On ne
+    # remonte donc pas avant le 30/11/2025, premier trimestre de l'échelle
+    # actuelle — au-delà le compte n'est pas comparable.
+    "bmnr": [("2025-11-30", 325665565, "10-Q : moyenne pondérée au 30 nov. 2025"),
+             ("2026-02-28", 454620613, "10-Q : moyenne pondérée au 28 févr. 2026"),
+             ("2026-05-31", 579652432, "10-Q : actions émises au 31 mai 2026"),
              ("2026-07-09", 603226394, "couverture du 10-Q du 14 juil. 2026")],
     "purr": [("2026-03-31", 124220108, "10-Q du 8 mai 2026"),
              ("2026-05-19", 144447571, "couverture du S-1 du 22 mai 2026"),
