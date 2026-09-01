@@ -443,8 +443,13 @@ def edgar_mstr_events(text, filed):
     # n'est reconnu = Strategy a encore renommé une colonne (déjà vu : « BTC
     # Acquired » -> « BTC Purchased » en août 2026, trois semaines d'achats
     # perdues en silence). On le signale au lieu de rendre une liste vide.
-    if "BTC Update" in text and not any(
-            lab in text for lab in ("BTC Acquired", "BTC Purchased", "BTC Sold")):
+    # EXCEPTION : certains 8-K de semaine CALME sont rédigés en PROSE, sans
+    # tableau (« did not purchase any bitcoin », 8-K du 26 mai 2026). Il n'y a
+    # alors rien à lire et rien à signaler — crier ici entraînerait à ignorer
+    # la sentinelle, donc à rater le prochain vrai renommage.
+    if ("BTC Update" in text
+            and not any(lab in text for lab in ("BTC Acquired", "BTC Purchased", "BTC Sold"))
+            and not _re.search(r"did not (?:purchase|acquire|sell) any bitcoin", text, _re.I)):
         sys.stderr.write("[treasury] MSTR : aucun en-tête BTC reconnu dans le 8-K du "
                          + str(filed) + " — libellé probablement renommé par Strategy\n")
     # Chaque bloc commence à « During Period » et court jusqu'au suivant.
@@ -469,7 +474,7 @@ def edgar_mstr_events(text, filed):
         # CoinGecko masquait la panne. On accepte les deux, et l'auto-test
         # ci-dessous crie si plus aucun libellé n'est reconnu.
         sold = chunk.find("BTC Sold")
-        acq = -1
+        acq, acq_head = -1, None
         for _lab in ("BTC Acquired", "BTC Purchased"):
             _i = chunk.find(_lab)
             if _i >= 0 and (acq < 0 or _i < acq):
@@ -477,6 +482,12 @@ def edgar_mstr_events(text, filed):
         if sold < 0 and acq < 0:
             continue
         is_sale = sold >= 0 and (acq < 0 or sold < acq)
+        # acq_head reste None si aucun libellé d'achat n'a été trouvé : on ne
+        # peut alors QUE lire une vente. Sans ce garde, le parseur lève une
+        # UnboundLocalError et fait tomber toute la collecte (trouvé par test
+        # de mutation le 2026-09-01).
+        if not is_sale and not acq_head:
+            continue
         head = "BTC Sold" if is_sale else acq_head
         tail = chunk[chunk.find(head) + len(head):]
         # Où commence la ligne de données ? Pour un ACHAT, les 6 colonnes
