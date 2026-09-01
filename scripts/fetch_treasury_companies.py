@@ -843,8 +843,18 @@ def sec_fact(cik, tags):
 
 
 def sec_debt_cash(cik):
-    """(dette totale, cash, date) au dernier bilan publié. Zéros si non publié."""
-    debt = cash = 0.0
+    """(dette totale, cash, actions préférentielles, date) au dernier bilan.
+
+    Les PRÉFÉRENTIELLES comptent autant que la dette ici : Strategy publie sur
+    son propre tableau de bord une mNAV calculée sur la « réserve nette »,
+    c'est-à-dire le trésor MOINS la dette MOINS les préférentielles. Avec
+    14,4 Md$ de préférentielles au 30 juin 2026, retirer ce bloc du dénominateur
+    fait passer son ratio de 0,86 à plus de 1 — c'est toute l'explication de
+    l'écart avec les sites officiels, et la page ne pouvait pas la montrer sans
+    ce chiffre. Elles sont classées en capitaux propres TEMPORAIRES (mezzanine),
+    d'où le tag `TemporaryEquity...` : `PreferredStockValue` vaut 0 chez MSTR.
+    """
+    debt = cash = pref = 0.0
     asof = None
     # Dette : long terme (hors part courante) + part courante, si publiées.
     for tags in (("LongTermDebtNoncurrent", "LongTermDebt"),
@@ -858,7 +868,12 @@ def sec_debt_cash(cik):
     if got:
         cash = got[0]
         asof = max(asof or "", got[1])
-    return debt, cash, asof
+    got = sec_fact(cik, ("TemporaryEquityCarryingAmountAttributableToParent",
+                         "PreferredStockValue"))
+    if got:
+        pref = got[0]
+        asof = max(asof or "", got[1])
+    return debt, cash, pref, asof
 
 
 _MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin",
@@ -1560,7 +1575,8 @@ def main():
         # Dette / cash du dernier bilan (pour la mNAV EV). Jamais bloquant : si
         # la SEC est injoignable, le front retombe sur la seule mNAV basic.
         try:
-            _debt, _cash, _bal = sec_debt_cash(CIK[cfg["id"]])
+            _debt, _cash, _pref, _bal = sec_debt_cash(CIK[cfg["id"]])
+            meta["pref_usd"] = _pref
             meta["debt_usd"], meta["cash_usd"], meta["balance_asof"] = _debt, _cash, _bal
         except Exception as _e:
             sys.stderr.write(f"[treasury] dette/cash {cfg['id']}: {_e}\n")
@@ -1621,6 +1637,9 @@ def main():
             # qualifié était affiché, d'où l'écart apparent avec les sites de
             # référence qui, eux, publient les DEUX.
             "debt_usd": meta.get("debt_usd"), "cash_usd": meta.get("cash_usd"),
+            # Préférentielles : indispensables pour rejouer la définition que
+            # Strategy publie (÷ réserve nette), donc pour EXPLIQUER l'écart.
+            "pref_usd": meta.get("pref_usd"),
             "balance_asof": meta.get("balance_asof"),
             "purchases": cfg["purchases"],
             "stock": [[d, round(p, 2)] for d, p in cfg["stock"]],
