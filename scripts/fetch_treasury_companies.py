@@ -169,7 +169,10 @@ MSTR_PURCHASES = [
 MSTR_SEED_UNTIL = "2026-07-20"
 MSTR_META = {
     "holdings": 843775, "holdings_asof": "2026-07-19",
-    "avg_cost": 75476, "cost_total_usd": 63.69e9,
+    # avg_cost / cost_total_usd sont RELUS dans chaque 8-K (même tableau que le
+    # trésor, colonnes « Aggregate/Average Purchase Price ») : ces valeurs ne
+    # sont qu'une amorce, `cost_asof` empêche un vieux dépôt d'écraser un neuf.
+    "avg_cost": 75476, "cost_total_usd": 63.69e9, "cost_asof": "2026-07-19",
     # Strategy ne publie pas le tag XBRL dei:EntityCommonStockSharesOutstanding
     # (structure multi-classes) : le compte est reconstruit depuis la COUVERTURE
     # du 10-Q (classes A + B) puis incrémenté des actions vendues à l'ATM,
@@ -229,7 +232,14 @@ BMNR_META = {
 # remonter à 0,146 (15/07) — toujours SOUS son niveau de mars malgré +56% de
 # tokens. Un graphe de holdings seul flatte mécaniquement la société.
 SHARES_HIST = {
-    "mstr": [("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)")],
+    # MSTR : TOUJOURS ancrer sur le 10-Q le PLUS RÉCENT. L'ATM n'est qu'un
+    # rattrapage entre deux couvertures ; laisser l'ancre sur un vieux 10-Q fait
+    # dériver le compte (bug trouvé le 2026-09-01 : ancre restée au 10-Q de mai
+    # -> 419,76 M affichés contre 425,50 M réels, soit une mNAV trop basse de
+    # 1,3% et une capitalisation sous-estimée de 0,76 Md$). La couverture donne
+    # les classes A+B : 364 585 501 + 19 640 250 au 24 juil. 2026.
+    "mstr": [("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)"),
+             ("2026-07-24", 384225751, "10-Q du 3 août 2026 (classes A+B)")],
     "bmnr": [("2026-05-31", 579652432, "10-Q : actions émises au 31 mai 2026"),
              ("2026-07-09", 603226394, "couverture du 10-Q du 14 juil. 2026")],
     "purr": [("2026-03-31", 124220108, "10-Q du 8 mai 2026"),
@@ -329,7 +339,8 @@ EDGAR_UA = {"User-Agent": os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile r
 EDGAR_CACHE = os.path.join(CACHE_DIR, "treasury_edgar_cache.json")
 # Bump = cache jeté et refabriqué. À incrémenter DÈS QU'UN PARSEUR CHANGE, sinon
 # le correctif ne s'applique qu'aux filings futurs et le bug reste à l'écran.
-EDGAR_CACHE_VERSION = 2
+# v3 (2026-09-01) : libellé « BTC Purchased » reconnu + coût cumulé relu.
+EDGAR_CACHE_VERSION = 3
 # Fenêtre re-parsée à chaque run. Elle DÉBORDE volontairement sur le seed :
 # les filings déjà seedés servent d'auto-test au parseur (cf. selftest).
 EDGAR_LOOKBACK_DAYS = 80
@@ -428,6 +439,14 @@ def edgar_mstr_events(text, filed):
     events = []
     if not text:
         return events
+    # SENTINELLE DE LIBELLÉ : un 8-K qui parle de bitcoin mais dont aucun en-tête
+    # n'est reconnu = Strategy a encore renommé une colonne (déjà vu : « BTC
+    # Acquired » -> « BTC Purchased » en août 2026, trois semaines d'achats
+    # perdues en silence). On le signale au lieu de rendre une liste vide.
+    if "BTC Update" in text and not any(
+            lab in text for lab in ("BTC Acquired", "BTC Purchased", "BTC Sold")):
+        sys.stderr.write("[treasury] MSTR : aucun en-tête BTC reconnu dans le 8-K du "
+                         + str(filed) + " — libellé probablement renommé par Strategy\n")
     # Chaque bloc commence à « During Period » et court jusqu'au suivant.
     marks = [m.start() for m in _re.finditer(r"During Period", text)]
     for i, s in enumerate(marks):
@@ -443,12 +462,22 @@ def edgar_mstr_events(text, filed):
             continue
         if (d2 - d1).days > 20:      # agrégat trimestriel -> déjà couvert semaine par semaine
             continue
+        # L'en-tête d'achat a CHANGÉ DE NOM : « BTC Acquired » jusqu'au 8-K du
+        # 27 juil. 2026, « BTC Purchased » depuis celui du 17 août. Le parseur
+        # ne connaissait que l'ancien libellé et rendait donc une liste VIDE
+        # depuis trois semaines, sans la moindre erreur — seul le filet
+        # CoinGecko masquait la panne. On accepte les deux, et l'auto-test
+        # ci-dessous crie si plus aucun libellé n'est reconnu.
         sold = chunk.find("BTC Sold")
-        acq = chunk.find("BTC Acquired")
+        acq = -1
+        for _lab in ("BTC Acquired", "BTC Purchased"):
+            _i = chunk.find(_lab)
+            if _i >= 0 and (acq < 0 or _i < acq):
+                acq, acq_head = _i, _lab
         if sold < 0 and acq < 0:
             continue
         is_sale = sold >= 0 and (acq < 0 or sold < acq)
-        head = "BTC Sold" if is_sale else "BTC Acquired"
+        head = "BTC Sold" if is_sale else acq_head
         tail = chunk[chunk.find(head) + len(head):]
         # Où commence la ligne de données ? Pour un ACHAT, les 6 colonnes
         # (opération + holdings) partagent un seul en-tête : la ligne suit le
@@ -491,13 +520,33 @@ def edgar_mstr_events(text, filed):
         mhold = _re.search(r"Aggregate BTC Holdings.{0,200}?(?<![\d,])(\d{3},\d{3})(?![\d,])", clean)
         if mhold:
             hold = _n(mhold.group(1))
+        # COÛT CUMULÉ : les deux colonnes qui SUIVENT le trésor dans la même
+        # ligne (« … 845,050 $ 63.73 $ 75,412 »), en milliards puis en dollars.
+        # Sans ça le coût restait figé au 8-K de juillet alors que le trésor,
+        # lu dans le même tableau, avançait chaque semaine (bug du 2026-09-01 :
+        # 63,69 Md$ / 75 476 $ affichés contre 63,73 Md$ / 75 412 $ publiés).
+        cost_total = cost_avg = None
+        if mhold:
+            mcost = _re.match(r"\s*\$?\s*([\d.]+)\s*\$?\s*([\d,]+)",
+                              clean[mhold.end():mhold.end() + 60])
+            if mcost:
+                try:
+                    ct, ca = _n(mcost.group(1)) * 1e9, _n(mcost.group(2))
+                    # Garde-fou : le coût moyen doit recoller au total ÷ trésor,
+                    # sinon on a lu deux colonnes d'un autre tableau.
+                    if hold and 10_000 < ca < 500_000 and 0.9 < ct / (ca * hold) < 1.1:
+                        cost_total, cost_avg = ct, ca
+                except ValueError:
+                    pass
         if not amt:
-            events.append({"d": d, "amt": 0, "hold": hold, "filed": filed})
+            events.append({"d": d, "amt": 0, "hold": hold, "filed": filed,
+                           "cost_total": cost_total, "cost_avg": cost_avg})
             continue
         events.append({
             "d": d, "amt": -amt if is_sale else amt,
             "usd_m": round(-usd_m if is_sale else usd_m, 2),
             "px": round(px, 2), "hold": hold, "filed": filed,
+            "cost_total": cost_total, "cost_avg": cost_avg,
             "note": ("vente — 8-K du " + filed if is_sale else None),
         })
     return events
@@ -707,6 +756,55 @@ def sec_shares(cik):
         return None
 
 
+def sec_fact(cik, tags):
+    """Dernière valeur publiée pour le premier tag XBRL disponible de `tags`.
+
+    Retourne (valeur, date de clôture, tag) ou None. Sert à la dette et au cash :
+    sans eux on ne peut afficher QUE la mNAV « basic », alors que les sites de
+    référence publient aussi une mNAV « EV » (dette − cash au numérateur). Pour
+    Strategy l'écart entre les deux est majeur — 6,67 Md$ de dette contre 1,71
+    Md$ de cash au 30 juin 2026 : la mNAV EV est ~0,08 point au-dessus de la
+    basic. Afficher un seul chiffre sans le qualifier, c'est ce qui fait croire
+    à un écart avec les sites officiels.
+    """
+    for tag in tags:
+        txt = edgar_get(f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik.zfill(10)}"
+                        f"/us-gaap/{tag}.json")
+        if not txt:
+            continue
+        try:
+            units = json.loads(txt).get("units", {})
+            vals = []
+            for arr in units.values():
+                vals.extend([v for v in arr if v.get("val") is not None and v.get("end")])
+            if not vals:
+                continue
+            best = max(vals, key=lambda v: (v.get("end"), v.get("filed") or ""))
+            return float(best["val"]), best["end"], tag
+        except Exception:
+            continue
+    return None
+
+
+def sec_debt_cash(cik):
+    """(dette totale, cash, date) au dernier bilan publié. Zéros si non publié."""
+    debt = cash = 0.0
+    asof = None
+    # Dette : long terme (hors part courante) + part courante, si publiées.
+    for tags in (("LongTermDebtNoncurrent", "LongTermDebt"),
+                 ("LongTermDebtCurrent", "DebtCurrent")):
+        got = sec_fact(cik, tags)
+        if got:
+            debt += got[0]
+            asof = max(asof or "", got[1])
+    got = sec_fact(cik, ("CashAndCashEquivalentsAtCarryingValue",
+                         "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"))
+    if got:
+        cash = got[0]
+        asof = max(asof or "", got[1])
+    return debt, cash, asof
+
+
 def ddays(a, b):
     return (datetime.strptime(a, "%Y-%m-%d") - datetime.strptime(b, "%Y-%m-%d")).days
 
@@ -817,6 +915,16 @@ def merge_mstr(events, audit, seed=None, meta=None):
         if ev.get("hold") and ev["d"] >= m["holdings_asof"]:
             m["holdings"] = round(ev["hold"])
             m["holdings_asof"] = ev["d"]
+        # Le COÛT CUMULÉ est publié dans le même tableau que le trésor, et net
+        # des ventes : il fait autorité, mais il ne se relisait pas — le site
+        # citait encore le 8-K du 20 juil. six dépôts plus tard. On le rafraîchit
+        # au même titre que le trésor, en n'acceptant qu'un dépôt PLUS RÉCENT.
+        if ev.get("cost_avg") and ev.get("cost_total") and ev["d"] >= m.get("cost_asof", ""):
+            m["avg_cost"] = round(ev["cost_avg"])
+            m["cost_total_usd"] = ev["cost_total"]
+            m["cost_asof"] = ev["d"]
+            m["cost_note"] = ("coût total $%.2f Md (8-K du %s)"
+                              % (ev["cost_total"] / 1e9, ev["filed"])).replace(".", ",")
         if not ev.get("amt"):
             continue
         if match_event(rows, ev["d"], ev["amt"]):
@@ -1379,6 +1487,13 @@ def main():
         # mNAV en dépend linéairement).
         sh_hist, sh_m, sh_asof, sh_note = shares_series(cfg["id"], edgar, meta, audit)
         meta["shares_m"], meta["shares_asof"], meta["shares_note"] = sh_m, sh_asof, sh_note
+        # Dette / cash du dernier bilan (pour la mNAV EV). Jamais bloquant : si
+        # la SEC est injoignable, le front retombe sur la seule mNAV basic.
+        try:
+            _debt, _cash, _bal = sec_debt_cash(CIK[cfg["id"]])
+            meta["debt_usd"], meta["cash_usd"], meta["balance_asof"] = _debt, _cash, _bal
+        except Exception as _e:
+            sys.stderr.write(f"[treasury] dette/cash {cfg['id']}: {_e}\n")
         recompute_cost(cfg["purchases"], meta, cfg["id"], audit)
         last_px, chg = last_and_chg(cfg["stock"])
         # Tokens par action : la seule métrique qui dit si accumuler CRÉE de la
@@ -1431,6 +1546,12 @@ def main():
             "tokens_per_share": tps,
             "mcap_usd": round(last_px * meta["shares_m"] * 1e6) if last_px else None,
             "last_px": last_px, "chg_1d_pct": chg,
+            # Dette / cash du dernier bilan : permettent au front d'afficher la
+            # mNAV EV à côté de la mNAV basic. Sans elles, un seul chiffre non
+            # qualifié était affiché, d'où l'écart apparent avec les sites de
+            # référence qui, eux, publient les DEUX.
+            "debt_usd": meta.get("debt_usd"), "cash_usd": meta.get("cash_usd"),
+            "balance_asof": meta.get("balance_asof"),
             "purchases": cfg["purchases"],
             "stock": [[d, round(p, 2)] for d, p in cfg["stock"]],
         }
