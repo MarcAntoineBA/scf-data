@@ -239,29 +239,55 @@ SHARES_HIST = {
     # 1,3% et une capitalisation sous-estimée de 0,76 Md$). La couverture donne
     # les classes A+B : 364 585 501 + 19 640 250 au 24 juil. 2026.
     # Les points ANTÉRIEURS viennent de la moyenne pondérée trimestrielle
-    # (us-gaap:WeightedAverageNumberOfSharesOutstandingBasic). Ils servent au
-    # graphe d'historique de mNAV, qui serait sinon limité à quelques mois.
-    # PRUDENCE : cette moyenne est publiée dans l'ÉCHELLE DE L'ÉPOQUE. MSTR a
-    # fait un split 10:1 en 2024 et ne retraite l'historique qu'à partir du
-    # dépôt du 30/09/2023 ; remonter au-delà mélangerait deux échelles et
-    # donnait une mNAV de 0,07 en 2022 (au lieu de ~0,7). On s'arrête donc
-    # au 30/09/2024, dernier point dont la continuité avec l'ancre est
-    # vérifiée (ratios 1,00 → 1,30 → 1,07 → 1,03 → 1,17 : aucune rupture).
-    "mstr": [("2024-09-30", 197273000, "10-Q : moyenne pondérée du T3 2024"),
-             ("2025-03-31", 256473000, "10-Q : moyenne pondérée du T1 2025"),
-             ("2025-06-30", 275244000, "10-Q : moyenne pondérée du T2 2025"),
-             ("2025-09-30", 284376000, "10-Q : moyenne pondérée du T3 2025"),
-             ("2026-03-31", 333913000, "10-Q : moyenne pondérée du T1 2026"),
+    # (us-gaap:WeightedAverageNumberOfSharesOutstandingBasic) : ils donnent au
+    # graphe de mNAV tout l'historique, jusqu'au premier bitcoin acheté.
+    #
+    # LES SPLITS, RÉSOLUS PAR PREUVE — PAS PAR DEVINETTE (2026-09-01).
+    # Cette moyenne est publiée dans l'ÉCHELLE DE L'ÉPOQUE : multiplier un cours
+    # ajusté par un compte pré-split sous-estimait la capitalisation d'un facteur
+    # 10 et donnait une mNAV de 0,07 en 2022 (au lieu de ~0,7). Deviner le
+    # facteur par un saut de ratio ne marche PAS : un split, un regroupement
+    # inverse et une vraie augmentation de capital ont la même signature — la
+    # règle transformait la levée de PURR (41 M -> 123 M) en faux split.
+    # La preuve est ailleurs : quand l'émetteur retraite son historique, il
+    # publie pour une MÊME date de fin et une MÊME durée de segment DEUX valeurs,
+    # l'ancienne et la nouvelle échelle. Le rapport EST le facteur, mesuré :
+    #   MSTR 2023-09-30 : 14 221 000 / 142 214 000  -> facteur 10,000 (split 10:1)
+    #   BMNR 2024-05-31 :  2 491 843 /  49 836 850  -> facteur 20,000 (regroup. 1:20)
+    #   PURR : aucun retraitement -> aucun split
+    # Les valeurs ci-dessous sont donc TOUTES dans l'échelle d'aujourd'hui.
+    # Contrôle de vraisemblance : 96,16 M actions x 15,06 $ = 1,45 Md$ de
+    # capitalisation en sept. 2020, avant le virage bitcoin. C'est le bon ordre.
+    "mstr": [("2020-09-30",  96160000, "10-Q : moyenne pondérée au 30 sept. 2020"),
+             ("2021-03-31",  96470000, "10-Q : moyenne pondérée au 31 mars 2021"),
+             ("2021-06-30",  97460000, "10-Q : moyenne pondérée au 30 juin 2021"),
+             ("2021-09-30",  99990000, "10-Q : moyenne pondérée au 30 sept. 2021"),
+             ("2022-03-31", 112890000, "10-Q : moyenne pondérée au 31 mars 2022"),
+             ("2022-06-30", 113000000, "10-Q : moyenne pondérée au 30 juin 2022"),
+             ("2022-09-30", 113080000, "10-Q : moyenne pondérée au 30 sept. 2022"),
+             ("2023-03-31", 118340000, "10-Q : moyenne pondérée au 31 mars 2023"),
+             ("2023-06-30", 132470000, "10-Q : moyenne pondérée au 30 juin 2023"),
+             ("2023-09-30", 142214000, "10-Q : moyenne pondérée au 30 sept. 2023"),
+             ("2024-03-31", 171942000, "10-Q : moyenne pondérée au 31 mars 2024"),
+             ("2024-06-30", 178607000, "10-Q : moyenne pondérée au 30 juin 2024"),
+             ("2024-09-30", 197273000, "10-Q : moyenne pondérée au 30 sept. 2024"),
+             ("2025-03-31", 256473000, "10-Q : moyenne pondérée au 31 mars 2025"),
+             ("2025-06-30", 275244000, "10-Q : moyenne pondérée au 30 juin 2025"),
+             ("2025-09-30", 284376000, "10-Q : moyenne pondérée au 30 sept. 2025"),
+             ("2026-03-31", 333913000, "10-Q : moyenne pondérée au 31 mars 2026"),
              ("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)"),
+             ("2026-06-30", 352534000, "10-Q : moyenne pondérée au 30 juin 2026"),
              ("2026-07-24", 384225751, "10-Q du 3 août 2026 (classes A+B)")],
-    # BMNR : un REGROUPEMENT INVERSE a eu lieu en 2024 (49,8 M -> 2,5 M). On ne
-    # remonte donc pas avant le 30/11/2025, premier trimestre de l'échelle
-    # actuelle — au-delà le compte n'est pas comparable.
+    # BMNR : le regroupement 1:20 de 2024 est corrigé, mais on ne remonte pas
+    # avant nov. 2025 — la société n'était pas encore une treasury company et
+    # le saut de 2,0 M à 325,7 M actions est une VRAIE levée, pas une échelle.
     "bmnr": [("2025-11-30", 325665565, "10-Q : moyenne pondérée au 30 nov. 2025"),
              ("2026-02-28", 454620613, "10-Q : moyenne pondérée au 28 févr. 2026"),
              ("2026-05-31", 579652432, "10-Q : actions émises au 31 mai 2026"),
              ("2026-07-09", 603226394, "couverture du 10-Q du 14 juil. 2026")],
-    "purr": [("2026-03-31", 124220108, "10-Q du 8 mai 2026"),
+    # PURR : aucun split. Le saut de déc. 2025 est le closing du rapprochement.
+    "purr": [("2025-12-31", 123012375, "10-Q : moyenne pondérée au 31 déc. 2025"),
+             ("2026-03-31", 124220108, "10-Q du 8 mai 2026"),
              ("2026-05-19", 144447571, "couverture du S-1 du 22 mai 2026"),
              ("2026-06-15", 196553055, "S-1/A du 16 juin 2026"),
              ("2026-07-15", 200563691, "S-1/A du 21 juil. 2026")],
