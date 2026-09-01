@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-01T07:26:18Z",
+  "ts": "2026-09-01T13:57:46Z",
   "total": 27,
   "ok": 26,
-  "secs": 4061.2,
+  "secs": 4745.3,
   "changed": 41,
-  "versionnes": 31,
-  "pieces_jointes": 10,
-  "absents": 23,
+  "versionnes": 33,
+  "pieces_jointes": 8,
+  "absents": 24,
   "muets": [],
   "failed": [
    {
-    "job": "sentiment.fng",
-    "why": "[06:27:21] ERREUR : SPY vide, abort."
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
    }
   ]
  },
- "updated": "2026-09-01T07:26:18Z"
+ "updated": "2026-09-01T13:57:46Z"
 }
