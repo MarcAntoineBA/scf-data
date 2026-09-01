@@ -805,6 +805,19 @@ def sec_debt_cash(cik):
     return debt, cash, asof
 
 
+_MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin",
+            "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def date_fr(d):
+    """« 2026-08-31 » -> « 31 août 2026 » (les notes sont lues telles quelles)."""
+    try:
+        dt = datetime.strptime(d, "%Y-%m-%d")
+        return "%d %s %d" % (dt.day, _MOIS_FR[dt.month - 1], dt.year)
+    except Exception:
+        return d
+
+
 def ddays(a, b):
     return (datetime.strptime(a, "%Y-%m-%d") - datetime.strptime(b, "%Y-%m-%d")).days
 
@@ -923,8 +936,9 @@ def merge_mstr(events, audit, seed=None, meta=None):
             m["avg_cost"] = round(ev["cost_avg"])
             m["cost_total_usd"] = ev["cost_total"]
             m["cost_asof"] = ev["d"]
-            m["cost_note"] = ("coût total $%.2f Md (8-K du %s)"
-                              % (ev["cost_total"] / 1e9, ev["filed"])).replace(".", ",")
+            m["cost_note"] = ("coût total $%s Md (8-K du %s)"
+                              % (("%.2f" % (ev["cost_total"] / 1e9)).replace(".", ","),
+                                 date_fr(ev["filed"])))
         if not ev.get("amt"):
             continue
         if match_event(rows, ev["d"], ev["amt"]):
