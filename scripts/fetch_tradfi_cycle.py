@@ -204,7 +204,16 @@ def _yahoo(symbol, interval, fmt, daily_since=None):
             p2 = int(time.time())
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={p1}&period2={p2}&interval={interval}"
         else:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=max&interval={interval}"
+            # Mensuel : fenêtre BORNÉE, jamais range=max. Yahoo plafonne une réponse à ~500
+            # points ; sur un symbole à longue histoire (^GSPC remonte à 1927) il ne tronque
+            # pas, il SOUS-ÉCHANTILLONNE — on recevait 167 points espacés de 3 mois, s'arrêtant
+            # 2 mois avant le mois courant. Le splice ne trouvait alors rien de plus récent que
+            # Shiller et le S&P restait figé (bug silencieux : aucune exception, série pleine).
+            # Ces séries ne servent qu'à amener le mois COURANT (l'histoire longue vient de
+            # Shiller / World Bank), donc 1990+ suffit et tient sous la limite des 500 points.
+            p1 = int(datetime(1990, 1, 1, tzinfo=timezone.utc).timestamp())
+            p2 = int(time.time())
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={p1}&period2={p2}&interval={interval}"
         j = cr.get(url, impersonate="chrome120", timeout=30).json()
         res = j["chart"]["result"][0]
         ts, cl = res["timestamp"], res["indicators"]["quote"][0]["close"]
@@ -599,6 +608,28 @@ def merge_preserve(new):
             if not new["series"].get(sk) and old.get("series", {}).get(sk):
                 new["series"][sk] = old["series"][sk]
                 log(f"merge-preserve: series.{sk} conservé")
+    # Garde de RÉGRESSION TEMPORELLE — une série non vide peut quand même être malade.
+    # Cas vécu (02/09/2026) : gold_nominal et copper_gold sont bâties en « mensuel ancien +
+    # daily récent ». Quand la jambe daily manquait, elles restaient PLEINES (1556 et 391
+    # points) mais s'arrêtaient en l'an 2000 : ni la garde du vide ci-dessus, ni le
+    # sanity() (qui ne compte que les points) ne voyaient quoi que ce soit. Le site a
+    # publié 26 ans de retard sans une seule erreur.
+    # On compare donc la DERNIÈRE DATE, pas le nombre de points : une série qui recule
+    # dans le temps est refusée et l'ancienne est conservée.
+    for sk, nser in (new.get("series") or {}).items():
+        oser = (old.get("series") or {}).get(sk)
+        if not nser or not oser:
+            continue
+        try:
+            n_last, o_last = nser[-1][0], oser[-1][0]
+        except (IndexError, TypeError):
+            continue
+        if n_last < o_last:
+            recul_j = (o_last - n_last) / 86400.0
+            new["series"][sk] = oser
+            log(f"⚠ merge-preserve: series.{sk} REFUSÉE — recul de {recul_j:.0f} jours "
+                f"({len(nser)} pts s'arrêtant plus tôt que les {len(oser)} pts existants) ; "
+                f"ancienne série conservée")
     # Saisonnalité : ne jamais régresser l'historique (ex. WorldBank indispo → argent/cuivre
     # retomberaient à 2000+). On ré-ajoute les années anciennes absentes du nouveau calcul.
     on, nn = old.get("seasonality") or {}, new.get("seasonality") or {}
@@ -622,6 +653,17 @@ def sanity(p):
     assert 0.05 < min(sg) and max(sg) < 20, f"sp_gold hors plage ({min(sg):.2f}..{max(sg):.2f})"
     assert p["composite"]["value"] is not None, "composite vide"
     assert any(r["value"] is not None for r in p["table"]), "table vide"
+    # FRAÎCHEUR des séries quotidiennes : compter les points ne suffit pas — une série
+    # peut être longue ET périmée (cf. gold_nominal figé en l'an 2000 avec 1556 points).
+    # Ces trois-là sont alimentées en daily par les futures Yahoo : elles doivent atteindre
+    # la semaine en cours. 10 jours de marge couvrent un long week-end + un jour férié.
+    now = time.time()
+    for sk in ("gold_nominal", "gold_silver", "copper_gold"):
+        ser = s.get(sk) or []
+        assert ser, f"{sk} vide"
+        retard_j = (now - ser[-1][0]) / 86400.0
+        assert retard_j < 10, (f"{sk} périmée : dernier point il y a {retard_j:.0f} jours "
+                               f"({len(ser)} pts) — jambe daily probablement manquante")
 
 
 def write_outputs(p):
