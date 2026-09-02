@@ -1,16 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-01T22:58:13Z",
+  "ts": "2026-09-02T07:14:49Z",
   "total": 27,
-  "ok": 27,
-  "secs": 3952.2,
-  "changed": 42,
-  "versionnes": 34,
-  "pieces_jointes": 8,
-  "absents": 23,
+  "ok": 25,
+  "secs": 4742.5,
+  "changed": 40,
+  "versionnes": 33,
+  "pieces_jointes": 7,
+  "absents": 24,
   "muets": [],
-  "failed": []
+  "failed": [
+   {
+    "job": "atlasmaritime",
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+   },
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   }
+  ]
  },
- "updated": "2026-09-01T22:58:13Z"
+ "updated": "2026-09-02T07:14:49Z"
 }
