@@ -1,23 +1,20 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-09-02T18:48:47Z",
+  "ts": "2026-09-02T21:53:45Z",
   "total": 26,
-  "ok": 25,
-  "secs": 371.7,
-  "changed": 43,
-  "versionnes": 32,
-  "pieces_jointes": 11,
+  "ok": 26,
+  "secs": 220.2,
+  "changed": 40,
+  "versionnes": 30,
+  "pieces_jointes": 10,
   "absents": 24,
   "muets": [
-   "crypto-pe-hist (4.2 h)"
+   "cryptoytd (3.1 h)",
+   "l1valuation (3.1 h)",
+   "newlistings (2.7 h)"
   ],
-  "failed": [
-   {
-    "job": "appariepredictifs",
-    "why": "[apparier] introuvable : prediction_markets_cache.json (ni dans le dépôt ni dans le cache)"
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-09-02T18:48:47Z"
+ "updated": "2026-09-02T21:53:45Z"
 }
