@@ -1,21 +1,25 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-01T09:59:06Z",
+  "ts": "2026-09-02T09:25:13Z",
   "total": 38,
-  "ok": 32,
-  "secs": 1194.6,
-  "changed": 1728,
-  "versionnes": 1723,
+  "ok": 31,
+  "secs": 1331.4,
+  "changed": 1303,
+  "versionnes": 1298,
   "pieces_jointes": 5,
-  "absents": 30,
+  "absents": 28,
   "muets": [
-   "gtrends.serpapi (220.7 h)"
+   "gtrends.serpapi (244.1 h)"
   ],
   "failed": [
    {
     "job": "marche",
     "why": "ValueError: not enough values to unpack (expected 3, got 2)"
+   },
+   {
+    "job": "atlaseco",
+    "why": "[GUARD] audit interne en échec — cache précédent conservé"
    },
    {
     "job": "desk.complet",
@@ -39,5 +43,5 @@
    }
   ]
  },
- "updated": "2026-09-01T09:59:06Z"
+ "updated": "2026-09-02T09:25:13Z"
 }
