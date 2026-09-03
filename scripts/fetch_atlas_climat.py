@@ -70,6 +70,7 @@ Interpréteur : n'importe quel python3 ≥ 3.8 (stdlib seule).
 import csv
 import io
 import json
+import os
 import re
 import ssl
 import sys
@@ -158,10 +159,22 @@ def log(msg):
     print(msg, flush=True)
 
 
-def fail(source, exc):
-    """Une source qui tombe n'emporte pas le run : elle est consignée."""
-    ERRORS.append({"source": source, "err": f"{type(exc).__name__}: {exc}"})
-    log(f"  ⚠ {source} : {type(exc).__name__}: {exc}")
+def fail(source, exc, domaine="climat"):
+    """Une source qui tombe n'emporte pas le run : elle est consignée.
+
+    `domaine` dit A QUELLE page appartient la source. La carte « Transition
+    écologique » ne compte QUE ses 11 sources publiques ; les blocs annexes
+    hébergés par ce même collecteur (le prix de l'assurance, par exemple) sont
+    consignés sous un autre domaine. Sans cela, le 28/08/2026, un quota BLS
+    épuisé — une série qui ne figure NULLE PART dans les 11 sources listées en
+    bas de la carte — affichait « 1 source en échec » sur la page climat et
+    accusait les données climatiques d'un défaut qui n'était pas le leur.
+    Une erreur hors domaine n'est pas effacée pour autant : elle reste dans le
+    cache sous `meta.errors_annexes`, et sur stdout.
+    """
+    ERRORS.append({"source": source, "err": f"{type(exc).__name__}: {exc}",
+                   "domaine": domaine})
+    log(f"  ⚠ [{domaine}] {source} : {type(exc).__name__}: {exc}")
 
 
 def http(url, tries=4, timeout=90):
@@ -702,6 +715,47 @@ def _indice_reel(brut, deflateur, base):
     return reel, nom, infl
 
 
+def _bls_cache_precedent():
+    """Les series BLS deja collectees, relues du cache. {serie: {annee: val}}.
+
+    On reconstruit l'indice BRUT (`nom`) et non l'indice reel : c'est lui que
+    _indice_reel() attend en entree. Un cache absent ou abime renvoie {} et le
+    collecteur repart simplement de zero.
+    """
+    def _serie(paquet):
+        """{'s': premiere annee, 'v': [valeurs]} -> {annee: valeur}."""
+        deb, vals = (paquet or {}).get("s"), (paquet or {}).get("v")
+        if not isinstance(deb, int) or not isinstance(vals, list):
+            return {}
+        return {deb + i: v for i, v in enumerate(vals)
+                if isinstance(v, (int, float))}
+
+    out = {}
+    try:
+        if not OUT_JSON.exists():
+            return out
+        bloc = ((json.loads(OUT_JSON.read_text(encoding="utf-8"))
+                 .get("global") or {}).get("ins_px") or {})
+    except Exception:                                        # noqa: BLE001
+        return out
+    zones = bloc.get("zones") or {}
+    # Le deflateur ne s'affiche pas : il est range a part, pas dans les zones.
+    d = bloc.get("defl") or {}
+    if d.get("sid"):
+        serie = _serie(d.get("serie"))
+        if serie:
+            out[d["sid"]] = serie
+    for z in zones.values():
+        src = str(z.get("src") or "")
+        if not src.startswith("BLS "):
+            continue
+        sid = src[4:].strip()
+        serie = _serie(z.get("nom"))
+        if sid and serie:
+            out[sid] = serie
+    return out
+
+
 def get_prix_assurance():
     """Le prix de l'assurance du logement, corrigé de l'inflation, par zone.
 
@@ -709,17 +763,45 @@ def get_prix_assurance():
     le bloc du cache précédent plutôt que d'effacer un graphique.
     """
     zones, srcs = {}, {}
+    defl_brut = {}          # CPI tous articles : conserve pour le prochain run
 
     # ── États-Unis : PPI, découpé en tranches de 10 ans (limite de l'API) ────
     try:
-        us = {}
+        # ── Ne redemander a BLS que ce qui MANQUE ────────────────────────
+        #    L'API v1 est sans cle, donc plafonnee a 25 requetes/jour et par
+        #    IP. L'ancienne boucle tirait 4 tranches a CHAQUE passage : des la
+        #    7e execution du jour le quota sautait et « BLS prix assurance »
+        #    tombait — l'echec du 28/08/2026, reproductible par construction.
+        #    Or ces series sont des moyennes ANNUELLES deja fermees : une annee
+        #    publiee ne bouge plus. On repart donc du cache et on ne redemande
+        #    que les tranches dont il manque une annee. En regime etabli cela
+        #    fait 0 ou 1 requete par passage au lieu de 4, et le quota n'est
+        #    plus jamais atteint. `BLS_FORCE=1` refait tout (rattrapage/debug).
+        us = _bls_cache_precedent()
         ids = list(INS_US.values())
         an_fin = dt.date.today().year
-        for y1 in range(1996, an_fin + 1, 10):
-            for sid, serie in _bls_annuel(ids, y1, min(y1 + 9, an_fin)).items():
+        force = os.environ.get("BLS_FORCE") == "1"
+        # Une annee n'est publiee qu'a partir de 6 mois : l'annee en cours ne
+        # compte comme « attendue » qu'au second semestre, sinon on la
+        # redemanderait en boucle tout l'hiver pour rien.
+        an_att = an_fin if dt.date.today().month >= 7 else an_fin - 1
+        tranches = 0
+        for y1 in range(1996, an_att + 1, 10):
+            y2 = min(y1 + 9, an_att)
+            attendues = set(range(max(y1, INS_BASE), y2 + 1))
+            if not attendues:
+                continue
+            if not force and all(
+                    attendues <= set(us.get(sid, {})) for sid in ids):
+                continue                     # tranche deja complete en cache
+            if tranches:
+                time.sleep(0.6)
+            tranches += 1
+            for sid, serie in _bls_annuel(ids, y1, y2).items():
                 us.setdefault(sid, {}).update(serie)
-            time.sleep(0.6)
+        log("  BLS : %d tranche(s) demandee(s)" % tranches)
         defl = us.get(INS_US["deflateur"], {})
+        defl_brut = defl
         for cle, sid, lab in (("US", INS_US["prime"], "États-Unis — habitation"),
                               ("US_AUTO", INS_US["auto"], "États-Unis — auto"),
                               ("US_CPI", INS_US["cpi_menage"], "États-Unis — CPI locataires")):
@@ -732,7 +814,7 @@ def get_prix_assurance():
         if zones:
             srcs["BLS"] = "https://www.bls.gov/ppi/"
     except Exception as e:                                   # noqa: BLE001
-        fail("BLS prix assurance", e)
+        fail("BLS prix assurance", e, domaine="assurance")
 
     # ── Europe : HICP, une requête par pays ─────────────────────────────────
     for geo, lab in INS_EU:
@@ -745,7 +827,7 @@ def get_prix_assurance():
                               "src": "Eurostat HICP CP1252",
                               "url": "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"}
         except Exception as e:                               # noqa: BLE001
-            fail("Eurostat HICP " + geo, e)
+            fail("Eurostat HICP " + geo, e, domaine="assurance")
     if any(k in zones for k, _ in INS_EU):
         srcs["Eurostat"] = "https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_aind"
 
@@ -774,6 +856,11 @@ def get_prix_assurance():
     return {
         "base": INS_BASE,
         "zones": zones,
+        # Le deflateur (CPI tous articles) ne s'affiche pas : il ne sert qu'a
+        # diviser. On le CONSERVE quand meme, sinon _bls_cache_precedent() le
+        # trouve toujours manquant et redemande les 4 tranches a chaque
+        # passage — le quota BLS resauterait comme avant le correctif.
+        "defl": {"sid": INS_US["deflateur"], "serie": pack(defl_brut)} if defl_brut else None,
         "repris": sorted(repris),
         "srcs": srcs,
         "n": ("indice de PRIX de l'assurance du logement, divisé par l'indice "
@@ -977,7 +1064,7 @@ def main():
             log("  %-8s %d-%d : indice reel %.0f"
                 % (k, r["s"], r["s"] + len(r["v"]) - 1, r["v"][-1]))
     except Exception as e:                                   # noqa: BLE001
-        fail("prix assurance", e)
+        fail("prix assurance", e, domaine="assurance")
         # Un graphique qui existait hier ne doit pas disparaitre parce qu'une
         # API a eu un mauvais jour : on reprend le bloc du cache precedent.
         try:
@@ -1042,7 +1129,9 @@ def main():
     n_ndg = sum(1 for d in C.values() if "nd_vuln" in (d.get("latest") or {}))
     n_co2 = sum(1 for d in C.values() if "co2_pc" in (d.get("latest") or {}))
     log(f"\n[climat] {len(C)} pays · ND-GAIN {n_ndg} · CO2 {n_co2} · "
-        f"{len(ERRORS)} source(s) en échec")
+        f"{len([e for e in ERRORS if e.get('domaine') == 'climat'])} source(s) climat en échec"
+        + (f" · {len([e for e in ERRORS if e.get('domaine') != 'climat'])} hors carte (non comptée)"
+           if any(e.get('domaine') != 'climat' for e in ERRORS) else ""))
     if (n_ndg < 100 or n_co2 < 100) and OUT_JSON.exists():
         log("[climat] ABANDON : collecte trop pauvre et un cache valide existe. "
             "Rien n'est écrit (on ne remplace jamais du bon par du vide).")
@@ -1060,7 +1149,11 @@ def main():
             "ndgain_year": ndg_year,
             "n_countries": len(C),
             "sources": srcs,
-            "errors": ERRORS,
+            # `errors` ne porte QUE les sources de la carte : c'est lui que
+            # la page compte. Les autres restent visibles, mais a part.
+            "errors": [e for e in ERRORS if e.get("domaine") == "climat"],
+            "errors_annexes": [e for e in ERRORS
+                               if e.get("domaine") != "climat"],
             "method": {
                 "temp": "GISTEMP ré-étalonnée sur 1880-1899 (décalage écrit dans "
                         "global.temp.shift).",
