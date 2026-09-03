@@ -1421,15 +1421,59 @@ def compute_narrative_index(narr_stat, histories, n_top=HIST_TOP_N_PER_NARRATIVE
     }
 
 
+def _btc_history_yahoo(days=220):
+    """REPLI (2026-09-03) : historique BTC quotidien via Yahoo Finance.
+
+    Pourquoi : CoinGecko gratuit rend des 429 par périodes, et le filtre de
+    tendance n'avait AUCUNE seconde source. Un seul refus de CoinGecko suffisait
+    à mettre tout le régime crypto en « non mesuré » — le 03/09/2026 la tuile
+    Accueil annonçait « Régime non mesuré » alors que le BTC était +22.9 %
+    au-dessus de sa MA100 (donc ALPHA franc).
+
+    MÊME source que le sélecteur d'actif TradFi (chart v8, ticker BTC-USD), déjà
+    éprouvée sur les 64 tickers de la liste curée. Les deux sources ont été
+    comparées le 03/09/2026 : 81 444 (CoinGecko) contre 81 451 (Yahoo), soit
+    0,008 % d'écart — interchangeables pour une moyenne 100 jours.
+    """
+    rng = "2y" if days > 300 else "1y"
+    url = ("https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD"
+           f"?range={rng}&interval=1d")
+    d = _http_json(url)
+    try:
+        res = d["chart"]["result"][0]
+        closes = [c for c in res["indicators"]["quote"][0]["close"] if c is not None]
+    except Exception:
+        return None
+    # Une série trop courte ne vaut pas mieux que pas de série : compute_trend_filter
+    # exige 100 points, autant le dire ici plutôt que de renvoyer un faux espoir.
+    return closes[-(days + 1):] if len(closes) >= 100 else None
+
+
 def fetch_btc_history(days=120):
     """Daily BTC prices for MA100 trend filter.
     MA100 sélectionnée après backtest 2010-2026 (MA100 = 5979× return, MA200 = 72×,
-    risk-adjusted 85× meilleur). MA100 est mieux calibrée au cycle halving 4 ans."""
+    risk-adjusted 85× meilleur). MA100 est mieux calibrée au cycle halving 4 ans.
+
+    Deux sources depuis le 03/09/2026 : CoinGecko d'abord (historique de référence
+    du reste du collecteur), Yahoo Finance en repli. Le régime crypto ne dépend
+    plus de la disponibilité d'un seul fournisseur.
+    """
     url = f"{COINGECKO}/coins/bitcoin/market_chart?vs_currency=usd&days={days}&interval=daily"
     d = _http_json(url)
-    if not d or "prices" not in d:
-        return None
-    return [p[1] for p in d["prices"]]
+    if d and "prices" in d:
+        prix = [p[1] for p in d["prices"]]
+        if len(prix) >= 100:
+            return prix
+        print(f"[warn] CoinGecko n'a rendu que {len(prix)} points BTC (<100) — repli Yahoo",
+              file=sys.stderr)
+    else:
+        print("[warn] historique BTC CoinGecko indisponible — repli Yahoo Finance",
+              file=sys.stderr)
+    prix = _btc_history_yahoo(days)
+    if prix:
+        print(f"[ok] historique BTC via Yahoo Finance ({len(prix)} points, "
+              f"dernier={round(prix[-1])})", file=sys.stderr)
+    return prix
 
 
 def compute_trend_filter(btc_prices):
@@ -2131,9 +2175,44 @@ def main():
         "ma_label": "MA100",
         "updated": out.get("updated"),
     }
-    with open(mode_js, "w", encoding="utf-8") as f:
-        f.write("window.__MODE_CRYPTO_LIVE__=" + json.dumps(mode_crypto, ensure_ascii=False, separators=(",", ":")) + ";\n")
-    print(f"[ok] wrote {mode_js}")
+    # ── LE GARDE-FOU (2026-09-03) ────────────────────────────────────────────
+    # Un régime qu'on n'a PAS pu mesurer ne remplace jamais un régime mesuré : on
+    # conserve le relevé précédent et on marque sa fraîcheur, au lieu d'écrire un
+    # "unknown" qui efface l'information. Sans ça, un simple 429 de CoinGecko
+    # suffisait à faire passer la tuile Accueil en « Régime non mesuré » alors que
+    # le BTC était +22.9 % au-dessus de sa MA100.
+    # Ce garde-fou existait dans la copie du dépôt mais PAS dans cette copie-ci,
+    # qui est celle qui tourne réellement — c'est ce décalage qui a laissé passer
+    # l'incident du 03/09/2026.
+    if mode_crypto["mode"] in (None, "unknown") or mode_crypto["dist_pct"] is None:
+        garde = None
+        try:
+            if os.path.exists(mode_js):
+                brut = open(mode_js, encoding="utf-8").read()
+                i, j = brut.find("{"), brut.rfind("}")
+                if i >= 0 and j > i:
+                    garde = json.loads(brut[i:j + 1])
+        except Exception as e:
+            print(f"[warn] mode_crypto_live.js précédent illisible: {e}", file=sys.stderr)
+        if garde and garde.get("mode") not in (None, "unknown") and garde.get("dist_pct") is not None:
+            garde["stale"] = True
+            garde["stale_reason"] = "prix BTC indisponibles — régime du dernier relevé"
+            garde["stale_since"] = out.get("updated")
+            with open(mode_js, "w", encoding="utf-8") as f:
+                f.write("window.__MODE_CRYPTO_LIVE__=" + json.dumps(garde, ensure_ascii=False, separators=(",", ":")) + ";\n")
+            print(f"[warn] mode crypto NON mesuré — dernier régime conservé "
+                  f"({garde.get('mode')}, relevé {garde.get('updated')})", file=sys.stderr)
+        else:
+            mode_crypto["stale"] = True
+            mode_crypto["stale_reason"] = "prix BTC indisponibles"
+            with open(mode_js, "w", encoding="utf-8") as f:
+                f.write("window.__MODE_CRYPTO_LIVE__=" + json.dumps(mode_crypto, ensure_ascii=False, separators=(",", ":")) + ";\n")
+            print("[warn] mode crypto indisponible ET aucun état précédent — tuile en attente",
+                  file=sys.stderr)
+    else:
+        with open(mode_js, "w", encoding="utf-8") as f:
+            f.write("window.__MODE_CRYPTO_LIVE__=" + json.dumps(mode_crypto, ensure_ascii=False, separators=(",", ":")) + ";\n")
+        print(f"[ok] wrote {mode_js}")
     print("\nTop 10 narratives (momentum cyclique):")
     for s in stats_list[:10]:
         rel = s.get("rel_mom_90d")
