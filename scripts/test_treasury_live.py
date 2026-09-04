@@ -121,6 +121,7 @@ def main():
     fails += test_cg_lag()
     fails += test_libelles_mstr()
     fails += test_shares_mstr()
+    fails += test_shares_hist()
 
     print("-" * 72)
     print("RESULTAT :", "OK — rien ne peut plus passer inaperçu" if not fails
@@ -477,6 +478,52 @@ def test_shares_mstr():
     if n == 364_585_501:
         fails.append("shares_classeB")
         print("  ECHEC seule la classe A est comptée : la classe B (19 640 250) manque")
+    return fails
+
+
+def test_shares_hist():
+    """L'historique des actions est-il fait de COMPTES À DATE, sourcés et cohérents ?
+
+    Refonte du 2026-09-04 : les moyennes pondérées trimestrielles (datées en fin
+    de trimestre) sous-estimaient la capitalisation de 20 % sur BitMine au
+    30 nov. 2025. Chaque point doit maintenant être un compte exact, dans
+    l'échelle d'aujourd'hui, daté et sourcé, et l'historique doit commencer au
+    plus tard 45 j après le premier mouvement de trésor — sinon le graphe de
+    mNAV démarre en retard, comme pour BitMine et PURR avant la refonte.
+    """
+    fails = []
+    print()
+    print("=" * 72)
+    print("TEST — historique des actions : comptes à date, sourcés, dès le premier achat")
+    print("=" * 72)
+    premiers = {"mstr": F.MSTR_PURCHASES[0][0], "bmnr": F.BMNR_SNAPSHOTS[0][0],
+                "purr": min(e["d"] for e in F.PURR_EVENTS)}
+    for cid, hist in F.SHARES_HIST.items():
+        avant = len(fails)
+        dates = [d for d, _, _ in hist]
+        if dates != sorted(dates) or len(set(dates)) != len(dates):
+            fails.append(cid + "_ordre")
+            print(f"  ECHEC {cid} : dates non triées ou en double")
+        if any(n <= 0 for _, n, _ in hist):
+            fails.append(cid + "_valeur")
+            print(f"  ECHEC {cid} : un compte nul ou négatif")
+        if any(not src or "moyenne pondérée" in src for _, _, src in hist):
+            fails.append(cid + "_moyenne")
+            print(f"  ECHEC {cid} : un point est une moyenne pondérée ou n'a pas de source")
+        premier = premiers.get(cid)
+        if premier and F.ddays(dates[0], premier) > 45:
+            fails.append(cid + "_debut")
+            print(f"  ECHEC {cid} : premier compte au {dates[0]}, premier mouvement au {premier} "
+                  "— plus de 45 j d'écart, l'historique démarre en retard")
+        # Un saut de plus de ×3 entre deux points consécutifs ne peut venir que
+        # d'une levée documentée dans la source (BitMine juil. 2025 : placement
+        # privé + ATM, de 6,2 M à 112,3 M). Ailleurs c'est une erreur d'échelle.
+        for (d0, n0, _), (d1, n1, s1) in zip(hist, hist[1:]):
+            if n1 / n0 > 3 and "placement" not in s1 and "prospectus" not in s1:
+                fails.append(cid + "_saut")
+                print(f"  ECHEC {cid} : saut ×{n1 / n0:.1f} entre {d0} et {d1} sans levée documentée")
+        if len(fails) == avant:
+            print(f"  ok    {cid} : {len(hist)} comptes exacts du {dates[0]} au {dates[-1]}")
     return fails
 
 

@@ -231,6 +231,41 @@ BMNR_META = {
 # action : PURR est passé de 0,151 HYPE/action (31/03) à 0,144 (14/05) avant de
 # remonter à 0,146 (15/07) — toujours SOUS son niveau de mars malgré +56% de
 # tokens. Un graphe de holdings seul flatte mécaniquement la société.
+#
+# DES COMPTES À DATE, PAS DES MOYENNES (refonte du 2026-09-04).
+# Jusqu'ici l'historique mêlait des COMPTES exacts (couvertures de 10-Q) et des
+# MOYENNES PONDÉRÉES trimestrielles datées du dernier jour du trimestre. Or une
+# moyenne sur trois mois d'émission continue est TOUJOURS sous le compte réel à
+# la fin du trimestre. Mesuré sur BitMine au 30 nov. 2025 : 325,7 M (moyenne du
+# trimestre) contre 405,4 M (bilan du même jour) — capitalisation sous-estimée
+# de 20 %, mNAV trop basse d'autant. Sur PURR au 31 déc. 2025 : 123,0 M contre
+# 124,1 M. Sur Strategy la dérive atteignait 6 % début 2025 (ATM à plein régime).
+# Chaque point ci-dessous est donc un COMPTE À UNE DATE, lu dans un document
+# SEC nommé : page de garde d'un 10-Q/10-K (« As of <date>, the registrant had
+# N shares … outstanding »), bilan (us-gaap:CommonStockSharesOutstanding) ou
+# prospectus (424B5 / S-1). Le front interpole LINÉAIREMENT entre deux points et
+# marque « interpolé » chaque séance qui n'est pas exactement sourcée.
+#
+# LES SPLITS, RÉSOLUS PAR PREUVE — PAS PAR DEVINETTE (2026-09-01).
+# Les comptes sont publiés dans l'ÉCHELLE DE L'ÉPOQUE : multiplier un cours
+# ajusté par un compte pré-split sous-estimait la capitalisation d'un facteur
+# 10 et donnait une mNAV de 0,07 en 2022 (au lieu de ~0,7). Deviner le
+# facteur par un saut de ratio ne marche PAS : un split, un regroupement
+# inverse et une vraie augmentation de capital ont la même signature — la
+# règle transformait la levée de PURR (41 M -> 123 M) en faux split.
+# La preuve est ailleurs : quand l'émetteur retraite son historique, il
+# publie pour une MÊME date de fin et une MÊME durée de segment DEUX valeurs,
+# l'ancienne et la nouvelle échelle. Le rapport EST le facteur, mesuré :
+#   MSTR 2023-09-30 : 14 221 000 / 142 214 000  -> facteur 10,000 (split 10:1,
+#                     distribué le 7 août 2024 ; Yahoo ajuste les cours d'avant)
+#   BMNR 2024-05-31 :  2 491 843 /  49 836 850  -> facteur 20,000 (regroup. 1:20
+#                     du 15 mai 2025 ; aucun point ci-dessous n'est antérieur)
+#   PURR : aucun retraitement -> aucun split
+# Les valeurs ci-dessous sont donc TOUTES dans l'échelle d'aujourd'hui : les
+# couvertures MSTR antérieures au 7 août 2024 sont multipliées par 10 (classe A
+# + classe B ; la classe B vaut 1 964 025 titres pré-split, 19 640 250 après).
+# Contrôle de vraisemblance : 96,9 M actions x 12,3 $ = 1,2 Md$ de
+# capitalisation en juillet 2020, avant le virage bitcoin. C'est le bon ordre.
 SHARES_HIST = {
     # MSTR : TOUJOURS ancrer sur le 10-Q le PLUS RÉCENT. L'ATM n'est qu'un
     # rattrapage entre deux couvertures ; laisser l'ancre sur un vieux 10-Q fait
@@ -238,59 +273,66 @@ SHARES_HIST = {
     # -> 419,76 M affichés contre 425,50 M réels, soit une mNAV trop basse de
     # 1,3% et une capitalisation sous-estimée de 0,76 Md$). La couverture donne
     # les classes A+B : 364 585 501 + 19 640 250 au 24 juil. 2026.
-    # Les points ANTÉRIEURS viennent de la moyenne pondérée trimestrielle
-    # (us-gaap:WeightedAverageNumberOfSharesOutstandingBasic) : ils donnent au
-    # graphe de mNAV tout l'historique, jusqu'au premier bitcoin acheté.
-    #
-    # LES SPLITS, RÉSOLUS PAR PREUVE — PAS PAR DEVINETTE (2026-09-01).
-    # Cette moyenne est publiée dans l'ÉCHELLE DE L'ÉPOQUE : multiplier un cours
-    # ajusté par un compte pré-split sous-estimait la capitalisation d'un facteur
-    # 10 et donnait une mNAV de 0,07 en 2022 (au lieu de ~0,7). Deviner le
-    # facteur par un saut de ratio ne marche PAS : un split, un regroupement
-    # inverse et une vraie augmentation de capital ont la même signature — la
-    # règle transformait la levée de PURR (41 M -> 123 M) en faux split.
-    # La preuve est ailleurs : quand l'émetteur retraite son historique, il
-    # publie pour une MÊME date de fin et une MÊME durée de segment DEUX valeurs,
-    # l'ancienne et la nouvelle échelle. Le rapport EST le facteur, mesuré :
-    #   MSTR 2023-09-30 : 14 221 000 / 142 214 000  -> facteur 10,000 (split 10:1)
-    #   BMNR 2024-05-31 :  2 491 843 /  49 836 850  -> facteur 20,000 (regroup. 1:20)
-    #   PURR : aucun retraitement -> aucun split
-    # Les valeurs ci-dessous sont donc TOUTES dans l'échelle d'aujourd'hui.
-    # Contrôle de vraisemblance : 96,16 M actions x 15,06 $ = 1,45 Md$ de
-    # capitalisation en sept. 2020, avant le virage bitcoin. C'est le bon ordre.
-    "mstr": [("2020-09-30",  96160000, "10-Q : moyenne pondérée au 30 sept. 2020"),
-             ("2021-03-31",  96470000, "10-Q : moyenne pondérée au 31 mars 2021"),
-             ("2021-06-30",  97460000, "10-Q : moyenne pondérée au 30 juin 2021"),
-             ("2021-09-30",  99990000, "10-Q : moyenne pondérée au 30 sept. 2021"),
-             ("2022-03-31", 112890000, "10-Q : moyenne pondérée au 31 mars 2022"),
-             ("2022-06-30", 113000000, "10-Q : moyenne pondérée au 30 juin 2022"),
-             ("2022-09-30", 113080000, "10-Q : moyenne pondérée au 30 sept. 2022"),
-             ("2023-03-31", 118340000, "10-Q : moyenne pondérée au 31 mars 2023"),
-             ("2023-06-30", 132470000, "10-Q : moyenne pondérée au 30 juin 2023"),
-             ("2023-09-30", 142214000, "10-Q : moyenne pondérée au 30 sept. 2023"),
-             ("2024-03-31", 171942000, "10-Q : moyenne pondérée au 31 mars 2024"),
-             ("2024-06-30", 178607000, "10-Q : moyenne pondérée au 30 juin 2024"),
-             ("2024-09-30", 197273000, "10-Q : moyenne pondérée au 30 sept. 2024"),
-             ("2025-03-31", 256473000, "10-Q : moyenne pondérée au 31 mars 2025"),
-             ("2025-06-30", 275244000, "10-Q : moyenne pondérée au 30 juin 2025"),
-             ("2025-09-30", 284376000, "10-Q : moyenne pondérée au 30 sept. 2025"),
-             ("2026-03-31", 333913000, "10-Q : moyenne pondérée au 31 mars 2026"),
-             ("2026-04-26", 350447872, "10-Q du 6 mai 2026 (classes A+B)"),
-             ("2026-06-30", 352534000, "10-Q : moyenne pondérée au 30 juin 2026"),
-             ("2026-07-24", 384225751, "10-Q du 3 août 2026 (classes A+B)")],
-    # BMNR : le regroupement 1:20 de 2024 est corrigé, mais on ne remonte pas
-    # avant nov. 2025 — la société n'était pas encore une treasury company et
-    # le saut de 2,0 M à 325,7 M actions est une VRAIE levée, pas une échelle.
-    "bmnr": [("2025-11-30", 325665565, "10-Q : moyenne pondérée au 30 nov. 2025"),
-             ("2026-02-28", 454620613, "10-Q : moyenne pondérée au 28 févr. 2026"),
-             ("2026-05-31", 579652432, "10-Q : actions émises au 31 mai 2026"),
-             ("2026-07-09", 603226394, "couverture du 10-Q du 14 juil. 2026")],
-    # PURR : aucun split. Le saut de déc. 2025 est le closing du rapprochement.
-    "purr": [("2025-12-31", 123012375, "10-Q : moyenne pondérée au 31 déc. 2025"),
-             ("2026-03-31", 124220108, "10-Q du 8 mai 2026"),
+    # Pages de garde relues une à une sur EDGAR le 2026-09-04 (CIK 1050446),
+    # du 10-Q de juil. 2020 (dernier avant le premier bitcoin) au plus récent.
+    "mstr": [("2020-07-20",  96861770, "10-Q du 28 juil. 2020 : 7 650 993 A + 2 035 184 B, ×10 (split 2024)"),
+             ("2020-10-19",  92669890, "10-Q du 27 oct. 2020 : 7 252 964 A + 2 014 025 B, ×10 (après l'OPRA d'août 2020)"),
+             ("2021-02-02",  95870220, "10-K du 12 févr. 2021 : 7 622 997 A + 1 964 025 B, ×10"),
+             ("2021-04-22",  97455930, "10-Q du 29 avr. 2021 : 7 781 568 A + 1 964 025 B, ×10"),
+             ("2021-07-22",  97474680, "10-Q du 29 juil. 2021 : 7 783 443 A + 1 964 025 B, ×10"),
+             ("2021-10-21", 103576090, "10-Q du 28 oct. 2021 : 8 393 584 A + 1 964 025 B, ×10"),
+             ("2022-02-01", 112854190, "10-K du 16 févr. 2022 : 9 321 394 A + 1 964 025 B, ×10"),
+             ("2022-04-26", 112975480, "10-Q du 3 mai 2022 : 9 333 523 A + 1 964 025 B, ×10"),
+             ("2022-07-26", 113009060, "10-Q du 2 août 2022 : 9 336 881 A + 1 964 025 B, ×10"),
+             ("2022-10-25", 113177190, "10-Q du 1er nov. 2022 : 9 353 694 A + 1 964 025 B, ×10"),
+             ("2023-02-02", 115487570, "10-K du 16 févr. 2023 : 9 584 732 A + 1 964 025 B, ×10"),
+             ("2023-04-24", 129586510, "10-Q du 1er mai 2023 : 10 994 626 A + 1 964 025 B, ×10"),
+             ("2023-07-25", 140853940, "10-Q du 1er août 2023 : 12 121 369 A + 1 964 025 B, ×10"),
+             ("2023-10-24", 145181840, "10-Q du 1er nov. 2023 : 12 554 159 A + 1 964 025 B, ×10"),
+             ("2024-02-01", 169681250, "10-K du 15 févr. 2024 : 15 004 100 A + 1 964 025 B, ×10"),
+             ("2024-04-24", 177374310, "10-Q du 1er mai 2024 : 15 773 406 A + 1 964 025 B, ×10"),
+             ("2024-07-25", 194320700, "10-Q du 6 août 2024 : 17 468 045 A + 1 964 025 B, ×10"),
+             ("2024-10-21", 202644230, "10-Q du 31 oct. 2024 : 183 003 980 A + 19 640 250 B"),
+             ("2025-02-04", 257351857, "10-K du 18 févr. 2025 : 237 711 607 A + 19 640 250 B"),
+             ("2025-05-02", 273403303, "10-Q du 5 mai 2025 : 253 763 053 A + 19 640 250 B"),
+             ("2025-07-31", 283552947, "10-Q du 5 août 2025 : 263 912 697 A + 19 640 250 B"),
+             ("2025-10-30", 287353735, "10-Q du 3 nov. 2025 : 267 713 485 A + 19 640 250 B"),
+             ("2026-02-13", 333752708, "10-K du 19 févr. 2026 : 314 112 458 A + 19 640 250 B"),
+             ("2026-04-26", 350447872, "10-Q du 6 mai 2026 : 330 807 622 A + 19 640 250 B"),
+             ("2026-07-24", 384225751, "10-Q du 3 août 2026 : 364 585 501 A + 19 640 250 B")],
+    # BMNR : le regroupement 1:20 du 15 mai 2025 est ANTÉRIEUR à tous les points
+    # ci-dessous, qui sont donc dans l'échelle d'aujourd'hui. La société est
+    # devenue une treasury company le 14 juil. 2025 (premier ETH) : entre le
+    # 1er et le 23 juillet, le compte passe de 6,2 M à 112,3 M par un placement
+    # privé (55,6 M de titres et équivalents à 4,50 $, 8-K du 30 juin 2025,
+    # clôturé le 9 juil.) puis par l'ATM. Ces trois semaines sont interpolées,
+    # et le front le dit. Sources relues sur EDGAR le 2026-09-04 (CIK 1829311).
+    "bmnr": [("2025-07-01",   6162804, "10-Q/A du 3 juil. 2025 : couverture au 1er juil. (avant le placement privé)"),
+             ("2025-07-23", 112311382, "prospectus 424B5 du 24 juil. 2025 : 112 311 382 titres au 23 juil."),
+             ("2025-08-11", 173496950, "prospectus 424B5 du 12 août 2025 : 173 496 950 titres au 11 août"),
+             ("2025-08-31", 234712310, "10-K du 21 nov. 2025 : 234 712 310 titres au 31 août 2025"),
+             ("2025-09-19", 295177747, "prospectus 424B5 du 22 sept. 2025 : 295 177 747 titres au 19 sept."),
+             ("2025-11-20", 384067823, "10-K du 21 nov. 2025 : couverture au 20 nov. 2025"),
+             ("2025-11-30", 405398823, "10-Q : bilan au 30 nov. 2025 (CommonStockSharesOutstanding, retraité au 10-Q de juil. 2026)"),
+             ("2026-01-12", 454862451, "10-Q du 13 janv. 2026 : couverture au 12 janv."),
+             ("2026-02-28", 493905227, "10-Q du 14 avr. 2026 : bilan au 28 févr. 2026"),
+             ("2026-04-13", 537628819, "10-Q du 14 avr. 2026 : couverture au 13 avr."),
+             ("2026-05-31", 579652432, "10-Q du 14 juil. 2026 : bilan au 31 mai 2026"),
+             ("2026-07-09", 603226394, "10-Q du 14 juil. 2026 : couverture au 9 juil.")],
+    # PURR : aucun split. Le compte existe depuis le closing du rapprochement
+    # (2 déc. 2025) : 127,0 M de titres « immediately following the closing »
+    # (424B3 du 3 déc.), repris tels quels en couverture du 10-Q du 8 déc. Les
+    # baisses (127,0 -> 124,1 -> 124,0 M) sont les rachats d'actions sous NAV.
+    "purr": [("2025-12-05", 127025563, "10-Q du 8 déc. 2025 : couverture au 5 déc. (compte au closing du 2 déc., 424B3 du 3 déc.)"),
+             ("2025-12-31", 124093048, "10-Q du 11 févr. 2026 : bilan au 31 déc. 2025"),
+             ("2026-02-11", 123967508, "10-Q du 11 févr. 2026 : couverture au 11 févr."),
+             ("2026-03-31", 124220108, "10-Q du 8 mai 2026 : bilan au 31 mars 2026"),
+             ("2026-05-07", 134621571, "10-Q du 8 mai 2026 : couverture au 7 mai"),
              ("2026-05-19", 144447571, "couverture du S-1 du 22 mai 2026"),
              ("2026-06-15", 196553055, "S-1/A du 16 juin 2026"),
-             ("2026-07-15", 200563691, "S-1/A du 21 juil. 2026")],
+             ("2026-06-30", 200550458, "10-K du 27 août 2026 : bilan au 30 juin 2026"),
+             ("2026-07-15", 200563691, "S-1/A du 21 juil. 2026"),
+             ("2026-08-23", 197837597, "10-K du 27 août 2026 : couverture au 23 août")],
 }
 
 # PURR : roll-forward EXACT du 10-Q au 2026-03-31 (units + dollars), puis
@@ -812,6 +854,43 @@ def sec_shares(cik):
         return None
 
 
+_SEC_CONCEPT_CACHE = {}
+
+
+def sec_concept(cik, tag, ns="us-gaap"):
+    """Toutes les valeurs INSTANTANÉES publiées pour un tag XBRL, dédoublonnées
+    par date de clôture — la publication la plus récente l'emporte, c'est elle
+    qui porte les retraitements. Liste triée de dicts {end, val, filed, form}.
+
+    Un seul téléchargement par tag et par run : le même JSON sert au dernier
+    bilan (sec_debt_cash) et à l'historique complet (sec_balance_hist). Les
+    faits de DURÉE (start présent : moyennes, flux) sont écartés — un bilan est
+    une photo à une date, pas un cumul de période.
+    """
+    key = (cik, ns, tag)
+    if key in _SEC_CONCEPT_CACHE:
+        return _SEC_CONCEPT_CACHE[key]
+    out = []
+    txt = edgar_get(f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik.zfill(10)}"
+                    f"/{ns}/{tag}.json")
+    if txt:
+        try:
+            best = {}
+            for arr in json.loads(txt).get("units", {}).values():
+                for v in arr:
+                    if v.get("val") is None or not v.get("end") or v.get("start"):
+                        continue
+                    e = v["end"]
+                    if e not in best or (v.get("filed") or "") > (best[e].get("filed") or ""):
+                        best[e] = {"end": e, "val": float(v["val"]),
+                                   "filed": v.get("filed"), "form": v.get("form")}
+            out = sorted(best.values(), key=lambda x: x["end"])
+        except Exception:
+            out = []
+    _SEC_CONCEPT_CACHE[key] = out
+    return out
+
+
 def sec_fact(cik, tags):
     """Dernière valeur publiée pour le premier tag XBRL disponible de `tags`.
 
@@ -824,22 +903,55 @@ def sec_fact(cik, tags):
     à un écart avec les sites officiels.
     """
     for tag in tags:
-        txt = edgar_get(f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik.zfill(10)}"
-                        f"/us-gaap/{tag}.json")
-        if not txt:
-            continue
-        try:
-            units = json.loads(txt).get("units", {})
-            vals = []
-            for arr in units.values():
-                vals.extend([v for v in arr if v.get("val") is not None and v.get("end")])
-            if not vals:
-                continue
-            best = max(vals, key=lambda v: (v.get("end"), v.get("filed") or ""))
-            return float(best["val"]), best["end"], tag
-        except Exception:
-            continue
+        ser = sec_concept(cik, tag)
+        if ser:
+            best = ser[-1]
+            return best["val"], best["end"], tag
     return None
+
+
+def sec_balance_hist(cik, since="2020-06-01"):
+    """Historique du bilan : [[date, dette, cash, préférentielles, source], …].
+
+    Même définition que sec_debt_cash, mais à CHAQUE date de bilan publiée, pour
+    que le front puisse rejouer la mNAV « EV » et la mNAV « réserve nette » sur
+    tout l'historique — pas seulement au dernier trimestre (demande du
+    2026-09-04 : « on pourra vérifier ça vraiment en détail »). Un poste absent
+    à une date vaut 0 : pas de dette avant la première convertible de déc. 2020,
+    pas de préférentielles avant STRK en févr. 2025. On n'écrit une ligne que là
+    où le CASH est publié — c'est la preuve qu'un bilan existe à cette date.
+    """
+    def pick(tags):
+        for t in tags:
+            ser = sec_concept(cik, t)
+            if ser:
+                return {r["end"]: r for r in ser}
+        return {}
+    lt = pick(("LongTermDebtNoncurrent",))
+    ct = pick(("LongTermDebtCurrent", "DebtCurrent"))
+    # Total de la dette, pour les trimestres où l'émetteur n'a PAS tagué la part
+    # non courante : Strategy au 31 mars 2021 (1,72 Md$ sous LongTermDebt seul,
+    # rien sous LongTermDebtNoncurrent — mesuré le 2026-09-04). Sans ce repli,
+    # ce trimestre affichait une dette nulle entre deux trimestres à 0,5 et
+    # 2,15 Md$, ce qui est faux, pas « absent ».
+    tot = pick(("LongTermDebt", "DebtLongtermAndShorttermCombinedAmount"))
+    cash = pick(("CashAndCashEquivalentsAtCarryingValue",
+                 "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"))
+    pref = pick(("TemporaryEquityCarryingAmountAttributableToParent", "PreferredStockValue"))
+    rows = []
+    for end in sorted(cash):
+        if end < since:
+            continue
+        if end in lt:
+            debt = lt[end]["val"] + (ct.get(end) or {}).get("val", 0.0)
+        else:
+            debt = (tot.get(end) or {}).get("val", 0.0)
+        src = cash[end].get("form") or "SEC"
+        if cash[end].get("filed"):
+            src += " du " + date_fr(cash[end]["filed"])
+        rows.append([end, round(debt), round(cash[end]["val"]),
+                     round((pref.get(end) or {}).get("val", 0.0)), src])
+    return rows
 
 
 def sec_debt_cash(cik):
@@ -1580,6 +1692,13 @@ def main():
             meta["debt_usd"], meta["cash_usd"], meta["balance_asof"] = _debt, _cash, _bal
         except Exception as _e:
             sys.stderr.write(f"[treasury] dette/cash {cfg['id']}: {_e}\n")
+        # Le même bilan à CHAQUE date publiée : le front rejoue les trois
+        # définitions de la mNAV sur tout l'historique, ligne par ligne. Aucun
+        # téléchargement de plus (les JSON XBRL sont déjà en mémoire).
+        try:
+            meta["balance_hist"] = sec_balance_hist(CIK[cfg["id"]])
+        except Exception as _e:
+            sys.stderr.write(f"[treasury] bilan historique {cfg['id']}: {_e}\n")
         recompute_cost(cfg["purchases"], meta, cfg["id"], audit)
         last_px, chg = last_and_chg(cfg["stock"])
         # Tokens par action : la seule métrique qui dit si accumuler CRÉE de la
@@ -1641,6 +1760,10 @@ def main():
             # Strategy publie (÷ réserve nette), donc pour EXPLIQUER l'écart.
             "pref_usd": meta.get("pref_usd"),
             "balance_asof": meta.get("balance_asof"),
+            # Historique des bilans [[date, dette, cash, préférentielles, source]]
+            # pour le tableau auditable de la page : chaque séance y porte le
+            # dernier bilan publié avant elle, et le dit.
+            "balance_hist": meta.get("balance_hist") or [],
             "purchases": cfg["purchases"],
             "stock": [[d, round(p, 2)] for d, p in cfg["stock"]],
         }
