@@ -310,11 +310,21 @@ SHARES_HIST = {
     "bmnr": [("2025-07-01",   6162804, "10-Q/A du 3 juil. 2025 : couverture au 1er juil. (avant le placement privé)"),
              # Le closing du 8 juil. est une MARCHE, pas une pente : sans ce point,
              # l'interpolation 1er → 23 juil. donnait 69 M de titres le 14 juil.
-             # (premier ETH) au lieu de ~76 M. Compte LÉGAL : les 11 006 444 bons
-             # préfinancés à 0,0001 $ (économiquement des actions) n'y sont pas,
-             # comme ils ne sont pas dans les couvertures suivantes tant qu'ils ne
-             # sont pas exercés. Contre-expertise du 2026-09-04.
-             ("2025-07-08",  51276518, "8-K du 9 juil. 2025 : closing du placement privé le 8 juil., 6 162 804 + 36 309 592 + 8 804 122 titres émis (hors 11 006 444 bons préfinancés)"),
+             # (premier ETH) au lieu de 82 M. Le chiffre est celui que l'ÉMETTEUR
+             # publie le lendemain, pas une reconstitution : ma somme des tranches
+             # du 8-K (6,16 + 36,31 + 8,80 = 51,28 M) ignorait les émissions du
+             # même jour hors placement privé — l'écart de 29 M avec les
+             # 80 220 182 du prospectus se voit, et c'est le prospectus qui fait
+             # foi. Règle : ne jamais additionner des tranches quand une
+             # couverture datée existe. Contre-expertise du 2026-09-04.
+             ("2025-07-08",  80220182, "prospectus S-3ASR du 9 juil. 2025 : 80 220 182 titres au 8 juil. (jour du closing du placement privé)"),
+             # ⚠ Le S-3ASR du 28 juil. annonce 103 206 975 titres au 25 juil.,
+             # soit MOINS que le 23 juil. : ce n'est pas un rachat, c'est un
+             # périmètre différent (« Common Stock Outstanding Before this
+             # Offering » d'une revente pour actionnaires cédants, hors titres
+             # déjà émis à l'ATM). Point ÉCARTÉ : un compte d'actions ne se lit
+             # que dans une couverture de rapport ou un « outstanding as of »
+             # de prospectus d'émission. Vérifié le 2026-09-04.
              ("2025-07-23", 112311382, "prospectus 424B5 du 24 juil. 2025 : 112 311 382 titres au 23 juil."),
              ("2025-08-11", 173496950, "prospectus 424B5 du 12 août 2025 : 173 496 950 titres au 11 août"),
              ("2025-08-31", 234712310, "10-K du 21 nov. 2025 : 234 712 310 titres au 31 août 2025"),
