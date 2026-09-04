@@ -308,6 +308,13 @@ SHARES_HIST = {
     # clôturé le 9 juil.) puis par l'ATM. Ces trois semaines sont interpolées,
     # et le front le dit. Sources relues sur EDGAR le 2026-09-04 (CIK 1829311).
     "bmnr": [("2025-07-01",   6162804, "10-Q/A du 3 juil. 2025 : couverture au 1er juil. (avant le placement privé)"),
+             # Le closing du 8 juil. est une MARCHE, pas une pente : sans ce point,
+             # l'interpolation 1er → 23 juil. donnait 69 M de titres le 14 juil.
+             # (premier ETH) au lieu de ~76 M. Compte LÉGAL : les 11 006 444 bons
+             # préfinancés à 0,0001 $ (économiquement des actions) n'y sont pas,
+             # comme ils ne sont pas dans les couvertures suivantes tant qu'ils ne
+             # sont pas exercés. Contre-expertise du 2026-09-04.
+             ("2025-07-08",  51276518, "8-K du 9 juil. 2025 : closing du placement privé le 8 juil., 6 162 804 + 36 309 592 + 8 804 122 titres émis (hors 11 006 444 bons préfinancés)"),
              ("2025-07-23", 112311382, "prospectus 424B5 du 24 juil. 2025 : 112 311 382 titres au 23 juil."),
              ("2025-08-11", 173496950, "prospectus 424B5 du 12 août 2025 : 173 496 950 titres au 11 août"),
              ("2025-08-31", 234712310, "10-K du 21 nov. 2025 : 234 712 310 titres au 31 août 2025"),
@@ -332,7 +339,16 @@ SHARES_HIST = {
              ("2026-06-15", 196553055, "S-1/A du 16 juin 2026"),
              ("2026-06-30", 200550458, "10-K du 27 août 2026 : bilan au 30 juin 2026"),
              ("2026-07-15", 200563691, "S-1/A du 21 juil. 2026"),
-             ("2026-08-23", 197837597, "10-K du 27 août 2026 : couverture au 23 août")],
+             ("2026-08-23", 197837597, "10-K du 27 août 2026 : couverture au 23 août"),
+             # Compte IMPLICITE mais sourcé : l'avenant à l'ELOC Chardan fixe un
+             # plafond d'échange de 42 641 847 actions « representing 19.99% of the
+             # number of shares of Common Stock issued and outstanding immediately
+             # prior to the execution of the Amendment » -> 213 315 893. Entre le
+             # 23 août et le 1er sept. l'ELOC a donc émis ~15,5 M de titres (cours
+             # passé de 8 à 12 $) : sans ce point la capitalisation du jour était
+             # sous-estimée de 7 % et la mNAV affichait une décote qui n'existe
+             # pas. Contre-expertise du 2026-09-04 (DefiLlama implique ~211 M).
+             ("2026-09-01", 213315893, "8-K du 1er sept. 2026 : plafond d'échange 42 641 847 = 19,99 % du capital, soit 213,32 M (implicite)")],
 }
 
 # PURR : roll-forward EXACT du 10-Q au 2026-03-31 (units + dollars), puis
