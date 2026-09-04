@@ -13,9 +13,14 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "1 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/collect-5min.yml"
 
 permissions:
   contents: write        # publie les données collectées
+  actions: write         # le Relais demande l'exécution suivante (workflow_dispatch)
 
 # Deux exécutions de la même cadence ne doivent jamais se chevaucher : elles
 # écriraient les mêmes fichiers. La nouvelle attend son tour plutôt que d'annuler
@@ -120,4 +125,21 @@ jobs:
           if [ $ECHECS -eq $PASSAGES ]; then
             echo "::error::aucun passage n'a abouti"
             exit 1
+          fi
+
+      # RELAIS — cette exécution demande la suivante. GitHub n'honore le cron que
+      # 5 fois par jour (relevé du 04/09/2026, en tête de tools/gen_workflows.py) ;
+      # la continuité de la cadence tient à cette étape, le cron n'est plus qu'un
+      # filet de rallumage. Un jeton de workflow ne peut déclencher que
+      # workflow_dispatch / repository_dispatch : c'est exactement ce qu'on utilise.
+      - name: Relais
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh workflow run "collect-5min.yml" --ref "$GITHUB_REF_NAME"; then
+            echo "relais demandé : la prochaine exécution démarre dès la fin de celle-ci"
+          else
+            echo "::warning::relais refusé — le cron horaire rallumera la chaîne"
           fi

@@ -51,6 +51,31 @@ DEST = os.path.join(HERE, "..", ".github", "workflows")
 # premier (voir `concurrency`) et le retard s'accumulerait sans fin.
 #
 # Les cadences d'une heure et au-delà gardent un seul passage : le cron les honore.
+#
+# ── LE RÉVEIL HORAIRE N'EST PLUS HONORÉ NON PLUS (relevé du 04/09/2026) ─────────
+# Sur les 19 dernières exécutions de « 10min » (1er → 4 septembre), l'écart réel
+# entre deux réveils va de 137 à 336 min, médiane 254 min — soit 5 réveils par jour
+# au lieu de 24. Chaque exécution travaille 42 min puis la donnée vieillit jusqu'à
+# 5 h. La tuile Trésoreries rougit à 3 h : elle était rouge plus de la moitié du
+# temps, et « une donnée toutes les 10 min » était une fiction une seconde fois.
+#
+# Le remède ne peut pas être « demander un réveil de plus » — c'est précisément ce
+# que la plateforme refuse. Le remède est de NE PLUS DÉPENDRE du réveil : une
+# exécution à passages multiples se termine en demandant elle-même la suivante
+# (`workflow_dispatch` via le jeton du dépôt — la seule sorte d'événement qu'un
+# jeton de workflow a le droit de déclencher). Le cron horaire reste en place comme
+# filet : si la chaîne casse (runner perdu, étape Relais en échec), il la rallume
+# au réveil suivant. Le groupe `concurrency` garantit qu'il n'y a jamais plus d'une
+# exécution en cours par cadence, quel que soit le nombre de demandes en attente.
+#
+# Pour ARRÊTER la chaîne : désactiver le workflow (« Disable workflow » dans
+# l'onglet Actions, ou `gh workflow disable collect-10min.yml`). Annuler une
+# exécution suffit aussi (le Relais ne tourne pas après une annulation), mais le
+# cron la rallumera à l'heure suivante.
+#
+# Le déclencheur `push` sur le fichier du workflow sert d'allumage : pousser la
+# version régénérée démarre la chaîne sans attendre le bon vouloir du cron. Les
+# commits de données ne touchent jamais ce fichier, donc ne déclenchent rien.
 CADENCES = [
     ("5min", "1 * * * *", "toutes les 5 minutes", 10, 300),
     ("10min", "3 * * * *", "toutes les 10 minutes", 5, 600),
@@ -83,10 +108,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "{cron}"
-{verif}
+{allumage}{verif}
 permissions:
   contents: write        # publie les données collectées
-
+{droit_relais}
 # Deux exécutions de la même cadence ne doivent jamais se chevaucher : elles
 # écriraient les mêmes fichiers. La nouvelle attend son tour plutôt que d'annuler
 # l'autre — une collecte à moitié faite vaut moins qu'une collecte finie.
@@ -191,6 +216,41 @@ jobs:
             echo "::error::aucun passage n'a abouti"
             exit 1
           fi
+{relais}'''
+
+# Le Relais — uniquement pour les cadences à passages multiples, celles dont la
+# valeur tient à un délai court. Voir le relevé du 04/09/2026 en tête de CADENCES.
+# `!cancelled()` et non `always()` : une annulation à la main doit couper la
+# chaîne, pas la relancer. `continue-on-error` : un relais refusé (workflow
+# désactivé, jeton sans droit) ne doit pas teinter en rouge une collecte réussie.
+RELAIS = '''
+      # RELAIS — cette exécution demande la suivante. GitHub n'honore le cron que
+      # 5 fois par jour (relevé du 04/09/2026, en tête de tools/gen_workflows.py) ;
+      # la continuité de la cadence tient à cette étape, le cron n'est plus qu'un
+      # filet de rallumage. Un jeton de workflow ne peut déclencher que
+      # workflow_dispatch / repository_dispatch : c'est exactement ce qu'on utilise.
+      - name: Relais
+        if: ${{{{ !cancelled() }}}}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{{{ github.token }}}}
+        run: |
+          if gh workflow run "collect-{cadence}.yml" --ref "$GITHUB_REF_NAME"; then
+            echo "relais demandé : la prochaine exécution démarre dès la fin de celle-ci"
+          else
+            echo "::warning::relais refusé — le cron horaire rallumera la chaîne"
+          fi
+'''
+
+# L'allumage : le push du fichier lui-même. Restreint au fichier de CE workflow,
+# sur la branche de collecte — un commit de données ne le touche jamais.
+DROIT_RELAIS = '''  actions: write         # le Relais demande l'exécution suivante (workflow_dispatch)
+'''
+
+ALLUMAGE = '''  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/collect-{cadence}.yml"
 '''
 
 
@@ -201,10 +261,14 @@ def main():
         # quoi finir, puis on borne SOUS l'heure pour ne pas mordre sur le réveil
         # suivant. Une cadence à passage unique garde le filet large d'origine.
         plafond = 120 if passages == 1 else min(55, (passages - 1) * espacement // 60 + 10)
+        chaine = passages > 1
         contenu = MODELE.format(cadence=cadence, cron=cron, humain=humain,
                                 passages=passages, espacement=espacement,
                                 plafond=plafond,
-                                verif=VERIF if cadence == CADENCE_VERIF else "")
+                                verif=VERIF if cadence == CADENCE_VERIF else "",
+                                relais=RELAIS.format(cadence=cadence) if chaine else "",
+                                allumage=ALLUMAGE.format(cadence=cadence) if chaine else "",
+                                droit_relais=DROIT_RELAIS if chaine else "")
         chemin = os.path.join(DEST, f"collect-{cadence}.yml")
         with open(chemin, "w", encoding="utf-8") as f:
             f.write(contenu)
