@@ -1727,7 +1727,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         e["retour_actionnaire"] = ((_brut - (e.get("emissions_actions") or 0))
                                    if _brut is not None else None)
 
-    unites_actions = _corriger_unite_actions(exercices)
+    unites_actions = _corriger_unite_actions(exercices, cours=cours)
 
     # Le dividende par action ENSUITE, et avant la recouture des divisions : il se
     # confronte au montant total verse divise par le nombre d actions, donc les

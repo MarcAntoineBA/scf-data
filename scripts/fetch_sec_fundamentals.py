@@ -1450,7 +1450,7 @@ def _est_financiere(secteur):
 
 def construire(facts, mcap_usd=None, beta=None, cours=None,
                variations=None, jour_marche=None, secteur=None,
-               avec_trimestres=True):
+               avec_trimestres=True, cours_cotation=None):
     _DEVISES_VUES.clear()
     # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
     # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
@@ -1884,7 +1884,13 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
     # où il en faut 716,4 millions. Ce facteur traverse la capitalisation, la
     # valeur d'entreprise, le coût du capital et toutes les grandeurs par
     # action — le corriger après serait le corriger nulle part.
-    unites_actions = _corriger_unite_actions(exercices)
+    # ⚠ LE COURS DU JOUR, PAS LA SÉRIE. `cours` est l'historique — il ne couvre
+    # que 801 des 3 790 sociétés, et l'arbitre d'unité resterait muet pour les
+    # trois quarts du parc. `cours_cotation` vient de la collecte de marché et
+    # couvre tout le monde ; c'est d'ailleurs déjà lui qui remplit `cours_natif`
+    # dans le résumé, quelques centaines de lignes plus bas.
+    unites_actions = _corriger_unite_actions(
+        exercices, cours=(cours_cotation if cours_cotation else cours))
 
     # Le dividende par action ENSUITE, et avant la recouture des divisions : il se
     # confronte au montant total verse divise par le nombre d actions, donc les
@@ -3731,7 +3737,8 @@ def main():
                               variations=meta.get("variations"),
                               jour_marche=meta.get("jour_marche"),
                               secteur=meta.get("secteur_suivi"),
-                              avec_trimestres=opts["trimestres"])
+                              avec_trimestres=opts["trimestres"],
+                              cours_cotation=meta.get("cours_cotation"))
         except DelaiGlobalAtteint:
             # ⚠ CETTE BRANCHE DOIT PRÉCÉDER `except Exception`, ET C'EST LA
             # SÉRIE TRIMESTRIELLE QUI L'A RENDUE NÉCESSAIRE.

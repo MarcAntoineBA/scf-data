@@ -108,13 +108,21 @@ def audit_narratifs():
         if not nb(rev):
             incoherents.append(f"{n['narrative']} : rapport {ps:g}x publie, revenus « — »")
             continue
-        # Le rapport se rejoue-t-il ? On tolere large : la couverture n'est pas
-        # le panier entier, donc le numerateur n'est pas la capitalisation totale.
-        implicite = mc * 1000.0 / rev
-        if implicite > 0 and (implicite / ps > 4 or ps / implicite > 4):
+        # ⚠ LE NUMERATEUR N'EST PAS LA CAPITALISATION DU PANIER. Il ne compte
+        # que les constituants QUI ONT des revenus, et le cache publie cette
+        # part sous `ps_ttm_coverage_mcap_pct`. Premiere version de ce controle :
+        # elle rejouait mcap_total / revenus et criait a l'incoherence sur six
+        # narratifs dont le rapport etait juste — « Immobilisation liquide » a
+        # 0,7x contre 28,1x « rejoues », parce que 2,3 % du panier seulement
+        # porte des revenus. C'est exactement le faux positif que l'en-tete de ce
+        # fichier met en garde contre.
+        couv = n.get("ps_ttm_coverage_mcap_pct")
+        part = (couv / 100.0) if nb(couv) and couv > 0 else 1.0
+        implicite = mc * part * 1000.0 / rev
+        if implicite > 0 and (implicite / ps > 1.5 or ps / implicite > 1.5):
             incoherents.append(
                 f"{n['narrative']} : {ps:g}x publie, {implicite:.1f}x en rejouant "
-                f"capitalisation/revenus")
+                f"(capitalisation x {couv:.1f} % de couverture) / revenus")
     if incoherents:
         note(BLOQUANT, "narratifs / coherence",
              "le revenu affiche n'est pas le denominateur du rapport affiche sur la meme ligne",

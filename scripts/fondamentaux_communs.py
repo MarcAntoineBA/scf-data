@@ -1198,7 +1198,7 @@ def redresser_dividende_par_action(exercices):
     return faits
 
 
-def _corriger_unite_actions(exercices):
+def _corriger_unite_actions(exercices, cours=None):
     """Rattrape un nombre d'actions exprimé dans la mauvaise unité.
 
     McDonald's portait 716,4 actions en circulation là où il en faut 716,4
@@ -1298,6 +1298,82 @@ def _corriger_unite_actions(exercices):
             for cle in ("shares_diluted", "shares_basic"):
                 e[cle] = None
             e["shares_ecarte"] = "incohérent avec le bénéfice par action déposé"
+
+    # ══════════════════════════════════════════════════════════════════════
+    # LE TROISIÈME ARBITRE : LE CHIFFRE D'AFFAIRES PAR ACTION CONTRE LE COURS
+    # ══════════════════════════════════════════════════════════════════════
+    # Les deux contrôles ci-dessus sont AVEUGLES quand les deux nombres sont
+    # faux ENSEMBLE — et c'est le cas le plus fréquent, parce qu'une société qui
+    # dépose ses actions en milliers les dépose ainsi partout. Mesuré sur le parc
+    # publié le 05/09/2026 :
+    #   · AIOT 2021 — 34 571 actions déposées pour 126 M$ de produits. Le compte
+    #     de base CONFIRME le dilué : l'arbitre précédent les sauve tous les
+    #     deux, et publie 3 644 $ de produits par action ;
+    #   · PACK 2017 — 995 actions et un bénéfice par action de 27 801 $. Les deux
+    #     concordent parfaitement (995 × 27 801 ≈ le résultat net) : aucun
+    #     contrôle interne ne peut les départager ;
+    #   · EPAM 2011 — 20 473 actions et AUCUN bénéfice par action déposé : le
+    #     premier contrôle ne s'exécute même pas.
+    #
+    # Le cours coté est le seul arbitre extérieur aux dépôts. Aucune société ne
+    # se traite à un centième de son chiffre d'affaires par action : un rapport
+    # de plus de cent entre les deux ne dit pas « action très bon marché », il
+    # dit « le nombre d'actions n'est pas dans la bonne unité ».
+    # Cent, et pas dix : une société très décotée peut valoir un dixième de ses
+    # produits par action, et l'on ne touche pas à ce qui pourrait être vrai.
+    # ⚠ `cours` N'EST PAS DU MÊME TYPE CHEZ LES DEUX APPELANTS, et une première
+    # version l'a payé : le collecteur SEC passe une SÉRIE — [(horodatage, cours),
+    # …] — quand l'international passe un scalaire. Le contrôle de type laissait
+    # donc l'arbitre muet côté SEC, sans une ligne d'erreur : les trois cas qu'il
+    # devait attraper ressortaient inchangés. On accepte les deux formes, et le
+    # dernier point d'une série vaut cours du jour.
+    prix = None
+    if isinstance(cours, (int, float)) and cours > 0:
+        prix = float(cours)
+    elif isinstance(cours, (list, tuple)) and cours:
+        for pt in reversed(cours):
+            v = None
+            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                v = pt[1]
+            elif isinstance(pt, (int, float)):
+                v = pt
+            if isinstance(v, (int, float)) and v > 0:
+                prix = float(v)
+                break
+    cours = prix
+    if isinstance(cours, (int, float)) and cours > 0:
+        for e in exercices:
+            act = e.get("shares_diluted")
+            rev = e.get("revenue")
+            if not act or not rev or act <= 0 or rev <= 0:
+                continue
+            if e.get("shares_echelle_corrigee"):
+                continue
+            par_action = rev / act
+            if par_action <= cours * 100:
+                continue
+            # Une puissance de mille se corrige ; le reste s'efface. On ne
+            # publie pas un montant par action faux d'un facteur inconnu.
+            corrige = False
+            for facteur in (1000.0, 1000000.0):
+                if 0.2 <= (par_action / facteur) / cours <= 20.0:
+                    for cle in ("shares_diluted", "shares_basic"):
+                        if e.get(cle):
+                            e[cle] = e[cle] * facteur
+                    e["shares_echelle_corrigee"] = True
+                    corrections.append({"annee": e.get("annee"),
+                                        "facteur": int(facteur)})
+                    corrige = True
+                    break
+            if corrige:
+                continue
+            for cle in ("shares_diluted", "shares_basic"):
+                e[cle] = None
+            e.pop("shares_bpa_douteux", None)
+            e["shares_ecarte"] = (
+                "le chiffre d’affaires par action qu’il impliquerait (%s) dépasse "
+                "le cours coté (%s) de plus de cent fois : l’unité du dépôt n’est "
+                "pas celle qu’il annonce" % (round(par_action), round(cours, 2)))
     return corrections
 
 # ── LE COURS D'IL Y A UN, TROIS, CINQ ET DIX ANS ──────────────────────────
