@@ -315,6 +315,26 @@ def main():
         t["age_annees"] = (round(c["age_jours"] / 365.25, 1)
                            if isinstance(c.get("age_jours"), int) else None)
 
+        # ── UNE GRANDEUR MESURÉE AILLEURS N'EST PAS « NON PUBLIÉE » ─────
+        # ⚠ DEUX COLLECTEURS COUVRENT LES FRAIS PAYÉS PAR LES UTILISATEURS :
+        # la capture, qui les prend par CHAÎNE, et les narratifs, qui les
+        # prennent par PROTOCOLE. Mesuré le 05/09/2026 : dix-neuf jetons ont la
+        # seconde et pas la première. Sur LQTY, le critère « Frais payés par les
+        # utilisateurs » affichait donc « non publié » — et coûtait un point à
+        # la note — pendant que le bloc voisin de la MÊME fiche imprimait
+        # 1,97 M$. L'axe du radar restait vide pour la même raison.
+        # Le repli est fondé : quand les deux mesures existent, cinquante-quatre
+        # jetons sur cinquante-huit s'accordent à mieux d'une fois et demie, et
+        # les quatre exceptions sont précisément celles que le contrôle de série
+        # arbitre au-dessus. On garde trace de la provenance : une valeur
+        # reprise d'un autre collecteur n'est pas la même chose qu'une mesure
+        # directe, et la fiche doit pouvoir le dire.
+        if not isinstance(t.get("frais_m"), (int, float)):
+            secours = t.get("rev_m_1y")
+            if isinstance(secours, (int, float)) and secours > 0:
+                t["frais_m"] = secours
+                t["frais_m_source"] = "narratifs (par protocole)"
+
         # ── LE CHIFFRE ÉCRIT DOIT ÊTRE CELUI DU GRAPHE ──────────────────
         # ⚠ La série mensuelle des frais porte un bloc `controle` fait pour
         # refaire le total annuel à partir des points publiés. Sur 197 jetons
@@ -527,6 +547,9 @@ def main():
             "usage_detail": t.get("usage_detail"),
             # ── la captation, le cœur de la fiche ──
             "frais_m": t.get("frais_m"),
+            # ⚠ La provenance suit la valeur, sinon la fiche ne peut pas dire
+            # qu'un chiffre vient d'un autre collecteur que celui annoncé.
+            "frais_m_source": t.get("frais_m_source"),
             "revenu_m": t.get("revenu_m"),
             "detenteurs_m": t.get("detenteurs_m"),
             "taux_captation_pct": t.get("taux_captation_pct"),
