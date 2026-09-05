@@ -403,7 +403,25 @@ def charger_univers():
     """
     f = CACHE_DIR / "univers_actions.json"
     if not f.exists():
-        return {}, {}
+        # ── CE RETOUR À DEUX VALEURS A GELÉ LA COLLECTE DE MARCHÉ SEPT JOURS ──
+        #
+        # L'appelant en attend TROIS. Quand l'univers manquait, Python sortait
+        # donc sur « not enough values to unpack (expected 3, got 2) » — un
+        # message qui ne nomme ni le fichier absent, ni le collecteur à lancer
+        # avant. Constaté le 05/09/2026 : le job échouait chaque nuit depuis le
+        # 29/08, `marche_actions_index.json` avait sept jours de retard, et avec
+        # lui l'univers dont les états financiers tirent QUELLES sociétés
+        # approfondir. Six collecteurs en dépendent ; aucun bilan ne le disait.
+        #
+        # On ne rend pas non plus un univers VIDE en silence : sans table de
+        # correspondance, les soixante-dix-sept mille lignes collectées ne se
+        # rattachent à aucun symbole et la fiche ne retrouve rien. Publier ce
+        # vide serait pire que ne rien publier — il écraserait une collecte
+        # juste par une collecte inexploitable.
+        print("[fatal] %s absent : lancer d'abord fetch_univers_actions.py "
+              "(sans la table de correspondance, aucune ligne collectée ne "
+              "peut être rattachée à un symbole)" % f, file=sys.stderr)
+        raise SystemExit(2)
     with f.open(encoding="utf-8") as fh:
         d = json.load(fh)
     par_sa, par_nu, meta = {}, {}, {}

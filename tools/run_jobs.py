@@ -174,6 +174,13 @@ DEPENDANCES = {
     # aucune requête réseau, trois secondes et demie, mais rien du tout
     # si l'un des deux n'a pas encore écrit.
     "secteursmonde": ["marche", "univers"],
+    # La collecte de marché lit `univers_actions.json` pour savoir rattacher
+    # « epa/MC » à « MC.PA ». Ce lien n'était pas déclaré : les deux partaient
+    # ensemble dans la même vague, et la lecture arrivait avant l'écriture.
+    "marche": ["univers"],
+    # L'actionnariat lit l'index des états pour savoir QUELLES sociétés
+    # interroger — il sortait sur « sec_fundamentals_index.json absent ».
+    "actionnariat": ["secfunda"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
@@ -834,14 +841,49 @@ def main():
           f"· {restored} cache(s) restauré(s) dont {repris} pièce(s) jointe(s), "
           f"{redates} rendu(s) à leur âge réel\n")
 
-    # Deux vagues : d'abord ce dont un autre collecteur dépend, ensuite le reste.
-    attendus = {d for deps in DEPENDANCES.values() for d in deps}
-    vague1 = [j for j in due if j["id"] in attendus]
-    vague2 = [j for j in due if j["id"] not in attendus]
+    # ── L'ORDRE SUIT LA CHAÎNE, ET NON DEUX VAGUES ───────────────────────────
+    #
+    # Deux vagues ne savent exprimer qu'une seule profondeur : « ce dont un autre
+    # dépend », puis « le reste ». La chaîne des états financiers en compte
+    # trois — `univers` → `marche` → `secfunda`/`intlfunda`/`screener`/… →
+    # `actionnariat`. `marche` étant lui-même attendu par d'autres, il partait
+    # dans la MÊME vague que `univers` et lisait un fichier pas encore écrit.
+    #
+    # Ce n'est pas une hypothèse : mesuré le 05/09/2026, le job `marche` sortait
+    # en erreur chaque nuit depuis le 29/08 et `actionnariat` avec lui. Sept
+    # jours de retard sur l'univers dont dépendent six collecteurs, sous un
+    # bilan qui affichait « 32/38 OK » — la panne la plus discrète qui soit.
+    #
+    # On calcule donc des NIVEAUX : un collecteur part quand tous ceux dont il
+    # dépend, ET QUI SONT DE CETTE CADENCE, sont finis. Une dépendance qui n'est
+    # pas de la cadence courante n'est pas attendue : elle ne viendra jamais.
+    par_id = {j["id"]: j for j in due}
+    restants = dict(par_id)
+    faits = set()
+    niveaux = []
+    while restants:
+        prets = [j for i, j in restants.items()
+                 if all(d in faits or d not in par_id
+                        for d in DEPENDANCES.get(i, ()))]
+        if not prets:
+            # Un cycle ne doit pas immobiliser la collecte : on le NOMME et on
+            # lance le reste ensemble, ce qui est exactement l'ancien
+            # comportement — dégrader, jamais bloquer.
+            print("  ! dépendances circulaires, lancées ensemble : "
+                  + ", ".join(sorted(restants)))
+            prets = list(restants.values())
+        niveaux.append(prets)
+        for j in prets:
+            faits.add(j["id"])
+            restants.pop(j["id"])
+
+    if len(niveaux) > 1:
+        print("ordre : " + " → ".join(
+            "[" + ", ".join(sorted(j["id"] for j in n)) + "]" for n in niveaux))
 
     t0 = time.time()
     results = []
-    for vague in (vague1, vague2):
+    for vague in niveaux:
         if not vague:
             continue
         with cf.ThreadPoolExecutor(max_workers=PARALLEL) as ex:
