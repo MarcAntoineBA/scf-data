@@ -47,6 +47,7 @@ Lancement : python3 tools/test_trimestres_sec.py
 
 import os
 import sys
+import pathlib
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(RACINE, "scripts"))
@@ -383,6 +384,61 @@ def main():
                                                            len(fichiers[:40])))
         verifie("aucun solde ni aucune moyenne reconstitués en production",
                 fautifs[:3], [])
+
+    # ══════════════════════════════════════════════════════════════════════
+    # CE QUE LES TRENTE-CINQ PREMIERS CONTRÔLES LAISSAIENT PASSER
+    # ══════════════════════════════════════════════════════════════════════
+    # Une relecture adversariale a muté le collecteur de quatre façons sans en
+    # faire tomber un seul : la fusion des paquets désarmée (la panne que ce
+    # dépôt a DÉJÀ payée — quatre cents sociétés effaçant quatre cent
+    # trente-cinq paquets), le seuil de bouclage porté à 1 000 %, l'écriture de
+    # l'écart supprimée. Un contrôle qu'on ne peut pas faire échouer ne protège
+    # rien. Ces quatre-là exercent donc les fonctions elles-mêmes.
+    print()
+    print("LA FUSION, ET LES SEUILS — ce qui n'était pas exercé")
+
+    # 1. La fusion doit REPRENDRE une société absente de la passe courante.
+    import tempfile, shutil
+    bac = tempfile.mkdtemp(prefix="trim_fusion_")
+    try:
+        ancien_out = F.OUT_DIR
+        F.OUT_DIR = pathlib.Path(bac)
+        (F.OUT_DIR / ("sec_trim_%s.json" % F._initiale("ZZTEST"))).write_text(
+            json.dumps({"societes": {"ZZTEST": {"symbole": "ZZTEST",
+                                                "trimestres": [{"fin": "2020-03-31"}]}}}),
+            encoding="utf-8")
+        paquets = {}
+        F._fusionner_trimestres(paquets)
+        repris = any("ZZTEST" in v for v in paquets.values())
+        verifie("la fusion reprend une société absente de la passe", repris, True)
+
+        # 2. Elle ne doit PAS écraser la version fraîche par l'ancienne.
+        paquets2 = {F._initiale("ZZTEST"): {"ZZTEST": {"symbole": "ZZTEST",
+                                                       "trimestres": [{"fin": "2026-06-30"}]}}}
+        F._fusionner_trimestres(paquets2)
+        garde = paquets2[F._initiale("ZZTEST")]["ZZTEST"]["trimestres"][0]["fin"]
+        verifie("et elle ne remplace pas la version fraîche par l'ancienne",
+                garde, "2026-06-30")
+    finally:
+        F.OUT_DIR = ancien_out
+        shutil.rmtree(bac, ignore_errors=True)
+
+    # 3. Le seuil de bouclage doit rester un seuil, pas une porte ouverte.
+    verifie("le seuil de bouclage reste sous 2 %", F.ECART_BOUCLAGE < 0.02, True)
+    verifie("et il n'est pas nul", F.ECART_BOUCLAGE > 0, True)
+
+    # 4. Un exercice qui ne boucle pas doit être MARQUÉ, pas corrigé ni tu.
+    lignes_ctrl = [
+        ({"fin": "2024-03-31", "revenue": 100.0, "exercice": 2024, "t": 1}, "2024-12-31"),
+        ({"fin": "2024-06-30", "revenue": 100.0, "exercice": 2024, "t": 2}, "2024-12-31"),
+        ({"fin": "2024-09-30", "revenue": 100.0, "exercice": 2024, "t": 3}, "2024-12-31"),
+        ({"fin": "2024-12-31", "revenue": 100.0, "exercice": 2024, "t": 4}, "2024-12-31"),
+    ]
+    sortie = F._controler_bouclage(list(lignes_ctrl), {"2024-12-31": {"revenue": 800.0}})
+    marques = [t for t in sortie if t.get("_ecart_exercice")]
+    verifie("un exercice qui ne boucle pas est marqué", len(marques) > 0, True)
+    valeurs = [t.get("revenue") for t in sortie]
+    verifie("et sa valeur n'est PAS corrigée en douce", valeurs, [100.0] * 4)
 
     print()
     if échecs:

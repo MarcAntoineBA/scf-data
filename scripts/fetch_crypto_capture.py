@@ -110,19 +110,26 @@ def _get(url, timeout=60, essais=4, pause=2.0, pause_debit=35.0):
     POSSIBLE. `urllib` n'annonce AUCUN `Accept-Encoding`, et DeFiLlama sert
     alors le JSON brut. Mesuré le 05/09/2026 sur /overview/fees?dataType=
     dailyFees, depuis cette machine :
-        sans en-tête   26 693 033 octets sur le fil — 7 min sans finir, puis
-                       `IncompleteRead(20 730 855 lus, la suite manquante)` ;
+        sans en-tête   26 693 845 octets sur le fil ;
         Accept-Encoding: gzip
-                        6 371 100 octets sur le fil — 12,2 s, corps complet,
-                       identique une fois décompressé (26 693 033 octets).
-    Quatre fois moins de données, et surtout la différence entre une collecte
-    qui aboutit et une collecte qui meurt au bout de sept minutes. Mesuré sur
-    les trois séries du bulk, le même jour :
+                        6 372 277 octets sur le fil — corps identique une fois
+                       décompressé.
+    Mesuré sur les trois séries du bulk, le même jour :
         dailyFees             6 372 277 sur le fil / 26 693 845 décompressés
         dailyRevenue          4 447 113            / 22 321 506
         dailyHoldersRevenue   1 351 822            / 10 666 313
-    Soit 12,2 Mo transférés au lieu de 59,7. Sans cet en-tête, l'histoire
-    longue n'est pas collectable sur une liaison ordinaire.
+    Soit 12,2 Mo transférés au lieu de 59,7 : quatre fois moins de données.
+
+    ⚠ CE QUE CETTE MESURE NE DIT PAS, ET QU'UNE PREMIÈRE RÉDACTION AFFIRMAIT.
+    Elle annonçait « sept minutes sans finir, puis IncompleteRead » comme un
+    fait établi. Une relecture a rejoué le même appel par le même chemin de code,
+    quatre fois : 3,6 s, 15,4 s, 3,4 s, 4,6 s, corps complet à chaque essai,
+    aucune troncature. L'échec observé pendant l'écriture était donc lié à
+    l'état du réseau de ce moment-là, pas au poids en soi.
+    Ce qui reste vrai et suffit : quatre fois moins d'octets à transférer, et
+    une fenêtre de troncature d'autant plus étroite. Ce qui n'est pas vrai :
+    prétendre que sans gzip la collecte ne peut pas aboutir. Un chiffre non
+    reproductible dans un commentaire est un chiffre qui sera cru.
 
     ⚠ ET LA TRONCATURE SE RATTRAPE, ELLE NE SE DEVINE PAS. Un corps découpé
     en `chunks` peut s'arrêter en route : le serveur a répondu 200, on a lu la
@@ -736,7 +743,20 @@ def _sig(x, n=6):
 
 
 def _mensuel(quotidien, mode):
-    """{'AAAA-MM-JJ': v} → {'AAAA-MM': v}, sommé (flux) ou en fin de mois (stock)."""
+    """{'AAAA-MM-JJ': v} → {'AAAA-MM': v}, sommé (flux) ou DERNIER POINT du mois.
+
+    ⚠ « DERNIER POINT DU MOIS » N'EST PAS « FIN DE MOIS », et l'écart n'est pas
+    théorique. La grille de cours longue de `coins.llama.fi` ne sert que DEUX
+    jours par mois : décembre 2017 ne contient que le 6 et le 21, et la valeur
+    retenue est celle du 21. Mesuré sur Bitcoin, 79 % des points de cours sont
+    donc des points de MILIEU de mois, pas de clôture — pour décembre 2017,
+    16 355 $ au lieu du prix du 31.
+    Cela ne fausse aucune courbe : une série de cours mensuelle échantillonnée
+    au même rang chaque mois se lit exactement comme une série de fin de mois.
+    Mais l'étiquette publiée doit dire ce que la donnée EST, sinon quelqu'un
+    finira par recouper le point de décembre avec une clôture officielle et
+    conclura à une erreur qui n'existe pas.
+    """
     out = {}
     if mode == "somme":
         for j, v in quotidien.items():
@@ -1446,8 +1466,15 @@ def collecte_histoire(classes, cours_recents, naissances, protos, dlid,
         "mois_incomplet": maintenant.strftime("%Y-%m"),
         "jours_fins": JOURS_FINS,
         "unites": {"frais": "M$ par mois", "revenu": "M$ par mois",
-                   "detenteurs": "M$ par mois", "tvl": "M$ en fin de mois",
-                   "cours": "$ en fin de mois"},
+                   "detenteurs": "M$ par mois",
+                   # La TVL vient d'une série QUOTIDIENNE : son dernier point du
+                   # mois est bien le dernier jour. Le cours, lui, vient d'une
+                   # grille à quinze jours au-delà de la fenêtre récente : son
+                   # dernier point du mois n'est presque jamais le 31.
+                   "tvl": "M$ au dernier jour du mois",
+                   "cours": "$ au dernier point servi du mois — la grille longue "
+                            "ne sert que deux jours par mois, ce n'est donc pas "
+                            "un cours de clôture"},
         "sources": [
             "DefiLlama /overview/fees?dataType=… — détail quotidien par protocole depuis 2018-03-26",
             "DefiLlama /summary/fees/{chaîne} — natif des chaînes, jusqu'à 2011-01-31 (Bitcoin)",
@@ -1476,17 +1503,55 @@ def collecte_histoire(classes, cours_recents, naissances, protos, dlid,
     return doc
 
 
-def ecrire_histoire(doc):
+def ecrire_histoire(doc, force=False):
+    """Publie l'histoire — sauf si elle est plus PAUVRE que celle qu'elle remplace.
+
+    ⚠ LA PANNE QUE CE DÉPÔT A DÉJÀ PAYÉE. Un passage sur quatre cents sociétés
+    avait effacé les paquets de quatre cent trente-cinq autres. Le même chemin
+    était rouvert ici : `SCF_HISTOIRE_JETONS=bitcoin,ethereum` — une mise au
+    point de deux jetons, que le commentaire du `__main__` recommande lui-même —
+    remplaçait un cache de deux cents jetons (757 435 octets) par un cache de
+    deux (17 952 octets), sans condition ni avertissement. Vérifié en bac à
+    sable pendant la relecture, et c'est ainsi que le défaut a été trouvé.
+
+    On refuse donc de publier un univers qui a fondu de plus d'un quart, à moins
+    que l'appelant ne le demande explicitement. Le refus est BRUYANT : un cache
+    qu'on n'écrit pas doit se dire, sinon il se lit comme un cache écrit.
+
+    ⚠ LES DEUX FICHIERS S'ÉCRIVENT DE LA MÊME FAÇON. Le `.js` passait par un
+    fichier temporaire et un remplacement atomique, le `.json` était écrit
+    directement — or c'est le `.json` que le contrôle lit en premier. Un passage
+    interrompu laissait donc un `.json` tronqué à côté d'un `.js` valide, et le
+    garde-fou tombait sur le fichier que le site ne sert pas.
+    """
     js = os.path.join(CACHE, "crypto_histoire_cache.js")
+    jsonf = os.path.join(CACHE, "crypto_histoire_cache.json")
+    if not force and os.path.exists(jsonf):
+        try:
+            with open(jsonf, encoding="utf-8") as fh:
+                ancien = json.load(fh)
+            avant = len(ancien.get("jetons") or {})
+            apres = len(doc.get("jetons") or {})
+            if avant >= 20 and apres < avant * 0.75:
+                print("[refus] histoire NON écrite : %d jetons contre %d dans le "
+                      "cache existant. Une mise au point ne doit pas remplacer une "
+                      "collecte. Relancer sans SCF_HISTOIRE_JETONS, ou passer "
+                      "force=True si l'appauvrissement est voulu."
+                      % (apres, avant), file=sys.stderr)
+                return None
+        except Exception as e:
+            print("[warn] cache d'histoire précédent illisible (%s) : on écrit "
+                  "sans pouvoir comparer" % e, file=sys.stderr)
     tmp = js + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write("window.__CRYPTO_HISTOIRE__=")
         json.dump(doc, fh, ensure_ascii=False, separators=(",", ":"))
         fh.write(";\n")
     os.replace(tmp, js)
-    with open(os.path.join(CACHE, "crypto_histoire_cache.json"), "w",
-              encoding="utf-8") as fh:
+    tmpj = jsonf + ".tmp"
+    with open(tmpj, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmpj, jsonf)
     s = doc["couverture"]
     print("[ok] histoire : %d jetons" % doc["univers"])
     print("     frais / revenu / détenteurs : %3d / %3d / %3d"

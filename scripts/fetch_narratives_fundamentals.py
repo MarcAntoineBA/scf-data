@@ -227,11 +227,35 @@ def _statut_et_motif(valeur, seuil, n_avec, n_total, couverture_pct,
                 "mesure plus une valorisation."
                 % (nom_sujet, _fr_nombre(100.0 / valeur, 4),
                    _fr_nombre(valeur, 0), _fr_nombre(seuil, 0)))
+    # ⚠ UN RAPPORT PEUT ÊTRE SOUS SON SEUIL ET NE DÉCRIRE QUE 2 % DU PANIER.
+    # Première version : le statut ne regardait QUE le plafond. « Immobilisation
+    # liquide » sortait donc à 0,6× étiqueté « mesurable » — un rapport bâti sur
+    # 0,571 Md$ des 24,6 Md$ du panier, soit 2,3 % de sa capitalisation, quand
+    # son propre motif imprimait déjà ce chiffre deux lignes plus bas. Le
+    # lecteur lisait « le panier se paie 0,6 fois ses frais » là où la phrase
+    # exacte est « les 2 % du panier dont on connaît les frais se paient 0,6
+    # fois ». Ce n'est pas la même affirmation, et la seconde ne se déduit pas
+    # de la première.
+    #
+    # Le seuil de couverture est le même que celui déjà en vigueur à l'écran :
+    # le tableau avertit sous 25 % depuis toujours (« ratio extrapolé d'une
+    # minorité de tokens »). On ne l'invente pas, on le fait remonter du
+    # commentaire d'infobulle jusqu'au statut, là où il décide de quelque chose.
+    COUVERTURE_MINIMALE = 25.0
+    couv = couverture_pct or 0.0
+    verbe_c = "constituant sur %d fournit" if n_avec == 1 else "constituants sur %d fournissent"
+    if couv < COUVERTURE_MINIMALE:
+        return ("non_mesurable",
+                ("Couverture insuffisante : %d " + verbe_c + " %s, soit %s %% "
+                 "seulement de la capitalisation du panier — en dessous de %s %%, "
+                 "le rapport décrit cette minorité, pas le panier. La valeur brute "
+                 "(%s×) reste affichée.")
+                % (n_avec, n_total, nom_affirmatif, _fr_nombre(couv, 1),
+                   _fr_nombre(COUVERTURE_MINIMALE, 0), _fr_nombre(valeur, 2)))
     # « 1 constituants » : le lecteur voit d'abord la faute, ensuite le chiffre.
-    verbe = "constituant sur %d fournit" if n_avec == 1 else "constituants sur %d fournissent"
     return ("mesurable",
-            ("%d " + verbe + " %s, soit %s %% de la capitalisation du panier.")
-            % (n_avec, n_total, nom_affirmatif, _fr_nombre(couverture_pct or 0.0, 0)))
+            ("%d " + verbe_c + " %s, soit %s %% de la capitalisation du panier.")
+            % (n_avec, n_total, nom_affirmatif, _fr_nombre(couv, 0)))
 
 
 def load_previous_cache():
@@ -843,11 +867,26 @@ def fetch_defillama_revenue(dlid_to_gecko):
     try:
         data = _http_get_json(BASE + "dailyFees", timeout=60)
     except Exception as e:
-        print(f"[warn] DefiLlama /overview/fees (dailyFees): {e}", file=sys.stderr)
-        # Arité stricte : les appelants dépaquettent quatre valeurs. L'ancien
-        # `return {}` faisait planter le collecteur ENTIER sur un simple
-        # incident réseau DeFiLlama, au lieu de publier sans frais.
-        return {}, {}, {}, {}
+        # ⚠ NE PAS « PUBLIER SANS FRAIS ». Une première version rendait ici
+        # quatre dictionnaires vides pour corriger une erreur d'arité — et
+        # transformait un plantage qui PRÉSERVAIT le cache en une dégradation
+        # silencieuse qui l'ÉCRASE. Panne simulée en relecture : le collecteur
+        # continuait, sortait en code 0, et publiait un cache où 19 narratifs
+        # sur 25 perdaient leur prix/frais ; Ethereum passait de 1 138,9× à
+        # 246,1× parce que le dénominateur ne gardait que la part actions.
+        # Le contrôle de cohérence, lui, déclarait le tout bon : les deux
+        # grandeurs restaient cohérentes ENTRE ELLES, toutes les deux fausses.
+        #
+        # Les frais sont le dénominateur de la grandeur centrale de ce cache.
+        # Sans eux, il n'y a pas de collecte partielle, il y a une collecte
+        # ratée — et un échec franc laisse en place le cache de la veille, qui
+        # est juste. C'est exactement ce que la garde de témoins du dépôt
+        # protège ailleurs ; ici, on ne lui donne même pas l'occasion.
+        raise RuntimeError(
+            "DefiLlama /overview/fees (dailyFees) muet : %s. On n'écrit RIEN — "
+            "publier un cache sans frais remplacerait le prix/frais de 19 "
+            "narratifs sur 25 par un rapport calculé sur les seules actions, "
+            "sans qu'aucun contrôle ne s'en aperçoive." % e)
     out, sources = _agreger_bulk(data, dlid_to_gecko)
     chain_count = 0
 
@@ -861,6 +900,8 @@ def fetch_defillama_revenue(dlid_to_gecko):
     # mais le revenu gardé s'affiche à côté, sous son propre nom.
     # Coût mesuré : 3,8 Mo, 0,4 s pour l'appel groupé.
     revenu_net = {}
+    # Les gecko_id vus comme CHAÎNE, quelle que soit la valeur retenue.
+    chaines_vues = set()
     try:
         data_net = _http_get_json(BASE + "dailyRevenue", timeout=60)
         revenu_net, _ = _agreger_bulk(data_net, dlid_to_gecko)
@@ -901,10 +942,18 @@ def fetch_defillama_revenue(dlid_to_gecko):
         try:
             cn = _http_get_json(BASE_CHAIN + "dailyRevenue", timeout=40)
             net_rev, _ = _total1y_chain_native(cn, slug, autoriser_repli=False)
-            if net_rev > 0:
-                chain_net[gid] = chain_net.get(gid, 0) + net_rev
-        except Exception:
-            pass
+            # ⚠ ZÉRO GARDÉ EST UN FAIT, PAS UNE ABSENCE. On enregistre la
+            # chaîne même à zéro : c'est ce qui permet, plus bas, d'écraser
+            # l'agrégat des PROTOCOLES par la valeur native. Sans cette ligne,
+            # Hyperliquid — dont la chaîne ne garde rien en natif — publiait
+            # les 712 M$ de son écosystème comme revenu gardé de HYPE.
+            chain_net[gid] = chain_net.get(gid, 0.0) + net_rev
+            chaines_vues.add(gid)
+        except Exception as e:
+            # L'appel groupé équivalent journalise, celui-ci se taisait : une
+            # chaîne dont le revenu gardé échoue affichait « — » sans jamais
+            # dire pourquoi, et l'absence se lisait comme un zéro mesuré.
+            print(f"[warn] revenu gardé de la chaîne {slug} : {e}", file=sys.stderr)
         if native_rev > 0:
             chain_rev[gid] = chain_rev.get(gid, 0) + native_rev
             if gid not in chain_primary:
@@ -926,8 +975,16 @@ def fetch_defillama_revenue(dlid_to_gecko):
         out[gid] = rev  # chain native uniquement, pas ecosystem
         slug, web = chain_primary[gid]
         sources[gid] = {"kind": "chain", "slug": slug, "web": web}
-    for gid, net in chain_net.items():
-        revenu_net[gid] = net  # idem : chaîne native, pas écosystème
+    # ⚠ LA VALEUR NATIVE ÉCRASE L'AGRÉGAT DES PROTOCOLES, MÊME QUAND ELLE VAUT
+    # ZÉRO. `revenu_net` part de l'appel groupé, qui somme les PROTOCOLES ; une
+    # première version ne l'écrasait que `if net_rev > 0`, si bien qu'une chaîne
+    # ne gardant rien en natif conservait le total de son écosystème. Mesuré à
+    # la source sur les 25 chaînes : Hyperliquid L1 garde 0,00 M$ en natif pour
+    # 754,06 M$ d'écosystème, et le cache publiait 712,37 M$ pour HYPE. Le
+    # commentaire promettait « chaîne native, pas écosystème » ; le code ne le
+    # faisait qu'à moitié.
+    for gid in chaines_vues:
+        revenu_net[gid] = chain_net.get(gid, 0.0)
     if chain_count:
         print(f"[info] frais : {chain_count} chaînes (NATIVE only, pas ecosystem) — ETH/SOL/BNB/TRX/XRP réels", file=sys.stderr)
     print(f"[info] revenu gardé (dailyRevenue) : {len(revenu_net)} gecko_id, "

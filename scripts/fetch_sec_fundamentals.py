@@ -706,6 +706,15 @@ JOURS_TRIMESTRE = (75, 105)
 CONCEPTS_TRIMESTRIELS = (
     # Flux — compte de résultat
     "revenue", "revenue_total", "revenue_contrats",
+    # ⚠ LES LOYERS, SANS QUOI UNE FONCIÈRE N'A AUCUN TRIMESTRE DE PRODUITS.
+    # La norme 606 ne couvre pas les baux : un bailleur ne déclare pas ses
+    # loyers en « contrats clients ». L'annuel le sait depuis longtemps et
+    # reprend `revenue_baux` ; le trimestriel, lui, ne le demandait pas.
+    # Mesuré sur American Homes 4 Rent : exercice 2025 à 1 850 234 000 $ avec
+    # la mention « loyers seuls », et les TRENTE-NEUF derniers trimestres sans
+    # aucun produit — une colonne annuelle pleine en face de colonnes
+    # trimestrielles vides, exactement ce que la fiche promet de ne pas faire.
+    "revenue_baux",
     "produit_interet_net", "produit_commissions",
     "cogs", "gross_profit", "opex", "charges_totales", "rd", "sga",
     "operating_income", "pretax", "tax",
@@ -2660,6 +2669,32 @@ def construire_trimestres(facts, devise=None, exercices=None, annuels=None):
                 and t.get("cogs") is not None):
             t["gross_profit"] = t["revenue"] - t["cogs"]
             deduits["gross_profit"] = "produits moins coût des ventes"
+        # ── LE BAILLEUR, EN TRIMESTRIEL COMME EN ANNUEL ───────────────────
+        # La norme 606 ne couvre pas les baux : un bailleur ne déclare pas ses
+        # loyers en « contrats clients ». L'annuel reprend donc `revenue_baux` ;
+        # le trimestriel ne le faisait pas, et American Homes 4 Rent affichait un
+        # exercice à 1 850 M$ en face de trente-neuf trimestres vides.
+        # Les MÊMES gardes qu'en annuel, à l'identique — dont celle qui empêche
+        # d'attribuer à une banque ses revenus de crédit-bail : le discriminant
+        # est le rapport des loyers à l'actif, et il vaut 2 % ici comme là-bas.
+        _baux = t.get("revenue_baux")
+        if (t.get("revenue") is not None and t.get("revenue_contrats") is not None
+                and t["revenue"] == t["revenue_contrats"]
+                and _baux is not None and _baux > t["revenue"]
+                and t.get("revenue_total") is None):
+            t["revenue"] = _baux + t["revenue"]
+            deduits["revenue"] = "loyers plus contrats clients : la norme 606 ne couvre pas les baux"
+        elif (t.get("revenue") is None and _baux is not None
+                and isinstance(t.get("assets"), (int, float)) and t["assets"] > 0
+                # Un trimestre porte le quart des loyers d'une année : le seuil
+                # annuel de 2 % de l'actif devient 0,5 % ici. Le seuil garde le
+                # même sens — écarter les banques, dont le crédit-bail est
+                # marginal — sans écarter les bailleurs par un simple effet
+                # d'échelle de période.
+                and _baux >= 0.005 * t["assets"]):
+            t["revenue"] = _baux
+            deduits["revenue"] = "loyers seuls : le bailleur ne dépose ni total ni contrats clients"
+
         _pin, _pcom = t.get("produit_interet_net"), t.get("produit_commissions")
         _miettes = (t.get("revenue") is not None
                     and t.get("revenue_contrats") is not None
@@ -2703,6 +2738,24 @@ def construire_trimestres(facts, devise=None, exercices=None, annuels=None):
         src = series["revenue"].get(fin) or series["net_income"].get(fin)
         if src:
             t["accn"], t["depose_le"], t["frame"] = src[1], src[2], src[6]
+        # ⚠ UNE CASE RÉÉCRITE APRÈS COUP NE VIENT PLUS DU CALCUL QU'ON LUI
+        # ATTRIBUAIT. La marque de reconstitution est posée dans la boucle des
+        # concepts ; les déductions comptables ci-dessus — produit net bancaire,
+        # part du groupe, marge brute, total des produits — REMPLACENT ensuite
+        # la valeur. La case portait alors deux provenances contradictoires, et
+        # celle qui nomme un calcul chiffrable était la fausse.
+        # Mesuré sur CZFS au 2018-09-30 : le produit publié vaut 13 780 000 $ et
+        # se trouvait rangé sous « cumul 272 j moins cumul 180 j » — soustraction
+        # rejouée à la main, elle vaut 1 632 000 $. Facteur 8,4.
+        # La déduction est plus récente, donc elle gagne : on retire le champ de
+        # la marque de reconstitution, et le calcul qui n'a plus de champ
+        # disparaît avec lui.
+        for champ in deduits:
+            for calcul in list(reconstitues):
+                if champ in reconstitues[calcul]:
+                    reconstitues[calcul] = [c for c in reconstitues[calcul] if c != champ]
+                    if not reconstitues[calcul]:
+                        del reconstitues[calcul]
         if reconstitues:
             # La marque que la fiche lit pour DIRE au lecteur qu'une case a été
             # calculée, et par quel calcul. `_reconstitue_champs` est indexé par
@@ -2724,13 +2777,20 @@ def construire_trimestres(facts, devise=None, exercices=None, annuels=None):
 
 
 # L'écart relatif au-delà duquel la somme des quatre trimestres cesse d'être
-# une décomposition de l'exercice. Il est posé DANS LE VIDE, comme le veut ce
-# dépôt : mesuré le 05/09/2026 sur les huit sociétés d'essai, 313 des 314
-# couples exercice/grandeur bouclent à 0,000000 % — exactement — et le 314e
-# (Exxon 2017, chiffre d'affaires) manque de 3,04 %. Il n'y a rien entre les
-# deux. Un demi pour cent tient donc largement compte des arrondis de dépôt
-# (un déposant qui publie une ligne au million et une autre à l'unité) sans
-# risquer d'attraper un vrai désaccord d'étiquette.
+# une décomposition de l'exercice.
+#
+# ⚠ LA JUSTIFICATION A ÉTÉ REFAITE SUR LE BON PÉRIMÈTRE. Une première rédaction
+# la fondait sur TROIS grandeurs (produits, résultat net, flux d'exploitation) —
+# 313 couples exacts sur 314, un seul à 3,04 %, « il n'y a rien entre les deux » —
+# alors que `_controler_bouclage` en parcourt QUINZE. Sur les quinze, mesuré sur
+# les mêmes huit sociétés : 1 179 couples, 1 170 exacts à 0,000000 %, 7 au-delà
+# du seuil. Le creux existe toujours, mais il est moins net que ce qui était
+# écrit, et une phrase qui dit « rien entre les deux » sur un sous-ensemble
+# choisi n'est pas une mesure, c'est une illustration.
+# Le demi pour cent reste : il couvre les arrondis de dépôt (un déposant qui
+# publie une ligne au million et une autre à l'unité) sans attraper un vrai
+# désaccord d'étiquette. Ce qui change, c'est qu'on sait maintenant combien de
+# couples il laisse passer, et sur quelle population.
 ECART_BOUCLAGE = 0.005
 
 # Les grandeurs de FLUX dont la somme des quatre trimestres doit valoir
@@ -3872,7 +3932,19 @@ def main():
 
         r["cik"] = cik
         r["nom_sec"] = facts_doc.get("entityName")
-        if not opts["trimestres"] and sym in trim_precedent:
+        # ⚠ L'INDEX NE DOIT PAS OUBLIER UNE SÉRIE QUI EST TOUJOURS SUR LE DISQUE.
+        # `resume["trim"]` n'est posé que si CETTE passe a bâti des trimestres.
+        # La reprise était réservée à `--sans-trimestres` — or `_fusionner_trimestres`
+        # conserve le paquet quoi qu'il arrive. Une passe normale où la
+        # construction échoue pour une société (dépôt illisible, concept disparu,
+        # délai global atteint) réécrivait donc son entrée d'index SANS `trim`,
+        # pendant que ses soixante-treize trimestres restaient publiés à côté :
+        # la fiche ne proposait plus le bouton, et rien ne le disait.
+        # Vérifié : construction neutralisée sur AAPL, `sec_trim_028.json` garde
+        # ses 73 trimestres, `index.societes.AAPL.trim` tombe à None.
+        # La reprise vaut donc dans les DEUX modes — ce que la passe n'a pas
+        # rebâti, elle ne doit pas l'effacer de l'index.
+        if not r.get("trim") and sym in trim_precedent:
             r["trim"] = trim_precedent[sym]
         index[sym] = r
         if principal:

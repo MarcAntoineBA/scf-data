@@ -280,6 +280,79 @@ def controler_garde_offre_unitaire(echecs):
         echecs.ajouter("garde", "XRP sain", "corrigé alors qu'il est cohérent")
 
 
+def controler_revenu_garde(cache, echecs):
+    """Ce que le protocole GARDE ne peut pas dépasser ce que les utilisateurs PAIENT.
+
+    ⚠ « UN GARDE-FOU PAR BUG CORRIGÉ » N'ÉTAIT PAS TENU. Le défaut qui a créé
+    `revenu_m_1y_total` (narratif) et `revenu_m_1y` (jeton) — la distinction
+    entre les FRAIS payés et le REVENU gardé — n'avait aucun contrôle. Une
+    relecture l'a prouvé en multipliant l'un par dix et l'autre par trois dans un
+    cache d'essai : les deux devenaient incohérents entre eux ET supérieurs aux
+    frais, et le contrôle sortait quand même en succès.
+
+    Deux invariants, tous deux de définition, aucun d'appréciation :
+      · un jeton ne peut pas garder plus qu'il n'encaisse ;
+      · le total d'un narratif ne peut pas s'éloigner de la somme de ses jetons.
+    """
+    narrs = cache.get("narratives") or []
+    if not narrs:
+        return
+    # Le champ n'existe que depuis le correctif : sur un cache antérieur, ne rien
+    # dire vaut mieux que crier au loup.
+    if not any("revenu_m_1y_total" in n for n in narrs):
+        return
+    # Les petits dépassements tolérés sont COMPTÉS : un bruit d'échantillonnage
+    # touche une poignée de jetons, un défaut systématique les touche tous. Le
+    # seuil de nombre attrape ce que le seuil d'écart laisse passer.
+    depassements = []
+    n_avec_garde = sum(1 for n in narrs for t in (n.get("tokens") or [])
+                       if isinstance(t.get("revenu_m_1y"), (int, float)))
+    for n in narrs:
+        nom = n.get("narrative")
+        garde, paye = n.get("revenu_m_1y_total"), n.get("rev_m_1y_total")
+        if isinstance(garde, (int, float)) and isinstance(paye, (int, float)):
+            # 1 % de tolérance : les deux totaux sont arrondis séparément.
+            if garde > paye * 1.01 + 0.01:
+                echecs.append(("revenu", nom,
+                               f"le protocole garderait {garde:.2f} M$ pour "
+                               f"{paye:.2f} M$ encaissés — impossible par définition"))
+        somme = 0.0
+        vu = False
+        for t in n.get("tokens") or []:
+            g, pf = t.get("revenu_m_1y"), t.get("rev_m_1y")
+            if isinstance(g, (int, float)):
+                somme += g
+                vu = True
+            if isinstance(g, (int, float)) and isinstance(pf, (int, float)):
+                # ⚠ LA TOLÉRANCE EST MESURÉE, PAS CHOISIE. Les frais et le
+                # revenu gardé viennent de DEUX appels distincts, faits à
+                # quelques secondes d'intervalle, sur une fenêtre glissante de
+                # douze mois : un jour de décalage suffit à faire dépasser un
+                # jeton dont les deux grandeurs sont presque égales. Mesuré sur
+                # le cache du 05/09/2026 : 2 jetons sur 99 dépassent, de 1,86 %
+                # (INV) et 1,52 % (ICP). Trois pour cent laissent passer ce
+                # bruit d'échantillonnage et attrapent toujours une erreur de
+                # facteur — c'est l'écart qui compte, pas le signe.
+                if g > pf * 1.03 + 0.01:
+                    echecs.append(("revenu", f"{t.get('symbol')} ({nom})",
+                                   f"garde {g:.2f} M$ pour {pf:.2f} M$ encaissés "
+                                   f"(+{(g / pf - 1) * 100:.1f} %)"))
+                elif g > pf:
+                    depassements.append(t.get("symbol"))
+        if vu and isinstance(garde, (int, float)) and somme > 0:
+            ecart = abs(somme - garde) / max(somme, garde)
+            if ecart > 0.02:
+                echecs.append(("revenu", nom,
+                               f"le total publié ({garde:.2f} M$) n'est pas la somme "
+                               f"de ses constituants ({somme:.2f} M$), écart "
+                               f"{ecart * 100:.1f} %"))
+    if n_avec_garde and len(set(depassements)) > max(5, n_avec_garde * 0.05):
+        echecs.append(("revenu", "ensemble du parc",
+                       f"{len(set(depassements))} jetons sur {n_avec_garde} gardent "
+                       f"plus qu'ils n'encaissent — un décalage d'échantillonnage "
+                       f"touche une poignée de jetons, pas un vingtième du parc"))
+
+
 def main():
     chemin = Path(sys.argv[1]) if len(sys.argv) > 1 else CACHE_DEFAUT
     if not chemin.exists():
@@ -304,6 +377,7 @@ def main():
         controler_denominateur(cache, echecs)
         controler_statuts(cache, echecs)
         controler_nature_denominateur(cache, echecs)
+        controler_revenu_garde(cache, echecs)
     controler_garde_offre_unitaire(echecs)
 
     print(f"jetons vus : {n_jetons}")
@@ -315,7 +389,7 @@ def main():
 
     if not echecs:
         print("\n[OK] cohérence vérifiée : offre, dénominateur, statuts, nature "
-              "du dénominateur, garde-fou.")
+              "du dénominateur, revenu gardé, garde-fou.")
         return 0
     print(f"\n[ÉCHEC] {len(echecs)} incohérences :")
     for categorie, ou, message in echecs:
