@@ -115,7 +115,6 @@ NEWS_CACHE = CACHE_DIR / "news_cache.json"
 OUT_CACHE  = CACHE_DIR / "narratives_cache.json"
 OUT_CACHE_JS = CACHE_DIR / "narratives_cache.js"
 HIST_CACHE = CACHE_DIR / "narratives_history_cache.json"
-YF_SYMBOL_CACHE = CACHE_DIR / "yf_crypto_symbol_map.json"  # cg_id -> symbole Yahoo résolu
 LOCK_FILE  = CACHE_DIR / "narratives.lock"
 # Cache SQLite yfinance PRIVÉ à ce script (2026-07-31), cf. fetch_tradfi.py.
 # Ce script tourne À CHAQUE HEURE PILE et purgeait le cache PARTAGÉ
@@ -248,7 +247,26 @@ def fetch_stooq_snapshot_us(yahoo_sym):
 
 # Historical data: depth and TTL for the on-disk cache
 HIST_DAYS = 1825  # ~5 ans via CryptoCompare (gratuit, sans clé)
-HIST_TOP_N_PER_NARRATIVE = 3  # fetch top 3 candidates; index uses first with data (fallback)
+# ── L'INDICE SUIVAIT TROIS JETONS SUR TRENTE ─────────────────────────────
+# Ce nombre valait 3 : seules les trois premières capitalisations de chaque
+# panier avaient un historique, et l'indice « narratif » était donc la courbe
+# de trois jetons présentée comme celle de trente. Mesuré le 05/09/2026 :
+# 61 séries pour 247 constituants, soit 24,7 % du panier ; « Blockchains
+# applicatives » (30 jetons) était représenté par TRX, ADA et CC ; « Surcouches
+# Bitcoin » et « Marchés prédictifs » par UN seul jeton.
+#
+# La contrainte n'était pas la source mais le fournisseur : Yahoo Finance, qu'il
+# fallait interroger un ticker à la fois, en DEVINANT ce ticker (« UNI-USD »),
+# avec un garde-fou de collision qui laissait passer des séries d'autres actifs.
+# Depuis le passage à coins.llama.fi (identifiant EXACT, cinq jetons par
+# requête), le panier entier coûte environ trois cents requêtes et deux minutes.
+# Zéro veut dire « tous les constituants ».
+HIST_TOP_N_PER_NARRATIVE = 0
+
+
+def constituants(tokens):
+    """Les jetons dont on récolte l'historique. Tous, sauf réglage contraire."""
+    return tokens if not HIST_TOP_N_PER_NARRATIVE else tokens[:HIST_TOP_N_PER_NARRATIVE]
 HIST_CACHE_TTL_HOURS = 24
 
 
@@ -1115,134 +1133,132 @@ def _downsample(ts_price_list, daily_cutoff_days=90):
     return old_weekly + recent
 
 
-def _yf_chart_closes(sess, yf_sym, p1, p2):
-    """Renvoie [(ts_sec, close), ...] daily pour un symbole Yahoo, ou []."""
-    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_sym}"
-           f"?period1={p1}&period2={p2}&interval=1d")
-    try:
-        r = sess.get(url, timeout=25)
-        res = (r.json().get("chart", {}).get("result") or [None])[0]
-        if not res or not res.get("timestamp"):
-            return []
-        ts = res["timestamp"]
-        cl = (res.get("indicators", {}).get("quote", [{}])[0] or {}).get("close", []) or []
-        return [(int(t), float(c)) for t, c in zip(ts, cl) if c is not None and c > 0]
-    except Exception:
-        return []
+# ── DEUX AIDES YAHOO RETIRÉES AVEC LEUR APPELANT (05/09/2026) ────────────
+# `_yf_chart_closes` et `_yf_search_usd_symbols` ne servaient qu'à DEVINER le
+# ticker Yahoo d'un jeton — « {SYM}-USD », puis une recherche par nom. C'est
+# cette devinette qui rangeait les cours d'un autre actif sous le bon nom.
+# L'historique des jetons passe désormais par leur identifiant EXACT chez
+# DefiLlama ; les laisser ici ferait croire qu'un repli Yahoo existe encore.
+# Les ACTIONS, elles, continuent de passer par yfinance dans
+# `fetch_stock_histories` — ce sont de vrais tickers, il n'y a rien à deviner.
 
 
-def _yf_search_usd_symbols(sess, name):
-    """Résout un nom de crypto en symboles Yahoo '-USD' candidats via l'API search.
-    Yahoo désambiguïse les tickers en collision par suffixe numéroté
-    (ex. Uniswap = UNI7083-USD, pas UNI-USD)."""
-    from urllib.parse import quote
+def _llama_lot(cles, period, span, start, timeout=45):
+    """Un lot de séries chez DefiLlama. `cles` = ['coingecko:bitcoin', ...].
+
+    ⚠ LE PLAFOND DE CINQ CENTS POINTS EST PARTAGÉ PAR LE LOT, pas par jeton :
+    mesuré le 05/09/2026, cinq jetons × 92 points passent (460), six × 92 sont
+    refusés en 400. L'appelant doit donc borner `len(cles) * span` lui-même.
+
+    ⚠ UNE RÉPONSE VIDE EST UN SUCCÈS. Quand `start` précède la naissance du
+    jeton, la source rend `{"coins":{}}` avec un code 200 : cela veut dire « ce
+    jeton n'existait pas à cette date », pas « la source est en panne ».
+    Confondre les deux ferait relancer sans fin une requête qui ne rendra
+    jamais rien.
+    """
+    import urllib.request as _u
+    url = ("https://coins.llama.fi/chart/" + ",".join(cles) +
+           "?period=" + period + "&span=" + str(span) + "&start=" + str(int(start)))
     try:
-        r = sess.get(f"https://query1.finance.yahoo.com/v1/finance/search"
-                     f"?q={quote(name)}&quotesCount=8&newsCount=0", timeout=15)
-        return [x.get("symbol") for x in r.json().get("quotes", [])
-                if str(x.get("symbol", "")).endswith("-USD")]
-    except Exception:
-        return []
+        req = _u.Request(url, headers={"User-Agent": "capital-antifragile/1.0"})
+        with _u.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception as e:
+        print(f"[warn] llama chart {len(cles)} cle(s) : {e}", file=sys.stderr)
+        return {}
+    out = {}
+    for cle, obj in (data.get("coins") or {}).items():
+        pts = [(int(x["timestamp"]), float(x["price"]))
+               for x in (obj.get("prices") or [])
+               if x.get("price") is not None and x.get("price") > 0]
+        if pts:
+            out[cle.split(":", 1)[-1]] = sorted(pts)
+    return out
 
 
 def fetch_token_histories(tokens_meta, days=HIST_DAYS):
-    """Fetch daily price history via Yahoo Finance (curl_cffi impersonate).
-    CryptoCompare gratuit est mort depuis ~juin 2026 (401 'API key required',
-    racheté par CoinDesk). Yahoo bloque urllib (429) → curl_cffi obligatoire.
+    """L'historique de cours de chaque jeton, par son identifiant EXACT.
 
-    tokens_meta: {cg_id: {'symbol':..., 'name':..., 'price':...}}
-    Returns: {cg_id: [(ts_sec, price), ...]}
+    POURQUOI CE COLLECTEUR A CHANGE DE SOURCE (05/09/2026)
 
-    Garde-fou collision : Yahoo a souvent un VIEUX coin mort sous '{SYM}-USD'
-    (ex. UNI-USD ≠ Uniswap). On rejette toute série dont le dernier close diverge
-    fortement du prix CoinGecko de référence, puis on résout le bon symbole
-    numéroté via l'API search. La résolution (cg_id→symbole) est mémorisée pour
-    accélérer les runs suivants. Les tokens non résolus retombent sur le gap-fill
-    du cache disque (narratives_history_cache.json)."""
-    try:
-        from curl_cffi import requests as creq
-    except ImportError:
-        print("[warn] curl_cffi indisponible — token histories non rafraîchies", file=sys.stderr)
+    Il interrogeait Yahoo Finance en DEVINANT le ticker — « {SYM}-USD », puis
+    une recherche par nom si le premier essai echouait — avec un garde-fou qui
+    n'acceptait la serie que si son DERNIER cours tombait entre la moitie et le
+    double du prix CoinGecko de reference. Ce garde-fou ne regarde qu'UN point
+    sur mille huit cents : il laissait donc passer des series d'AUTRES ACTIFS
+    dont le dernier cours se trouvait, par hasard, dans la fourchette.
+
+    Mesure sur le cache publie : quatre series sur soixante et une portaient
+    l'identite d'un autre actif. `canton-network` — jeton ne en novembre 2025 —
+    affichait quarante-deux points de 2021 a 2023, a dix dollars puis dix-huit
+    cents. `celestia` n'avait plus que DEUX points, parce qu'un point aberrant a
+    7 149 $ avait fixe le plafond du filtre anti-preouverture a 71 $ et emporte
+    toute la serie reelle ; le narratif « Modulaire » se retrouvait sans indice,
+    et classe treizieme sur vingt-cinq malgre l'absence totale de donnee.
+
+    coins.llama.fi prend l'identifiant CoinGecko TEL QUEL — celui que le
+    dictionnaire NARRATIVES ecrit deja. Plus de devinette, donc plus de
+    collision, donc plus besoin ni du garde-fou de prix ni du filtre de
+    preouverture. Mesure le 05/09/2026 : `coingecko:canton-network` rend
+    quarante-deux points a partir du 2025-11-11 — sa vraie naissance — et
+    `coingecko:celestia` cent quarante-huit points depuis le 2023-10-31.
+
+    DEUX PASSES, PARCE QUE LE BUDGET DE POINTS EST PARTAGE
+      · l'ancienne histoire en pas HEBDOMADAIRE, un jeton par requete ;
+      · les quatre-vingt-douze derniers jours en pas QUOTIDIEN, cinq par requete.
+    C'est exactement la forme que `_downsample` produisait — quotidien recent,
+    hebdomadaire au-dela — mais obtenue A LA SOURCE plutot qu'en jetant des
+    points deja payes.
+
+    tokens_meta : {cg_id: {'symbol':..., 'name':..., 'price':...}}
+    Rend : {cg_id: [(ts_sec, prix), ...]}
+    """
+    ids = sorted(tokens_meta.keys())
+    if not ids:
         return {}
 
-    # Seed : symboles Yahoo numérotés que l'API search ne renvoie PAS pour ces
-    # cg_id (vérifiés manuellement 2026-06-13). Toujours re-validés par le garde-fou
-    # prix ci-dessous, donc sans risque si Yahoo renumérote un jour.
-    _YF_SYMBOL_SEED = {
-        "jupiter-exchange-solana": "JUP29210-USD",
-        "polygon-ecosystem-token": "POL28321-USD",
-    }
-    # Résolution persistée cg_id -> symbole Yahoo (évite la recherche à chaque run)
-    symmap = dict(_YF_SYMBOL_SEED)
-    if YF_SYMBOL_CACHE.exists():
-        try:
-            symmap.update(json.load(open(YF_SYMBOL_CACHE, "r", encoding="utf-8")))
-        except Exception:
-            pass
+    JOURS_QUOTIDIEN = 92
+    maintenant = int(time.time())
+    debut_hebdo = maintenant - max(days, 400) * 86400
+    debut_quoti = maintenant - JOURS_QUOTIDIEN * 86400
+    span_hebdo = max(8, min(400, int(max(days, 400) / 7) + 4))
 
-    sess = creq.Session(impersonate="chrome120")
-    p2 = int(time.time())
-    p1 = p2 - max(days, 400) * 86400
+    hebdo = {}
+    for i, cg in enumerate(ids):
+        hebdo.update(_llama_lot(["coingecko:" + cg], "7d", span_hebdo, debut_hebdo))
+        if i % 40 == 39:
+            print(f"[hist] hebdomadaire {i + 1}/{len(ids)} — {len(hebdo)} series")
+        time.sleep(0.05)
 
-    def price_ok(last, ref):
-        # collisions = écart de plusieurs ordres de grandeur ; vraie volatilité ≪ 2×
-        return bool(ref) and bool(last) and 0.5 <= (last / ref) <= 2.0
+    # Cinq jetons par requete : 5 x 92 = 460 points, sous le plafond de 500.
+    PAR_LOT = 5
+    quoti = {}
+    for i in range(0, len(ids), PAR_LOT):
+        lot = ids[i:i + PAR_LOT]
+        quoti.update(_llama_lot(["coingecko:" + c for c in lot], "1d",
+                                JOURS_QUOTIDIEN, debut_quoti))
+        time.sleep(0.05)
 
     out = {}
-    items = sorted(tokens_meta.items())
-    for i, (cg_id, meta) in enumerate(items):
-        sym = (meta.get("symbol") or "").strip()
-        name = meta.get("name") or sym
-        ref = meta.get("price")
+    for cg in ids:
+        h = hebdo.get(cg) or []
+        q = quoti.get(cg) or []
+        if q:
+            # On coupe l'hebdomadaire la ou le quotidien commence : garder les
+            # deux ferait deux points pour la meme semaine, et le calcul de
+            # rendement lirait une variation nulle suivie d'un saut.
+            t0 = q[0][0]
+            h = [x for x in h if x[0] < t0]
+        serie = h + q
+        if serie:
+            out[cg] = serie
 
-        # Ordre d'essai : symbole mémorisé, puis {SYM}-USD brut
-        tried = []
-        candidates = []
-        if symmap.get(cg_id):
-            candidates.append(symmap[cg_id])
-        if sym:
-            candidates.append(f"{sym}-USD")
-        raw, chosen = [], None
-        for c in candidates:
-            if not c or c in tried:
-                continue
-            tried.append(c)
-            pts = _yf_chart_closes(sess, c, p1, p2)
-            if pts and (ref is None or price_ok(pts[-1][1], ref)):
-                raw, chosen = pts, c
-                break
-            time.sleep(0.12)
-
-        # Résolution via search si le ticker brut était une collision / vide
-        if not raw and ref:
-            for c in _yf_search_usd_symbols(sess, name)[:6]:
-                if c in tried:
-                    continue
-                tried.append(c)
-                pts = _yf_chart_closes(sess, c, p1, p2)
-                if pts and price_ok(pts[-1][1], ref):
-                    raw, chosen = pts, c
-                    break
-                time.sleep(0.12)
-
-        if raw:
-            symmap[cg_id] = chosen
-            # Filtre phase pre-market/OTC : ignore tant que prix < 1% du max
-            max_px = max(px for _, px in raw)
-            threshold = max_px * 0.01
-            raw = [(ts, px) for ts, px in raw if px >= threshold]
-            out[cg_id] = _downsample(raw)
-            print(f"[hist] {sym} via {chosen}: {len(raw)} raw → {len(out[cg_id])} pts")
-        else:
-            print(f"[warn] {sym} ({cg_id}): aucun match Yahoo — gap-fill cache", file=sys.stderr)
-        if i < len(items) - 1:
-            time.sleep(0.2)
-
-    try:
-        with open(YF_SYMBOL_CACHE, "w", encoding="utf-8") as f:
-            json.dump(symmap, f, ensure_ascii=False, indent=0)
-    except Exception as e:
-        print(f"[warn] failed to write yf symbol map: {e}", file=sys.stderr)
+    manquants = [c for c in ids if c not in out]
+    print(f"[hist] {len(out)}/{len(ids)} series via coins.llama.fi "
+          f"({len(hebdo)} hebdo + {len(quoti)} quotidien)")
+    if manquants:
+        print(f"[warn] {len(manquants)} jeton(s) sans serie : "
+              + ", ".join(manquants[:12]), file=sys.stderr)
     return out
 
 
@@ -1323,7 +1339,7 @@ def compute_narrative_index(narr_stat, histories, n_top=HIST_TOP_N_PER_NARRATIVE
     Using multiple tokens gives each narrative a distinct signature, so narratives
     sharing their #1 token (e.g. BNB in L1 and Exchange Tokens) aren't perfectly
     correlated."""
-    tokens = narr_stat["tokens"][:n_top]  # already sorted by mcap desc
+    tokens = (narr_stat["tokens"] if not n_top else narr_stat["tokens"][:n_top])
     if not tokens:
         return None
 
@@ -1370,15 +1386,37 @@ def compute_narrative_index(narr_stat, histories, n_top=HIST_TOP_N_PER_NARRATIVE
     # Forward-fill sur la grille : dernier cours connu ≤ date de grille, pour
     # CHAQUE token. Chaque barre couvre alors le même intervalle pour tout le
     # panier, et un token isolé ne peut plus piloter l'indice.
+    # ⚠ LE REPORT EN AVANT NE DOIT PAS SURVIVRE À SON CONSTITUANT.
+    # Un jeton dont la collecte s'arrête — retrait de cotation, identifiant
+    # abandonné, série gelée — gardait son DERNIER cours reporté sur toute la
+    # suite de la grille. Il contribuait donc un rendement de ZÉRO à chaque
+    # barre, avec tout son poids de capitalisation, ce qui écrase l'indice vers
+    # zéro sans qu'aucun chiffre ne paraisse faux. Mesuré avant correction :
+    # quatre indices sur vingt-cinq portaient un constituant gelé — BUIDL, vingt
+    # pour cent du panier « Actifs réels », arrêté au 2022-08-14, soit mille
+    # quatre cent quatre-vingt-deux jours de report.
+    #
+    # Au-delà de six semaines sans point réel, on cesse de reporter : le
+    # constituant sort des barres suivantes au lieu de les amortir. Six semaines
+    # parce que la partie ancienne de la série est HEBDOMADAIRE — un seuil plus
+    # court écarterait des séries parfaitement vivantes.
+    TOLERANCE_REPORT_J = 45
     ff = {}
     for k, series in day_series.items():
         own_days = sorted(series.keys())
+        dernier_reel = own_days[-1]
         col, j, p, n_own = [], -1, 0, len(own_days)
         for g in grid:
             while p < n_own and own_days[p] <= g:
                 j = p
                 p += 1
-            col.append(series[own_days[j]] if j >= 0 else None)
+            if j < 0:
+                col.append(None)                       # pas encore coté
+                continue
+            ecart = (datetime.strptime(g, "%Y-%m-%d") -
+                     datetime.strptime(own_days[j], "%Y-%m-%d")).days
+            col.append(None if (g > dernier_reel and ecart > TOLERANCE_REPORT_J)
+                       else series[own_days[j]])
         ff[k] = col
 
     # ── Returns-based index (like S&P 500) ──
@@ -1689,7 +1727,7 @@ def augment_with_momentum_metrics(stats_list, histories):
     btc_180d = _perf_over_days(btc_hist, 180) if btc_hist else None
 
     for s in stats_list:
-        tokens = s["tokens"][:HIST_TOP_N_PER_NARRATIVE]
+        tokens = constituants(s["tokens"])
 
         # ── Momentum long terme (mcap-weighted, via histories) ──
         num90 = den90 = num180 = den180 = 0.0
@@ -1812,6 +1850,14 @@ def compute_composite(stats_list):
         s["score_rel_mom"] = rel_rk[i]
         s["score_breadth"] = breadth_rk[i]
         s["score_price"]   = px_rk[i]
+        # ⚠ UN NARRATIF SANS AUCUNE MESURE ÉTAIT CLASSÉ COMME UN NARRATIF MÉDIAN.
+        # `rank_normalize` rend cinquante pour toute valeur absente : « Modulaire »,
+        # dont l'unique constituant d'indice n'avait aucune série exploitable,
+        # ressortait treizième sur vingt-cinq — devant douze paniers qui, eux,
+        # avaient cinq ans d'historique. Le score reste calculé (le retirer du
+        # classement décalerait tous les rangs), mais la fiche doit pouvoir dire
+        # que ce rang ne repose sur rien.
+        s["momentum_mesure"] = (rel_vals[i] is not None)
         s["score"] = round(
             0.55 * rel_rk[i] + 0.225 * breadth_rk[i] + 0.225 * px_rk[i], 1
         )
@@ -1992,7 +2038,7 @@ def main():
     needed_cg = {}   # cg_id -> {"symbol","name","price"}
     needed_yf = set()
     for s in stats_list:
-        for t in s["tokens"][:HIST_TOP_N_PER_NARRATIVE]:
+        for t in constituants(s["tokens"]):
             if t.get("is_stock"):
                 needed_yf.add(t["symbol"])
             else:
@@ -2019,16 +2065,31 @@ def main():
                 with open(HIST_CACHE, "r", encoding="utf-8") as f:
                     prev_h = json.load(f)
                 h_filled = 0
+                h_perimees = 0
                 wanted_keys = set(needed_cg.keys()) | {"$" + s for s in needed_yf}
                 for k in wanted_keys:
                     if k in histories and len(histories[k]) >= 10:
                         continue
                     ph = prev_h.get(k)
+                    # ⚠ LE REPLI RESSUSCITAIT DES SÉRIES MORTES. Il acceptait
+                    # n'importe quelle série d'au moins dix points, sans aucun
+                    # contrôle d'ÂGE : une série arrêtée depuis quatre ans était
+                    # réinjectée à chaque passage, et le report en avant la
+                    # faisait peser sur l'indice comme si elle vivait. Un cache
+                    # qui se recopie lui-même indéfiniment n'est plus un repli,
+                    # c'est une fossilisation.
                     if ph and len(ph) >= 10:
+                        dernier = max(int(a) for a, _ in ph)
+                        if time.time() - dernier > 45 * 86400:
+                            h_perimees += 1
+                            continue
                         histories[k] = [(int(a), float(b)) for a, b in ph]
                         h_filled += 1
                 if h_filled:
                     print(f"[info] gap-filled {h_filled} histories from previous cache")
+                if h_perimees:
+                    print(f"[info] {h_perimees} serie(s) du cache ECARTEE(S) : "
+                          "dernier point de plus de 45 jours")
             except Exception as e:
                 print(f"[warn] could not read prev hist cache: {e}", file=sys.stderr)
         try:
