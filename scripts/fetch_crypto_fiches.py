@@ -314,6 +314,36 @@ def main():
             t[k] = c.get(k)
         t["age_annees"] = (round(c["age_jours"] / 365.25, 1)
                            if isinstance(c.get("age_jours"), int) else None)
+
+        # ── LE CHIFFRE ÉCRIT DOIT ÊTRE CELUI DU GRAPHE ──────────────────
+        # ⚠ La série mensuelle des frais porte un bloc `controle` fait pour
+        # refaire le total annuel à partir des points publiés. Sur 197 jetons
+        # sur 200, `frais_m` et ce total coïncident au centième près. Sur
+        # trois, ils divergent d'un facteur : Hyperliquid écrivait 1 313,4 M$
+        # là où sa propre série somme à 11,35 — cent seize fois — et son
+        # `frais_m` valait EXACTEMENT son `l1_frais_m`, la grandeur de la
+        # CHAÎNE, qui avait débordé dans le champ du protocole. Cosmos ×133,
+        # XRP ×0,3.
+        # La fiche affichait donc, à quinze centimètres d'écart, un montant et
+        # un graphe qui se contredisent, sans qu'aucun des deux ne se dise
+        # faux. Le contrôle est l'arbitre : il est calculé SUR les points
+        # tracés. On lui donne raison, et on garde trace du montant écarté.
+        ctrl = (((histj.get(cid) or {}).get("mensuel") or {})
+                .get("frais") or {}).get("controle") or {}
+        total_serie = ctrl.get("total1y_source")
+        fm = t.get("frais_m")
+        if (isinstance(total_serie, (int, float)) and total_serie > 0
+                and isinstance(fm, (int, float)) and fm > 0):
+            rapport = fm / total_serie
+            if rapport > 1.5 or rapport < 0.67:
+                t["frais_m"] = round(total_serie, 4)
+                t["frais_m_ecarte"] = {
+                    "valeur_ecartee": fm,
+                    "raison": ("Le montant du cache de captation contredisait la "
+                               "somme de la série mensuelle publiée (facteur "
+                               "%.4g). C'est la série qui fait foi : elle est ce "
+                               "que la fiche trace." % rapport),
+                }
         # L'ATH vient du cache de captation quand il l'a, du cache L1 sinon :
         # les deux le publient, et le premier couvre deux cents jetons quand
         # le second en couvre quinze.

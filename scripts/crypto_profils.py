@@ -285,7 +285,19 @@ ARCHETYPES = {
             ("usage_taux", 60, 30), ("usage_frais_m", 5, 0.5),
             ("frais_m", 5, 0.5), ("circ_pct", 70, 45),
             ("vol_mcap_pct", 5, 2), ("cycles", 1.0, 0.25),
-            ("suivi_cg", 30, 5), ("perf_1y", 20, -20),
+            # ⚠ CE SEUIL VALAIT 30 ET 5, ET N'A JAMAIS PU ÉCHOUER.
+            # La grandeur se compte en portefeuilles qui SUIVENT le jeton chez
+            # CoinGecko : Chainlink en a 647 312. Un seuil favorable à trente
+            # donnait le point à tout le monde, et la fiche affichait
+            # « 647 312 suivis · ≥ 30,00 suivis · 1 pt » — un critère qui ne
+            # discrimine rien pèse quand même dans la note sur vingt.
+            # Distribution mesurée le 05/09/2026 sur les 38 jetons qui portent
+            # la grandeur : médiane 120 400, premier quartile 56 860, neuvième
+            # décile 393 600 ; et elle ne varie pas d'un archétype à l'autre
+            # (médianes 102 300, 138 500 et 148 200). Les seuils du profil
+            # spéculatif — cent mille et vingt mille — s'appliquent donc tels
+            # quels ici, et c'est le même barème pour la même grandeur.
+            ("suivi_cg", 100000, 20000), ("perf_1y", 20, -20),
         ],
         "muets": {"tvl_b", "mc_tvl", "ps_ttm"},
         "raison": (
@@ -439,7 +451,7 @@ ARCHETYPES = {
         "criteres": [
             ("part_detenteurs_pct", 25, 5), ("frais_m", 20, 2),
             ("circ_pct", 70, 45), ("vol_mcap_pct", 3, 1),
-            ("suivi_cg", 30, 5), ("cycles", 1.5, 0.5),
+            ("suivi_cg", 100000, 20000), ("cycles", 1.5, 0.5),
             ("perf_1y", 20, -20),
         ],
         "muets": {"mc_tvl"},
