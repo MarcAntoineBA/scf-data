@@ -71,9 +71,23 @@ CHAMPS_EPOCH = ("generated_at", "updated_at_unix", "updated_unix", "updated_ts",
                 "ts_fetched", "ts")
 # Champs portant une date ISO. Retenus SEULEMENT s'ils portent Z ou un décalage :
 # une date nue ne dit pas de quelle horloge elle vient (cf. en-tête).
-CHAMPS_ISO = ("updated_at", "updated", "as_of", "asof")
+# ⚠ `genere_le` MANQUAIT AUX DEUX LISTES, ET C'EST LE CHAMP DES COLLECTEURS
+# RÉCENTS. Mesuré le 05/09/2026 : 88 % du parc n'avait aucune date lisible par
+# cet index — non parce que les caches n'en portent pas, mais parce qu'on ne
+# cherchait pas la bonne. Un index de fraîcheur aveugle ne dit pas « je ne sais
+# pas » : il retombe sur la date du FICHIER, c'est-à-dire sur celle de la copie,
+# et certifie donc « frais » un cache figé depuis des jours.
+# `generated_at` figure aussi en ISO chez certains collecteurs alors qu'il
+# n'était cherché qu'en epoch : il est désormais tenté des deux façons.
+CHAMPS_ISO = ("updated_at", "updated", "as_of", "asof", "genere_le",
+              "generated_at", "source_updated")
 
 _AVEC_FUSEAU = re.compile(r"(?:Z|[+-]\d{2}:?\d{2})$")
+# Une date nue suffixée « UTC » nomme son horloge en toutes lettres : la refuser
+# faisait passer pour illisibles les témoins de `marche` et d'`actionnariat`,
+# dont l'index certifiait alors la fraîcheur sur le mtime de la copie — « il y a
+# 54 min » pour une donnée de sept jours.
+_SUFFIXE_UTC = re.compile(r"\s+UTC$", re.I)
 
 
 def _canonique(epoch):
@@ -108,16 +122,28 @@ def horodatage_contenu(chemin):
 
     for champ in CHAMPS_ISO:
         m = re.search(r'"%s"\s*:\s*"([^"]{10,40})"' % champ, tete)
-        if m:
-            valeur = m.group(1).strip()
-            if not _AVEC_FUSEAU.search(valeur):
-                return None       # date nue : inutilisable pour comparer deux machines
-            try:
-                return _canonique(
-                    datetime.datetime.fromisoformat(
-                        valeur.replace("Z", "+00:00")).timestamp())
-            except ValueError:
-                return None
+        if not m:
+            continue
+        valeur = m.group(1).strip()
+        # ⚠ « 2026-08-29 10:15 UTC » NOMME SON HORLOGE, en toutes lettres.
+        # La refuser rendait illisibles les témoins de `marche` et
+        # d'`actionnariat` — et l'index retombait alors sur la date du FICHIER,
+        # c'est-à-dire de la copie, certifiant « il y a 54 min » une donnée de
+        # sept jours. Un index qui ne sait pas lire doit le dire, pas deviner.
+        if _SUFFIXE_UTC.search(valeur):
+            valeur = _SUFFIXE_UTC.sub("", valeur).replace(" ", "T") + "+00:00"
+        # ⚠ ET UN CHAMP ILLISIBLE NE CLÔT PAS LA RECHERCHE.
+        # Le `return None` d'ici abandonnait tout au PREMIER champ sans fuseau,
+        # même quand le cache portait plus bas un `genere_le` parfaitement
+        # daté. Un seul champ mal formé suffisait à rendre tout un cache muet.
+        if not _AVEC_FUSEAU.search(valeur):
+            continue          # date nue : on essaie le champ suivant
+        try:
+            return _canonique(
+                datetime.datetime.fromisoformat(
+                    valeur.replace("Z", "+00:00")).timestamp())
+        except ValueError:
+            continue
     return None
 
 

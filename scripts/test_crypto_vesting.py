@@ -105,19 +105,70 @@ def controles(d, maintenant):
                  and not j.get("calendrier_jusqu_au")]
     v(not sans_date, "tout calendrier épuisé porte sa date de fin", str(sans_date[:5]))
 
-    print("\n[5] La minute de la falaise prime sur le jour de la série")
-    # La série est datée au jour, l'événement à la minute. Monad déverrouille
-    # 10,7 milliards de jetons le 24 novembre 2026 à 05 h 48 UTC ; « le 25 »
-    # serait une autre échéance.
+    print("\n[5] Aucune fausse précision : le jour, jamais la minute")
+    # ⚠ CE CONTRÔLE DISAIT L'INVERSE PENDANT UNE JOURNÉE. Il exigeait que la
+    # falaise de Monad porte « 05:48:46Z », repris des événements de la source.
+    # Aucun projet ne publie l'heure de son déverrouillage : Monad et Plasma
+    # datent au JOUR dans leurs propres documents, et les heures non nulles de
+    # la source — 05:48:46, 17:25:48, 10:07:40 — sont des restes de calcul.
+    # Une minute affichée promet qu'on sait à quelle minute le contrat s'ouvre.
+    heures = sorted({e["date"][11:] for j in mes for e in j["prochains"]})
+    v(heures in ([], ["00:00:00Z"]),
+      "toutes les échéances sont datées au jour",
+      "heures trouvées : %s" % heures[:4])
     mon = J.get("monad")
     if mon:
         cliff = next((e for e in mon["prochains"] if e["type"] == "falaise"), None)
-        v(bool(cliff) and cliff["date"].endswith("05:48:46Z"),
-          "la falaise de Monad porte sa minute",
+        v(bool(cliff) and cliff["date"].startswith("2026-11-24"),
+          "la falaise de Monad tombe bien le 24 novembre 2026",
           cliff["date"] if cliff else "aucune falaise")
-        v(bool(cliff) and cliff.get("beneficiaire") == "Team",
-          "et le nom de son bénéficiaire",
-          str(cliff.get("beneficiaire") if cliff else None))
+        v(bool(cliff) and cliff.get("lot") == "Team",
+          "et porte le nom de son lot",
+          str(cliff.get("lot") if cliff else None))
+
+    print("\n[5b] Le débit d'un filet se déduit de sa DURÉE, pas de ses versements")
+    # ⚠ DÉFAUT RÉEL, TROUVÉ PAR UNE RELECTURE EXTÉRIEURE. La série n'est pas
+    # quotidienne pour tous les lots : celui des investisseurs de Monad n'a que
+    # NEUF points étalés sur DEUX CENT QUARANTE-CINQ jours. Le débit publié
+    # était celui d'un versement présenté comme quotidien — 410 millions de
+    # jetons par jour là où il en sort 15,1 millions, vingt-sept fois trop, sur
+    # la ligne même qui sert à jauger la pression vendeuse.
+    faux_debit = []
+    for j in mes:
+        for e in j["prochains"]:
+            if e["type"] != "filet":
+                continue
+            d0 = datetime.strptime(e["date"], "%Y-%m-%dT%H:%M:%SZ")
+            d1 = datetime.strptime(e["fin"], "%Y-%m-%dT%H:%M:%SZ")
+            span = max(1, (d1 - d0).days + 1)
+            if e.get("jours") != span:
+                faux_debit.append("%s/%s : jours=%s, durée réelle=%s"
+                                  % (j["symbole"], e["lot"][:18], e.get("jours"), span))
+            elif abs(e["par_jour"] * span - e["jetons"]) > e["jetons"] * 0.02:
+                faux_debit.append("%s/%s : %.4g/j × %d ≠ %.4g"
+                                  % (j["symbole"], e["lot"][:18], e["par_jour"], span, e["jetons"]))
+    v(not faux_debit, "le débit multiplié par la durée rend le total", str(faux_debit[:4]))
+
+    print("\n[5c] Deux échéances égales le même jour ne portent pas le même nom")
+    # ⚠ DÉFAUT RÉEL. Plasma libère DEUX falaises de 833 300 000 jetons le même
+    # jour, l'une pour l'équipe l'autre pour les investisseurs. Appariées à leur
+    # montant près, les deux recevaient le premier nom trouvé : la page
+    # attribuait 1,67 milliard de jetons — 59,8 % de la capitalisation — à
+    # l'ÉQUIPE, dont la moitié revient en fait aux investisseurs privés.
+    confondus = []
+    for j in mes:
+        vus = {}
+        for e in j["prochains"]:
+            if e["type"] != "falaise":
+                continue
+            cle = (e["date"], round(e["jetons"]))
+            qui = e.get("beneficiaire") or e.get("lot")
+            if cle in vus and vus[cle][0] == qui and vus[cle][1] != e.get("lot"):
+                confondus.append("%s : « %s » porté par les lots %s et %s"
+                                 % (j["symbole"], qui, vus[cle][1], e.get("lot")))
+            vus[cle] = (qui, e.get("lot"))
+    v(not confondus,
+      "deux lots distincts de même montant gardent des noms distincts", str(confondus[:4]))
 
     print("\n[6] Le produit qui n'a pas de sens est ÉCARTÉ, jamais publié")
     # `spcx` et `cbrs` sont des actions tokenisées : leurs quantités sont des
@@ -140,6 +191,30 @@ def controles(d, maintenant):
     sans = d.get("sans_calendrier") or {}
     muets2 = [g for g, x in sans.items() if not (x.get("raison") or "").strip()]
     v(not muets2, "chaque jeton sans calendrier porte sa raison", str(muets2[:5]))
+
+    # ⚠ CE CONTRÔLE NE VÉRIFIAIT QUE LA PRÉSENCE, JAMAIS LA VÉRITÉ.
+    # Les raisons affirmaient des faits qu'on n'avait pas regardés. XRP portait
+    # « ce jeton n'a jamais eu de calendrier de déverrouillage » alors que
+    # trente et un milliards de XRP sont sous séquestre chez Ripple, libérés
+    # d'un milliard par mois. NIGHT, ROSE et MINA héritaient de la même phrase
+    # par simple repli d'archétype. Et soixante-douze jetons absents du
+    # catalogue recevaient « ce n'est pas un défaut de collecte » — une
+    # affirmation sur ce qui n'a jamais été examiné.
+    # Une raison ne peut désormais affirmer que ce qui se vérifie depuis nos
+    # propres données : la nature d'enveloppe ou d'actif tokenisé. Pour le
+    # reste, elle dit l'ignorance, et le dit comme telle.
+    INTERDITS = ("jamais eu", "n’en a pas", "n'en a pas", "pas un défaut",
+                 "tous les jetons n’en ont pas", "connue d’avance")
+    menteuses = [(x.get("symbole"), m) for x in sans.values()
+                 for m in INTERDITS if m in (x.get("raison") or "")]
+    v(not menteuses,
+      "aucune raison n'affirme un fait qu'on n'a pas vérifié", str(menteuses[:4]))
+
+    # Et le vocabulaire des raisons reste FERMÉ : trois formes, pas une de plus.
+    formes = {(x.get("raison") or "")[:40] for x in sans.values()}
+    v(len(formes) <= 3,
+      "les raisons se comptent sur les doigts d'une main",
+      "%d formes distinctes" % len(formes))
     v(len(J) + len(sans) == d.get("univers"),
       "les jetons avec et sans calendrier couvrent tout l'univers",
       "%d + %d ≠ %d" % (len(J), len(sans), d.get("univers")))
@@ -225,19 +300,48 @@ def mutants():
             break
     cas.append(("calendrier épuisé muet", m))
 
-    # (6) la minute de Monad remplacée par le jour
+    # (6) une fausse heure réapparaît
     m = json.loads(json.dumps(base))
     for e in m["jetons"]["monad"]["prochains"]:
         if e["type"] == "falaise":
-            e["date"] = "2026-11-25T00:00:00Z"
+            e["date"] = "2026-11-24T05:48:46Z"
             break
-    cas.append(("falaise datée au jour", m))
+    cas.append(("fausse minute sur une falaise", m))
+
+    # (11) le débit d'un filet redevient celui d'un versement
+    m = json.loads(json.dumps(base))
+    for j in m["jetons"].values():
+        for e in j["prochains"]:
+            if e["type"] == "filet" and e.get("jours", 0) > 30:
+                e["par_jour"] = e["par_jour"] * 27
+                break
+        else:
+            continue
+        break
+    cas.append(("débit de filet vingt-sept fois trop haut", m))
+
+    # (12) deux falaises égales portent le même bénéficiaire
+    m = json.loads(json.dumps(base))
+    pl = m["jetons"].get("plasma")
+    if pl:
+        fal = [e for e in pl["prochains"] if e["type"] == "falaise"]
+        if len(fal) >= 2:
+            fal[1]["beneficiaire"] = fal[0].get("beneficiaire") or fal[0].get("lot")
+    cas.append(("deux lots confondus sous un seul nom", m))
 
     # (7) une action tokenisée publiée comme mesurable
     m = json.loads(json.dumps(base))
     g = next(iter(m["jetons"]))
     m["jetons"][g]["fenetres"]["j90"]["part_capi_pct"] = 480000.0
     cas.append(("part de capitalisation absurde", m))
+
+    # (13) une raison qui affirme un fait non vérifié
+    m = json.loads(json.dumps(base))
+    g = next(iter(m["sans_calendrier"]))
+    m["sans_calendrier"][g]["raison"] = ("Émission connue d’avance et sans "
+                                         "attributaire : ce jeton n’a jamais eu "
+                                         "de calendrier de déverrouillage.")
+    cas.append(("raison qui affirme sans vérifier", m))
 
     # (8) un jeton sans calendrier et sans raison
     m = json.loads(json.dumps(base))
@@ -293,7 +397,7 @@ def mutants():
         else:
             print("  ✗ %-42s A SURVÉCU" % nom)
             survivants.append(nom)
-    return survivants
+    return survivants, len(cas)
 
 
 def main():
@@ -308,11 +412,11 @@ def main():
     controles(d, maintenant)
     n = len(echecs)
     if "--mutants" in sys.argv:
-        s = mutants()
+        s, n_cas = mutants()
         if s:
             print("\n%d mutation(s) non attrapée(s) : le garde-fou est troué." % len(s))
             return 1
-        print("\nLes dix mutations tombent.")
+        print("\nLes %d mutations tombent." % n_cas)
     print("\n%s" % ("TOUT PASSE." if not n else "%d CONTRÔLE(S) EN ÉCHEC." % n))
     return 1 if n else 0
 

@@ -107,6 +107,20 @@ CATEGORIES_FR = {
     "liquidity": "liquidité",
     "community": "communauté",
     "publicMint": "émission publique",
+    # ⚠ SIX CLÉS MANQUAIENT ET SORTAIENT EN ANGLAIS BRUT SUR LA PAGE : sept
+    # lignes d'échéance affichaient « ecosystem » ou « Uncategorized » sous
+    # « Bénéficiaire », et vingt-sept fiches montraient « burned » dans le
+    # tableau « À qui revient l'offre ». Une clé anglaise au milieu de libellés
+    # français se lit comme une panne, et sur « Uncategorized » elle en est une :
+    # la source dit qu'elle ne sait pas classer ce lot.
+    "ecosystem": "écosystème",
+    "migration": "migration depuis un jeton précédent",
+    "burned": "brûlés",
+    "other": "autres",
+    "Uncategorized": "non classé par la source",
+    "uncategorized": "non classé par la source",
+    "launch": "lancement",
+    "liquity": "liquidité",
 }
 # Celles dont le déverrouillage change la NATURE de ce qu'on détient : des
 # jetons qui n'avaient pas de propriétaire vendeur en acquièrent un.
@@ -310,18 +324,38 @@ def deltas_futurs(lot, maintenant):
     6 avril 2028. C'est elle qui fait foi ; `unlockEvents` ne sert plus qu'à
     nommer le bénéficiaire d'une falaise, ce que la série ne dit pas.
     """
+    # ⚠ UN SAUT SE DATE PAR LE DÉBUT DE SON INTERVALLE, PAS PAR SA CONSTATATION.
+    # La série est échantillonnée à minuit : un déverrouillage qui a lieu le
+    # 24 novembre dans la journée n'apparaît que sur le point du 25 à 00 h 00.
+    # Daté à sa constatation, il tombait un jour trop tard — Monad affichait le
+    # 25 novembre là où le projet écrit le 24 dans son propre document, et une
+    # échéance décalée d'un jour est une autre échéance.
+    # Le saut s'est produit dans l'intervalle (t_précédent, t_courant] : c'est
+    # son DÉBUT qui le date.
     pts = sorted((p for p in (lot.get("data") or []) if p.get("timestamp")),
                  key=lambda p: p["timestamp"])
     out = []
     prec = None
+    prec_ts = None
     for p in pts:
         val = (p.get("unlocked") or 0.0) - (p.get("burned") or 0.0)
         if prec is not None and p["timestamp"] > maintenant:
             d = val - prec
             if d > 0:
-                out.append((p["timestamp"], d))
+                # Si le début de l'intervalle est déjà passé, le déverrouillage
+                # est imminent : on le date de sa constatation plutôt que d'une
+                # date révolue, qui le ferait disparaître des échéances à venir.
+                out.append((prec_ts if (prec_ts and prec_ts > maintenant)
+                            else p["timestamp"], d))
         prec = val
+        prec_ts = p["timestamp"]
     return out
+
+
+def ts_de(iso):
+    """L'horodatage d'une date ISO du cache."""
+    return int(datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ")
+               .replace(tzinfo=timezone.utc).timestamp())
 
 
 def _median(xs):
@@ -352,14 +386,6 @@ def prochaines_echeances(lots, categories, evenements, maintenant, offre_max,
     falaise sur un petit.
     """
     fin = maintenant + horizon_j * 86400
-    # Le bénéficiaire nommé, quand la source le donne pour cette minute-là.
-    noms = {}
-    for e in evenements or []:
-        ts = e.get("timestamp") or 0
-        for a in e.get("cliffAllocations") or []:
-            noms.setdefault(ts, []).append((a.get("recipient"), a.get("category"),
-                                            a.get("amount") or 0.0))
-
     falaises, filets = [], []
     for lot in lots:
         nom = lot.get("label")
@@ -383,15 +409,32 @@ def prochaines_echeances(lots, categories, evenements, maintenant, offre_max,
             if courant and abs(v - courant["_taux"]) <= courant["_taux"] * 0.05:
                 courant["fin"] = _iso(ts)
                 courant["jetons"] += v
-                courant["jours"] += 1
+                courant["_n"] += 1
             else:
                 if courant:
                     filets.append(courant)
                 courant = {"date": _iso(ts), "fin": _iso(ts), "type": "filet",
                            "lot": nom, "categorie": cat, "jetons": v,
-                           "jours": 1, "_taux": v}
+                           "_n": 1, "_taux": v}
         if courant:
             filets.append(courant)
+
+    # ⚠ « JOURS » COMPTAIT DES VERSEMENTS, PAS DES JOURS.
+    # La série n'est PAS quotidienne pour tous les lots : celui des investisseurs
+    # de Monad n'a que neuf points étalés sur deux cent quarante-cinq jours —
+    # une cadence mensuelle. Le groupement les réunissait bien, mais le débit
+    # publié était celui d'UN VERSEMENT présenté comme un débit QUOTIDIEN :
+    # 410 millions de jetons par jour là où il en sort 15,1 millions.
+    # Vingt-sept fois trop, sur la ligne même qui sert à jauger la pression
+    # vendeuse — et la ligne se contredisait toute seule, puisque son total et
+    # ses dates disaient autre chose que son débit.
+    # Le débit se déduit donc de la DURÉE RÉELLE entre le premier et le dernier
+    # versement, jamais du nombre de points.
+    for f in filets:
+        d0 = datetime.strptime(f["date"], "%Y-%m-%dT%H:%M:%SZ")
+        d1 = datetime.strptime(f["fin"], "%Y-%m-%dT%H:%M:%SZ")
+        f["jours"] = max(1, (d1 - d0).days + 1)
+        f["versements"] = f.pop("_n", f["jours"])
 
     # ⚠ UN GROUPE D'UN SEUL JOUR N'EST PAS UN DÉBIT, C'EST UNE FALAISE.
     # Le seuil relatif est AVEUGLE quand un lot n'a qu'une variation future :
@@ -401,39 +444,64 @@ def prochaines_echeances(lots, categories, evenements, maintenant, offre_max,
     # 1,13 milliard le 19 mai — les trois étaient rangés en filets, c'est-à-dire
     # présentés comme un écoulement régulier alors que ce sont des dates.
     # La durée tranche ce que le seuil ne sait pas trancher.
+    # ⚠ UNE FIN DE DONNÉES N'EST PAS UN ÉVÉNEMENT.
+    # Hyperliquid et THORChain publiaient une « falaise » qui n'était que le
+    # dernier point de leur série : RUNE annonçait un déverrouillage d'UN jeton,
+    # valant 49 centimes, sous un bénéficiaire « non classé ». Et sur HYPE, cette
+    # ligne fantôme suffisait à faire croire que le calendrier était VIVANT — la
+    # phrase « le calendrier publié s'arrête au… », écrite précisément pour ce
+    # cas, ne s'affichait donc jamais, alors que 61,2 % de l'offre reste sans
+    # aucune date.
+    fins = {}
+    for lot in lots:
+        pts = [p.get("timestamp") for p in (lot.get("data") or []) if p.get("timestamp")]
+        if pts:
+            fins[lot.get("label")] = max(pts)
     vrais_filets = []
     for f in filets:
-        taux = f.pop("_taux")
-        if f["jours"] <= 1:
+        f.pop("_taux", None)
+        if f["jours"] <= 1 or f.get("versements", 1) <= 1:
             falaises.append({"date": f["date"], "type": "falaise", "lot": f["lot"],
                              "categorie": f["categorie"], "jetons": f["jetons"]})
             continue
-        f["par_jour"] = round(taux, 2)
+        # Le débit vient du TOTAL divisé par la DURÉE : c'est la seule façon
+        # d'obtenir des jetons par jour à partir de versements mensuels.
+        f["par_jour"] = round(f["jetons"] / f["jours"], 2)
+        # ⚠ LA FIN AFFICHÉE ÉTAIT NOTRE HORIZON, PAS CELLE DU CALENDRIER.
+        # Soixante-cinq filets sur cent quatre-vingts portaient « 10 sept.
+        # 2027 » — exactement la date de génération plus trois cent soixante-dix
+        # jours — et cette date GLISSAIT d'un jour chaque jour. Le lecteur y
+        # lisait la fin du déverrouillage ; c'était la fin de notre fenêtre.
+        # Le filet tronqué le dit désormais, et la fiche écrira « au moins ».
+        f["tronque"] = bool(ts_de(f["fin"]) >= fin - 86400 * 2)
         vrais_filets.append(f)
+
+    # ⚠ ON N'APPARIE PLUS LE BÉNÉFICIAIRE PAR SON MONTANT.
+    # Plasma libère DEUX falaises de 833 300 000 jetons le même jour :
+    # l'une pour l'équipe, l'autre pour les investisseurs. Appariées à
+    # 1 % près, les deux recevaient le premier nom trouvé — la page
+    # attribuait donc 1,67 milliard de jetons à l'ÉQUIPE, soit 59,8 %
+    # de la capitalisation, dont la moitié revient en fait aux
+    # investisseurs privés. Deux montants égaux ne se distinguent pas
+    # par leur montant, et c'était la falaise la plus proche du
+    # calendrier.
+    # Le libellé du LOT porte déjà le bénéficiaire — « Team »,
+    # « Investors », « Category Labs Treasury » — et il vient du même
+    # document. On s'en tient à lui : une seconde source qui dit la même
+    # chose n'ajoute rien, et mal appariée elle retire.
+    # ⚠ LE FILTRE PASSE APRÈS LA PROMOTION, PAS AVANT.
+    # Écrit avant, il laissait passer THORChain : sa « falaise » d'UN jeton
+    # naissait de la promotion d'un groupe d'un seul jour, donc après le
+    # filtrage, et survivait intacte. Un garde-fou placé en amont de ce qu'il
+    # doit filtrer ne filtre rien — et c'est invisible, puisqu'il en attrape
+    # d'autres au passage.
+    falaises = [f for f in falaises
+                if not (fins.get(f["lot"]) and
+                        abs(ts_de(f["date"]) - fins[f["lot"]]) < 86400 * 2)]
 
     out = falaises + vrais_filets
     for e in out:
         e["jetons"] = round(e["jetons"], 2)
-        if e["type"] == "falaise":
-            # Le nom du bénéficiaire, quand la source l'attache à cette minute
-            # et que le montant concorde à 1 % près. Sans cette concordance, on
-            # attribuerait à un détenteur nommé une somme qui n'est pas la sienne.
-            ts = int(datetime.strptime(e["date"], "%Y-%m-%dT%H:%M:%SZ")
-                     .replace(tzinfo=timezone.utc).timestamp())
-            for ts_e, lst in noms.items():
-                if abs(ts_e - ts) > 86400:
-                    continue
-                for rec, cat, montant in lst:
-                    if montant and abs(montant - e["jetons"]) <= montant * 0.01:
-                        e["beneficiaire"] = rec
-                        if cat:
-                            e["categorie"] = cat
-                        # La série est datée au JOUR ; l'événement porte la
-                        # MINUTE. « le 24 novembre à 05 h 48 » et « le 25
-                        # novembre » ne décrivent pas la même échéance, et c'est
-                        # la première qui est juste.
-                        e["date"] = _iso(ts_e)
-                        break
     out.sort(key=lambda x: (x["date"], -(x.get("jetons") or 0)))
     return out
 
@@ -576,11 +644,59 @@ def construire(gid, slug, doc, jeton, maintenant):
         for p in lot.get("data") or []:
             fin_serie = max(fin_serie, p.get("timestamp") or 0)
 
+    # ⚠ DEUX POURCENTAGES NE SE SOUSTRAIENT QUE S'ILS ONT LE MÊME DÉNOMINATEUR.
+    # La ligne « Écart » retranchait `circ_pct` — que la fiche calcule comme
+    # capitalisation ÷ valeur pleinement diluée, donc sur la base de CoinGecko —
+    # de notre taux de déverrouillage, calculé sur l'offre maximale de DefiLlama.
+    # Les deux bases diffèrent, parfois de beaucoup, et sur treize fiches la
+    # soustraction affirmait l'INVERSE de ce qui se passe : un écart positif là
+    # où le marché compte plus de jetons que le contrat n'en a libéré.
+    # On recalcule donc l'offre en circulation sur NOTRE dénominateur, à partir
+    # de deux grandeurs du même cache : capitalisation ÷ cours.
     dev_total = sum(l["deverrouille"] - l["brule"] for l in lots_out)
     dev_pct = (dev_total / mx * 100.0) if mx else None
-    circ_pct = jeton.get("circ_pct")
+    circulante = (mcap / prix) if (prix and mcap > 0) else None
+    circ_pct = (circulante / mx * 100.0) if (circulante and mx) else None
+
+    # ⚠ ET UNE OFFRE MAXIMALE INFÉRIEURE À CE QUI CIRCULE DÉJÀ EST FAUSSE.
+    # Sur onze jetons, l'offre que CoinGecko voit exister dépasse notre
+    # « offre maximale » — jusqu'à +41 % sur Meteora — ce qui gonflait le taux
+    # de déverrouillage de vingt-deux points. Un plafond qu'on a déjà crevé
+    # n'est pas un plafond : on refuse de publier le taux plutôt que d'en
+    # publier un faux, et on dit pourquoi.
+    # ⚠ QUARANTE-SIX JETONS SUR CENT UN : LES DEUX SOURCES NE S'ACCORDENT PAS
+    # SUR CE QU'EST L'OFFRE MAXIMALE. DefiLlama prend la fin de son calendrier
+    # modélisé, CoinGecko l'offre déclarée par le projet — et l'écart va de
+    # −46 % (MemeCore) à +41 % (Meteora). Ni l'une ni l'autre n'est fausse :
+    # elles ne mesurent pas la même chose. Taire le désaccord ferait passer un
+    # choix pour un fait, alors qu'il change le dénominateur de tous les
+    # pourcentages de ce bloc. On le publie ; la fiche le dira quand il compte.
+    base_cg = ((jeton.get("fdv_b") or 0) * 1e9 / prix) if prix else None
+    ecart_offre_pct = (round((base_cg - mx) / mx * 100.0, 1)
+                       if (base_cg and mx and mx > 0) else None)
+
+    offre_incoherente = None
+    if circulante and mx and circulante > mx * 1.005:
+        offre_incoherente = (
+            "L’offre en circulation (%.4g jetons) dépasse l’offre maximale que "
+            "publie la source du calendrier (%.4g). Le plafond est donc faux, et "
+            "toute part rapportée à lui le serait aussi." % (circulante, mx))
+        dev_pct = None
+        circ_pct = None
+
     ecart = (round(dev_pct - circ_pct, 1)
-             if (dev_pct is not None and isinstance(circ_pct, (int, float))) else None)
+             if (dev_pct is not None and circ_pct is not None) else None)
+
+    # ⚠ SOIXANTE ET UN JETONS SUR CENT UN : LE CALENDRIER NE DOCUMENTE QU'UNE
+    # FRACTION DE L'OFFRE. MemeCore n'en couvre que 26,5 %, Hyperliquid 38,8 %.
+    # Or le tableau « À qui revient l'offre » présente des parts qui somment à
+    # cent : le lecteur comprend « les initiés recevront 29,9 % de tous les
+    # jetons » alors qu'il s'agit de 29,9 % de la part documentée. Sur MemeCore,
+    # cela revient à parler d'un quart de l'offre en ayant l'air de parler du
+    # tout — et le reste, qui n'est décrit nulle part, est précisément ce dont
+    # on voudrait la description.
+    couvert = dev_total + (m12 or 0.0)
+    couverture_pct = (round(couvert / mx * 100.0, 1) if mx and mx > 0 else None)
 
     return {
         "symbole": jeton.get("symbole"),
@@ -590,8 +706,19 @@ def construire(gid, slug, doc, jeton, maintenant):
         "nature": nature,
         "motif": motif,
         "offre_max": mx,
+        "offre_incoherente": offre_incoherente,
+        "offre_max_coingecko": round(base_cg) if base_cg else None,
+        "ecart_offre_max_pct": ecart_offre_pct,
+        # La base des deux pourcentages, écrite noir sur blanc : sans elle, un
+        # relecteur ne peut pas savoir sur quoi la soustraction porte.
+        "base_pourcentages": "offre maximale du calendrier",
+        "couverture_pct": couverture_pct,
         "calendrier_jusqu_au": _jour(fin_serie) if fin_serie else None,
-        "calendrier_epuise": bool(fin_serie and fin_serie <= maintenant),
+        # Un calendrier dont la série s'arrête demain est ÉPUISÉ : il ne
+        # documente plus rien. Comparé au seul instant présent, celui
+        # d'Hyperliquid passait pour vivant alors que 61 % de l'offre reste
+        # sans date, et la phrase écrite pour ce cas ne s'affichait jamais.
+        "calendrier_epuise": bool(fin_serie and fin_serie <= maintenant + 86400 * 3),
         "deverrouille_pct": round(dev_pct, 1) if dev_pct is not None else None,
         "circulant_pct": circ_pct,
         "ecart_contrat_flottant_pt": ecart,
@@ -645,13 +772,27 @@ def construire(gid, slug, doc, jeton, maintenant):
 
 
 def raison_sans_calendrier(jeton):
-    """Pourquoi ce jeton n'a pas de calendrier — jamais un vide muet.
+    """Pourquoi ce jeton n'a pas de calendrier — sans rien affirmer qu'on ignore.
 
-    Sur les 99 jetons de notre univers qui n'en ont pas, la grande majorité n'en
-    a pas PAR NATURE : ether et bitcoin n'ont jamais eu de vesting, stETH et
-    WBTC sont des enveloppes, l'or tokenisé suit un actif. Laisser une case vide
-    ferait croire à un trou de collecte, et les deux appellent des gestes
-    opposés.
+    ⚠ CETTE FONCTION A AFFIRMÉ DES FAUSSETÉS. Elle déduisait la raison du seul
+    archétype, et l'écrivait comme un fait établi. Mesuré :
+
+      · XRP recevait « ce jeton n'a jamais eu de calendrier de déverrouillage ».
+        Trente et un milliards de XRP — la moitié de sa capitalisation — sont
+        sous séquestre chez Ripple, qui en libère un milliard le premier de
+        chaque mois. La phrase était l'inverse de la vérité.
+      · NIGHT dégèle encore, ROSE vest jusqu'en 2030, MINA publie son propre
+        calendrier : tous les trois tombaient en « réserve de valeur » par
+        DÉFAUT, faute de profil nommé, et héritaient de la même phrase.
+      · Et soixante-douze jetons absents du catalogue de la source recevaient
+        « ce n'est pas un défaut de collecte : tous les jetons n'en ont pas » —
+        une affirmation sur ce qui n'a jamais été regardé. KITE, le plus faible
+        flottant de tout l'univers, en fait partie.
+
+    On ne garde donc que ce qui se VÉRIFIE depuis nos propres données : une
+    enveloppe suit son sous-jacent, un actif tokenisé suit son titre. Pour tout
+    le reste, la seule phrase vraie est qu'on ne sait pas — et elle invite à
+    aller voir, là où l'ancienne fermait la question.
     """
     a = jeton.get("archetype")
     if a in ("enveloppe", "staking_liquide"):
@@ -660,11 +801,10 @@ def raison_sans_calendrier(jeton):
     if a in ("matiere_tokenisee", "action_tokenisee"):
         return ("Actif tokenisé : l’émission suit la matière ou le titre "
                 "sous-jacent, pas un calendrier de projet.")
-    if a == "reserve_valeur":
-        return ("Émission connue d’avance et sans attributaire : ce jeton n’a "
-                "jamais eu de calendrier de déverrouillage.")
-    return ("La source ne publie pas de calendrier pour ce jeton. Ce n’est pas "
-            "un défaut de collecte : tous les jetons n’en ont pas.")
+    return ("La source de calendriers que nous interrogeons n’en publie pas "
+            "pour ce jeton. Nous n’avons pas vérifié ailleurs s’il en existe "
+            "un : l’absence ci-dessus est celle de notre source, pas "
+            "nécessairement celle d’un calendrier.")
 
 
 def archiver(chemin):
@@ -750,7 +890,24 @@ def main():
         print("[info] carte des slugs reprise du cache (%d entrées)" % len(carte))
     inv = {g: s for s, g in carte.items()}
 
-    cibles = [(g, inv[g]) for g in nos if g in inv]
+    # ⚠ DEUX JETONS TOMBAIENT DU PANIER POUR DES RAISONS DE PLOMBERIE.
+    # IOTA : son `gecko_id` est écrit « IOTA » en majuscules dans le fichier de
+    # la source, et nos identifiants sont en minuscules — le calendrier existait
+    # pourtant, neuf lots et vingt-huit échéances jusqu'en octobre 2027.
+    # Ethereum : son fichier fait 2,1 Mo et porte cinq lots dont « Early
+    # Contributors », mais son `gecko_id` est NUL, donc il n'entrait dans aucune
+    # carte. Son slug, lui, vaut exactement notre identifiant.
+    # Les deux étaient déclarés « la source ne publie pas de calendrier ».
+    inv_bas = {}
+    for slug_, gid_ in carte.items():
+        inv_bas.setdefault(str(gid_).lower(), slug_)
+    cibles = []
+    for g in nos:
+        slug = inv.get(g) or inv_bas.get(g.lower())
+        if not slug and g in set(slugs):
+            slug = g          # le fichier existe sous notre propre identifiant
+        if slug:
+            cibles.append((g, slug))
     print("[info] jetons avec un calendrier : %d sur %d" % (len(cibles), len(nos)))
 
     def charger(t):

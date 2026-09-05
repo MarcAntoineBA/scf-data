@@ -279,6 +279,19 @@ SANS_PLIST = [
          category="public",
          outputs=["crypto_fiches.js"],
          witness="crypto_fiches.js"),
+    # ⚠ CE JOB DOIT FIGURER ICI, SANS QUOI SON CACHE EST SERVI GELÉ AU VISITEUR.
+    # `_cache_files_synced.txt` — écrit à partir de ce bloc — décide de TROIS
+    # choses à la fois : ce qui redescend du nuage sur ce Mac, ce que
+    # `build_public.sh` déplace sous `/data/`, et ce qui reçoit une redirection.
+    # Un cache absent de la liste ne redescend jamais ET reste à la racine, donc
+    # hors de l'arbitrage de `functions/data/[[file]].js` : le visiteur reçoit la
+    # copie locale, figée au dernier passage manuel. Mesuré le 05/09/2026 :
+    # `crypto_fiches.js` avait 42 h pour une cadence de 6 h, et le calendrier de
+    # déverrouillage y lit le cours et la capitalisation dont il tire ses parts.
+    dict(id="crypto.vesting", script="fetch_crypto_vesting.py", args=[],
+         schedule="toutes les 6 h", per_day=4.0, cadence="6h", category="public",
+         outputs=["crypto_vesting_cache.js", "crypto_vesting_cache.json"],
+         witness="crypto_vesting_cache.json"),
     dict(id="crypto.options", script="fetch_options_multi.py", args=[],
          schedule="toutes les 1 h", per_day=24.0, cadence="1h",
          category="public",
