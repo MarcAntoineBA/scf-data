@@ -38,9 +38,36 @@ SEC déjà en place (`fetch_13f.py`, `fetch_sec_inities.py`, `fetch_sec_rachats.
 SORTIES
   · sec_fundamentals_index.{json,js} — un résumé par société (dernier exercice,
     croissances, scores). Léger, chargé par la page.
-  · sec_detail_<INITIALE>.json — les séries annuelles complètes, regroupées par
-    initiale du ticker, chargées au clic. Le découpage n'est pas un détail : le
-    dépôt porte la trace d'un incident où 14,5 Mo chargés d'un coup ont mis 30 s.
+  · sec_detail_<NNN>.json — les séries annuelles complètes, réparties en 512
+    paquets par empreinte du ticker, chargées au clic. Le découpage n'est pas un
+    détail : le dépôt porte la trace d'un incident où 14,5 Mo chargés d'un coup
+    ont mis 30 s.
+  · sec_trim_<NNN>.json — les séries TRIMESTRIELLES, même empreinte, mêmes 512
+    paquets, FICHIER SÉPARÉ.
+
+LA SÉRIE TRIMESTRIELLE, ET POURQUOI ELLE NE COÛTE RIEN
+`companyfacts` est rendu en entier, une requête par société. Les périodes
+trimestrielles sont donc dans les octets déjà reçus, et le collecteur les jetait
+— `_annuels` refuse tout ce qui n'est pas un 10-K et tout ce qui ne dure pas un
+an. Réseau supplémentaire : ZÉRO requête. Mesuré le 05/09/2026 sur quarante
+sociétés tirées au sort dans le parc publié : 500 exercices annuels contre
+1 543 trimestres, soit 3,09 fois plus de points, et 0,037 s de calcul en plus par
+société.
+
+Le fichier est SÉPARÉ de `sec_detail` parce que la fiche charge celui-là à chaque
+ouverture : y verser trois fois plus de lignes ferait payer la vue trimestrielle
+au lecteur qui ne l'ouvre jamais. L'index porte seulement `societes[SYM].trim`
+— nombre de trimestres, premier, dernier — de quoi savoir qu'il y a quelque
+chose à aller chercher.
+
+⚠ LES DÉPOSANTS ÉTRANGERS N'EN ONT PAS, ET C'EST NORMAL. Un émetteur qui remplit
+un 20-F ou un 40-F ne dépose pas de 10-Q. Mesuré sur l'échantillon de quarante :
+huit sociétés dans ce cas — Toyota, Qiagen, Miniso, Osisko, Youdao… Leurs
+rapports intermédiaires arrivent sous forme 6-K, et l'essai a été fait : ils
+rendent deux à vingt et un trimestres, MÉDIANE QUATRE, souvent arrêtés en 2021.
+Quatre points épars sur dix-huit ans ne sont pas une série trimestrielle ; on
+préfère l'absence, qui se voit, à un moignon qui se lit comme une série. Le
+6-K est donc refusé, et la fiche n'a rien à afficher pour ces sociétés-là.
 """
 # ── Garde-fou de durée, comme les autres collecteurs : un script bloqué sur une
 #    I/O réseau ne doit pas monopoliser le créneau du suivant.
@@ -83,7 +110,7 @@ import unicodedata
 import urllib.request
 import urllib.error
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -639,6 +666,58 @@ INSTANTS = {"assets", "assets_current", "liabilities", "liabilities_current",
 
 FORMES_ANNUELLES = ("10-K", "20-F", "40-F")
 
+# ─────────────────────────────────────────────────────────────────────────
+# LA SÉRIE TRIMESTRIELLE — ce qui était déjà téléchargé et qu'on jetait
+# ─────────────────────────────────────────────────────────────────────────
+# `companyfacts` est rendu EN ENTIER, une requête par société : les périodes
+# trimestrielles sont dans les octets déjà reçus, et `_annuels` les jetait par
+# deux filtres — la forme (`10-Q` hors de `FORMES_ANNUELLES`) et la durée
+# (340-400 jours). Le réseau supplémentaire est donc de ZÉRO requête.
+#
+# Mesuré le 05/09/2026 sur les huit sociétés d'essai, à la source :
+#   AAPL  RevenueFromContractWithCustomerExcludingAssessedTax : 9 exercices
+#         annuels contre 30 fins de trimestre distinctes
+#   JPM   NetIncomeLoss : 19 annuels contre 55 trimestres
+#   XOM   NetIncomeLoss : 19 annuels contre 54 trimestres
+#
+# ⚠ LES DEUX FORMES SUFFISENT, ET ON REFUSE LA TROISIÈME. Le 8-K porte lui aussi
+# des périodes trimestrielles — mesuré sur AAPL : 16 points de 90 jours sous
+# `SalesRevenueNet`, sur JPM : 4 sous `NetIncomeLoss`. C'est le COMMUNIQUÉ de
+# résultats, publié avant le rapport et parfois corrigé par lui. On ne le prend
+# pas : on préfère la valeur auditée à la valeur rapide, et surtout on ne veut
+# pas d'une série où deux trimestres voisins ne viennent pas du même document.
+FORMES_TRIMESTRIELLES = ("10-Q",)
+FORMES_PERIODIQUES = FORMES_ANNUELLES + FORMES_TRIMESTRIELLES
+
+# La fenêtre d'un trimestre, en jours. Elle est LARGE exprès : un calendrier
+# 4-4-5 donne des trimestres de 91 jours, une année de 53 semaines en donne un
+# de 98, et un exercice civil en donne de 89 (janvier-mars) à 92 (octobre-
+# décembre). Mesuré sur XOM 2025 : Q1 89 j, Q2 90 j, Q3 91 j, Q4 92 j.
+JOURS_TRIMESTRE = (75, 105)
+
+# ── LES GRANDEURS SERVIES EN TRIMESTRIEL, ET POURQUOI PAS LES CINQUANTE ──
+#
+# Le paquet trimestriel est trois fois plus long que l'annuel ; y verser les
+# cinquante concepts multiplierait son poids sans servir la vue. On garde ce
+# qu'une vue trimestrielle montre — le compte de résultat, les flux, et les
+# quelques postes de bilan qu'on lit à chaque publication — plus les grandeurs
+# qui ne sont là QUE pour reconstruire les autres (`revenue_total`,
+# `net_income_total`, les deux composantes du produit bancaire).
+CONCEPTS_TRIMESTRIELS = (
+    # Flux — compte de résultat
+    "revenue", "revenue_total", "revenue_contrats",
+    "produit_interet_net", "produit_commissions",
+    "cogs", "gross_profit", "opex", "charges_totales", "rd", "sga",
+    "operating_income", "pretax", "tax",
+    "net_income", "net_income_total", "interets_minoritaires_resultat",
+    "interest_expense", "eps_diluted", "eps_basic", "shares_diluted",
+    # Flux — tableau de trésorerie
+    "ocf", "capex", "dna", "sbc", "dividends_paid", "buybacks",
+    # Instants — bilan
+    "assets", "liabilities", "equity", "cash", "short_term_inv",
+    "lt_debt", "current_debt", "inventory", "goodwill", "retained_earnings",
+)
+
 
 # Les devises rencontrées pendant la construction d'UNE société. Remise à zéro
 # par `construire`, lue à la fin pour écrire `resume["devise"]`.
@@ -808,6 +887,76 @@ def devise_du_deposant(facts):
     return max(couverture, key=lambda u: (couverture[u], points.get(u, 0)))
 
 
+def _unite_retenue(unites, devise):
+    """L'unité à lire dans un bloc de faits, ou None quand aucune ne convient.
+
+    ⚠ EXTRAITE DE `_annuels`, ET C'EST LE POINT DE CE DÉCOUPAGE. La série
+    trimestrielle lit les MÊMES octets que la série annuelle ; si elle
+    choisissait son unité de son côté, les deux vues de la même société
+    finiraient par diverger sur un déposant étranger — un tableau annuel en
+    dollars et un tableau trimestriel en roubles, sans rien qui le dise. Un seul
+    endroit décide, les deux lecteurs l'appellent.
+
+    ── LE CHOIX DE L'UNITÉ, ET POURQUOI IL NE PEUT PAS ÊTRE « LA PLUS PEUPLÉE » ──
+
+    Cette ligne prenait l'unité la plus peuplée, en supposant que les autres
+    seraient « des doublons en devise étrangère ». C'est l'inverse pour un
+    déposant ÉTRANGER : sa devise de publication est l'unité la plus fournie, et
+    le dollar la minoritaire.
+
+    Mesuré le 28/08/2026 à la source (companyfacts de Nebius, CIK 1513845, même
+    dépôt 20-F) : Revenues {RUB: 39 valeurs, USD: 19}. Le max() prenait donc les
+    roubles — 800 125 000 000 — et la fiche affichait 800 milliards de dollars de
+    chiffre d'affaires pour une société qui en fait neuf. Huit sociétés
+    confirmées dans le même cas : Nebius, VinFast (dongs), JD.com, NIO,
+    JinkoSolar, HUYA, Gaotu, ECARX.
+
+    On prend donc le DOLLAR quand il existe. Ces déposants publient leurs deux
+    colonnes dans le même document : le jumeau en dollars est là, à côté, et
+    c'est celui qui se compare au reste de l'univers.
+
+    ⚠ On ne se contente pas de préférer : on RETIENT la devise choisie, pour que
+    l'appelant sache ce qu'il manipule. Elle était écrite « USD » en dur plus
+    bas, ce qui rendait l'anomalie invisible en aval.
+    """
+    if not unites:
+        return None
+    monetaires = [u for u in unites if u.isalpha() and len(u) == 3]
+    if monetaires:
+        # La devise de la société, décidée une fois pour toutes. Si ce concept ne
+        # la porte pas, on le LAISSE VIDE plutôt que de prendre une autre
+        # monnaie : une case vide se voit, un mélange non.
+        if devise and devise in unites:
+            cle_unite = devise
+        elif devise:
+            return None
+        else:
+            cle_unite = max(monetaires, key=lambda u: len(unites[u]))
+        _DEVISES_VUES.add(cle_unite)
+        return cle_unite
+    # ── LES UNITÉS « PAR ACTION » PORTENT UNE DEVISE, ELLES AUSSI ──
+    #
+    # Le test ci-dessus reconnaît une devise à `u.isalpha() and len == 3`.
+    # L'unité d'un bénéfice par action s'écrit « USD/shares », « TWD/shares » :
+    # la barre oblique n'est pas alphabétique, la liste des monétaires ressort
+    # vide, et le verrou de devise est SAUTÉ. On tombait alors sur l'unité la
+    # plus peuplée, sans regarder la monnaie.
+    #
+    # Taiwan Semiconductor dépose son BPA dans les deux monnaies. Le dollar
+    # taïwanais étant le plus fourni, la fiche aurait publié 44,68 pour un cours
+    # en dollars américains — facteur 33, P/E divisé d'autant. Mesuré aussi sur
+    # BCH (pesos chiliens), ELLO, TLX.
+    #
+    # On préfère donc explicitement la devise de la société quand elle existe,
+    # AVANT de retomber sur la plus peuplée.
+    par_action = "%s/shares" % devise if devise else None
+    if par_action and par_action in unites:
+        return par_action
+    # Ni devise à trois lettres, ni « devise/shares » : des actions, des taux,
+    # des ratios. La plus peuplée reste le bon choix.
+    return max(unites, key=lambda u: len(unites[u]))
+
+
 def _annuels(facts, concept_noms, instant=False, devise=None, millesimes=False):
     """{date_de_fin: (valeur, accn, date_de_depot)} pour les exercices publiés.
 
@@ -873,64 +1022,9 @@ def _annuels(facts, concept_noms, instant=False, devise=None, millesimes=False):
             sources.append((rang * 2 + 1, ifrs[nom]))
     for rang, bloc in sources:
         unites = bloc.get("units") or {}
-        # ── LE CHOIX DE L'UNITÉ, ET POURQUOI IL NE PEUT PAS ÊTRE « LA PLUS PEUPLÉE » ──
-        #
-        # Cette ligne prenait l'unité la plus peuplée, en supposant que les
-        # autres seraient « des doublons en devise étrangère ». C'est l'inverse
-        # pour un déposant ÉTRANGER : sa devise de publication est l'unité la
-        # plus fournie, et le dollar la minoritaire.
-        #
-        # Mesuré le 28/08/2026 à la source (companyfacts de Nebius, CIK 1513845,
-        # même dépôt 20-F) : Revenues {RUB: 39 valeurs, USD: 19}. Le max() prenait
-        # donc les roubles — 800 125 000 000 — et la fiche affichait 800 milliards
-        # de dollars de chiffre d'affaires pour une société qui en fait neuf. Huit
-        # sociétés confirmées dans le même cas : Nebius, VinFast (dongs), JD.com,
-        # NIO, JinkoSolar, HUYA, Gaotu, ECARX.
-        #
-        # On prend donc le DOLLAR quand il existe. Ces déposants publient leurs
-        # deux colonnes dans le même document : le jumeau en dollars est là, à
-        # côté, et c'est celui qui se compare au reste de l'univers.
-        #
-        # ⚠ On ne se contente pas de préférer : on RETIENT la devise choisie, pour
-        # que l'appelant sache ce qu'il manipule. Elle était écrite « USD » en
-        # dur plus bas, ce qui rendait l'anomalie invisible en aval.
-        if not unites:
+        cle_unite = _unite_retenue(unites, devise)
+        if cle_unite is None:
             continue
-        monetaires = [u for u in unites if u.isalpha() and len(u) == 3]
-        if monetaires:
-            # La devise de la société, décidée une fois pour toutes. Si ce
-            # concept ne la porte pas, on le LAISSE VIDE plutôt que de prendre
-            # une autre monnaie : une case vide se voit, un mélange non.
-            if devise and devise in unites:
-                cle_unite = devise
-            elif devise:
-                continue
-            else:
-                cle_unite = max(monetaires, key=lambda u: len(unites[u]))
-            _DEVISES_VUES.add(cle_unite)
-        else:
-            # ── LES UNITÉS « PAR ACTION » PORTENT UNE DEVISE, ELLES AUSSI ──
-            #
-            # Le test ci-dessus reconnaît une devise à `u.isalpha() and len == 3`.
-            # L'unité d'un bénéfice par action s'écrit « USD/shares », « TWD/shares » :
-            # la barre oblique n'est pas alphabétique, la liste des monétaires
-            # ressort vide, et le verrou de devise est SAUTÉ. On tombait alors sur
-            # l'unité la plus peuplée, sans regarder la monnaie.
-            #
-            # Taiwan Semiconductor dépose son BPA dans les deux monnaies. Le
-            # dollar taïwanais étant le plus fourni, la fiche aurait publié 44,68
-            # pour un cours en dollars américains — facteur 33, P/E divisé
-            # d'autant. Mesuré aussi sur BCH (pesos chiliens), ELLO, TLX.
-            #
-            # On préfère donc explicitement la devise de la société quand elle
-            # existe, AVANT de retomber sur la plus peuplée.
-            par_action = "%s/shares" % devise if devise else None
-            if par_action and par_action in unites:
-                cle_unite = par_action
-            else:
-                # Ni devise à trois lettres, ni « devise/shares » : des actions,
-                # des taux, des ratios. La plus peuplée reste le bon choix.
-                cle_unite = max(unites, key=lambda u: len(unites[u]))
         for p in unites[cle_unite]:
             forme = (p.get("form") or "").split("/")[0]   # « 10-K/A » compte comme « 10-K »
             if forme not in FORMES_ANNUELLES:
@@ -1346,7 +1440,8 @@ def _est_financiere(secteur):
 
 
 def construire(facts, mcap_usd=None, beta=None, cours=None,
-               variations=None, jour_marche=None, secteur=None):
+               variations=None, jour_marche=None, secteur=None,
+               avec_trimestres=True):
     _DEVISES_VUES.clear()
     # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
     # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
@@ -2097,7 +2192,607 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
         resume["cours_natif"] = None
         resume["cours_natif_le"] = None
 
-    return {"exercices": exercices, "resume": resume}
+    # ── LA SÉRIE TRIMESTRIELLE, BÂTIE SUR LES MÊMES OCTETS ──────────────
+    #
+    # Elle sort du même `facts` et de la même devise : aucune requête de plus.
+    # Elle est rendue À PART de `exercices` parce qu'elle est écrite à part —
+    # `sec_detail_NNN.json` est chargé à CHAQUE ouverture de fiche, et y verser
+    # trois fois plus de lignes ferait payer la vue trimestrielle à tous les
+    # lecteurs, y compris à ceux qui ne l'ouvrent jamais.
+    trimestres = []
+    if avec_trimestres:
+        trimestres = construire_trimestres(
+            facts, devise=devise, exercices=exercices, annuels=series)
+    if trimestres:
+        # Le résumé LÉGER : il dit à la page qu'un paquet trimestriel existe et
+        # ce qu'elle y trouvera, sans avoir à le charger pour l'apprendre.
+        #
+        # C'est la SEULE chose que le trimestriel ajoute à `sec_detail`, et c'est
+        # mesuré : 62 octets par société, +0,142 % sur les huit paquets d'essai,
+        # tout le reste étant identique octet pour octet au code d'avant. La
+        # consigne était de ne pas alourdir le fichier que la fiche charge à
+        # chaque ouverture ; trois nombres, ce n'est pas l'alourdir, et sans eux
+        # la fiche devrait télécharger le paquet trimestriel pour découvrir qu'il
+        # est vide.
+        resume["trim"] = {"n": len(trimestres),
+                          "premier": trimestres[0]["fin"],
+                          "dernier": trimestres[-1]["fin"]}
+
+    return {"exercices": exercices, "resume": resume,
+            "trimestres": trimestres}
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# La série trimestrielle
+# ─────────────────────────────────────────────────────────────────────────
+def _jours_entre(d0, d1):
+    """Le nombre de jours entre deux dates ISO, ou None si l'une est illisible."""
+    try:
+        return (datetime.fromisoformat(d1) - datetime.fromisoformat(d0)).days
+    except Exception:
+        return None
+
+
+def _lendemain(iso):
+    """Le jour suivant, en ISO. Sert à borner un trimestre reconstitué.
+
+    Un cumul à neuf mois s'arrête le 30 septembre ; le quatrième trimestre
+    commence donc le 1er octobre, pas le 30 septembre. Un jour d'écart n'a
+    aucune conséquence sur la valeur, mais il en a une sur ce qu'on AFFICHE :
+    « 01/10 → 31/12 » est la période réelle, « 30/09 → 31/12 » n'existe pas.
+    """
+    try:
+        d = datetime.fromisoformat(iso)
+        return (d + timedelta(days=1)).date().isoformat()
+    except Exception:
+        return iso
+
+
+def _poser_trimestre(out, fin, val, accn, depose, debut, calcul, rang, ferme,
+                     frame, accord=False):
+    """Range un point trimestriel, et tranche quand deux étiquettes se disputent.
+
+    ⚠ L'ÉTIQUETTE MIGRE AU MILIEU DE LA SÉRIE, ET LA MIGRATION EST TRIMESTRIELLE.
+    Mesuré sur AAPL le 05/09/2026 : le chiffre d'affaires trimestriel se lit sous
+    `SalesRevenueNet` (40 fins de trimestre), sous `Revenues` (8) et sous
+    `RevenueFromContractWithCustomerExcludingAssessedTax` (30), et les trois
+    plages se chevauchent. Choisir UNE étiquette pour toute la série laisserait
+    donc un trou de plusieurs années au milieu — exactement le défaut que
+    `_annuels` a déjà payé, un cran plus fin.
+    On recoud donc TRIMESTRE PAR TRIMESTRE, avec quatre départages, dans l'ordre :
+
+      1. l'ACCORD AVEC L'EXERCICE : une chaîne dont le total annuel est
+         exactement le nombre que la série annuelle publie pour cet exercice
+         passe devant tout le reste — voir plus bas ;
+      2. le RANG de l'étiquette : la plus spécifique gagne, comme pour l'annuel ;
+      3. à rang égal, le trimestre issu d'une CHAÎNE QUI SE REFERME SUR
+         L'EXERCICE bat le trimestre isolé — voir ci-dessous, ça a l'air à
+         l'envers et ça ne l'est pas ;
+      4. à égalité encore, le dépôt le plus récent : c'est le chiffre corrigé.
+
+    ⚠ L'ACCORD AVEC L'EXERCICE, ET POURQUOI IL PASSE MÊME DEVANT LE RANG.
+    Le rang tranche par étiquette, DATE PAR DATE : il peut donc donner l'annuel
+    à une étiquette et les trimestres du même exercice à une autre, et les quatre
+    trimestres ne totalisent plus l'année qu'ils découpent.
+
+    Mesuré sur Exxon le 05/09/2026 : elle a CESSÉ de déposer
+    `RevenueFromContractWithCustomerExcludingAssessedTax` en annuel après 2021
+    tout en continuant à le déposer chaque trimestre. L'exercice 2022 valait donc
+    413 680 M$ (`Revenues`) pendant que ses quatre trimestres totalisaient
+    400 940 (l'étiquette 606, qui exclut les produits des sociétés mises en
+    équivalence) : 3,1 % d'écart, sur la même fiche, entre le graphe annuel et le
+    graphe trimestriel. Sur 2017 le défaut jouait dans l'autre sens, à 3,0 %.
+
+    On donne donc la priorité à la chaîne qui DÉCOMPOSE le nombre annuel publié.
+    Ce n'est pas une préférence esthétique : c'est la seule façon que la vue
+    trimestrielle soit une lecture de la vue annuelle et non une seconde source.
+
+    ⚠ POURQUOI LA CHAÎNE PASSE DEVANT LE POINT DÉPOSÉ TEL QUEL.
+    On avait d'abord écrit l'inverse — « une valeur déposée bat une soustraction,
+    une soustraction juste reste une soustraction » — et la mesure a tranché
+    contre l'intuition.
+
+    Le 10-K porte une annexe « données trimestrielles », et certains déposants la
+    balisent avec des valeurs qui ne se raccordent à rien. Mesuré sur Timberland
+    Bancorp, exercice clos le 30/09/2013, résultat net : le trimestre
+    octobre-décembre 2012 vaut 1 708 k$ dans le 10-K de 2013, 1 611 dans celui de
+    2014 et 1 727 dans celui de 2015 — pour un exercice qui, lui, vaut 4 757 k$
+    dans les trois. Les quatre trimestres pris au dernier dépôt totalisaient
+    6 983 k$, soit 47 % de plus que l'exercice qu'ils composent.
+
+    La chaîne des cumuls, elle, se referme PAR CONSTRUCTION : 1 727 puis
+    2 986 − 1 727, 3 863 − 2 986, 4 757 − 3 863 font exactement 4 757. Chaque
+    terme est la différence de deux publications successives du même agrégat,
+    donc la somme téléscope sur l'exercice.
+
+    D'où le mot `ferme` : la priorité n'est pas donnée à « une soustraction »
+    mais à un trimestre appartenant à une chaîne dont le dernier maillon EST
+    l'exercice annuel. Un trimestre du dernier exercice en cours, dont le 10-K
+    n'est pas encore déposé, ne bénéficie donc d'aucune priorité — sa chaîne ne
+    se referme pas encore, et il n'y a rien à garantir.
+    """
+    prec = out.get(fin)
+    neuf = [val, accn, depose, debut, calcul, rang, ferme, frame, accord]
+    if prec is None:
+        out[fin] = neuf
+        return
+    if accord != prec[8]:
+        if accord:
+            out[fin] = neuf
+        return
+    if rang != prec[5]:
+        if rang < prec[5]:
+            out[fin] = neuf
+        return
+    if ferme != prec[6]:
+        if ferme:
+            out[fin] = neuf
+        return
+    if depose >= prec[2]:
+        out[fin] = neuf
+
+
+# ── LA TROISIÈME NATURE DE GRANDEUR, CELLE QU'ON AVAIT OUBLIÉE ──────────
+#
+# Une grandeur de FLUX s'additionne (le chiffre d'affaires), une grandeur
+# d'INSTANT se lit (l'actif). Il en existe une troisième, et elle ne rentre dans
+# aucune des deux : le nombre MOYEN d'actions et le bénéfice PAR ACTION.
+#
+# Un nombre moyen pondéré d'actions sur neuf mois moins le même sur trois mois
+# ne fait pas six mois d'actions : ça ne fait rien du tout. Mesuré le 05/09/2026
+# avant correction, sur les huit sociétés d'essai : 145 soustractions de
+# `shares_diluted` sur 474 trimestres rendaient un nombre NÉGATIF — JPMorgan 46
+# fois, Apple 36, NVIDIA 25. Elles n'étaient refusées que par la garde du signe,
+# c'est-à-dire par hasard : une société dont le nombre d'actions monte aurait
+# produit un résultat positif, plausible, et faux.
+#
+# Le bénéfice par action est du même bois. Il existe bien une formule qui rend le
+# quatrième trimestre — pondérer par le nombre de jours — mais elle suppose une
+# convention de pondération que le déposant ne déclare pas. On préfère la case
+# vide : ces deux grandeurs ne sont servies que là où la société les DÉPOSE,
+# c'est-à-dire aux trois premiers trimestres.
+NON_ADDITIFS = ("shares_diluted", "eps_diluted", "eps_basic")
+
+
+def _trimestres(facts, concept_noms, instant=False, devise=None, annuel=None,
+                additif=True):
+    """{fin: (valeur, accn, depose, debut, jours, calcul, frame)} par trimestre.
+
+    `additif` dit si la grandeur SUPPORTE la soustraction de deux cumuls. Elle
+    est vraie pour tout ce qui s'additionne — produits, charges, flux — et fausse
+    pour le nombre moyen d'actions et le bénéfice par action, voir `NON_ADDITIFS`.
+
+    `annuel` est la série ANNUELLE du même concept, {fin: valeur}, telle que
+    `_annuels` l'a recousue. Elle ne sert qu'à départager : une chaîne de cumuls
+    dont le dernier maillon vaut exactement le nombre annuel publié passe devant
+    les autres, pour que les quatre trimestres décomposent l'année qu'on affiche
+    au-dessus d'eux. Sans elle le résultat reste juste, mais les deux vues d'une
+    même société peuvent se contredire de quelques pour cent — mesuré sur Exxon,
+    voir `_poser_trimestre`.
+
+    `calcul` vaut None quand le trimestre est DÉPOSÉ tel quel, et porte sinon la
+    soustraction qui l'a produit — le site a une règle : une case déduite porte
+    une marque et son calcul.
+
+    ⚠ LE TRIMESTRE DE CLÔTURE N'EST PRESQUE JAMAIS BALISÉ, ET C'EST LE PLUS
+    IMPORTANT. Mesuré le 05/09/2026 à la source : sur JPMorgan, ZÉRO des 19
+    clôtures annuelles porte un point de 90 jours sous `NetIncomeLoss` ; sur
+    Exxon, ZÉRO sur 19. La société publie trois trimestres et un exercice, jamais
+    le quatrième trimestre. Une série qui s'arrêterait aux points balisés
+    manquerait donc un quart de ses points, toujours le même, et dessinerait une
+    saisonnalité entièrement fausse.
+
+    IL SE RECONSTITUE PAR SOUSTRACTION DE DEUX CUMULS. Le 10-Q ne publie pas un
+    trimestre isolé mais le CUMUL depuis l'ouverture de l'exercice : un point à
+    89 jours, un à 180, un à 272, puis le 10-K à 364. Chaque trimestre est la
+    différence de deux cumuls voisins, et le quatrième est « exercice complet
+    moins le cumul à neuf mois ».
+
+    La soustraction n'est pas une estimation, et c'est vérifiable : sur Exxon
+    2025, la chaîne des cumuls donne 7 713 / 14 795 / 22 343 / 28 844 M$, donc
+    des trimestres de 7 713 / 7 082 / 7 548 / 6 501 — et les deuxième et
+    troisième trimestres, que la société balise en plus, valent exactement
+    7 082 et 7 548. Les points déposés confirment les points calculés.
+
+    ⚠ CE MÉCANISME EST INTERDIT AUX GRANDEURS D'INSTANT. L'actif, le passif, les
+    capitaux propres et la trésorerie sont des SOLDES : le bilan du 30 juin n'est
+    pas la somme de deux trimestres, et le retrancher du bilan du 31 décembre ne
+    produit pas un chiffre, il produit une variation qu'on afficherait comme un
+    solde. Le paramètre `instant` sort donc AVANT toute chaîne, et il n'existe
+    aucun chemin qui reconstitue un instant.
+    """
+    us = facts.get("us-gaap") or {}
+    ifrs = facts.get("ifrs-full") or {}
+    sources = []
+    for rang, nom in enumerate(concept_noms):
+        if nom in us:
+            sources.append((rang * 2, us[nom]))
+        if nom in ifrs:
+            sources.append((rang * 2 + 1, ifrs[nom]))
+
+    out = {}
+    # Les valeurs que la société a bel et bien déposées pour une fin de
+    # trimestre, toutes étiquettes confondues. Elles servent à ne pas marquer
+    # « reconstituée » une valeur qui figure noir sur blanc dans un dépôt.
+    deposes = {}
+    for rang, bloc in sources:
+        unites = bloc.get("units") or {}
+        cle_unite = _unite_retenue(unites, devise)
+        if cle_unite is None:
+            continue
+
+        # Un point par période, le dépôt le plus récent gagnant : une société qui
+        # corrige un trimestre le redépose, et deux valeurs cohabitent alors.
+        bruts = {}
+        for p in unites[cle_unite]:
+            if (p.get("form") or "").split("/")[0] not in FORMES_PERIODIQUES:
+                continue
+            fin, val = p.get("end"), p.get("val")
+            if fin is None or val is None:
+                continue
+            debut = None if instant else p.get("start")
+            if not instant and not debut:
+                continue
+            cle = (debut, fin)
+            depose = p.get("filed") or ""
+            prec = bruts.get(cle)
+            if prec is None or depose >= prec[2]:
+                bruts[cle] = (float(val), p.get("accn"), depose, p.get("frame"))
+
+        if instant:
+            # Un solde se lit tel quel, à sa date, et rien d'autre n'est permis.
+            for (_deb, fin), (v, accn, dep, frame) in bruts.items():
+                _poser_trimestre(out, fin, v, accn, dep, None, None, rang, True,
+                                 frame)
+            continue
+
+        # ── LES CHAÎNES DE CUMULS, GROUPÉES PAR DATE D'OUVERTURE ──
+        #
+        # Le 10-Q ne publie pas un trimestre isolé, il publie le CUMUL depuis
+        # l'ouverture de l'exercice : mesuré sur Exxon 2025, `NetIncomeLoss`
+        # porte 89 j, 180 j, 272 j puis 364 j, tous ouverts le 1er janvier. La
+        # date d'ouverture est donc ce qui rattache un point à son exercice, et
+        # c'est la seule clé de regroupement dont on ait besoin.
+        chaines = {}
+        for (deb, fin), (v, accn, dep, frame) in bruts.items():
+            j = _jours_entre(deb, fin)
+            if j is None:
+                continue
+            if JOURS_TRIMESTRE[0] <= j <= JOURS_TRIMESTRE[1]:
+                deposes.setdefault(fin, []).append(v)
+            chaines.setdefault(deb, []).append((fin, v, accn, dep, j, frame))
+
+        for deb, points in chaines.items():
+            points.sort()
+            # La chaîne « se referme » quand elle porte l'exercice entier : c'est
+            # la garantie que ses trimestres totalisent l'annuel, et c'est ce qui
+            # lui donne la priorité sur un trimestre isolé.
+            cloture = [p for p in points if 340 <= p[4] <= 400]
+            ferme = bool(cloture)
+            accord = False
+            if cloture and annuel:
+                fin_an, val_an = cloture[-1][0], cloture[-1][1]
+                ref = annuel.get(fin_an)
+                if ref is not None:
+                    accord = abs(val_an - ref) <= 1e-6 * max(1.0, abs(ref))
+            fin, v, accn, dep, j, frame = points[0]
+            if JOURS_TRIMESTRE[0] <= j <= JOURS_TRIMESTRE[1]:
+                # Premier maillon : un trimestre DÉPOSÉ tel quel, sans calcul.
+                _poser_trimestre(out, fin, v, accn, dep, deb, None, rang, ferme,
+                                 frame, accord)
+            for i in range(1, len(points) if additif else 1):
+                fin, v, accn, dep, j, _frame = points[i]
+                fin0, v0, _accn0, dep0, j0, _f0 = points[i - 1]
+                ecart = _jours_entre(fin0, fin)
+                if ecart is None:
+                    continue
+                if not (JOURS_TRIMESTRE[0] <= ecart <= JOURS_TRIMESTRE[1]):
+                    # La différence de deux cumuls qui ne sont pas voisins n'est
+                    # pas un trimestre : un exercice moins un semestre fait six
+                    # mois, et l'écrire dans une série trimestrielle doublerait
+                    # le chiffre du lecteur. On préfère le trou.
+                    continue
+                calcul = "cumul %d j moins cumul %d j, exercice ouvert le %s" % (
+                    j, j0, deb)
+                _poser_trimestre(out, fin, v - v0, accn, max(dep, dep0),
+                                 _lendemain(fin0), calcul, rang, ferme, None,
+                                 accord)
+
+    # ── UNE VALEUR QUE LA SOCIÉTÉ A DÉPOSÉE N'EST PAS UNE VALEUR CALCULÉE ──
+    #
+    # La chaîne passe devant le point isolé, pour la raison expliquée dans
+    # `_poser_trimestre` — mais neuf fois sur dix les deux donnent le MÊME
+    # nombre, et Exxon 2025 le montre à l'unité près : la chaîne rend 7 082 et
+    # 7 548 M$ pour les deuxième et troisième trimestres, la société les balise
+    # aussi, aux mêmes valeurs. Garder la marque « reconstituée » dans ce cas
+    # reviendrait à avertir le lecteur d'un calcul là où le chiffre est déposé,
+    # et à noyer les vrais trimestres de clôture dans un océan de marques.
+    #
+    # Mesuré sur les huit sociétés d'essai : 5 518 cases marquées avant, 3 038
+    # après — 45 % des marques désignaient une valeur que la société avait
+    # déposée. Le nombre de LIGNES marquées, lui, ne bouge pas (73,0 %) : le
+    # tableau de flux n'est jamais déposé par trimestre isolé, seulement en
+    # cumulé, donc tout trimestre qui porte un flux de trésorerie porte au moins
+    # une soustraction. C'est la réalité du dépôt, pas un défaut du calcul.
+    for fin, v in out.items():
+        if v[4] and any(abs(v[0] - d) <= 1e-9 * max(1.0, abs(d))
+                        for d in deposes.get(fin, ())):
+            v[4] = None
+    return {fin: (v[0], v[1], v[2], v[3],
+                  _jours_entre(v[3], fin) if v[3] else None, v[4], v[7])
+            for fin, v in out.items()}
+
+
+def _rang_trimestre(fin, fins_annuelles):
+    """(clôture, exercice, rang 1-4) d'un trimestre, d'après les clôtures annuelles.
+
+    Un rang de trimestre ne se lit nulle part dans les données : `fp` vaut « FY »
+    sur des points de quatre-vingt-dix jours (mesuré sur AAPL : 8 points sous
+    `Revenues`, tous trimestriels, tous étiquetés FY), et le champ `frame` —
+    « CY2018Q1 » — parle du trimestre CIVIL, pas de l'exercice de la société.
+    Pour Apple, dont l'exercice se ferme fin septembre, les deux ne coïncident
+    jamais.
+
+    On le déduit donc de la position du trimestre dans son exercice, en mois :
+    c'est un repère d'affichage, il est nommé comme tel, et il vaut None quand
+    aucune clôture annuelle ne l'encadre — on ne devine pas.
+    """
+    if not fins_annuelles:
+        return None, None, None
+    suivantes = [f for f in fins_annuelles if f >= fin]
+    if suivantes:
+        cloture = min(suivantes)
+        if _jours_entre(fin, cloture) > 400:
+            return None, None, None
+        cloture_reelle = cloture
+    else:
+        # Un trimestre plus récent que le dernier 10-K : la clôture de son
+        # exercice n'est pas encore déposée. On la projette d'un an sur la
+        # dernière connue, ce qui suffit à placer le trimestre.
+        derniere = max(fins_annuelles)
+        ecart = _jours_entre(derniere, fin)
+        if ecart is None or ecart > 400:
+            return None, None, None
+        try:
+            d = datetime.fromisoformat(derniere)
+            cloture = d.replace(year=d.year + 1).date().isoformat()
+        except Exception:
+            return None, None, None
+        # Une clôture PROJETÉE n'est pas une clôture déposée : elle ne sert qu'à
+        # placer le trimestre sur l'axe, jamais à contrôler une somme annuelle.
+        # On la rend sans son nom d'exercice pour que le contrôle ne s'y accroche
+        # pas — l'exercice n'est pas fini, il n'y a rien à refermer.
+        cloture_reelle = None
+    try:
+        a, b = datetime.fromisoformat(fin), datetime.fromisoformat(cloture)
+    except Exception:
+        return None, None, None
+    mois = (b.year - a.year) * 12 + (b.month - a.month)
+    rang = 4 - int(round(mois / 3.0))
+    if not (1 <= rang <= 4):
+        return None, None, None
+    return cloture_reelle, annee_exercice(cloture), rang
+
+
+# Les grandeurs qu'une soustraction ne peut pas rendre négatives. Un chiffre
+# d'affaires trimestriel négatif ne se lit pas comme une anomalie, il se lit
+# comme un chiffre — et il fausserait la marge, la croissance et la saisonnalité
+# du trimestre. Le résultat net, lui, est légitimement négatif : il n'est PAS
+# dans cette liste, et le résultat d'exploitation non plus.
+#
+# Que des grandeurs de FLUX : un poste de bilan n'est jamais reconstitué, donc
+# jamais soumis à ce contrôle. L'y inscrire donnerait l'illusion d'une garde là
+# où il n'y a rien à garder.
+JAMAIS_NEGATIF = ("revenue", "revenue_total", "revenue_contrats")
+
+
+def construire_trimestres(facts, devise=None, exercices=None, annuels=None):
+    """La série trimestrielle d'une société, prête à écrire.
+
+    ⚠ L'AXE DU TEMPS EST UNE UNION, PAS UNE SEULE LIGNE — et la mesure le dit
+    plus fort en trimestriel qu'en annuel. Les banques ne déposent pas
+    « Revenues » : mesuré le 05/09/2026 sur Timberland Bancorp (TSBK), le concept
+    `Revenues` est ABSENT de son paquet, alors que `NetIncomeLoss` y porte 63
+    fins de trimestre. Un axe bâti sur le seul chiffre d'affaires rendrait donc
+    zéro trimestre pour toute une profession.
+
+    L'axe est l'union des dates des quatre grandeurs de flux principales,
+    exactement comme `construire` le fait pour l'annuel.
+    """
+    fins_annuelles = [e["fin"] for e in (exercices or [])]
+    exercices_par_fin = {e["fin"]: e for e in (exercices or [])}
+    series = {}
+    for cle in CONCEPTS_TRIMESTRIELS:
+        # La série annuelle du MÊME concept, réduite à {fin: valeur} : elle sert
+        # de juge de paix entre deux étiquettes qui couvrent le même trimestre.
+        ref = (annuels or {}).get(cle) or {}
+        series[cle] = _trimestres(facts, CONCEPTS[cle],
+                                  instant=(cle in INSTANTS), devise=devise,
+                                  annuel={f: v[0] for f, v in ref.items()},
+                                  additif=(cle not in NON_ADDITIFS))
+
+    axe = sorted(set(series["revenue"]) | set(series["net_income"])
+                 | set(series["net_income_total"]) | set(series["ocf"]))
+    if not axe:
+        return []
+
+    lignes = []
+    for fin in axe:
+        t = {"fin": fin}
+        reconstitues, deduits = {}, {}
+        for cle in CONCEPTS_TRIMESTRIELS:
+            pt = series[cle].get(fin)
+            if not pt:
+                t[cle] = None
+                continue
+            val, _accn, _dep, debut, jours, calcul, _frame = pt
+            if calcul and val is not None and val < 0 and cle in JAMAIS_NEGATIF:
+                # Une soustraction qui rend un chiffre d'affaires négatif n'a pas
+                # trouvé la bonne paire de cumuls. On laisse la case VIDE et on
+                # le dit : le vide se voit, le négatif se lit comme un chiffre.
+                t[cle] = None
+                deduits["%s_refuse" % cle] = (
+                    "reconstitution négative refusée (%s)" % calcul)
+                continue
+            t[cle] = val
+            if calcul:
+                # Groupé PAR CALCUL, et pas par champ. Les quinze grandeurs
+                # reconstituées d'un même trimestre partagent presque toujours la
+                # même soustraction — « cumul 180 j moins cumul 89 j » — et la
+                # répéter quinze fois coûtait 884 octets par ligne, soit plus de
+                # la moitié du paquet (mesuré le 05/09/2026 : 419 Ko sur 801 pour
+                # les huit sociétés d'essai). Une clé par calcul, la liste des
+                # champs derrière : même information, même auditabilité.
+                reconstitues.setdefault(calcul, []).append(cle)
+            if cle in ("revenue", "net_income", "ocf") and debut:
+                t.setdefault("debut", debut)
+                t.setdefault("jours", jours)
+
+        # ── Les mêmes déductions comptables qu'en annuel, et pas d'autres ──
+        # Elles sont reprises de `construire` avec leurs gardes : une fiche qui
+        # affiche 3 543 M$ de produit net bancaire en annuel et une case vide en
+        # trimestriel ferait douter des deux.
+        if t.get("net_income") is None and t.get("net_income_total") is not None:
+            t["net_income"] = (t["net_income_total"]
+                               - (t.get("interets_minoritaires_resultat") or 0.0))
+            deduits["net_income"] = "résultat total moins les minoritaires"
+        if (t.get("gross_profit") is None and t.get("revenue") is not None
+                and t.get("cogs") is not None):
+            t["gross_profit"] = t["revenue"] - t["cogs"]
+            deduits["gross_profit"] = "produits moins coût des ventes"
+        _pin, _pcom = t.get("produit_interet_net"), t.get("produit_commissions")
+        _miettes = (t.get("revenue") is not None
+                    and t.get("revenue_contrats") is not None
+                    and t["revenue"] == t["revenue_contrats"])
+        if (_pin is not None and _pcom is not None
+                and (_miettes or t.get("revenue") is None)):
+            t["revenue"] = _pin + _pcom
+            deduits["revenue"] = "produit net bancaire : marge d’intérêt plus commissions"
+        elif (_miettes and t.get("revenue_total") is not None
+                and t["revenue_total"] > t["revenue"] * 1.5):
+            t["revenue"] = t["revenue_total"]
+            deduits["revenue"] = "total des produits, l’étiquette « contrats clients » ne portant que des miettes"
+
+        if t.get("capex") is not None:
+            t["capex"] = abs(t["capex"])
+        for cle in ("dividends_paid", "buybacks"):
+            if t.get(cle) is not None:
+                t[cle] = abs(t[cle])
+        if t.get("ocf") is not None and t.get("capex") is not None:
+            t["fcf"] = t["ocf"] - t["capex"]
+        t["marge_brute"] = _pct(t.get("gross_profit"), t.get("revenue"))
+        t["marge_ope"] = _pct(t.get("operating_income"), t.get("revenue"))
+        t["marge_nette"] = _pct(t.get("net_income"), t.get("revenue"))
+
+        # ── UN TRIMESTRE VIDE N'EST PAS UN TRIMESTRE ──
+        # Contrepartie de l'axe en union, et même garde qu'en annuel : l'union
+        # ouvre une ligne dès qu'une grandeur y existe, y compris une ligne
+        # d'annexe sans aucun état derrière.
+        if not any(isinstance(t.get(k), (int, float))
+                   for k in ("revenue", "net_income", "ocf", "assets", "equity",
+                             "eps_diluted")):
+            continue
+
+        cloture, exercice, rang = _rang_trimestre(fin, fins_annuelles)
+        t["exercice"], t["t"] = exercice, rang
+        # Le `frame` de la SEC estampille les points canoniques — mesuré sur les
+        # huit sociétés d'essai, 83 923 points sur 208 344 en portent un, soit
+        # 40,3 % — de 38,1 % chez JPMorgan à 47,0 % chez Rivian. C'est une clé de
+        # CONFORT pour recouper une série avec une autre, jamais une source : les
+        # 60 % restants sont des points tout aussi vrais.
+        src = series["revenue"].get(fin) or series["net_income"].get(fin)
+        if src:
+            t["accn"], t["depose_le"], t["frame"] = src[1], src[2], src[6]
+        if reconstitues:
+            # La marque que la fiche lit pour DIRE au lecteur qu'une case a été
+            # calculée, et par quel calcul. `_reconstitue_champs` est indexé par
+            # CALCUL : {« cumul 364 j moins cumul 272 j… » : [champs concernés]}.
+            t["_reconstitue"] = True
+            t["_reconstitue_champs"] = reconstitues
+        if deduits:
+            t["_deduit_champs"] = deduits
+        # Les cases vides ne sont pas écrites : c'est le seul levier de poids qui
+        # ne coûte aucune information. Mesuré le 05/09/2026 sur les huit sociétés
+        # d'essai : 909 octets par trimestre au lieu de 1 217, soit un quart de
+        # moins. Une clé absente veut dire « non déposé », exactement comme un
+        # `null` — c'est même l'inverse d'une perte : chez une banque, les vingt
+        # cases de marge brute et de coût des ventes n'existent pas, et le
+        # fichier cesse de prétendre les avoir cherchées.
+        lignes.append(({k: v for k, v in t.items() if v is not None}, cloture))
+
+    return _controler_bouclage(lignes, exercices_par_fin)
+
+
+# L'écart relatif au-delà duquel la somme des quatre trimestres cesse d'être
+# une décomposition de l'exercice. Il est posé DANS LE VIDE, comme le veut ce
+# dépôt : mesuré le 05/09/2026 sur les huit sociétés d'essai, 313 des 314
+# couples exercice/grandeur bouclent à 0,000000 % — exactement — et le 314e
+# (Exxon 2017, chiffre d'affaires) manque de 3,04 %. Il n'y a rien entre les
+# deux. Un demi pour cent tient donc largement compte des arrondis de dépôt
+# (un déposant qui publie une ligne au million et une autre à l'unité) sans
+# risquer d'attraper un vrai désaccord d'étiquette.
+ECART_BOUCLAGE = 0.005
+
+# Les grandeurs de FLUX dont la somme des quatre trimestres doit valoir
+# l'exercice. Ni les instants — un bilan ne s'additionne pas —, ni les ratios,
+# ni les grandeurs PAR ACTION : un bénéfice par action annuel n'est pas la somme
+# des quatre trimestriels dès que le nombre d'actions bouge.
+BOUCLABLES = ("revenue", "net_income", "ocf", "operating_income", "gross_profit",
+              "pretax", "tax", "capex", "dna", "sbc", "dividends_paid",
+              "buybacks", "cogs", "rd", "interest_expense")
+
+
+def _controler_bouclage(lignes, exercices_par_fin):
+    """Vérifie que les quatre trimestres d'un exercice le totalisent, et le DIT.
+
+    ⚠ ON SE COMPARE À L'EXERCICE CONSTRUIT, PAS À LA SÉRIE BRUTE. Une première
+    version confrontait la somme des trimestres à `_annuels` — c'est-à-dire aux
+    étiquettes telles quelles, avant les déductions comptables de `construire`.
+    Elle accusait alors dix exercices innocents : chez Citizens Financial
+    Services, le chiffre d'affaires brut vaut les seules commissions (9,6 M$ en
+    2024) là où l'exercice publie le produit net bancaire reconstruit
+    (101,9 M$), et le contrôle criait à un écart de 960 %. Le trimestre, lui,
+    reconstruit le produit bancaire de la même façon : c'est bien à l'exercice
+    FINI qu'il faut le comparer, sinon la garde dénonce sa propre règle.
+
+    ⚠ CE CONTRÔLE NE CORRIGE RIEN, ET C'EST VOULU. Corriger voudrait dire
+    répartir l'écart, c'est-à-dire inventer quatre chiffres à la place des quatre
+    déposés. On préfère publier la vérité gênante : « ces quatre trimestres
+    totalisent 244 363 M$ là où l'exercice en affiche 237 162 », avec la cause.
+
+    Le cas mesuré est Exxon 2017. La société a adopté la norme 606 en 2018 et a
+    retraité l'exercice 2017 sous la nouvelle étiquette — mais pas ses
+    trimestres, qui n'existent que sous l'ancienne. L'exercice et ses quatre
+    trimestres ne parlent donc littéralement pas de la même grandeur, et aucune
+    arithmétique ne les réconciliera.
+
+    La marque est posée sur le trimestre de CLÔTURE : c'est celui qu'on
+    reconstitue, donc celui qu'un lecteur soupçonnerait le premier.
+    """
+    par_cloture = {}
+    for t, cloture in lignes:
+        if cloture:
+            par_cloture.setdefault(cloture, []).append(t)
+    for cloture, ts in par_cloture.items():
+        if len(ts) != 4:
+            continue          # un exercice incomplet n'a rien à boucler
+        dernier = max(ts, key=lambda x: x["fin"])
+        ecarts = {}
+        exercice = exercices_par_fin.get(cloture) or {}
+        for cle in BOUCLABLES:
+            ref = exercice.get(cle)
+            if not isinstance(ref, (int, float)) or ref == 0:
+                continue
+            vals = [x.get(cle) for x in ts]
+            if any(v is None for v in vals):
+                continue
+            somme = sum(vals)
+            if abs(somme - ref) > ECART_BOUCLAGE * abs(ref):
+                ecarts[cle] = ("les quatre trimestres totalisent %.6g, "
+                               "l'exercice publie %.6g" % (somme, ref))
+        if ecarts:
+            dernier["_ecart_exercice"] = ecarts
+    return [t for t, _cloture in lignes]
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -2634,13 +3329,22 @@ def _options(argv):
        --tranche auto         un septième de l'univers par jour, découpé sur le
                               RANG de capitalisation pour que chaque tranche
                               porte un échantillon de toutes les tailles
+       --sans-trimestres      ne pas bâtir ni écrire les paquets `sec_trim_NNN`
 
     `--sortie` existe pour une raison précise : le cache est synchronisé en
     continu avec l'autre machine. Un essai lancé sur le PC écrirait chez elle.
+
+    `--sans-trimestres` existe pour le jour où la série trimestrielle poserait
+    problème — un budget de temps trop court, un poids de dépôt à contenir. Elle
+    est alors SAUTÉE, pas vidée : aucun `sec_trim_*.json` n'est ouvert, donc
+    aucun n'est écrasé, et les paquets déjà publiés continuent de servir. Un
+    interrupteur qui détruit ce qu'il éteint n'est pas un interrupteur.
     """
     o = {"tickers": None, "limit": None, "sortie": None,
-         "source": "suivi", "tranche": None}
+         "source": "suivi", "tranche": None, "trimestres": True}
     for i, a in enumerate(argv):
+        if a == "--sans-trimestres":
+            o["trimestres"] = False
         if a == "--source" and i + 1 < len(argv):
             o["source"] = argv[i + 1]
         elif a == "--tranche" and i + 1 < len(argv):
@@ -2734,6 +3438,53 @@ def _fusionner_sec(index, paquets):
         print("[ok] fusion : %d sociétés reprises de l'index précédent, "
               "%d des paquets" % (repris_i, repris_p))
     return index, paquets
+
+
+def _fusionner_trimestres(paquets_trim):
+    """Même fusion inconditionnelle, pour les paquets trimestriels.
+
+    Elle est appelée UNIQUEMENT quand la collecte a bâti du trimestriel. C'est
+    volontaire : sous `--sans-trimestres`, aucun `sec_trim_*.json` n'est ouvert
+    ni réécrit, donc rien ne peut être perdu par une passe qui ne s'en occupe
+    pas. Le collecteur international s'est fait mordre exactement à cet endroit
+    — une passe sur quatre cents sociétés avait effacé quatre cent trente-cinq
+    paquets — et la leçon vaut deux fois pour un jeu qu'on peut désactiver.
+    """
+    import glob as _glob
+
+    repris = 0
+    for chemin in _glob.glob(str(OUT_DIR / "sec_trim_*.json")):
+        try:
+            with open(chemin, encoding="utf-8") as fh:
+                vieux = (json.load(fh) or {}).get("societes") or {}
+        except Exception:
+            continue
+        for sym, v in vieux.items():
+            cible = paquets_trim.setdefault(_initiale(sym), {})
+            if sym not in cible:
+                cible[sym] = v
+                repris += 1
+    if repris:
+        print("[ok] fusion trimestrielle : %d société(s) reprises des paquets "
+              "précédents" % repris)
+    return paquets_trim
+
+
+def _paquets_trim_presents(paquets_trim):
+    """Les clés des paquets trimestriels servis, disque compris.
+
+    On ajoute ce que la passe vient de bâtir à ce qui est déjà écrit : une passe
+    partielle — un ticker, une tranche — ne bâtit qu'une poignée de paquets, et
+    annoncer cette poignée-là ferait taire les cinq cents autres.
+    """
+    import glob as _glob
+
+    cles = set(paquets_trim)
+    for chemin in _glob.glob(str(OUT_DIR / "sec_trim_*.json")):
+        cle = Path(chemin).stem.split("_")[-1]
+        if len(cle) == 3 and cle.isdigit():
+            cles.add(cle)
+    return sorted(cles)
 
 
 def main():
@@ -2836,8 +3587,23 @@ def main():
     if cours:
         print("[info] historique de cours : %d titres" % len(cours))
 
+    # ── SOUS `--sans-trimestres`, ON NE FAIT PAS DISPARAÎTRE CE QU'ON GARDE ──
+    #
+    # L'interrupteur saute la CONSTRUCTION, pas la publication. Sans la reprise
+    # ci-dessous, une passe désactivée réécrivait l'index sans le résumé
+    # trimestriel des sociétés qu'elle recollectait : les `sec_trim_*.json`
+    # restaient sur le disque, intacts, et plus personne ne savait qu'ils
+    # existaient. Une donnée qu'on garde et qu'on cesse d'annoncer est perdue
+    # aussi sûrement qu'une donnée effacée.
+    trim_precedent = {}
+    if not opts["trimestres"]:
+        trim_precedent = {s: v["trim"] for s, v in _index_precedent().items()
+                          if isinstance(v, dict) and v.get("trim")}
+
     index = {}
     paquets = {}
+    paquets_trim = {}
+    n_trim = lignes_trim = reconstitues_trim = 0
     ok = sans_cik = echecs = 0
     miroirs = 0
     # Un compteur ne se répare pas : on garde les NOMS. Quatre chemins, qui ne
@@ -2904,7 +3670,31 @@ def main():
                               beta=meta.get("beta"), cours=cours.get(sym),
                               variations=meta.get("variations"),
                               jour_marche=meta.get("jour_marche"),
-                              secteur=meta.get("secteur_suivi"))
+                              secteur=meta.get("secteur_suivi"),
+                              avec_trimestres=opts["trimestres"])
+        except DelaiGlobalAtteint:
+            # ⚠ CETTE BRANCHE DOIT PRÉCÉDER `except Exception`, ET C'EST LA
+            # SÉRIE TRIMESTRIELLE QUI L'A RENDUE NÉCESSAIRE.
+            #
+            # `DelaiGlobalAtteint` dérive d'`Exception` — délibérément, pour
+            # traverser les `except Exception` du réseau. Sans la branche
+            # ci-dessus, le réveil du signal pendant un CALCUL était donc rangé
+            # comme « construction impossible », la société était comptée en
+            # échec, et la boucle repartait sur la suivante : le garde-fou de
+            # vingt-cinq minutes ne coupait plus rien.
+            #
+            # Tant que le temps se passait presque entièrement dans `_get`, le
+            # défaut restait théorique. Le trimestriel déplace la probabilité du
+            # réveil vers le calcul : mesuré le 05/09/2026 sur les huit sociétés
+            # d'essai, `construire` passe de 0,007 à 0,022 s par société, et la
+            # collecte entière de 3,43 à 3,73 s de temps processeur, soit
+            # +0,037 s par société — environ deux minutes et demie sur le parc de
+            # 3 790, dans un budget de vingt-cinq.
+            print("[!] délai global atteint pendant la construction de %s — on "
+                  "écrit ce qui a été bâti et on s'arrête." % sym,
+                  file=sys.stderr)
+            interrompu = True
+            break
         except Exception as e:
             print(f"[warn] {sym} : construction impossible : {e}", file=sys.stderr)
             echecs += 1
@@ -2981,6 +3771,24 @@ def main():
         }
         paquets.setdefault(_initiale(sym), {})[sym] = detail
 
+        # ── LE TRIMESTRIEL VA DANS SON PROPRE PAQUET ────────────────────
+        #
+        # Même empreinte, même découpage en 512, mais un fichier séparé : la
+        # fiche charge `sec_detail_NNN.json` à chaque ouverture, et le
+        # trimestriel pèse trois fois l'annuel. Le mettre dans le même paquet
+        # ferait payer la vue trimestrielle au lecteur qui ne l'ouvre pas.
+        trims = bati.get("trimestres") or []
+        if trims:
+            paquets_trim.setdefault(_initiale(sym), {})[sym] = {
+                "symbole": sym,
+                "cik": cik,
+                "devise": bati["resume"].get("devise"),
+                "trimestres": trims,
+            }
+            n_trim += 1
+            lignes_trim += len(trims)
+            reconstitues_trim += sum(1 for t in trims if t.get("_reconstitue"))
+
         # ── LE MIROIR SOUS LA COTATION PRINCIPALE ───────────────────────
         #
         # Sans lui, dix-neuf exercices d'ASML restent rangés sous `ASML` et la
@@ -3037,6 +3845,18 @@ def main():
             miroir["resume"] = r_mir
             paquets.setdefault(_initiale(principal), {})[principal] = miroir
             miroirs += 1
+            # Les états trimestriels suivent la même règle que les états
+            # annuels : ce sont ceux de la SOCIÉTÉ, pas ceux de la cotation, et
+            # ils valent pour ASML.AS comme pour ASML. Rien à taire ici — le
+            # paquet trimestriel ne porte ni cours ni multiple.
+            if trims:
+                paquets_trim.setdefault(_initiale(principal), {})[principal] = {
+                    "symbole": principal,
+                    "miroir_de": sym,
+                    "cik": cik,
+                    "devise": bati["resume"].get("devise"),
+                    "trimestres": trims,
+                }
 
         r = dict(bati["resume"])
         r.pop("piotroski_detail", None)
@@ -3052,6 +3872,8 @@ def main():
 
         r["cik"] = cik
         r["nom_sec"] = facts_doc.get("entityName")
+        if not opts["trimestres"] and sym in trim_precedent:
+            r["trim"] = trim_precedent[sym]
         index[sym] = r
         if principal:
             # L'index sert le tri, le filtrage et la note : sans cette seconde
@@ -3080,6 +3902,8 @@ def main():
               "— c'est cette fiche-là que le lecteur ouvre" % miroirs)
 
     index, paquets = _fusionner_sec(index, paquets)
+    if opts["trimestres"]:
+        paquets_trim = _fusionner_trimestres(paquets_trim)
 
     charge = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
@@ -3098,6 +3922,14 @@ def main():
             "Banques, assurances et foncières ne publient pas les mêmes lignes : marge brute et %CAPEX y sont souvent vides.",
         ],
         "paquets": sorted(paquets.keys()),
+        # Les paquets trimestriels sont listés À PART : une page qui n'ouvre
+        # jamais la vue trimestrielle n'a rien à télécharger, et une page qui
+        # l'ouvre sait à quel fichier s'adresser. Le résumé par société vit dans
+        # `societes[SYM].trim` — nombre de trimestres, premier, dernier.
+        # La liste est celle des fichiers RÉELLEMENT présents, jamais celle de
+        # ce que la passe a bâti : sous `--sans-trimestres` la seconde est vide
+        # et la première ne l'est pas.
+        "paquets_trim": _paquets_trim_presents(paquets_trim),
         "societes": index,
     }
     with OUT_JSON.open("w", encoding="utf-8") as f:
@@ -3113,6 +3945,26 @@ def main():
             json.dump({"genere_le": horodatage, "societes": contenu},
                       f, ensure_ascii=False, separators=(",", ":"))
         poids.append(chemin.stat().st_size)
+
+    poids_trim = []
+    for lettre, contenu in sorted(paquets_trim.items()):
+        chemin = OUT_DIR / f"sec_trim_{lettre}.json"
+        with chemin.open("w", encoding="utf-8") as f:
+            json.dump({
+                "genere_le": horodatage,
+                "source": ("SEC EDGAR — API XBRL companyfacts, périodes 10-Q "
+                           "et 10-K/20-F/40-F"),
+                "note": ("Une clé absente d'un trimestre veut dire NON DÉPOSÉE, "
+                         "jamais zéro. `_reconstitue` marque un trimestre dont "
+                         "au moins une valeur vient d'une soustraction de deux "
+                         "cumuls — presque toujours le trimestre de clôture, que "
+                         "les sociétés ne balisent pas — et `_reconstitue_champs` "
+                         "en donne le calcul, champ par champ. Aucune grandeur "
+                         "de BILAN n'est jamais reconstituée : un solde se lit, "
+                         "il ne se soustrait pas."),
+                "societes": contenu,
+            }, f, ensure_ascii=False, separators=(",", ":"))
+        poids_trim.append(chemin.stat().st_size)
 
     if interrompu:
         print("[!] COLLECTE INCOMPLÈTE : arrêtée par le délai global. Ce qui suit "
@@ -3187,6 +4039,25 @@ def main():
     if poids:
         print(f"[ok] {len(poids)} paquet(s) de détail — "
               f"plus gros {max(poids) // 1024} Ko, total {sum(poids) // 1024} Ko")
+    if not opts["trimestres"]:
+        print("[info] série trimestrielle SAUTÉE (--sans-trimestres) : aucun "
+              "sec_trim_*.json ouvert, les paquets déjà publiés restent en place")
+    elif poids_trim:
+        med = sorted(poids_trim)[len(poids_trim) // 2]
+        print("[ok] %d paquet(s) trimestriels — plus gros %d Ko, médiane %d Ko, "
+              "total %d Ko" % (len(poids_trim), max(poids_trim) // 1024,
+                               med // 1024, sum(poids_trim) // 1024))
+        print("[ok] trimestriel : %d société(s), %d trimestre(s), dont %d avec "
+              "au moins une valeur reconstituée par soustraction (%.1f %%)"
+              % (n_trim, lignes_trim, reconstitues_trim,
+                 100.0 * reconstitues_trim / lignes_trim if lignes_trim else 0.0))
+    else:
+        # Zéro trimestre n'est pas un résultat neutre : les périodes sont dans
+        # les octets déjà téléchargés, et n'en tirer aucune veut dire qu'un
+        # filtre les mange. On le DIT plutôt que de sortir en succès muet.
+        print("[?] trimestriel demandé mais AUCUN trimestre bâti — les points "
+              "10-Q sont pourtant dans les mêmes octets que l'annuel.",
+              file=sys.stderr)
     return 0
 
 
