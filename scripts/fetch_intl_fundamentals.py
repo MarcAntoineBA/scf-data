@@ -28,9 +28,31 @@ exercices comparés. Une seule divergence, le résultat d'exploitation 2021 à
 −3,2 % : c'est une ligne RETRAITÉE par le fournisseur de la source. D'où la règle
 ci-dessous.
 
+TROIS SOURCES, ET CHAQUE EXERCICE DIT LAQUELLE (ajouté le 2026-09-05)
+La source ci-dessus ne sert que CINQ exercices à un visiteur anonyme, et ce n'est
+pas un réglage : treize formes de paramètres, quatre cookies, trois en-têtes et
+vingt places de cotation ont été essayés — 20 sur 20 rendent six colonnes, TTM
+plus cinq. C'est un péage. L'international restait donc à cinq exercices quand la
+SEC en donne jusqu'à trente-quatre, et toutes les médianes « dix ans » de
+l'international étaient muettes par construction.
+
+Deux compléments les remplissent, et chacun a sa faiblesse écrite dans la sortie :
+  · LE SCANNER TRADINGVIEW sert des séries annuelles gratuites sous les colonnes
+    `_fy_h`. Mesuré sur mille sociétés tirées au hasard : 93,7 % répondent,
+    profondeur MÉDIANE 18 exercices, 41,1 % en ont vingt. Mais il ne sert que
+    DOUZE grandeurs — pas le passif, pas les capitaux propres, pas le flux
+    d'exploitation, pas le nombre d'actions — et ses montants sont dans la devise
+    de la LIGNE COTÉE, pas dans celle des états. Voir `exercices_tradingview`.
+  · NOS PROPRES PAQUETS. La fenêtre de la source principale GLISSE : l'exercice
+    2020 qu'elle servait l'an dernier n'existe plus que chez nous. On le relit
+    avant de construire, au lieu de l'écraser comme le faisait la fusion de fin
+    de passage.
+
 CE QU'IL FAUT SAVOIR AVANT DE LIRE CES CHIFFRES, et qui est écrit dans la sortie
-  · CINQ EXERCICES contre dix-neuf pour la SEC. L'asymétrie est réelle, la fiche
-    doit l'assumer plutôt que la masquer.
+  · LA PROFONDEUR EST INÉGALE, et les exercices anciens sont plus MAIGRES que les
+    récents : cinq exercices complets, puis jusqu'à vingt exercices qui n'ont ni
+    bilan complet ni tableau de flux. La fiche doit l'assumer plutôt que la
+    masquer — `resume.sources_exercices` la compte source par source.
   · LES MONTANTS SONT EN DEVISE NATIVE, jamais convertis. Convertir un bilan de
     2021 au cours d'aujourd'hui produirait un nombre qui n'a jamais existé.
     Les marges, rendements et croissances, eux, ne dépendent pas de la devise —
@@ -108,6 +130,15 @@ DEBIT = 0.35
 TIMEOUT = 25
 RETRIES = 3
 _last = [0.0]
+
+# Les deux leviers de profondeur, débrayables SÉPARÉMENT — pas par confort, mais
+# parce qu'ils coûtent des choses différentes et tombent en panne séparément.
+# `AVEC_RATIOS` ajoute une cinquième requête PAR SOCIÉTÉ à la source principale
+# (+25 % de réseau) ; `AVEC_TV` ajoute une dizaine de requêtes EN TOUT chez un
+# second fournisseur. Le jour où l'un des deux se ferme, on coupe celui-là et
+# la collecte continue au lieu de s'arrêter en entier.
+AVEC_RATIOS = True
+AVEC_TV = True
 
 
 # Combien de fois la source nous a dit « trop vite » ET qu'on a fini par
@@ -209,6 +240,586 @@ def chemin_du_titre(symbole):
     # (VOLV-B devient VOLV.B) là où Yahoo emploie un tiret.
     ticker = ticker.replace("-", ".")
     return "quote/%s/%s" % (place, ticker)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LE SECOND FOURNISSEUR : LES SÉRIES ANNUELLES DU SCANNER TRADINGVIEW
+# ═════════════════════════════════════════════════════════════════════════
+# POURQUOI IL A FALLU EN CHERCHER UN SECOND, ET POURQUOI ON NE RETOURNE PAS
+# NÉGOCIER AVEC LE PREMIER
+#
+# `stockanalysis.com` sert une fenêtre GLISSANTE de cinq exercices à un visiteur
+# anonyme. Ce n'est pas un paramètre oublié : treize formes de paramètres, quatre
+# cookies et trois en-têtes ont été essayés, et vingt places de cotation testées
+# — 20 sur 20 rendent six colonnes, TTM plus cinq. C'est un péage, pas un
+# réglage. Résultat : 19 495 sociétés internationales à cinq exercices, contre
+# jusqu'à trente-quatre pour les américaines. Toutes les médianes « dix ans » de
+# l'international étaient donc muettes par construction.
+#
+# CE QUE LE SCANNER DE TRADINGVIEW SERT, MESURÉ LE 2026-09-05
+# `POST https://scanner.tradingview.com/global/scan` rend des SÉRIES annuelles
+# sous les colonnes suffixées `_fy_h`, gratuitement, sans clé et sans compte.
+# Sur mille sociétés internationales tirées au hasard de `univers_actions.json` :
+# 93,7 % répondent, profondeur MÉDIANE 18 exercices, 70,0 % en ont au moins dix
+# et 41,1 % en ont vingt. Un lot de 6 000 tickers passe en 2,5 s pour 10 Mo ;
+# un lot de 2 000 en 0,7 s pour 3,3 Mo.
+#
+# ⚠ LA LISTE DES CHAMPS EST CLOSE, ET ELLE EST COURTE. Le scanner déclare ses
+# colonnes sur `GET /america/metainfo` (3 777 champs). Douze seulement portent le
+# suffixe `_fy_h` — les douze ci-dessous — et un nom non déclaré rend `None` SANS
+# ERREUR, ce qui fait passer une faute de frappe pour une donnée non publiée.
+# Vérifié : `total_liabilities_fy_h`, `total_equity_fy_h`,
+# `cash_f_operating_activities_fy_h` et `total_shares_outstanding_fy_h` rendent
+# `None` comme `zzz_not_a_field_fy_h`. Le PASSIF, les CAPITAUX PROPRES, le FLUX
+# D'EXPLOITATION et le NOMBRE D'ACTIONS n'ont pas d'historique annuel chez ce
+# fournisseur : ils existent en instantané (`total_liabilities_fy`,
+# `shrhldrs_equity_fy`, `cash_f_operating_activities_fy`) et le suffixe `_fh`
+# désigne la PRÉVISION du prochain exercice, pas le passé. Les exercices
+# TradingView portent donc un bilan et un tableau de flux INCOMPLETS — le ROE, le
+# ROIC et le score de Piotroski restent vides sur eux, et c'est écrit dans la
+# sortie plutôt que comblé.
+TV_SCAN = "https://scanner.tradingview.com/global/scan"
+TV_TIMEOUT = 60
+TV_RETRIES = 3
+# Mesuré : 6 000 tickers passent (10,1 Mo, 2,5 s). On travaille à 2 000 — trois
+# fois moins que le plus gros lot réussi. Ce n'est pas de la timidité : une
+# réponse de 10 Mo se garde entière en mémoire, et un lot qui échoue emporte
+# tout ce qu'il contient. À 2 000, un échec coûte 0,7 s de reprise.
+TV_LOT = 2000
+
+# Les douze colonnes annuelles, et le champ de notre schéma qu'elles alimentent.
+# `fiscal_period_fy_h` porte l'ÉTIQUETTE d'exercice, pas une grandeur.
+TV_GRANDEURS = {
+    "revenue":        "total_revenue_fy_h",
+    "gross_profit":   "gross_profit_fy_h",
+    "ebitda_publie":  "ebitda_fy_h",
+    "net_income":     "net_income_fy_h",
+    "eps_basic":      "earnings_per_share_basic_fy_h",
+    "eps_diluted":    "earnings_per_share_diluted_fy_h",
+    "assets":         "total_assets_fy_h",
+    "dette_publiee":  "total_debt_fy_h",
+    "fcf":            "free_cash_flow_fy_h",
+    "capex":          "capital_expenditures_unchanged_fy_h",
+    "dps":            "dps_common_stock_prim_issue_fy_h",
+}
+# `description` sert de témoin d'identité au journal, `currency` de témoin de
+# devise, `fiscal_period_end_fy` de témoin de calendrier. Aucune n'est une
+# grandeur : elles ne sont jamais écrites comme telles.
+TV_COLONNES = (["fiscal_period_fy_h"] + sorted(set(TV_GRANDEURS.values()))
+               + ["currency", "fiscal_period_end_fy", "description"])
+
+
+# Les places que `fetch_stock_logos_tv.py` ne connaît pas — il ne couvre que les
+# quatre zones de la carte (us, cn, eu, in). Chacune a été VÉRIFIÉE en appelant
+# le scanner avec le plus gros titre de la place, le 2026-09-05 : le préfixe est
+# retenu quand la réponse porte une série `fiscal_period_fy_h` non vide.
+#
+# ⚠ CE QUI A ÉTÉ ESSAYÉ ET NE MARCHE PAS, pour qu'on ne le réessaie pas :
+# `TYO:`/`JPX:` (Tokyo, c'est `TSE:`), `KOSPI:` (c'est `KRX:`), `TPE:` (c'est
+# `TWSE:`), `KLSE:`/`MYX:1155` (Kuala Lumpur emploie le code ALPHABÉTIQUE :
+# `MYX:MAYBANK`), `BVMF:` (c'est `BMFBOVESPA:`), `PRA:` (Prague, c'est `PSECZ:`).
+# Sans correspondance mesurée : Bombay (`.BO`, codes numériques que TradingView
+# n'indexe pas), Moscou (`.ME`), Lagos (`.NG`), Aquis (`.AQ`) et les places
+# allemandes secondaires (`.SG`, `.MU`, `.DU`, `.HM`). Ces sociétés gardent
+# leurs cinq exercices, et la sortie le dit.
+TV_PLACES_SUP = {
+    "T": "TSE", "KS": "KRX", "KQ": "KRX", "TW": "TWSE", "TWO": "TPEX",
+    "SI": "SGX", "AX": "ASX", "TO": "TSX", "V": "TSXV", "JK": "IDX",
+    "JO": "JSE", "BK": "SET", "KL": "MYX", "SR": "TADAWUL", "AE": "ADX",
+    "MX": "BMV", "SA": "BMFBOVESPA", "PS": "PSE", "IR": "EURONEXT",
+    "TA": "TASE", "IS": "BIST", "PR": "PSECZ", "NZ": "NZX", "AT": "ATHEX",
+    "QA": "QSE", "CA": "EGX", "NE": "NEO", "CN": "CSE", "KA": "PSX",
+    "KW": "KSE", "SN": "BCS", "BA": "BCBA", "BD": "BET", "TL": "OMXTSE",
+    "VS": "OMXVSE", "RG": "OMXRSE", "IC": "OMXICE", "VN": "HOSE",
+}
+_TV_PLACES = [None]
+
+
+def table_places_tv():
+    """Suffixe de cotation → préfixe TradingView, LU dans `fetch_stock_logos_tv.py`.
+
+    ⚠ ON NE RÉÉCRIT PAS LA TABLE, ON LA LIT. `fetch_stock_logos_tv.py` porte déjà
+    la correspondance place → préfixe TradingView (`TV_EX`) et s'en sert tous les
+    jours pour aller chercher 1 288 logos. Une seconde copie divergerait le jour
+    où l'une des deux serait corrigée, et la divergence ne produirait aucune
+    erreur : seulement des sociétés muettes d'un côté et pas de l'autre.
+
+    ⚠ ON LA LIT SANS L'IMPORTER. Ce fichier-là importe `curl_cffi` et `Pillow`,
+    rasterise un masque au chargement et lit `sys.argv` : l'importer ici ferait
+    dépendre une collecte de fondamentaux de la présence d'un rasteriseur
+    d'images, et lui ferait interpréter NOS options. On extrait donc l'affectation
+    `TV_EX` par l'analyseur syntaxique de Python, sans exécuter une ligne.
+
+    Si l'extraction échoue, on le DIT et on continue sur la seule table des places
+    supplémentaires : une table amputée fait perdre des exercices, elle n'en
+    invente aucun.
+    """
+    if _TV_PLACES[0] is not None:
+        return _TV_PLACES[0]
+    table = dict(TV_PLACES_SUP)
+    src = SCRIPT_DIR / "fetch_stock_logos_tv.py"
+    lues = 0
+    try:
+        import ast
+        arbre = ast.parse(src.read_text(encoding="utf-8"))
+        for noeud in arbre.body:
+            if not isinstance(noeud, ast.Assign):
+                continue
+            if not any(isinstance(c, ast.Name) and c.id == "TV_EX"
+                       for c in noeud.targets):
+                continue
+            for k, v in ast.literal_eval(noeud.value).items():
+                # `TV_EX` indexe par suffixe AVEC son point (« .HK ») ; notre
+                # univers l'écrit sans (« HK »).
+                table[str(k).lstrip(".").upper()] = v
+                lues += 1
+    except Exception as e:
+        print("[warn] TV_EX illisible dans %s (%s) — la table TradingView "
+              "tourne amputée de ses places européennes" % (src.name, e),
+              file=sys.stderr)
+    if not lues:
+        print("[warn] aucune place lue dans fetch_stock_logos_tv.py : la "
+              "correspondance a-t-elle changé de nom ?", file=sys.stderr)
+    _TV_PLACES[0] = table
+    return table
+
+
+def symboles_tv(symbole):
+    """« MC.PA » → [« EURONEXT:MC »]. Plusieurs candidats quand l'écriture varie.
+
+    Trois écarts d'écriture, les mêmes que ceux relevés par le collecteur de
+    logos : Hong Kong sans zéros de tête (0700 → 700), Londres avec un point
+    final (BP.L → « BP. »), et les catégories d'actions écrites avec un point ou
+    un tiret bas selon la place (VOLV-B → VOLV_B, GMEXICO.B → GMEXICO_B).
+
+    On rend TOUS les candidats plutôt que de choisir : ils partent dans le même
+    lot de deux mille, donc un candidat de plus ne coûte rien, et c'est la
+    réponse qui tranche. Deviner coûterait des sociétés muettes.
+    """
+    symbole = (symbole or "").upper()
+    if "." not in symbole:
+        return []
+    ticker, suffixe = symbole.rsplit(".", 1)
+    place = table_places_tv().get(suffixe)
+    if not place:
+        return []
+    # Les codes que la règle générale ne peut pas deviner sont déjà connus : la
+    # table d'exceptions de chemin porte le VRAI code de la place (Maybank est
+    # « MAYBANK » et non « 1155 »). On le réutilise plutôt que d'en tenir une
+    # seconde liste.
+    exc = EXCEPTIONS_CHEMIN.get(symbole)
+    if exc and "/" in exc:
+        ticker = exc.rsplit("/", 1)[1].upper()
+    if suffixe == "HK":
+        ticker = ticker.lstrip("0") or ticker
+    formes = [ticker, ticker.replace("-", "."), ticker.replace("-", "_"),
+              ticker.replace("-", ""), ticker.replace(".", "_"),
+              ticker.replace(".", "")]
+    if suffixe == "L":
+        formes.append(ticker + ".")
+    out, vus = [], set()
+    for f in formes:
+        f = f.strip().upper()
+        if f and f not in vus:
+            vus.add(f)
+            out.append("%s:%s" % (place, f))
+    return out
+
+
+# Combien de lots TradingView ont été abandonnés. Même raison que `_bridages`
+# côté stockanalysis : un lot perdu n'est pas une société sans historique, et
+# les confondre ferait passer une panne de réseau pour un fournisseur avare.
+_bridages_tv = [0]
+
+
+def _tv_lot(tickers):
+    """Un lot de symboles → {symbole TradingView: {colonne: valeur}}.
+
+    Rend None si le lot n'a pas pu être obtenu — à distinguer d'un lot vide, qui
+    signifie « aucun de ces symboles n'existe chez le fournisseur ».
+    """
+    corps = json.dumps({"symbols": {"tickers": list(tickers)},
+                        "columns": list(TV_COLONNES)}).encode("utf-8")
+    for essai in range(TV_RETRIES):
+        req = urllib.request.Request(TV_SCAN, data=corps, headers={
+            "Content-Type": "application/json", "User-Agent": UA,
+            "Accept": "application/json", "Accept-Encoding": "gzip",
+            "Origin": "https://www.tradingview.com",
+            "Referer": "https://www.tradingview.com/",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=TV_TIMEOUT) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+            d = json.loads(raw)
+            return {x["s"]: dict(zip(TV_COLONNES, x["d"]))
+                    for x in (d.get("data") or [])
+                    if isinstance(x, dict) and x.get("s") and x.get("d")}
+        except Exception:
+            if essai == TV_RETRIES - 1:
+                _bridages_tv[0] += 1
+                return None
+            time.sleep(2.0 * (essai + 1))
+    return None
+
+
+def series_tv(symboles):
+    """Les séries annuelles de tout un univers, en lots. {symbole nôtre: réponse}.
+
+    Une requête PAR SOCIÉTÉ coûterait dix-neuf mille appels ; le scanner en prend
+    deux mille d'un coup. Sur l'univers entier cela fait une dizaine de lots,
+    quelques secondes et une trentaine de mégaoctets — à comparer aux quatre
+    pages par société de la source principale.
+
+    Quand plusieurs écritures d'un même titre répondent, on garde LA PLUS
+    PROFONDE : c'est la cotation d'origine, celle qui porte l'historique complet.
+    """
+    candidats, par_symbole = [], {}
+    for sym in symboles:
+        c = symboles_tv(sym)
+        if c:
+            par_symbole[sym] = c
+            candidats.extend(c)
+    candidats = sorted(set(candidats))
+    if not candidats:
+        return {}, {"candidats": 0, "lots": 0, "repondus": 0}
+    brut, lots = {}, 0
+    for i in range(0, len(candidats), TV_LOT):
+        r = _tv_lot(candidats[i:i + TV_LOT])
+        lots += 1
+        if r:
+            brut.update(r)
+    out = {}
+    for sym, cands in par_symbole.items():
+        meilleur = None
+        for c in cands:
+            v = brut.get(c)
+            if not v or not v.get("fiscal_period_fy_h"):
+                continue
+            if meilleur is None or len(v["fiscal_period_fy_h"]) > len(meilleur[1]["fiscal_period_fy_h"]):
+                meilleur = (c, v)
+        if meilleur:
+            v = dict(meilleur[1])
+            v["_symbole_tv"] = meilleur[0]
+            out[sym] = v
+    return out, {"candidats": len(candidats), "lots": lots,
+                 "repondus": len(out), "vises": len(par_symbole)}
+
+
+# Les sous-unités de cotation, et leur unité majeure. TradingView annonce la
+# devise de la LIGNE COTÉE (GBX pour Londres, ZAC pour Johannesburg, ILA pour
+# Tel-Aviv) mais publie ses fondamentaux dans l'unité MAJEURE.
+#
+# Vérifié le 2026-09-05, et c'est exactement le facteur cent qui a déjà coûté
+# cher à ce dépôt : `LSE:SHEL` (annoncé GBX) rend 195 259 808 527 de chiffre
+# d'affaires 2025 quand `NYSE:SHEL` en rend 257 932 349 270 — un rapport de
+# 1,3210, soit le taux livre/dollar, pas 132,10. C'est donc des LIVRES.
+# Recoupé de même sur `HKEX:5` contre `LSE:HSBA` (rapport 10,49 = dollar de
+# Hong Kong par livre) et sur `TASE:TEVA`.
+TV_SOUS_UNITES = {"GBX": "GBP", "GBP": "GBP", "ZAC": "ZAR", "ZAR": "ZAR",
+                  "ILA": "ILS", "ILS": "ILS"}
+
+
+def _devise_tv(cur):
+    cur = (cur or "").upper() or None
+    return TV_SOUS_UNITES.get(cur, cur)
+
+
+# Au-delà de ce pourcentage, deux fournisseurs ne parlent plus de la même chose.
+# Le seuil vient d'une mesure, pas d'un choix : sur les huit sociétés de contrôle,
+# chiffre d'affaires, résultat net, actif total, bénéfice par action et dividende
+# par action concordent à 0,0 % — la même donnée, au centime. Ce qui dépasse
+# cinq pour cent n'est jamais du bruit d'arrondi, c'est une définition qui change
+# (le résultat brut de Reliance diverge de 36 % parce que le raffinage y range
+# ses achats ailleurs) ou une devise qui n'est pas celle qu'on croit.
+TV_ECART_RACCORD = 5.0
+
+# La série de change doit couvrir l'exercice, pas le frôler. Cent relevés, c'est
+# un peu moins de la moitié des jours de cotation d'une année : en dessous, la
+# moyenne est celle d'un trimestre et pas celle de l'exercice.
+TV_MIN_RELEVES_FX = 100
+
+
+def _taux_moyen(par_jour, debut, fin):
+    """Le taux MOYEN sur une fenêtre — la seule base qui reproduise le fournisseur.
+
+    ⚠ MOYEN, ET NON À LA CLÔTURE. TradingView convertit ses fondamentaux au taux
+    moyen de l'exercice, comme le font les comptes consolidés pour un compte de
+    résultat. Vérifié sur BHP, qui publie en dollars et cote en dollars
+    australiens : le chiffre d'affaires TradingView converti au taux MOYEN de
+    chaque exercice tombe à +0,16 %, +0,08 %, +0,07 %, +0,10 % et +0,08 % des
+    cinq exercices publiés par stockanalysis. Au taux de clôture, l'écart aurait
+    atteint plusieurs pour cent — assez pour franchir le seuil de raccord et
+    faire refuser une donnée juste.
+    """
+    if not par_jour:
+        return None
+    v = [x for j, x in par_jour.items()
+         if debut <= j <= fin and isinstance(x, (int, float)) and x > 0]
+    if len(v) < TV_MIN_RELEVES_FX:
+        return None
+    return sum(v) / len(v)
+
+
+def _fenetre_exercice(fin_iso):
+    """(premier jour, dernier jour) de l'exercice qui se clôt à cette date."""
+    try:
+        f = datetime.fromisoformat(fin_iso)
+    except Exception:
+        return None, None
+    d = f.replace(year=f.year - 1) if f.month != 2 or f.day != 29 else f.replace(year=f.year - 1, day=28)
+    return d.strftime("%Y-%m-%d"), fin_iso
+
+
+def _fin_reconstruite(annee, mois, jour):
+    """La clôture d'un exercice TradingView, à partir de la dernière connue.
+
+    TradingView ne date pas ses exercices passés : il ne rend qu'une ÉTIQUETTE
+    d'année et la date de clôture du DERNIER. On reporte donc le jour et le mois
+    de cette clôture sur les années antérieures. C'est exact pour les 90 % de
+    sociétés qui clôturent à date fixe, et faux de quelques jours pour celles qui
+    suivent un calendrier de 52/53 semaines. L'exercice porte donc
+    `fin_reconstruite`, pour qu'une date approchée ne se lise pas comme une date
+    déposée.
+    """
+    for essai in (jour, 28):
+        try:
+            return datetime(annee, mois, essai).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def exercices_tradingview(tv, devise_etats, fx, exercices_sa):
+    """Les exercices TradingView qui MANQUENT à stockanalysis, et leur dossier.
+
+    Rend `(lignes, diagnostic)`. Les lignes sont au format du fichier, chacune
+    portant `source: "tradingview"` — jamais un mélange, jamais une ligne à
+    moitié de chaque fournisseur.
+
+    QUATRE GARDES, DANS CET ORDRE, ET AUCUNE N'EST DÉCORATIVE
+
+    1. LE CALENDRIER. L'étiquette d'exercice de TradingView n'est PAS la nôtre :
+       il étiquette « 2025 » l'exercice de Toyota clos le 31/03/2026, que nous
+       appelons 2026, et « 2026 » celui de BHP clos le 30/06/2026, que nous
+       appelons aussi 2026. Le décalage n'est donc pas une règle de calendrier,
+       il se MESURE : `fiscal_period_end_fy` donne la clôture du dernier
+       exercice, notre propre `annee_exercice` en tire notre étiquette, et la
+       différence avec la première étiquette du fournisseur donne le décalage.
+       Vérifié sur huit sociétés : +1 pour Toyota et Reliance, 0 pour les six
+       autres, et les montants tombent alors à 0,0 % sur toute la fenêtre commune.
+
+    2. LA DEVISE. ⚠ TradingView publie ses fondamentaux dans la devise de la
+       LIGNE COTÉE, pas dans celle des états. `HKEX:700` rend Tencent en dollars
+       de Hong Kong quand la société publie en yuans ; `ASX:BHP` rend BHP en
+       dollars australiens quand elle publie en dollars américains — +47 % à
+       +55 % sur toutes les grandeurs, soit exactement le genre de facteur qui
+       passe inaperçu et fausse tout. Quand les deux devises diffèrent, on
+       convertit au taux MOYEN de chaque exercice, et l'exercice porte la trace
+       de sa conversion. Quand la devise manque au cache de change, l'exercice
+       est refusé — pas approximé.
+
+    3. L'IDENTITÉ. Le chiffre d'affaires des exercices COMMUNS doit concorder
+       avec celui de stockanalysis. C'est la même garde que `_noms_concordent`
+       plus haut, et pour la même raison : ce dépôt a déjà publié 118 fiches
+       portant les états d'un autre émetteur pour 1 913 Md$ de capitalisation.
+       Un symbole TradingView mal deviné donnerait ici un écart massif ; il est
+       refusé en bloc. Sans exercice commun, aucune preuve — donc aucun ajout.
+
+    4. LE RACCORD, GRANDEUR PAR GRANDEUR. Deux fournisseurs ne définissent pas
+       « résultat brut » ni « EBITDA » de la même façon. Mesuré : l'EBITDA de
+       LVMH diverge de 18 %, celui de Nestlé de 7,5 %, le résultat brut de
+       Reliance de 36 %. Une courbe qui saute de 36 % à la jonction des deux
+       sources ment plus qu'elle n'informe : la grandeur fautive est RETIRÉE des
+       exercices TradingView, et la raison est écrite. Vide plutôt que plausible.
+    """
+    diag = {"symbole_tv": tv.get("_symbole_tv"), "nom_tv": tv.get("description")}
+    etiquettes = tv.get("fiscal_period_fy_h") or []
+    if not etiquettes:
+        diag["refus"] = "aucune série annuelle"
+        return [], diag
+    diag["profondeur_servie"] = len(etiquettes)
+
+    # ── 1. Le calendrier ──
+    horo = tv.get("fiscal_period_end_fy")
+    if not isinstance(horo, (int, float)):
+        diag["refus"] = "clôture du dernier exercice inconnue"
+        return [], diag
+    fin_derniere = datetime.fromtimestamp(horo, timezone.utc).strftime("%Y-%m-%d")
+    decalage = annee_exercice(fin_derniere) - int(etiquettes[0])
+    diag["fin_derniere"] = fin_derniere
+    diag["decalage_etiquette"] = decalage
+    mois, jour = int(fin_derniere[5:7]), int(fin_derniere[8:10])
+
+    # ── 2. La devise ──
+    dev_tv = _devise_tv(tv.get("currency"))
+    diag["devise_tv"] = dev_tv
+    conversion = None
+    if devise_etats and dev_tv and dev_tv != devise_etats:
+        if not fx:
+            diag["refus"] = ("conversion %s → %s impossible : devise introuvable, "
+                             "le cache de change est vide" % (dev_tv, devise_etats))
+            return [], diag
+        pj_tv = None if dev_tv == "USD" else (fx.get(dev_tv) or None)
+        pj_et = None if devise_etats == "USD" else (fx.get(devise_etats) or None)
+        if (dev_tv != "USD" and not pj_tv) or (devise_etats != "USD" and not pj_et):
+            diag["refus"] = "conversion %s → %s impossible : devise absente du cache de change" % (dev_tv, devise_etats)
+            return [], diag
+        conversion = (pj_tv, pj_et)
+        diag["conversion"] = "%s → %s, au taux moyen de chaque exercice" % (dev_tv, devise_etats)
+    elif not devise_etats:
+        # Sans devise déclarée par la source principale, rien ne permet de dire
+        # si les montants sont comparables. On ne devine pas.
+        diag["refus"] = "devise des états inconnue"
+        return [], diag
+
+    def facteur(fin_iso):
+        """Le multiplicateur qui amène un montant TradingView en devise des états."""
+        if conversion is None:
+            return 1.0
+        d, f = _fenetre_exercice(fin_iso)
+        if not d:
+            return None
+        pj_tv, pj_et = conversion
+        t_tv = 1.0 if pj_tv is None else _taux_moyen(pj_tv, d, f)
+        t_et = 1.0 if pj_et is None else _taux_moyen(pj_et, d, f)
+        if not (t_tv and t_et and t_tv > 0 and t_et > 0):
+            return None
+        return t_tv / t_et
+
+    # Les lignes TradingView, année par année, converties, AVANT tout tri.
+    brut = {}
+    sans_taux = 0
+    for i, lab in enumerate(etiquettes):
+        try:
+            an = int(lab) + decalage
+        except Exception:
+            continue
+        fin = _fin_reconstruite(an, mois, jour)
+        if not fin:
+            continue
+        k = facteur(fin)
+        if k is None:
+            sans_taux += 1
+            continue
+        ligne = {"annee": an, "fin": fin}
+        for champ, colonne in TV_GRANDEURS.items():
+            col = tv.get(colonne)
+            v = _nombre(col[i]) if (isinstance(col, list) and i < len(col)) else None
+            if v is None:
+                ligne[champ] = None
+                continue
+            # Le bénéfice et le dividende PAR ACTION sont des montants comme les
+            # autres : ils se convertissent au même taux. Ne pas les convertir
+            # ferait un BPA en dollars australiens sous un chiffre d'affaires en
+            # dollars américains, dans la même ligne.
+            ligne[champ] = v * k
+        brut[an] = ligne
+    if sans_taux:
+        diag["exercices_sans_taux"] = sans_taux
+    if not brut:
+        diag["refus"] = "aucun exercice convertible"
+        return [], diag
+
+    # ── 3 et 4. Le recoupement sur les exercices COMMUNS ──
+    sa_par_annee = {e.get("annee"): e for e in (exercices_sa or [])}
+
+    def ecart_median(champ, valeur_sa):
+        ecarts = []
+        for an, ligne in brut.items():
+            a, b = valeur_sa(sa_par_annee.get(an) or {}), ligne.get(champ)
+            if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+                continue
+            if abs(a) < 1e-9:
+                continue
+            ecarts.append(100.0 * (b / a - 1.0))
+        if not ecarts:
+            return None, 0
+        ecarts.sort()
+        n = len(ecarts)
+        med = ecarts[n // 2] if n % 2 else (ecarts[n // 2 - 1] + ecarts[n // 2]) / 2.0
+        return med, n
+
+    def _fcf_sa(e):
+        o, c = e.get("ocf"), e.get("capex")
+        return (o - abs(c)) if isinstance(o, (int, float)) and isinstance(c, (int, float)) else None
+
+    LECTURES = {
+        "revenue":       lambda e: e.get("revenue"),
+        "net_income":    lambda e: e.get("net_income"),
+        "assets":        lambda e: e.get("assets"),
+        "eps_basic":     lambda e: e.get("eps_basic"),
+        "eps_diluted":   lambda e: e.get("eps_diluted"),
+        "dps":           lambda e: e.get("dps"),
+        "gross_profit":  lambda e: e.get("gross_profit"),
+        "ebitda_publie": lambda e: e.get("ebitda_publie"),
+        "dette_publiee": lambda e: e.get("dette_publiee"),
+        "capex":         lambda e: (abs(e["capex"]) if isinstance(e.get("capex"), (int, float)) else None),
+        "fcf":           _fcf_sa,
+    }
+
+    med_ca, n_ca = ecart_median("revenue", LECTURES["revenue"])
+    diag["raccord"] = {}
+    if med_ca is None:
+        diag["refus"] = ("aucun exercice commun avec la source principale : "
+                         "l'identité de la société n'est pas prouvée")
+        return [], diag
+    diag["raccord"]["revenue"] = {"ecart_median_pct": round(med_ca, 2),
+                                  "exercices_communs": n_ca, "retenu": True}
+    if abs(med_ca) > TV_ECART_RACCORD:
+        diag["raccord"]["revenue"]["retenu"] = False
+        diag["refus"] = ("chiffre d'affaires en désaccord de %.1f %% sur %d exercice(s) "
+                         "commun(s) : symbole ou devise douteux" % (med_ca, n_ca))
+        return [], diag
+
+    retenus = {"revenue"}
+    for champ, lecture in LECTURES.items():
+        if champ == "revenue":
+            continue
+        med, n = ecart_median(champ, lecture)
+        if med is None:
+            # Aucun point de comparaison : la source principale ne sert pas cette
+            # grandeur pour cette société. On garde, et on le dit.
+            diag["raccord"][champ] = {"ecart_median_pct": None,
+                                      "exercices_communs": 0, "retenu": True,
+                                      "note": "non recoupée"}
+            retenus.add(champ)
+            continue
+        ok = abs(med) <= TV_ECART_RACCORD
+        diag["raccord"][champ] = {"ecart_median_pct": round(med, 2),
+                                  "exercices_communs": n, "retenu": ok}
+        if ok:
+            retenus.add(champ)
+
+    # ── Les lignes finales : les années que la source principale n'a PAS ──
+    lignes = []
+    for an in sorted(brut):
+        if an in sa_par_annee:
+            continue
+        ligne = brut[an]
+        garde = {c: v for c, v in ligne.items() if c in ("annee", "fin")}
+        vide = True
+        for champ in TV_GRANDEURS:
+            v = ligne.get(champ) if champ in retenus else None
+            garde[champ] = v
+            if v is not None:
+                vide = False
+        if vide:
+            continue
+        # Un exercice sans chiffre d'affaires NI résultat net n'apporte rien
+        # qu'une ligne de plus dans le compteur : il ferait grossir
+        # `n_exercices` sans nourrir une seule médiane.
+        if garde.get("revenue") is None and garde.get("net_income") is None:
+            continue
+        garde["source"] = "tradingview"
+        garde["fin_reconstruite"] = True
+        if conversion is not None:
+            garde["devise_convertie"] = "%s → %s" % (dev_tv, devise_etats)
+        lignes.append(garde)
+    diag["exercices_ajoutes"] = len(lignes)
+    diag["grandeurs_ecartees"] = sorted(c for c in LECTURES if c not in retenus)
+    return lignes, diag
 
 
 # Les formes juridiques ne distinguent pas deux sociétés : « Repsol S.A. » et
@@ -489,7 +1100,19 @@ def etats(chemin):
     ctx = _page(chemin + "/financials", "details") or {}
     if not ctx.get("currency"):
         ctx = dict(ctx or {}, **(_page(chemin + "/financials/income-statement", "details") or {}))
-    return {"contexte": ctx, "resultat": res, "bilan": bil, "flux": flx}
+    # ── LA CINQUIÈME PAGE : LES RATIOS, QUI PORTENT LA CAPITALISATION PASSÉE ──
+    #
+    # `/financials/ratios/` n'avait jamais été demandée. Elle sert pourtant,
+    # dans le même format et sur les mêmes cinq exercices, la CAPITALISATION et
+    # la VALEUR D'ENTREPRISE de chaque clôture — la vraie, celle du fournisseur,
+    # pas une reconstruction par ancre de cours.
+    #
+    # Mesuré avant : 55,2 % des exercices n'avaient aucune capitalisation et
+    # 26,0 % en portaient une reconstruite. Vérifié sur 25 sociétés : 25 servent
+    # le bloc. Coût : une requête de plus par société, soit +25 % de réseau.
+    rat = _page(chemin + "/financials/ratios") if AVEC_RATIOS else None
+    return {"contexte": ctx, "resultat": res, "bilan": bil, "flux": flx,
+            "ratios": rat if isinstance(rat, dict) else {}}
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -774,8 +1397,75 @@ def combler_mcap_par_ancres(exercices, variations, jour_ref):
     return n
 
 
+def mcap_par_cloture(ratios, resultat):
+    """{clôture: (capitalisation, valeur d'entreprise, base)} — en DEVISE DES ÉTATS.
+
+    La page des ratios sert `marketcap` et `ev` pour chacun des cinq exercices.
+    C'est la capitalisation VRAIE de chaque clôture, là où le collecteur ne
+    savait jusqu'ici que la reconstruire par ancre de cours.
+
+    ⚠ ELLE N'EST PAS DANS LA DEVISE DES ÉTATS. Mesuré le 2026-09-05 : Toyota
+    cote et publie en yens, sa capitalisation publiée est cohérente à 0,05 %
+    près ; Shell publie en dollars et cote à Londres, la sienne est en LIVRES
+    (−24,6 %) ; BHP publie en dollars et cote à Sydney, la sienne est en dollars
+    AUSTRALIENS (+44,6 %) ; Tencent publie en yuans et cote à Hong Kong, +11 %.
+    Mélangée aux montants des états, elle ferait un P/E faux d'un tiers.
+
+    LE TÉMOIN, ET IL VIENT DU FOURNISSEUR LUI-MÊME. La même page sert `ps`, le
+    rapport cours/ventes, et `evrevenue`. Le fournisseur les calcule, LUI, dans
+    une devise cohérente : `ps × chiffre d'affaires` redonne exactement
+    `marketcap` quand cotation et états coïncident (Toyota : 0,00 %, 0,01 %,
+    0,05 %, 0,03 %), et donne la capitalisation EN DEVISE DES ÉTATS quand elles
+    diffèrent (Shell : 210,8 Md$ contre 156,7 Md£ publiés, soit le taux de
+    l'année). On ne convertit donc rien nous-mêmes : on lit le produit que le
+    fournisseur a déjà aligné.
+
+    Quand `ps` manque, aucun témoin n'existe et l'on ne publie rien : une case
+    vide se voit, une capitalisation fausse d'un facteur de change non.
+    """
+    dk = (ratios or {}).get("datekey") or []
+    if not dk:
+        return {}
+    mc = ratios.get("marketcap") or []
+    ev = ratios.get("ev") or []
+    ps = ratios.get("ps") or []
+    rev_par_date = {}
+    dres = (resultat or {}).get("datekey") or []
+    rrev = (resultat or {}).get("revenue") or []
+    for i, d in enumerate(dres):
+        if isinstance(d, str) and i < len(rrev):
+            rev_par_date[d] = _nombre(rrev[i])
+    out = {}
+    for i, d in enumerate(dk):
+        if not isinstance(d, str) or d.upper() == "TTM" or len(d) < 10:
+            continue
+        brut_mc = _nombre(mc[i]) if i < len(mc) else None
+        brut_ev = _nombre(ev[i]) if i < len(ev) else None
+        p = _nombre(ps[i]) if i < len(ps) else None
+        r = rev_par_date.get(d)
+        if not brut_mc or brut_mc <= 0:
+            continue
+        if not (p and r and p > 0 and r > 0):
+            continue
+        implique = p * r
+        # Le rapport entre les deux EST le taux de change de l'exercice, tel que
+        # le fournisseur l'a appliqué. À un pour cent près, il n'y a pas eu de
+        # conversion : les deux devises coïncident.
+        k = implique / brut_mc
+        if 0.99 <= k <= 1.01:
+            out[d] = (round(brut_mc), round(brut_ev) if brut_ev else None,
+                      "publiée (stockanalysis)")
+        else:
+            out[d] = (round(implique),
+                      round(brut_ev * k) if brut_ev else None,
+                      "publiée (stockanalysis), ramenée en devise des états "
+                      "par le rapport cours/ventes du même exercice")
+    return out
+
+
 def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
-               devise=None, variations=None, jour_marche=None):
+               devise=None, variations=None, jour_marche=None,
+               tv=None, fx=None, archive=None):
     res = brut["resultat"]
     dates = res.get("datekey") or []
     # La ligne « TTM » n'est pas un exercice : c'est un cumul glissant. La
@@ -814,6 +1504,77 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
     # de dépôt : c'est la clôture la plus tardive qui l'emporte, donc l'exercice
     # complet plutôt que la période de transition.
     exercices = dedupliquer_exercices(exercices)
+
+    # ── CHAQUE EXERCICE DIT D'OÙ IL VIENT ──
+    # Trois fournisseurs cohabitent désormais dans la même série : la source
+    # principale, le scanner TradingView et nos propres passages archivés. Deux
+    # d'entre eux ne définissent pas « résultat brut » de la même façon. Sans ce
+    # champ, la fiche affiche une courbe continue là où il y a une couture, et
+    # le lecteur n'a aucun moyen de le savoir.
+    for _e in exercices:
+        _e["source"] = "stockanalysis"
+
+    # ── LA CAPITALISATION ET LA VALEUR D'ENTREPRISE PUBLIÉES, PAR EXERCICE ──
+    _mcaps = mcap_par_cloture(brut.get("ratios") or {}, res)
+    for _e in exercices:
+        _p = _mcaps.get(_e.get("fin"))
+        if _p:
+            _e["mcap_publie"], _e["ev_publie"], _e["_mcap_base"] = _p
+
+    provenance = {"stockanalysis": len(exercices)}
+    diag_tv = None
+
+    # ── LES EXERCICES QUE LE SECOND FOURNISSEUR AJOUTE ──
+    # Ils COMPLÈTENT, ils ne remplacent pas : seules les années absentes de la
+    # source principale entrent, et elles entrent entières, jamais mélangées à
+    # une ligne existante.
+    if tv:
+        lignes_tv, diag_tv = exercices_tradingview(tv, devise, fx, exercices)
+        if lignes_tv:
+            exercices = dedupliquer_exercices(exercices + lignes_tv)
+            provenance["tradingview"] = len(lignes_tv)
+
+    # ── NOS PROPRES PASSAGES : CE QUE LA FENÊTRE GLISSANTE A LAISSÉ TOMBER ──
+    #
+    # La source principale ne sert que les cinq derniers exercices. L'exercice
+    # 2020 qu'elle servait l'an dernier n'existe plus nulle part — sauf dans le
+    # paquet que NOUS avons écrit. Sans cette reprise, chaque passage détruisait
+    # un exercice par an, définitivement. Avec elle, la profondeur s'accroît
+    # toute seule d'un exercice par an, gratuitement et pour toujours.
+    #
+    # ⚠ ON NE REPREND QUE LES ANNÉES QUE PERSONNE NE SERT PLUS. Une année encore
+    # servie vient du fournisseur, pas de l'archive : c'est la version fraîche
+    # qui gagne, retraitements compris.
+    if archive:
+        connues = {e.get("annee") for e in exercices}
+        repris = []
+        for a in (archive.get("exercices") or []):
+            an = a.get("annee")
+            if an is None or an in connues:
+                continue
+            ligne = dict(a)
+            ligne["archive"] = True
+            ligne.setdefault("source", "stockanalysis")
+            repris.append(ligne)
+            connues.add(an)
+        if repris:
+            exercices = dedupliquer_exercices(exercices + repris)
+            provenance["archive"] = len(repris)
+            # Le dossier de raccord du passage qui a écrit ces lignes, quand le
+            # passage d'aujourd'hui n'en a pas produit de plus frais.
+            if diag_tv is None and archive.get("tradingview"):
+                diag_tv = dict(archive["tradingview"])
+                diag_tv["repris_de_l_archive"] = True
+
+    # Les lignes venues d'ailleurs que du compte de résultat principal n'ont pas
+    # toutes les colonnes du schéma. Le calcul qui suit les lit par leur nom :
+    # une clef absente lèverait une exception au milieu d'une série par ailleurs
+    # bonne. On complète à None — ce qui est absent reste absent.
+    for _e in exercices:
+        for _c in CHAMPS:
+            _e.setdefault(_c, None)
+        _e.setdefault("accn", None)
+        _e.setdefault("depose_le", None)
 
     # Le signe des charges d'intérêts : 351 valeurs négatives sur 352 de ce
     # côté-ci contre 1 sur 223 côté SEC. Sans ce redressement, la garde
@@ -877,7 +1638,15 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         else:
             e["_ope_source"] = "publié (retraité par le fournisseur)"
 
-        e["fcf"] = (e["ocf"] - e["capex"]) if (e["ocf"] is not None and e["capex"] is not None) else None
+        # ⚠ ON NE RECALCULE QUE CE QU'ON PEUT CALCULER. Le second fournisseur
+        # sert un flux de trésorerie disponible SANS servir le flux
+        # d'exploitation : la soustraction rend None sur ses exercices, et
+        # l'écraser détruirait la seule valeur qu'on ait. La règle est la même
+        # que partout ailleurs ici — on ne remplace jamais un chiffre par un
+        # vide.
+        _fcf = (e["ocf"] - e["capex"]) if (e["ocf"] is not None and e["capex"] is not None) else None
+        if _fcf is not None or e.get("fcf") is None:
+            e["fcf"] = _fcf
         e["ebitda"] = (e["operating_income"] + e["dna"]) \
             if (e["operating_income"] is not None and e["dna"] is not None) else e.get("ebitda_publie")
 
@@ -1052,13 +1821,26 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         # de clôture, comme côté SEC. Elle est en devise de COTATION, la dette en
         # devise des ÉTATS — on ne les mélange que si les deux coïncident.
         mc = None
-        if cours and e.get("shares_diluted"):
+        # ── LA VALEUR PUBLIÉE PASSE AVANT TOUTE RECONSTRUCTION ──
+        # Elle vient de la page des ratios, elle est datée de la clôture, et elle
+        # est déjà ramenée en devise des états. Une reconstruction par cours et
+        # nombre d'actions ne fait au mieux que la retrouver.
+        if e.get("mcap_publie"):
+            mc = e["mcap_publie"]
+            e["mcap_source"] = e.get("_mcap_base") or "publiée (stockanalysis)"
+        if mc is None and cours and e.get("shares_diluted"):
             px = _en_devise_etats(_cours_au(cours, e["fin"]), e["fin"], fx_dev, devise)
             if px:
                 mc = px * e["shares_diluted"]
+                e["mcap_source"] = "reconstruite (cours de clôture × actions)"
         if mc is None and i == len(exercices) - 1:
             mc = _en_devise_etats(mcap_usd, None, fx_dev, devise)
+            if mc:
+                e["mcap_source"] = "capitalisation du jour, ramenée en devise des états"
         e["mcap_estime"] = round(mc) if mc else None
+        # Le témoin de provenance a servi ; `mcap_source` le dit désormais, et
+        # deux champs qui disent la même chose finissent par se contredire.
+        e.pop("_mcap_base", None)
         e["wacc"] = _wacc(mc, e.get("dette_totale"), e.get("interest_expense"),
                           e.get("_taux_nopat"), beta)
         e["roic_moins_wacc"] = (round(e["roic"] - e["wacc"], 2)
@@ -1096,7 +1878,10 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         exercices[0]["roiic"] = None
 
     resume = construire_resume(exercices, divisions, unites_actions)
-    return {"exercices": exercices, "resume": resume}
+    if diag_tv:
+        resume["tradingview"] = diag_tv
+    return {"exercices": exercices, "resume": resume,
+            "provenance": provenance}
 
 
 def construire_resume(exercices, divisions=None, unites_actions=None):
@@ -1134,8 +1919,22 @@ def construire_resume(exercices, divisions=None, unites_actions=None):
         return _mediane_fenetre([e.get(cle) for e in exercices[-n:]], n)
 
     d = exercices[-1]
+    # ── QUI A FOURNI QUOI, COMPTÉ SUR LES EXERCICES EUX-MÊMES ──
+    # Calculé ici, et non transmis depuis la collecte, pour la même raison que
+    # tout le reste de cette fonction : le jour où l'on rejoue les paquets hors
+    # ligne, ce compte doit se refaire sans une requête. Un paquet dont les
+    # exercices ne portent pas de `source` est un paquet d'avant la couture —
+    # il compte sous `inconnue`, ce qui se voit, plutôt que d'être attribué au
+    # hasard à la source principale.
+    sources = {}
+    for e in exercices:
+        s = e.get("source") or "inconnue"
+        if e.get("archive"):
+            s = s + " (archive)"
+        sources[s] = sources.get(s, 0) + 1
     resume = {
         "n_exercices": len(exercices),
+        "sources_exercices": sources,
         "premier": exercices[0]["annee"], "dernier": d["annee"],
         "fin_exercice": d["fin"], "accn": None, "depose_le": None,
         "roic_1a": d.get("roic"), "roic_5a": med("roic", 5), "roic_10a": med("roic", 10),
@@ -1616,16 +2415,134 @@ def univers_marche(tranche=None, plafond=None):
     return out
 
 
+def charger_archive(symboles):
+    """Les exercices que NOS passages précédents ont écrits, pour ces symboles.
+
+    POURQUOI CETTE FONCTION EXISTE, ET CE QUE SON ABSENCE COÛTAIT
+
+    La source principale sert une fenêtre GLISSANTE de cinq exercices. L'exercice
+    2020 qu'elle servait l'an dernier n'existe plus nulle part — sauf dans le
+    paquet que nous avons écrit à l'époque. Or la fusion de fin de passage
+    REMPLAÇAIT la société entière : `garde.update(contenu)` écrasait l'ancienne
+    entrée par la nouvelle, exercices compris. Chaque passage détruisait donc un
+    exercice par an, définitivement, sans qu'aucun voyant ne s'allume : le
+    fichier restait valide, la société restait présente, elle avait simplement
+    perdu son année la plus ancienne.
+
+    En la relisant AVANT de construire, l'exercice tombé de la fenêtre rentre
+    dans le calcul comme les autres : médianes, croissances, prédictibilité et
+    note historique le voient. La profondeur s'accroît alors d'un exercice par
+    an, gratuitement et pour toujours.
+
+    On ne lit QUE les paquets concernés : l'univers entier pèse cent cinquante
+    mégaoctets, la tranche du jour une vingtaine.
+    """
+    besoins = {}
+    for s in symboles:
+        besoins.setdefault(_initiale(s), set()).add(s)
+    out = {}
+    for lettre, syms in besoins.items():
+        chemin = OUT_DIR / ("intl_detail_%s.json" % lettre)
+        if not chemin.exists():
+            continue
+        try:
+            with chemin.open(encoding="utf-8") as fh:
+                d = json.load(fh) or {}
+        except Exception as e:
+            print("[warn] archive %s illisible : %s" % (chemin.name, e), file=sys.stderr)
+            continue
+        soc = d.get("societes") or {}
+        for s in syms:
+            fiche = soc.get(s) or {}
+            ex = fiche.get("exercices")
+            if isinstance(ex, list) and ex:
+                # ⚠ ON REPREND AUSSI LE DOSSIER DE RACCORD. Les exercices repris
+                # portent bien leur source, mais la PREUVE qu'ils se raccordaient
+                # — l'écart mesuré grandeur par grandeur — vivait dans le résumé
+                # du passage qui les a écrits. Sans elle, un passage où le second
+                # fournisseur n'a pas répondu garderait ses lignes et perdrait
+                # leur justification : des chiffres sans dossier, ce que ce dépôt
+                # refuse ailleurs.
+                out[s] = {"exercices": ex,
+                          "tradingview": (fiche.get("resume") or {}).get("tradingview")}
+        # On relâche le paquet tout de suite : garder les 512 en mémoire ferait
+        # cent cinquante mégaoctets pour quelques milliers de lignes utiles.
+        del d, soc
+    return out
+
+
+def fusionner_societe(ancienne, nouvelle):
+    """Deux versions d'une même société → une seule, par ANNÉE d'exercice.
+
+    ⚠ CE N'EST PLUS UN REMPLACEMENT. L'ancienne version prenait la société
+    entière du passage le plus récent et jetait la précédente. Une société que
+    la collecte du jour n'a vue qu'à demi — quatre exercices au lieu de dix
+    parce que la source a bridé, ou parce que le second fournisseur n'a pas
+    répondu — perdait donc six exercices pour de bon.
+
+    On fusionne maintenant les EXERCICES : la version fraîche gagne à année
+    égale (c'est elle qui porte les retraitements), et les années qu'elle ne
+    contient pas sont reprises de l'ancienne, marquées `archive`.
+
+    Le reste de la fiche — nom, résumé, note — vient de la version fraîche : ces
+    champs-là décrivent le dernier état connu, pas une accumulation.
+    """
+    ex_new = (nouvelle or {}).get("exercices") or []
+    ex_old = (ancienne or {}).get("exercices") or []
+    if not ex_old:
+        return nouvelle, 0
+    connues = {e.get("annee") for e in ex_new if isinstance(e, dict)}
+    repris = []
+    for e in ex_old:
+        if not isinstance(e, dict) or e.get("annee") in connues:
+            continue
+        ligne = dict(e)
+        ligne["archive"] = True
+        ligne.setdefault("source", "stockanalysis")
+        repris.append(ligne)
+        connues.add(e.get("annee"))
+    if not repris:
+        return nouvelle, 0
+    fusion = dict(nouvelle)
+    fusion["exercices"] = sorted(ex_new + repris,
+                                 key=lambda x: (x.get("annee") is None, x.get("annee")))
+    # ⚠ LE RÉSUMÉ SE REFAIT. Sans ça, `n_exercices`, les médianes à dix ans et
+    # la note décriraient la version amputée pendant que le tableau, lui,
+    # afficherait les exercices repris. `construire_resume` existe justement
+    # pour se rejouer hors ligne, sans une requête.
+    try:
+        anc = (ancienne or {}).get("resume") or {}
+        fusion["resume"] = dict((nouvelle.get("resume") or {}),
+                                **construire_resume(
+                                    fusion["exercices"],
+                                    (nouvelle.get("resume") or {}).get("divisions_action")
+                                    or anc.get("divisions_action"),
+                                    (nouvelle.get("resume") or {}).get("unites_actions_corrigees")
+                                    or anc.get("unites_actions_corrigees")))
+    except Exception as e:
+        print("[warn] résumé non recalculé après fusion : %s" % e, file=sys.stderr)
+    # Et le dossier de raccord suit ses lignes : sans lui, les exercices repris
+    # gardent leur source mais perdent la preuve qu'ils s'y raccordaient.
+    anc_tv = ((ancienne or {}).get("resume") or {}).get("tradingview")
+    if anc_tv and not (fusion.get("resume") or {}).get("tradingview"):
+        fusion["resume"] = dict(fusion.get("resume") or {},
+                                tradingview=dict(anc_tv, repris_de_l_archive=True))
+    return fusion, len(repris)
+
+
 def fusionner_paquets(paquets):
     """Ajoute la tranche du jour aux paquets déjà écrits.
 
     Sans cette fusion, chaque passage effacerait les six autres tranches : le
     collecteur écrit un fichier par initiale, et une tranche n'en contient qu'un
-    septième. On relit donc l'existant, on remplace les sociétés qu'on vient de
+    septième. On relit donc l'existant, on fusionne les sociétés qu'on vient de
     collecter, on garde les autres.
+
+    Rend `(paquets, sociétés reprises telles quelles, exercices sauvés d'une
+    société recollectée)`.
     """
     import glob as _glob
-    fusionnes, repris = {}, 0
+    fusionnes, repris, exercices_sauves = {}, 0, 0
     # Tous les paquets existants, pas seulement ceux que la tranche touche :
     # sinon un fichier qu'aucune société du jour ne concerne serait absent de
     # la sortie et resterait figé au dernier passage qui l'a écrit.
@@ -1643,10 +2560,19 @@ def fusionner_paquets(paquets):
                 ancien = {}
         garde = {k: v for k, v in ancien.items() if k not in contenu}
         repris += len(garde)
-        garde.update(contenu)
+        # ⚠ ET POUR CELLES QUE LE PASSAGE A REVUES, ON FUSIONNE PAR ANNÉE.
+        # `charger_archive` a déjà fait ce travail en amont pour l'immense
+        # majorité — ce filet rattrape les cas où il n'a pas pu : sortie
+        # détournée, paquet écrit entre-temps, société changée de paquet.
+        for sym, fiche in contenu.items():
+            av = ancien.get(sym)
+            if av:
+                fiche, n = fusionner_societe(av, fiche)
+                exercices_sauves += n
+            garde[sym] = fiche
         fusionnes[lettre] = garde
     # Les paquets qu'aucune société de la tranche ne touche restent tels quels.
-    return fusionnes, repris
+    return fusionnes, repris, exercices_sauves
 
 
 PAQUETS_INTL = 512
@@ -1677,9 +2603,21 @@ def _initiale(sym):
 
 def _options(argv):
     o = {"tickers": None, "limit": None, "sortie": None, "source": "suivi",
-         "tranche": None, "parallele": 1, "plafond": None}
+         "tranche": None, "parallele": 1, "plafond": None,
+         # Les deux leviers de profondeur se coupent SÉPARÉMENT : ils ne
+         # dépendent pas du même fournisseur et ne tombent pas ensemble.
+         "sans_tv": False, "sans_ratios": False,
+         # Le repli sur nos propres passages ne se coupe que pour un contrôle :
+         # le couper en production détruit un exercice par an.
+         "sans_archive": False}
     for i, a in enumerate(argv):
-        if a == "--tickers" and i + 1 < len(argv):
+        if a == "--sans-tv":
+            o["sans_tv"] = True
+        elif a == "--sans-ratios":
+            o["sans_ratios"] = True
+        elif a == "--sans-archive":
+            o["sans_archive"] = True
+        elif a == "--tickers" and i + 1 < len(argv):
             o["tickers"] = {t.strip().upper() for t in argv[i + 1].split(",") if t.strip()}
         elif a == "--limit" and i + 1 < len(argv):
             o["limit"] = int(argv[i + 1])
@@ -1784,9 +2722,11 @@ def precharger(univers, parallele):
 
 
 def main():
-    global OUT_JSON, OUT_JS, OUT_DIR
+    global OUT_JSON, OUT_JS, OUT_DIR, AVEC_RATIOS, AVEC_TV
     t0 = time.time()
     opts = _options(sys.argv[1:])
+    AVEC_RATIOS = not opts["sans_ratios"]
+    AVEC_TV = not opts["sans_tv"]
     if opts["sortie"]:
         opts["sortie"].mkdir(parents=True, exist_ok=True)
         OUT_DIR = opts["sortie"]
@@ -1838,9 +2778,33 @@ def main():
     precharges = precharger(univers, opts["parallele"])
     print("[info] descente finie en %.1f s" % (time.time() - t0))
 
+    # ── LE SECOND FOURNISSEUR, EN LOTS, UNE SEULE FOIS POUR TOUT L'UNIVERS ──
+    # Dix requêtes pour dix-neuf mille sociétés, contre quatre par société chez
+    # la source principale. Le coût est négligeable ; ce qu'il rapporte est une
+    # profondeur médiane de dix-huit exercices au lieu de cinq.
+    tv_series, tv_bilan = {}, {}
+    if AVEC_TV:
+        t_tv = time.time()
+        tv_series, tv_bilan = series_tv(sorted(univers))
+        print("[info] TradingView : %d/%d sociétés servies en %d lot(s), %.1f s"
+              % (tv_bilan.get("repondus", 0), tv_bilan.get("vises", 0),
+                 tv_bilan.get("lots", 0), time.time() - t_tv))
+
+    # ── NOS PROPRES PASSAGES, RELUS AVANT DE CONSTRUIRE ──
+    # La fenêtre de la source principale glisse : l'exercice le plus ancien
+    # qu'elle servait l'an dernier n'existe plus que dans nos paquets.
+    archives = {}
+    if not opts["sans_archive"]:
+        archives = charger_archive(sorted(univers))
+        print("[info] archive : %d société(s) déjà écrites relues" % len(archives))
+
     index, paquets = {}, {}
     ok = sans_place = echecs = 0
     par_recherche = 0
+    # Ce que les deux leviers ont réellement rapporté, compté sur les lignes
+    # écrites et non sur les intentions.
+    ajouts = {"tradingview": 0, "archive": 0, "societes_tv": 0,
+              "refus_tv": {}, "mcap_publiee": 0}
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
         brut, chemin, trouve = precharges.get(sym, (None, None, False))
         if trouve:
@@ -1869,7 +2833,9 @@ def main():
             bati = construire(brut, meta.get("mcap"), meta.get("beta"), cours.get(sym),
                               fx_dev=fx.get(devise_etats), devise=devise_etats,
                               variations=meta.get("variations"),
-                              jour_marche=meta.get("jour_marche"))
+                              jour_marche=meta.get("jour_marche"),
+                              tv=tv_series.get(sym), fx=fx,
+                              archive=archives.get(sym))
         except Exception as e:
             print("[warn] %s : %s" % (sym, e), file=sys.stderr)
             echecs += 1
@@ -1877,6 +2843,20 @@ def main():
         if not bati:
             echecs += 1
             continue
+
+        prov = bati.get("provenance") or {}
+        ajouts["tradingview"] += prov.get("tradingview", 0)
+        ajouts["archive"] += prov.get("archive", 0)
+        if prov.get("tradingview"):
+            ajouts["societes_tv"] += 1
+        _d = (bati.get("resume") or {}).get("tradingview") or {}
+        if _d.get("refus"):
+            # Le motif du refus, pas seulement son compte : « symbole douteux »
+            # et « devise absente du cache » n'appellent pas la même correction.
+            _m = _d["refus"].split(" :")[0]
+            ajouts["refus_tv"][_m] = ajouts["refus_tv"].get(_m, 0) + 1
+        ajouts["mcap_publiee"] += sum(
+            1 for e in bati["exercices"] if e.get("mcap_publie"))
 
         r = bati["resume"]
         r["devise"] = devise_etats
@@ -1925,6 +2905,21 @@ def main():
         # trois semaines se confond avec une fraîche.
         r["collecte_le"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         r["source"] = "stockanalysis.com (données S&P Global Market Intelligence)"
+        # ⚠ « source » AU SINGULIER NE SUFFIT PLUS. Un exercice de 2009 ne vient
+        # pas de la même maison qu'un exercice de 2025 : la fiche doit pouvoir
+        # nommer chacune. Le détail par exercice est dans `exercices[].source` ;
+        # cette table dit ce que chaque clef signifie, pour que la fiche n'ait
+        # pas à le deviner ni à le coder en dur de son côté.
+        r["sources"] = {
+            "stockanalysis": {
+                "libelle": "stockanalysis.com (données S&P Global Market Intelligence)",
+                "url": r["source_url"]},
+        }
+        if (bati.get("provenance") or {}).get("tradingview"):
+            r["sources"]["tradingview"] = {
+                "libelle": "scanner TradingView — séries annuelles `_fy_h`",
+                "url": "https://www.tradingview.com/symbols/%s/"
+                       % ((tv_series.get(sym) or {}).get("_symbole_tv") or "").replace(":", "-")}
 
         paquets.setdefault(_initiale(sym), {})[sym] = {
             "symbole": sym, "nom": meta.get("nom"),
@@ -1957,9 +2952,25 @@ def main():
         "duree_s": round(time.time() - t0, 1),
         "exhaustivite": {"univers": len(univers), "construites": ok,
                          "place_inconnue": sans_place, "echecs": echecs,
-                         "retrouves_par_recherche": par_recherche},
+                         "retrouves_par_recherche": par_recherche,
+                         "tradingview": dict(tv_bilan,
+                                             societes_completees=ajouts["societes_tv"],
+                                             exercices_ajoutes=ajouts["tradingview"],
+                                             refus=ajouts["refus_tv"]),
+                         "archive_exercices_repris": ajouts["archive"],
+                         "mcap_publiee_exercices": ajouts["mcap_publiee"]},
         "limites": [
-            "Cinq exercices par société — la source n'en sert pas davantage à un visiteur anonyme.",
+            "Profondeur INÉGALE : cinq exercices complets par la source principale, "
+            "jusqu'à vingt de plus par le scanner TradingView, et les exercices "
+            "sauvés de nos propres passages. Chaque exercice porte sa source.",
+            "Les exercices TradingView n'ont NI passif, NI capitaux propres, NI flux "
+            "d'exploitation, NI nombre d'actions : ce fournisseur ne sert pas ces "
+            "quatre séries. ROE, ROIC, Piotroski et grandeurs par action restent "
+            "donc vides sur eux — vides, et non comblés.",
+            "Une grandeur TradingView n'est retenue que si elle concorde à 5 % près "
+            "avec la source principale sur les exercices communs. L'EBITDA et le "
+            "résultat brut sont fréquemment écartés à ce titre : deux fournisseurs "
+            "ne les définissent pas pareil.",
             "Montants en devise NATIVE, jamais convertis : un bilan de 2021 converti au cours d'aujourd'hui n'a jamais existé.",
             "Source non primaire (S&P Global revendu) : les lignes composées — résultat d'exploitation, EBITDA — sont des retraitements du fournisseur.",
             "Divisions d'action déjà rétro-ajustées par la source : les bénéfices par action diffèrent des rapports publiés à l'époque.",
@@ -1989,9 +3000,12 @@ def main():
     # INCONDITIONNELLE. Un passage ne connaît jamais tout l'univers — ni la
     # tranche du jour, ni le sous-ensemble suivi — et le collecteur écrit un
     # fichier par initiale. Sans fusion, chaque passage efface tous les autres.
-    paquets, repris = fusionner_paquets(paquets)
+    paquets, repris, sauves = fusionner_paquets(paquets)
     if repris:
         print("[ok] fusion : %d sociétés reprises des passages précédents" % repris)
+    if sauves:
+        print("[ok] fusion : %d exercice(s) sauvé(s) de la fenêtre glissante "
+              "au filet de fin de passage" % sauves)
     poids = []
     for lettre, contenu in sorted(paquets.items()):
         c = OUT_DIR / ("intl_detail_%s.json" % lettre)
@@ -2002,6 +3016,27 @@ def main():
 
     print("[ok] %d sociétés — %d place inconnue, %d échecs, %d retrouvées par recherche — %.1f s"
           % (ok, sans_place, echecs, par_recherche, time.time() - t0))
+    print("[ok] profondeur : +%d exercice(s) TradingView sur %d société(s), "
+          "+%d exercice(s) repris de nos passages, %d capitalisation(s) publiée(s)"
+          % (ajouts["tradingview"], ajouts["societes_tv"], ajouts["archive"],
+             ajouts["mcap_publiee"]))
+    if ajouts["refus_tv"]:
+        # ⚠ ON NOMME LES REFUS. Un second fournisseur qui se tait ressemble trait
+        # pour trait à un second fournisseur qu'on a mal appelé : sans ce
+        # décompte par motif, le jour où le scanner changerait de préfixe de
+        # place, la profondeur retomberait à cinq sans un mot.
+        for motif, n in sorted(ajouts["refus_tv"].items(), key=lambda x: -x[1]):
+            print("[info] TradingView refusé %5d fois — %s" % (n, motif))
+    # Un second fournisseur muet EN ENTIER n'est pas une source avare, c'est une
+    # panne. Il ne doit pas passer pour un choix.
+    if AVEC_TV and tv_bilan.get("vises") and not tv_bilan.get("repondus"):
+        print("[!] le scanner TradingView n'a rien servi sur %d société(s) visées : "
+              "préfixes de place ou route changés ?" % tv_bilan["vises"],
+              file=sys.stderr)
+    if _bridages_tv[0]:
+        print("[!] %d lot(s) TradingView abandonné(s) après %d essais — la "
+              "profondeur du passage est incomplète" % (_bridages_tv[0], TV_RETRIES),
+              file=sys.stderr)
     print("[ok] index %d Ko · %d paquets, plus gros %d Ko, total %d Ko"
           % (OUT_JSON.stat().st_size // 1024, len(poids),
              (max(poids) // 1024) if poids else 0, (sum(poids) // 1024) if poids else 0))
