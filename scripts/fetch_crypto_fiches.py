@@ -597,12 +597,29 @@ def main():
             d[k].sort()
 
     def percentile(vals, v, sens):
+        """Le rang de `v` dans `vals`, en centièmes, ex æquo au MILIEU.
+
+        ⚠ LES EX ÆQUO ÉTAIENT RANGÉS AU BAS DE LEUR BLOC, et sur une grandeur
+        bornée cela peint le maximum en rouge. Mesuré le 05/09/2026 : QUATRE-
+        VINGTS de nos deux cents jetons ont 100 % de leur offre en circulation —
+        c'est le plafond, on ne fait pas mieux. La boucle s'arrêtant au PREMIER
+        de ces quatre-vingts, un jeton au plafond recevait le 60ᵉ centile, et la
+        fiche de stETH affichait « offre en circulation · 100 % · barre rouge ».
+        Rouge veut dire « en bas du classement » : le lecteur y lisait un défaut
+        là où la grandeur est à son maximum possible.
+        La convention du milieu range le bloc d'ex æquo à sa position moyenne :
+        au plafond, un jeton obtient d'autant plus que le peloton est petit.
+        """
         if not vals or len(vals) < 2:
             return None
-        i = 0
-        while i < len(vals) and vals[i] < v:
-            i += 1
-        p = 100.0 * i / (len(vals) - 1)
+        bas = 0
+        while bas < len(vals) and vals[bas] < v:
+            bas += 1
+        haut = bas
+        while haut < len(vals) and vals[haut] <= v:
+            haut += 1
+        milieu = (bas + max(bas, haut - 1)) / 2.0
+        p = 100.0 * milieu / (len(vals) - 1)
         p = max(0.0, min(100.0, p))
         return round(100.0 - p if sens == "bas" else p, 1)
 
