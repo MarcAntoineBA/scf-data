@@ -556,6 +556,32 @@ def construire(gid, slug, doc, jeton, maintenant):
     mcap = (jeton.get("mcap_b") or 0) * 1e9
 
     mx = sm.get("maxSupply") or sm.get("adjustedSupply")
+    # ── UNE DATE CALCULÉE N'EST PAS UNE DATE PUBLIÉE ────────────────────
+    # ⚠ Quatre calendriers sur cinquante-neuf sont ENTIÈREMENT engendrés par une
+    # formule : leurs échéances sont espacées d'un intervalle rigoureusement
+    # constant, à la seconde près, sur des dizaines d'événements.
+    #   XDC   18 événements à 31 556 926 s d'écart — une année JULIENNE —
+    #         depuis le 1ᵉʳ janvier 2017. Dix ans de dérive font 58 heures :
+    #         la falaise « du 1ᵉʳ janvier 2027 » tombe en réalité début février.
+    #   ONDO   5 événements à 31 556 916 s depuis le 18 janvier 2024.
+    #   APT   120 et XTZ 49 événements au mois julien (2 629 743 s).
+    # Ce ne sont pas des dates que le projet a annoncées, ce sont des dates que
+    # la source a calculées — et la fiche les présentait comme les autres. Un
+    # lecteur qui note « le 1ᵉʳ janvier » dans son agenda se trompe de cinq
+    # semaines. On le publie ; la fiche le dira.
+    evs = md.get("unlockEvents") or []
+    ts_ev = sorted({e.get("timestamp") for e in evs if e.get("timestamp")})
+    calendrier_calcule = None
+    if len(ts_ev) >= 4:
+        ecarts = [ts_ev[i + 1] - ts_ev[i] for i in range(len(ts_ev) - 1)]
+        if max(ecarts) - min(ecarts) <= 2 and min(ecarts) > 20 * 86400:
+            calendrier_calcule = {
+                "intervalle_s": ecarts[0],
+                "intervalle_j": round(ecarts[0] / 86400.0, 1),
+                "ancre": _jour(ts_ev[0]),
+                "n_evenements": len(ts_ev),
+            }
+
     ech = prochaines_echeances(lots, cats, md.get("unlockEvents"), maintenant, mx)
     j90 = fenetre(lots, maintenant, 90)
     m12 = fenetre(lots, maintenant, 365)
@@ -752,6 +778,7 @@ def construire(gid, slug, doc, jeton, maintenant):
         # calendrier. Non nulle : le calendrier s'arrête, pas l'émission.
         "emission_terminale_pct_an": pente_fin_pct,
         "couverture_pct": couverture_pct,
+        "calendrier_calcule": calendrier_calcule,
         "calendrier_jusqu_au": _jour(fin_serie) if fin_serie else None,
         # Un calendrier dont la série s'arrête demain est ÉPUISÉ : il ne
         # documente plus rien. Comparé au seul instant présent, celui
