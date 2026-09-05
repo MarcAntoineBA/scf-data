@@ -338,6 +338,20 @@
       "witness": "crypto_fiches.js"
     },
     {
+      "id": "crypto.vesting",
+      "script": "fetch_crypto_vesting.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "crypto_vesting_cache.js",
+        "crypto_vesting_cache.json"
+      ],
+      "witness": "crypto_vesting_cache.json"
+    },
+    {
       "id": "crypto-pe-hist",
       "script": "fetch_crypto_pe_hist.py",
       "args": [],

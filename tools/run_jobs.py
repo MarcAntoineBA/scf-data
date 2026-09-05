@@ -186,6 +186,12 @@ DEPENDANCES = {
     # captation, l'âge et l'histoire. Lancés ensemble, la fiche décrirait le
     # passage précédent.
     "crypto.fiches": ["crypto.capture"],
+    # Le calendrier de déverrouillage se greffe sur l'univers des FICHES : il y
+    # lit quels jetons suivre, leur cours et leur capitalisation. Une part de
+    # capitalisation est un rapport — prendre le cours d'un passage et la
+    # capitalisation d'un autre en ferait un rapport faux. Lancés ensemble, il
+    # daterait ses 141,9 % de Monad d'un cours de la veille.
+    "crypto.vesting": ["crypto.fiches"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
