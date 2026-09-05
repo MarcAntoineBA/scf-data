@@ -8,7 +8,7 @@ Ecrit dans ~/Library/Caches/site_crypto_finance/ (non-TCC-protege) :
   - global_markets_cache.json  (structured data)
   - global_markets_cache.js    (window.__GLOBAL_MARKETS__ = {...};)
 
-Lance par launchd (scf.globalmarkets) toutes les 6h.
+Lance par launchd (com.bassetti.globalmarkets) toutes les 6h.
 
 Sources (all auditable):
   - yfinance (Yahoo Finance) for ETF fundamentals + index price history
@@ -90,10 +90,29 @@ MARKETS = [
     {"country": "Taïwan",        "index_ticker": "^TWII",      "etf": "EWT",  "name": "TAIEX",          "currency": "TWD", "region": "Asie"},
     {"country": "Hong Kong",     "index_ticker": "^HSI",       "etf": "EWH",  "name": "Hang Seng",      "currency": "HKD", "region": "Asie"},
     {"country": "Italie",        "index_ticker": "FTSEMIB.MI", "etf": "EWI",  "name": "FTSE MIB",       "currency": "EUR", "region": "Europe"},
-    {"country": "Espagne",       "index_ticker": "EWP",        "etf": "EWP",  "name": "IBEX 35",        "currency": "EUR", "region": "Europe"},
+    # ⚠ SEULE LIGNE DES DIX-SEPT OÙ `index_ticker` VALAIT L'ETF. La colonne
+    # « IBEX 35 » du tableau des indices renvoyait chez Yahoo vers le fonds
+    # iShares MSCI Spain — un ETF américain en dollars — au lieu de l'indice
+    # espagnol, et affichait ses performances. Vérifié le 05/09/2026 :
+    # `^IBEX` rend « IBEX 35 », 20 050,7 EUR, 256 séances ; `EWP` rend
+    # « iShares MSCI Spain ETF », 62,75 USD. Le champ `etf` reste EWP : le P/E
+    # et le P/B viennent réellement du fonds.
+    {"country": "Espagne",       "index_ticker": "^IBEX",      "etf": "EWP",  "name": "IBEX 35",        "currency": "EUR", "region": "Europe"},
     {"country": "Suisse",        "index_ticker": "^SSMI",      "etf": "EWL",  "name": "SMI",            "currency": "CHF", "region": "Europe"},
     {"country": "Mexique",       "index_ticker": "^MXX",       "etf": "EWW",  "name": "IPC Mexico",     "currency": "MXN", "region": "Amérique"},
 ]
+
+# ⚠ UN CONTRÔLE QUI TIENT LA LISTE HONNÊTE. `index_ticker` désigne l'INDICE,
+# `etf` le fonds qui le suit : les confondre fait afficher les performances du
+# second sous le nom du premier, et dans une autre devise. C'est arrivé une
+# fois, sur l'Espagne, et rien ne l'a vu passer pendant des mois.
+_confondus = [_m["name"] for _m in MARKETS
+              if _m.get("index_ticker") and _m["index_ticker"] == _m.get("etf")]
+if _confondus:
+    raise SystemExit("[global_markets] index_ticker vaut l'ETF sur : %s — le "
+                     "tableau afficherait le fonds sous le nom de l'indice."
+                     % ", ".join(_confondus))
+
 
 BENCHMARK = {"country": "Monde", "index_ticker": None, "etf": "URTH", "name": "MSCI World", "currency": "USD", "region": "Global"}
 
