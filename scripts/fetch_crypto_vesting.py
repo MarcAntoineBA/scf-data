@@ -609,6 +609,32 @@ def construire(gid, slug, doc, jeton, maintenant):
             "points": len(pts),
         })
 
+    # ── « OFFRE MAXIMALE » N'EST PAS UN PLAFOND ─────────────────────────
+    # ⚠ C'est la FIN DU CALENDRIER MODÉLISÉ, et sur plusieurs jetons l'émission
+    # y bat encore son plein. Mesuré en prenant la pente des 365 derniers jours
+    # de la série cumulée : Canton Network émet encore 7,9 milliards de jetons
+    # par an à la fin de son calendrier — douze virgule neuf pour cent de son
+    # « offre maximale » PAR AN — The Graph 3,5 %, Solana 1,6 %, Dogecoin 5,2
+    # milliards par an. Écrire « il reste 26,7 % à libérer, puis ce sera fini »
+    # sur une émission qui ne s'arrête pas est faux, et c'est le chiffre de tête
+    # du bloc. On publie donc la pente terminale : la fiche pourra dire que le
+    # calendrier s'arrête sans que l'émission s'arrête.
+    cumul = {}
+    for lot in lots:
+        for pt in lot.get("data") or []:
+            ts = pt.get("timestamp")
+            if ts:
+                cumul[ts] = cumul.get(ts, 0.0) + (pt.get("unlocked") or 0.0)
+    pente_fin_pct = None
+    if len(cumul) > 30:
+        ts_tries = sorted(cumul)
+        fin_ts = ts_tries[-1]
+        debut_ts = next((t for t in ts_tries if t >= fin_ts - 365 * 86400), ts_tries[0])
+        annees = (fin_ts - debut_ts) / 86400.0 / 365.25
+        if annees > 0.25 and mx and mx > 0:
+            pente = (cumul[fin_ts] - cumul[debut_ts]) / annees
+            pente_fin_pct = round(pente / mx * 100.0, 2)
+
     # ── VESTING OU ÉMISSION : deux calendriers qui ne se lisent pas pareil ──
     # ⚠ DÉFAUT VU À L'ÉCRAN, PAS DANS LES DONNÉES. La fiche de Bitcoin affichait
     # « déverrouillé au contrat 95,6 % », « à qui revient l'offre : récompenses
@@ -676,6 +702,16 @@ def construire(gid, slug, doc, jeton, maintenant):
                        if (base_cg and mx and mx > 0) else None)
 
     offre_incoherente = None
+    # ⚠ SANS OFFRE, LA LIGNE DE TÊTE DISPARAISSAIT SANS UN MOT. La source ne
+    # publie pas de `supplyMetrics` pour PancakeSwap ni pour ORE : `offre_max`
+    # est nul, donc le taux de déverrouillage aussi, donc la ligne « Déverrouillé
+    # au contrat » n'est pas rendue. Une fiche du même bloc, à côté, la montre.
+    # Le lecteur ne peut pas distinguer « on ne sait pas » de « on a oublié ».
+    if not mx:
+        offre_incoherente = (
+            "La source ne publie pas d’offre de référence pour ce calendrier. "
+            "Les parts en pourcentage sont donc absentes : elles n’auraient pas "
+            "de dénominateur. Les quantités de jetons, elles, restent exactes.")
     if circulante and mx and circulante > mx * 1.005:
         offre_incoherente = (
             "L’offre en circulation (%.4g jetons) dépasse l’offre maximale que "
@@ -712,6 +748,9 @@ def construire(gid, slug, doc, jeton, maintenant):
         # La base des deux pourcentages, écrite noir sur blanc : sans elle, un
         # relecteur ne peut pas savoir sur quoi la soustraction porte.
         "base_pourcentages": "offre maximale du calendrier",
+        # La part de cette offre encore émise chaque année AU TERME du
+        # calendrier. Non nulle : le calendrier s'arrête, pas l'émission.
+        "emission_terminale_pct_an": pente_fin_pct,
         "couverture_pct": couverture_pct,
         "calendrier_jusqu_au": _jour(fin_serie) if fin_serie else None,
         # Un calendrier dont la série s'arrête demain est ÉPUISÉ : il ne
@@ -794,6 +833,23 @@ def raison_sans_calendrier(jeton):
     le reste, la seule phrase vraie est qu'on ne sait pas — et elle invite à
     aller voir, là où l'ancienne fermait la question.
     """
+    # ⚠ CINQ FONDS TOKENISÉS RECEVAIENT LA RAISON GÉNÉRIQUE — BUIDL, USDY,
+    # JTRSY, JAAA, EUTBL. Leur archétype est « protocole », comme PancakeSwap :
+    # rien ne les en distingue de ce côté. Mais leur NOM le dit en toutes
+    # lettres, et c'est vérifiable : ce sont des parts de fonds monétaires, dont
+    # l'émission suit les souscriptions au fonds, jamais un calendrier de projet.
+    # Ils n'en auront donc jamais, et « la source ne publie pas » laissait croire
+    # à un trou.
+    nom = (jeton.get("nom") or "") + " " + (jeton.get("symbole") or "")
+    # Mesuré sur nos 200 jetons : QUATRE portent « fund » dans leur nom, et les
+    # quatre sont des fonds tokenisés. Le marqueur est donc précis sur cet
+    # univers ; l'espace initiale évite d'attraper « funding ».
+    for marqueur in (" fund", "money market", "us dollar yield"):
+        if marqueur in nom.lower():
+            return ("Part de fonds tokenisée : l’émission suit les souscriptions "
+                    "au fonds — le nom porte « %s » — et non un calendrier de "
+                    "déverrouillage. Il n’y en aura jamais." % marqueur)
+
     a = jeton.get("archetype")
     if a in ("enveloppe", "staking_liquide"):
         return ("Enveloppe : ce jeton représente un autre actif, dont il suit "

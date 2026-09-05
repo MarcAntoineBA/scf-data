@@ -211,8 +211,14 @@ def controles(d, maintenant):
       "aucune raison n'affirme un fait qu'on n'a pas vérifié", str(menteuses[:4]))
 
     # Et le vocabulaire des raisons reste FERMÉ : trois formes, pas une de plus.
+    # Quatre formes, et pas une de plus : enveloppe, actif tokenisé, part de
+    # fonds tokenisée, et l'aveu d'ignorance. Chacune se vérifie depuis nos
+    # propres données — l'archétype pour les deux premières, le NOM pour la
+    # troisième (les quatre jetons de l'univers qui portent « fund » sont
+    # quatre fonds). Le plafond existe pour empêcher qu'une cinquième forme
+    # apparaisse sans qu'on ait dit sur quoi elle repose.
     formes = {(x.get("raison") or "")[:40] for x in sans.values()}
-    v(len(formes) <= 3,
+    v(len(formes) <= 4,
       "les raisons se comptent sur les doigts d'une main",
       "%d formes distinctes" % len(formes))
     v(len(J) + len(sans) == d.get("univers"),
