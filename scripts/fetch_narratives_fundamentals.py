@@ -105,12 +105,25 @@ if BANC_ESSAI:
 # Le plus grand écart entre deux valeurs consécutives de toute la distribution
 # est ×110,7, entre Ethereum (1 140,6) et Jetons de paiement (126 256) ; le
 # deuxième plus grand n'est que ×4,35 (102,5 → 445,8). La distribution désigne
-# donc elle-même UN seul aberrant. On pose le seuil dans cet intervalle, à
-# 10 000× : des frais annuels valant 0,01 % de la capitalisation, soit dix mille
-# ans pour rembourser le prix. Ethereum, dont l'effondrement des frais est un
-# fait mesuré et non un artefact de collecte, reste « mesurable » — c'est
-# voulu : le seuil écarte les dénominateurs absents, pas les vérités gênantes.
-SEUIL_ABSURDITE_PS_TTM = 10000.0
+# donc elle-même UN seul aberrant sur CE cache.
+#
+# ⚠ MAIS UNE DISTRIBUTION D'UN JOUR NE FAIT PAS UN SEUIL. Le lendemain,
+# « Marchés prédictifs » ressortait à 7 722× — sous le seuil de 10 000, donc
+# étiqueté « mesurable », alors que ses frais annuels valent 0,013 % de sa
+# capitalisation. Le creux entre 1 140 et 126 256 était un accident de ce
+# cache-là, pas une propriété du marché : sur le cache du 04/09 réellement
+# disponible, le plus grand écart consécutif vaut ×16,4 et non ×110,7.
+#
+# On raisonne donc sur le SENS et non sur le creux du jour. À 2 000×, les frais
+# d'une année valent un demi-millième de la capitalisation : deux mille ans pour
+# rembourser le prix. Aucune lecture de ce nombre ne parle encore de
+# valorisation. C'est aussi la ligne que retient l'auditeur des données publiées
+# (`tools/audit_donnees.py`), et deux garde-fous qui se contredisent ne
+# protègent de rien.
+# Ethereum (1 140×), dont l'effondrement des frais est un fait mesuré et non un
+# artefact de collecte, reste « mesurable » — c'est voulu : le seuil écarte les
+# dénominateurs absents, pas les vérités gênantes.
+SEUIL_ABSURDITE_PS_TTM = 2000.0
 
 # capitalisation/TVL — valeurs observées, décroissantes : 369,35 · 349,00 ·
 # 43,43 · 42,86 · 20,88 · 16,84 · 15,27 · 13,00 · 7,36 · 7,17 · 5,38 · 4,79 ·
