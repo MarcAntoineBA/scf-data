@@ -25,10 +25,28 @@ TICKERS = {
 }
 
 def compute_growth(ticker):
-    """Revenue Growth TTM = (revenu derniers 4Q) / (revenu 4Q précédents) - 1"""
+    """Revenue Growth sur 12 mois glissants. Retourne (valeur, methode).
+
+    ORDRE DES VOIES — il a son importance, il a ete paye par un defaut muet.
+
+    Mesure du 01/09/2026 : yfinance ne rend plus que 5 trimestres par societe.
+    La voie trimestrielle exige `len(rev) >= 8` (deux fenetres de 4) : elle
+    echouait donc pour LES DIX societes, en silence. Le repli annuel prenait le
+    relais — mais il compare deux exercices CLOS, pas 12 mois glissants :
+
+        Apple  annuel  6,4 %   TTM reel  16,4 %
+        NVIDIA annuel 65,5 %   TTM reel 105,9 %
+
+    La page affichait ces chiffres sous le libelle « Revenue Growth (YoY) » en
+    citant « rapports trimestriels 10-Q » comme source. Le chiffre etait vieux
+    d'un exercice, et sa provenance affichee etait fausse.
+
+    On place donc `info.revenueGrowth` (un vrai TTM cote Yahoo) AVANT l'annuel,
+    et on renvoie la methode employee pour que l'ecran puisse la dire.
+    """
     try:
         t = yf.Ticker(ticker)
-        # Trimestriels (plus robuste)
+        # 1. Trimestriel maison : la seule voie entierement verifiable.
         qfin = t.quarterly_financials
         if qfin is not None and 'Total Revenue' in qfin.index:
             rev = qfin.loc['Total Revenue'].dropna().sort_index(ascending=False)
@@ -36,22 +54,23 @@ def compute_growth(ticker):
                 last4 = rev.iloc[:4].sum()
                 prev4 = rev.iloc[4:8].sum()
                 if prev4 > 0:
-                    return round(100 * (last4 - prev4) / prev4, 1)
-        # Fallback : annual
+                    return round(100 * (last4 - prev4) / prev4, 1), 'trimestriel'
+        # 2. TTM de Yahoo : 12 mois glissants, la bonne grandeur.
+        try:
+            g = t.info.get('revenueGrowth')
+            if g is not None:
+                return round(100 * float(g), 1), 'ttm'
+        except Exception:
+            pass
+        # 3. Annuel : deux exercices CLOS. Juste, mais perime — donc etiquete.
         afin = t.financials
         if afin is not None and 'Total Revenue' in afin.index:
             rev = afin.loc['Total Revenue'].dropna().sort_index(ascending=False)
-            if len(rev) >= 2:
-                if rev.iloc[1] > 0:
-                    return round(100 * (rev.iloc[0] - rev.iloc[1]) / rev.iloc[1], 1)
-        # Fallback : info
-        info = t.info
-        g = info.get('revenueGrowth')
-        if g is not None:
-            return round(100 * float(g), 1)
+            if len(rev) >= 2 and rev.iloc[1] > 0:
+                return round(100 * (rev.iloc[0] - rev.iloc[1]) / rev.iloc[1], 1), 'annuel'
     except Exception as e:
         sys.stderr.write(f'{ticker} err: {e}\n')
-    return None
+    return None, None
 
 def fetch():
     if CACHE_FILE.exists():
@@ -64,15 +83,39 @@ def fetch():
 
     sys.stderr.write('[TradFi Growth] Fetching live data...\n')
     result = {}
+    methodes = {}
     for name, ticker in TICKERS.items():
-        g = compute_growth(ticker)
+        g, methode = compute_growth(ticker)
         if g is not None:
             result[name] = g
-            sys.stderr.write(f'{name} ({ticker}): {g}%\n')
+            methodes[name] = methode
+            sys.stderr.write(f'{name} ({ticker}): {g}% [{methode}]\n')
         else:
             sys.stderr.write(f'{name} ({ticker}): no growth data\n')
 
-    payload = {'updated': datetime.now().isoformat(), 'data': result}
+    # ── GARDE D'APPAUVRISSEMENT ───────────────────────────────────────────────
+    # Le cache publie le 01/09/2026 ne contenait qu'UNE societe (Apple) alors que
+    # la collecte en vise dix : une collecte partiellement en echec avait ecrase
+    # un cache complet, sans un mot. Un fichier ecrit est pris pour un succes.
+    # On refuse desormais d'ecrire un cache nettement plus pauvre que celui qu'on
+    # remplace : mieux vaut servir la donnee d'hier, entiere, que celle
+    # d'aujourd'hui, amputee.
+    ancien = {}
+    if CACHE_FILE.exists():
+        try:
+            ancien = (json.load(open(CACHE_FILE)) or {}).get('data', {}) or {}
+        except Exception:
+            ancien = {}
+    if ancien and len(result) < len(ancien) * 0.8:
+        sys.stderr.write(
+            f'[TradFi Growth] REFUS : {len(result)} societes collectees contre '
+            f'{len(ancien)} dans le cache existant. Cache conserve, rien ecrit.\n')
+        payload = json.load(open(CACHE_FILE))
+        inject_into_html(payload)
+        return payload
+
+    payload = {'updated': datetime.now().isoformat(), 'data': result,
+               'methodes': methodes}
     with open(CACHE_FILE, 'w') as f:
         json.dump(payload, f)
     sys.stderr.write(f'[TradFi Growth] Wrote {len(result)} tickers\n')

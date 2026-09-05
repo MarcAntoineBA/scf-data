@@ -1841,7 +1841,17 @@ def main():
         "tracker_cache_updated": tracker.get("updated"),
         "n_narratives": len(narratives_out),
         "n_tokens_total": len(all_ids),
-        "n_tokens_fetched": len(token_fund),
+        # ⚠ CE COMPTEUR COMPTAIT AUSSI CE QU'IL N'AVAIT PAS COLLECTÉ.
+        # Il est calculé APRÈS le rattrapage, qui ressuscite du cache précédent
+        # les entrées manquantes : les reprises entraient donc dans le compte
+        # des « récupérés ». Le cache déclarait « 812/812 tickers fetchés » dans
+        # le même document où il annonçait 65 échecs, et la page l'affichait tel
+        # quel. Un compteur qui inclut les ressuscités ne mesure plus une
+        # collecte, il mesure la taille du dictionnaire.
+        # On publie donc le nombre RÉELLEMENT rapporté ce passage-ci, et le
+        # nombre de reprises reste à côté pour que le total se reconstitue.
+        "n_tokens_fetched": max(0, len(token_fund) - int(stale_filled or 0)),
+        "n_tokens_fetched_total_publie": len(token_fund),
         "n_overridden_by_tracker": overridden,
         "n_stale_filled": stale_filled,
         "n_with_tvl": sum(1 for t in token_fund.values() if t.get("tvl_b")),

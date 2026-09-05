@@ -83,18 +83,62 @@ def fetch_pe_tradfi(slug):
         return None
 
 def fetch_sp500_pe():
+    """P/E du S&P 500 — la REFERENCE de coloration de toute la page PER.
+
+    Incident du 02/09/2026 : multpl.com a renomme son element `#current-value`
+    en `#current`. Le selecteur ne trouvait plus rien et la fonction retournait
+    sa constante de repli 28.5, presentee a l'ecran comme une donnee collectee.
+    La vraie valeur ce jour-la etait 29,63 — 3,8 % d'ecart, jamais signale.
+
+    ⚠ Ce cache ECRASE la valeur cuite au knit : la page fusionne par
+    `L.sp500_pe || I.sp500_pe`, le live gagne. Corriger le .Rmd sans corriger
+    CE collecteur ne change donc rien a l'ecran — mesure faite le 02/09 :
+    le HTML servait 29,63, la page affichait 28,5.
+
+    Trois voies, de la plus fiable a la moins :
+      1. le cache pe_hist_cache.json, deja produit par fetch_pe_hist.py, qui
+         scrape le MEME site correctement et va jusqu'au mois courant ;
+      2. le scraping direct, en essayant les deux noms d'element ;
+      3. None — pour que l'absence se voie, au lieu d'un nombre plausible et faux.
+    """
+    # 1. Le cache historique fait foi : meme source, deja verifiee, deja fraiche.
+    for p in (CACHE_DIR / "pe_hist_cache.json",
+              Path(__file__).resolve().parent / "pe_hist_cache.json"):
+        try:
+            if p.exists():
+                pe = (json.loads(p.read_text()).get("sp500_pe_hist") or {}).get("pe") or []
+                if pe:
+                    v = float(pe[-1])
+                    if 5 < v < 100:
+                        return v
+        except Exception:
+            pass
+
+    # 2. Repli : scraping direct, l'element ACTUEL puis l'ancien.
     try:
         r = requests.get("https://www.multpl.com/s-p-500-pe-ratio", headers=HEADERS, timeout=20)
-        if r.status_code != 200:
-            return 28.5
-        soup = BeautifulSoup(r.text, "html.parser")
-        cur = soup.find(id="current-value")
-        if not cur:
-            return 28.5
-        val = re.sub(r"[^0-9.]", "", cur.get_text())
-        return float(val) if val else 28.5
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, "html.parser")
+            for sel in ("current", "current-value"):
+                cur = soup.find(id=sel)
+                if cur:
+                    val = re.sub(r"[^0-9.]", "", cur.get_text())
+                    if val:
+                        v = float(val)
+                        if 5 < v < 100:
+                            return v
+            # Dernier recours : la phrase en clair de la page.
+            m = re.search(r"Current S&amp;P 500 PE Ratio[^0-9]{0,120}([0-9]+\.[0-9]+)", r.text)
+            if m:
+                v = float(m.group(1))
+                if 5 < v < 100:
+                    return v
     except Exception:
-        return 28.5
+        pass
+
+    # 3. Rien de fiable : on le DIT, on n'invente pas un 28.5 credible.
+    sys.stderr.write("[sp500_pe] AUCUNE source fiable — champ omis plutot qu'invente\n")
+    return None
 
 # ──────────────────────────────────────────────────────────
 # Build crypto rows
@@ -268,10 +312,23 @@ def main():
         sys.stderr.write(f"[PER] sp500_pe fetch failed: {type(e).__name__}: {e}\n")
         sp500_pe = None
     sys.stderr.write(f"[PER] S&P 500 P/E: {sp500_pe}\n")
+    # ⚠ CE REPLI ANNULAIT LE REFUS QUE LA FONCTION VENAIT DE POSER.
+    # `fetch_sp500_pe()` rend None plutot qu'un nombre plausible quand aucune
+    # source ne repond — c'est la bonne decision. Vingt lignes plus bas, on
+    # reprenait la valeur du cache precedent et on la publiait sous la date DU
+    # JOUR. Reporter une valeur connue vaut mieux que la perdre : ce P/E colore
+    # toute la comparaison de la page. Mais une valeur d'avant-hier publiee sans
+    # sa date est une donnee perimee presentee comme fraiche, et celle-ci decide
+    # de la couleur de chaque ligne du tableau.
+    sp500_pe_repris = None
     if sp500_pe is None and CACHE_FILE.exists():
         try:
             prev = json.load(open(CACHE_FILE, "r"))
             sp500_pe = prev.get("sp500_pe")
+            if sp500_pe is not None:
+                sp500_pe_repris = prev.get("updated")
+                sys.stderr.write("[PER] sp500_pe repris du passage du %s\n"
+                                 % sp500_pe_repris)
         except Exception:
             pass
 
@@ -279,6 +336,9 @@ def main():
         "crypto": crypto,
         "tradfi": tradfi,
         "sp500_pe": sp500_pe,
+        # La date du P/E de reference quand il ne vient pas de ce passage-ci.
+        # Absente, elle dit que la valeur a ete collectee aujourd'hui.
+        "sp500_pe_repris_du": sp500_pe_repris,
         "updated": datetime.now().strftime("%d/%m/%Y %H:%M")
     }
     with open(CACHE_FILE, "w") as f:

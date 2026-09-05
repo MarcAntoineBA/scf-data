@@ -113,6 +113,7 @@ def fetch():
     # the historical chart needs it and recomputing daily is expensive.
     prev_nvda_pe_hist = None
     prev_updated = None
+    prev_payload = None
     if CACHE_FILE.exists():
         try:
             prev_payload = json.load(open(CACHE_FILE))
@@ -266,9 +267,40 @@ def fetch():
         sys.stderr.write('[PE Hist] 0 ticker fetché ET aucun cache précédent — abandon sans écrire\n')
         return None
 
+    # ── GARDE ANTI-APPAUVRISSEMENT ───────────────────────────────────────
+    # ⚠ LE GARDE CI-DESSUS NE COUVRAIT QUE LE ZÉRO ABSOLU. Mesuré le
+    # 05/09/2026 : huit tickers sur onze ont échoué au passage de 8 h 50, le
+    # dictionnaire n'était donc pas vide, et le cache PUBLIÉ est passé de onze
+    # séries à TROIS — AAPL, MSFT, NVDA. Les huit autres ont disparu des pages
+    # qui les affichent, sans une erreur : le collecteur a écrit « Wrote 3
+    # tickers » et s'est terminé en succès.
+    # Un échec partiel n'est pas un résultat partiel : c'est le MÊME cache avec
+    # des trous. On reprend donc du passage précédent ce que celui-ci n'a pas su
+    # rapporter, et on refuse d'écrire si le compte reste très en dessous.
+    perdus = []
+    if prev_payload and isinstance(prev_payload.get('all_pe_hist'), dict):
+        for sym, serie in prev_payload['all_pe_hist'].items():
+            if sym not in result and serie:
+                result[sym] = serie
+                perdus.append(sym)
+        if perdus:
+            sys.stderr.write('[PE Hist] %d ticker(s) repris du passage precedent : %s\n'
+                             % (len(perdus), ', '.join(sorted(perdus))))
+        avant = len(prev_payload['all_pe_hist'])
+        if avant >= 5 and len(result) < avant * 0.75:
+            sys.stderr.write('[PE Hist] REFUS : %d tickers contre %d au cache '
+                             'precedent. Une collecte trouee ne remplace pas une '
+                             'collecte.\n' % (len(result), avant))
+            return None
+
     sp500 = fetch_sp500_pe_hist()
     # `all_pe_hist` is the field name expected by Bulle_IA.html / Comparaison_PER.html
     payload = {'updated': datetime.now().isoformat(), 'all_pe_hist': result}
+    # Les séries reprises sont NOMMÉES dans le cache : une page qui affiche onze
+    # courbes doit pouvoir dire lesquelles datent d'aujourd'hui.
+    if perdus:
+        payload['tickers_repris'] = sorted(perdus)
+        payload['updated_partiel'] = True
     if sp500:
         payload['sp500_pe_hist'] = sp500
     # Preserve daily NVDA history (used by the historical modal chart) — the

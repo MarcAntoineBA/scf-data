@@ -32,7 +32,7 @@ Schema :
   ]
 }
 
-Scheduled: launchd every 6h (scf.tradfifund.plist).
+Scheduled: launchd every 6h (com.bassetti.tradfifund.plist).
 """
 # ── Global timeout safeguard (30 min) — auto-tué si bloqué sur un I/O réseau,
 #    libère le lock pour le prochain cycle launchd. Sans ça, un script bloqué
@@ -1274,7 +1274,15 @@ def main():
         "tracker_cache_updated": tracker.get("updated"),
         "n_sectors": len(sectors_out),
         "n_tickers_total": len(all_syms),
-        "n_tickers_fetched": len(fundamentals),
+        # ⚠ CE COMPTEUR COMPTAIT AUSSI CE QU'IL N'AVAIT PAS COLLECTÉ.
+        # Il est pris APRÈS le rattrapage, qui ressuscite du passage précédent
+        # les entrées manquantes : les reprises comptaient comme des collectes.
+        # Le cache annonçait « 812/812 tickers fetchés » dans le même document
+        # où il déclarait 65 échecs, et la page l'affichait tel quel. Un
+        # compteur qui inclut les ressuscités ne mesure plus une collecte, il
+        # mesure la taille du dictionnaire.
+        "n_tickers_fetched": max(0, len(fundamentals) - int(stale_filled or 0)),
+        "n_tickers_fetched_total_publie": len(fundamentals),
         "n_tickers_failed": len(failed),
         "n_stale_filled": stale_filled,
         # Cross-sector outlier audit: every stock value clipped by p5/p95

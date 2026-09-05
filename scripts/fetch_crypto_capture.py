@@ -1058,11 +1058,26 @@ def tvl_protocoles(cibles, protos, dlid):
             if not serie:
                 continue
             pris += t
+            # ⚠ ADDITIONNER DEUX POINTS DU MÊME JOUR DOUBLE LE DERNIER POINT.
+            # La somme sur `s_acc` est voulue ENTRE DÉPLOIEMENTS — un protocole
+            # présent sur trois chaînes a trois séries qui s'ajoutent. Mais à
+            # l'INTÉRIEUR d'une série, DefiLlama ajoute un point « courant » en
+            # fin de journée, à côté du point quotidien de minuit. Mesuré le
+            # 05/09/2026 sur Chainlink : deux points le même jour, 1,776 Md à
+            # 00 h 00 et 1,790 Md à 14 h 30, sommés en 3,566 Md — exactement le
+            # double, et c'est le DERNIER point, celui où l'œil se pose.
+            # Treize fiches traçaient ainsi une TVL doublée à leur extrémité
+            # droite, en contradiction avec le montant écrit trois lignes plus
+            # haut dans la même fiche.
+            # On réduit donc chaque série à une valeur par jour — la dernière
+            # connue, qui est la plus fraîche — avant de l'ajouter aux autres.
+            par_jour = {}
             for pt in serie:
                 v = (pt or {}).get("totalLiquidityUSD")
                 if isinstance(v, (int, float)) and math.isfinite(v):
-                    j = _jour_iso(pt["date"])
-                    s_acc[j] = s_acc.get(j, 0.0) + v
+                    par_jour[_jour_iso(pt["date"])] = v
+            for j, v in par_jour.items():
+                s_acc[j] = s_acc.get(j, 0.0) + v
             time.sleep(0.2)
         if s_acc:
             out[gid] = s_acc
