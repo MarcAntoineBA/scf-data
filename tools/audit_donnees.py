@@ -229,6 +229,117 @@ def audit_fiches_crypto():
 # ══════════════════════════════════════════════════════════════════════════
 # ETATS FINANCIERS DES SOCIETES
 # ══════════════════════════════════════════════════════════════════════════
+def audit_vesting():
+    """Le calendrier de deverrouillage, relu comme le site le publie.
+
+    Ce que l'auditeur cherche ici n'est pas ce que cherche le garde-fou du
+    collecteur : celui-la verifie que le cache est bien FORME, celui-ci qu'il
+    n'affirme rien d'impossible une fois pose a cote des autres caches.
+    """
+    d = _charge("crypto_vesting_cache.json") or _charge("crypto_vesting_cache.js")
+    if not d:
+        return
+    J = d.get("jetons") or {}
+    F = _charge("crypto_fiches.js") or {}
+    par_id = {j.get("id"): j for j in (F.get("jetons") or [])}
+
+    # ── Le rapport dont les deux membres viennent d'instants differents ──
+    # La part de capitalisation se calcule avec le cours ET la capitalisation
+    # des fiches. Si le calendrier est plus vieux que les fiches, il rapporte
+    # des jetons d'aujourd'hui a une capitalisation d'hier, sans que rien ne le
+    # dise. C'est le defaut que la dependance crypto.vesting <- crypto.fiches
+    # previent ; on verifie qu'elle a tenu.
+    desync = []
+    for g, j in J.items():
+        f = par_id.get(g)
+        if not f or not nb(f.get("mcap_b")) or not nb(j.get("fenetres", {}).get("j90", {}).get("usd")):
+            continue
+        part = j["fenetres"]["j90"].get("part_capi_pct")
+        if not nb(part) or not part:
+            continue
+        attendu = j["fenetres"]["j90"]["usd"] / (f["mcap_b"] * 1e9) * 100.0
+        if abs(attendu - part) > max(0.5, abs(part) * 0.05):
+            desync.append(f"{j.get('symbole')} : {part:.1f} % publie contre "
+                          f"{attendu:.1f} % recalcule sur la capitalisation des fiches")
+    if desync:
+        note(BLOQUANT, "vesting / coherence",
+             "la part de capitalisation ne se retrouve pas a partir des fiches : "
+             "les deux caches ne decrivent pas le meme instant", desync)
+
+    # ── Un deverrouillage superieur a ce qui reste a deverrouiller ──
+    # Ce qui sort sur douze mois ne peut pas depasser ce que le calendrier n'a
+    # pas encore libere. Un depassement dit que le taux de deverrouillage et la
+    # serie quotidienne ne parlent pas de la meme offre.
+    trop = []
+    for j in J.values():
+        mx, dev = j.get("offre_max"), j.get("deverrouille_pct")
+        v12 = (j.get("fenetres") or {}).get("m12", {}).get("jetons")
+        if not (nb(mx) and nb(dev) and nb(v12)) or mx <= 0:
+            continue
+        restant = mx * (100.0 - dev) / 100.0
+        if v12 > restant * 1.02 and v12 - restant > mx * 0.001:
+            trop.append(f"{j.get('symbole')} : {v12:.4g} jetons sur douze mois "
+                        f"pour {restant:.4g} restant a liberer")
+    if trop:
+        note(BLOQUANT, "vesting / offre",
+             "il sort plus de jetons que le calendrier n'en a encore a liberer", trop)
+
+    # ── Une echeance dans le passe ──
+    maintenant = time.time()
+    passees = []
+    for j in J.values():
+        for e in (j.get("prochains") or [])[:3]:
+            try:
+                t = datetime.strptime(e["date"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                    tzinfo=timezone.utc).timestamp()
+            except Exception:
+                continue
+            if t < maintenant - 86400 * 2:
+                passees.append(f"{j.get('symbole')} : {e['date']} deja passee")
+                break
+    if passees:
+        note(MAJEUR, "vesting / fraicheur",
+             "des echeances annoncees comme a venir sont deja passees : le cache "
+             "n'a pas ete refait depuis", passees)
+
+    # ── Un jeton note sans que son calendrier soit dit ──
+    # Un jeton dont un tiers de l'offre reste a sortir et dont la fiche n'en dit
+    # rien porte une note qui ignore sa dilution.
+    muets = []
+    for g, j in J.items():
+        if j.get("statut") != "mesurable" or j.get("nature") != "vesting":
+            continue
+        dev = j.get("deverrouille_pct")
+        f12 = (j.get("fenetres") or {}).get("m12", {}).get("part_capi_pct")
+        # ⚠ UN CALENDRIER EPUISE N'EST PAS UNE OMISSION. Cinq jetons — BNB, MNT,
+        # JUP, GEOD, SKY — sont a moitie deverrouilles sans fenetre a douze mois
+        # parce que leur serie publiee S'ARRETE : celle de BNB au 05/09/2026,
+        # celle de JUP avant. La fiche le dit deja en toutes lettres (« le
+        # calendrier publie s'arrete au X, il reste pourtant Y % a liberer »).
+        # Les signaler ici reprocherait au cache de ne pas inventer une date que
+        # personne ne publie — et un auditeur qui crie au loup se fait desarmer.
+        if nb(dev) and dev < 70 and not nb(f12) and not j.get("calendrier_epuise"):
+            muets.append(f"{j.get('symbole')} : {dev:.0f} % deverrouille, "
+                         "aucune fenetre a douze mois chiffree")
+    if muets:
+        note(MAJEUR, "vesting / couverture",
+             "un jeton largement verrouille ne chiffre pas sa dilution a venir", muets)
+
+    # ── La contradiction avec le champ « offre en circulation » de la fiche ──
+    ecarts = []
+    for g, j in J.items():
+        f = par_id.get(g)
+        if not f or j.get("nature") == "emission":
+            continue
+        a, b = j.get("circulant_pct"), f.get("circ_pct")
+        if nb(a) and nb(b) and abs(a - b) > 0.5:
+            ecarts.append(f"{j.get('symbole')} : {a:.1f} % dans le calendrier "
+                          f"contre {b:.1f} % dans la fiche")
+    if ecarts:
+        note(MAJEUR, "vesting / coherence",
+             "l'offre en circulation differe entre le calendrier et la fiche", ecarts)
+
+
 def audit_societes(max_paquets=None):
     import glob
     paquets = sorted(glob.glob(os.path.join(CACHE, "sec_detail_*.json"))) + \
@@ -328,6 +439,7 @@ def main():
 
     audit_narratifs()
     audit_fiches_crypto()
+    audit_vesting()
     compte = audit_societes(borne) or (0, 0)
 
     par_gravite = {BLOQUANT: [], MAJEUR: [], MINEUR: []}
