@@ -261,6 +261,24 @@ SANS_PLIST = [
                   "orderflow_funding_hist_1d.json", "orderflow_funding_hist_1h.json",
                   "orderflow_funding_hist_5m.json"],
          witness="orderflow_funding_cache.json"),
+    # LES DEUX CENTS FICHES D'ACTIFS N'AVAIENT AUCUN ORDONNANCEUR (05/09/2026).
+    # `crypto_fiches.js` — la totalité du volet crypto de la page d'analyse
+    # fondamentale — n'était produit que par un lancement À LA MAIN sur le Mac.
+    # Ni plist, ni job, ni entrée au manifeste : le nuage ne le connaissait pas,
+    # et le site servait ce qu'un passage manuel avait bien voulu écrire.
+    # La capture doit précéder les fiches : la dépendance est déclarée dans
+    # `run_jobs.py`.
+    dict(id="crypto.capture", script="fetch_crypto_capture.py", args=[],
+         schedule="toutes les 6 h", per_day=4.0, cadence="6h",
+         category="public",
+         outputs=["crypto_capture_cache.js", "crypto_capture_cache.json",
+                  "crypto_histoire_cache.js", "crypto_histoire_cache.json"],
+         witness="crypto_capture_cache.json"),
+    dict(id="crypto.fiches", script="fetch_crypto_fiches.py", args=[],
+         schedule="toutes les 6 h", per_day=4.0, cadence="6h",
+         category="public",
+         outputs=["crypto_fiches.js"],
+         witness="crypto_fiches.js"),
     dict(id="crypto.options", script="fetch_options_multi.py", args=[],
          schedule="toutes les 1 h", per_day=24.0, cadence="1h",
          category="public",

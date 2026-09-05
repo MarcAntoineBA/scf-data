@@ -6,17 +6,33 @@ Parallel de fetch_tradfi_fundamentals.py mais pour la crypto.
 Sources :
 - CoinGecko /coins/markets (batch) : mcap, FDV, volume, circulating, perf 7d/30d/1y
 - DeFiLlama /protocols : TVL par gecko_id match
-- DeFiLlama /overview/fees?dataType=dailyFees : FEES 1y top-line par gecko_id
-  (= "Sales" en termes TradFi — montant total payé par les users, pas la part
-   protocole/holders. Switch 2026-06-04 depuis dailyRevenue : un P/S compare
-   le prix au CA top-line, comme Yahoo totalRevenue pour les actions.)
+- DeFiLlama /overview/fees?dataType=dailyFees : FRAIS 1y par gecko_id, soit ce
+  que PAIENT les utilisateurs. C'est le dénominateur du rapport prix/frais.
+- DeFiLlama /overview/fees?dataType=dailyRevenue : REVENU 1y par gecko_id, soit
+  ce que GARDE le protocole (le reste va aux fournisseurs de liquidité, aux
+  validateurs, ou est brûlé). Ajouté le 05/09/2026 : le rapport s'appelait
+  « P/S » alors que son dénominateur était des frais. Écart mesuré le même jour
+  sur la chaîne Ethereum : 214,7 M$ payés contre 69,5 M$ gardés, soit un
+  facteur 3,1. Coût mesuré de la collecte supplémentaire : 3,8 Mo et 0,4 s pour
+  l'appel groupé, plus 25 appels de chaîne à ~0,3 s.
+
+Doctrine des rapports (05/09/2026, alignée sur la fiche du jeton) : un rapport
+dont le dénominateur s'est effondré ne veut rien dire, mais on ne le supprime
+pas — on le NOTE. Trois états dans `ps_ttm_statut` / `mc_tvl_statut` :
+« mesurable », « non_mesurable », « sans_objet », chacun avec son motif en clair.
+La valeur brute reste publiée pour que le lecteur voie ce qui a été écarté.
 
 Métriques par narrative (pondérées par market cap) :
 - mcap_total_b, fdv_total_b, volume_total_b
-- circ_pct : circulating / FDV
+- circ_pct : circulating / FDV (garde-fou : jamais > 100 %, cf. garantir_offre_coherente)
 - vol_mcap_pct : volume 24h / market cap (proxy liquidité)
 - tvl_total_b, mc_tvl : MC / TVL (valorisation vs TVL du secteur DeFi)
-- ps_ttm : MC_secteur / Fees_TTM_secteur (Fees = top-line sales, pas revenue holders)
+- ps_ttm : MC_panier_avec_denominateur / dénominateur_TTM. Le dénominateur est
+  publié tel quel dans rev_m_1y_total, décomposé en rev_m_1y_crypto (frais
+  on-chain DeFiLlama) et rev_m_1y_actions (chiffre d'affaires Yahoo), et sa
+  nature est dite par ps_ttm_denominateur ("frais" | "chiffre d'affaires" | "mixte")
+- revenu_m_1y_total : ce que les protocoles GARDENT (dailyRevenue), à ne pas
+  confondre avec rev_m_1y_total qui est le dénominateur du rapport
 - perf_7d, perf_30d, perf_1y
 - dominance_pct : mcap_top_token / mcap_total × 100
 - n_tokens, n_with_tvl, n_with_rev
@@ -60,6 +76,52 @@ OUT_JS   = CACHE_DIR / "narratives_fundamentals_cache.js"
 TRACKER_CACHE = CACHE_DIR / "narratives_cache.json"   # written by fetch_narratives.py
 LOCK_FILE = CACHE_DIR / "narratives_fundamentals.lock"
 
+# Le cache précédent est TOUJOURS relu sur le fichier de production, même en
+# banc d'essai : sans ça le rattrapage des jetons absents de CoinGecko perdrait
+# sa seule source et le banc d'essai testerait un chemin qui n'existe pas.
+CACHE_PRECEDENT = CACHE_DIR / "narratives_fundamentals_cache.json"
+
+# ── Banc d'essai ────────────────────────────────────────────────────────
+# NARRATIFS_FUNDA_BANC_ESSAI=1 rejoue les lignes CoinGecko et le chiffre
+# d'affaires des actions depuis le cache précédent au lieu d'appeler les API.
+# Pourquoi : le quota CoinGecko gratuit est déjà consommé par les autres
+# collecteurs du site ; vérifier une modification de l'agrégation coûtait
+# sinon 3 lots de 80 jetons pris sur ce quota, et une exécution ratée à
+# mi-course laissait le site avec un cache incomplet.
+# Le banc d'essai écrit dans des fichiers SÉPARÉS et prend un verrou séparé :
+# il ne peut ni écraser le cache servi en ligne, ni bloquer le cycle launchd.
+BANC_ESSAI = os.environ.get("NARRATIFS_FUNDA_BANC_ESSAI") == "1"
+if BANC_ESSAI:
+    OUT_JSON  = CACHE_DIR / "narratives_fundamentals_banc_essai.json"
+    OUT_JS    = CACHE_DIR / "narratives_fundamentals_banc_essai.js"
+    LOCK_FILE = CACHE_DIR / "narratives_fundamentals_banc_essai.lock"
+
+# ── Seuils d'absurdité des rapports sectoriels (défaut 2) ───────────────
+# Mesurés sur la distribution réelle des 25 narratifs, cache du 04/09/2026.
+#
+# prix/frais — valeurs observées, décroissantes : 126 256 · 1 140,6 · 445,8 ·
+# 102,5 · 71,0 · 69,4 · 66,0 · 40,2 · 28,9 · 27,7 · 24,6 · 15,6 · 11,8 · 11,7 ·
+# 5,8 · 4,0 · 3,6 · 2,9 · 2,0 · 1,7 · 0,7 (n = 21, médiane 24,6).
+# Le plus grand écart entre deux valeurs consécutives de toute la distribution
+# est ×110,7, entre Ethereum (1 140,6) et Jetons de paiement (126 256) ; le
+# deuxième plus grand n'est que ×4,35 (102,5 → 445,8). La distribution désigne
+# donc elle-même UN seul aberrant. On pose le seuil dans cet intervalle, à
+# 10 000× : des frais annuels valant 0,01 % de la capitalisation, soit dix mille
+# ans pour rembourser le prix. Ethereum, dont l'effondrement des frais est un
+# fait mesuré et non un artefact de collecte, reste « mesurable » — c'est
+# voulu : le seuil écarte les dénominateurs absents, pas les vérités gênantes.
+SEUIL_ABSURDITE_PS_TTM = 10000.0
+
+# capitalisation/TVL — valeurs observées, décroissantes : 369,35 · 349,00 ·
+# 43,43 · 42,86 · 20,88 · 16,84 · 15,27 · 13,00 · 7,36 · 7,17 · 5,38 · 4,79 ·
+# 2,87 · 1,72 · 1,58 · 1,31 · 0,60 · 0,31 · 0,16 · 0,13 · 0,06 · 0,02
+# (n = 22, médiane 5,08). Plus grand écart consécutif : ×8,03 entre IA & agents
+# (43,43) et Jetons de paiement (349,00) ; deuxième plus grand : ×2,05. Seuil
+# posé dans cet intervalle, à 100× : la valeur verrouillée y pèse 1 % de la
+# capitalisation. Le panier n'est pas une place de finance décentralisée, le
+# rapport ne renseigne plus sur sa valorisation.
+SEUIL_ABSURDITE_MC_TVL = 100.0
+
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
 
 
@@ -77,11 +139,106 @@ def acquire_singleton_lock():
     return fd
 
 
+def _fr_nombre(x, decimales=0):
+    """Écrit un nombre à la française : espace fine pour les milliers, virgule
+    décimale. Les motifs partent à l'écran ; « 126,256x » y serait lu comme
+    cent-vingt-six virgule deux-cent-cinquante-six."""
+    if x is None:
+        return "—"
+    return ("{:,.%df}" % decimales).format(x).replace(",", "\u202f").replace(".", ",")
+
+
+def garantir_offre_coherente(t, journal):
+    """Aucune sortie ne publie une capitalisation supérieure à sa valeur
+    pleinement diluée, ni une offre en circulation au-delà de 100 %.
+
+    Pourquoi ce garde-fou EN PLUS du correctif de valeur pleinement diluée :
+    la capitalisation vient du tracker (instant T) et la valeur pleinement
+    diluée de CoinGecko (instant T'). Le correctif rejoue le rapport
+    offre_totale/offre_en_circulation sur le couple CoinGecko — cohérent avec
+    lui-même — mais il ne s'applique QUE si les deux valeurs CoinGecko sont
+    strictement positives, et rien ne protège les lignes qui n'empruntent pas
+    ce chemin. Mesuré le 05/09/2026 sur le cache servi en ligne, produit par le
+    miroir en nuage qui n'a jamais reçu le correctif : 22 jetons avec
+    capitalisation > valeur pleinement diluée (Monero à 1,0184, ce qui est
+    impossible) et 2 jetons au-delà de 100 % d'offre (USTB 100,6 %, KAG 101,3 %).
+
+    Aucune valeur n'est inventée : la valeur pleinement diluée est simplement
+    ramenée à son plancher de définition — elle compte au moins les jetons déjà
+    en circulation. Chaque correction est journalisée avec son écart réel.
+    """
+    raisons = []
+    mcap = t.get("mcap_b") or 0
+    fdv = t.get("fdv_b") or 0
+    if mcap > 0 and 0 < fdv < mcap:
+        ecart_pct = (mcap / fdv - 1.0) * 100.0
+        t["fdv_b"] = round(mcap, 3)
+        t["circ_pct"] = 100.0
+        journal["fdv_relevee"] += 1
+        raisons.append("valeur pleinement diluée relevée au niveau de la capitalisation "
+                       "(écart de collecte %s %%)" % _fr_nombre(ecart_pct, 2))
+    circ = t.get("circ_pct")
+    if circ is not None and circ > 100.0:
+        t["circ_pct"] = 100.0
+        journal["offre_ramenee"] += 1
+        raisons.append("offre en circulation ramenée de %s %% à 100 %%" % _fr_nombre(circ, 1))
+    if raisons:
+        t["_offre_corrigee"] = " ; ".join(raisons)
+        journal["jetons_corriges"] += 1
+        journal["detail"].append({
+            "symbol": t.get("symbol"), "id": t.get("id"), "raison": t["_offre_corrigee"],
+        })
+    return t
+
+
+def _statut_et_motif(valeur, seuil, n_avec, n_total, couverture_pct,
+                     noms, motif_sans_objet=None):
+    """Trois états, comme la fiche du jeton : « mesurable », « non_mesurable »,
+    « sans_objet ». La valeur brute n'est JAMAIS supprimée — le lecteur doit
+    pouvoir la voir et lire pourquoi elle est écartée.
+
+    - sans_objet    : la grandeur ne s'applique pas à ce panier par nature
+                      (une action cotée n'a pas de valeur verrouillée on-chain).
+    - non_mesurable : la grandeur s'applique, mais le dénominateur manque
+                      (aucun constituant ne le fournit) ou s'est effondré
+                      au-delà de son seuil d'absurdité.
+    - mesurable     : sinon. Le motif dit alors sur quelle part du panier.
+    """
+    if motif_sans_objet:
+        return "sans_objet", motif_sans_objet
+    # `noms` = (sujet, objet affirmatif, objet négatif). Trois formes du même
+    # dénominateur, parce que le français ne les interchange pas : « LE TOTAL DES
+    # FRAIS ne représente que… », « fournissent DES FRAIS… », « ne fournit pas
+    # DE FRAIS… ». Une seule forme partagée donnait des motifs faux à l'écran
+    # (« 8 constituants fournissent de chiffre d'affaires publié ») — et le
+    # lecteur juge la rigueur d'un chiffre sur la phrase qui l'entoure.
+    nom_sujet, nom_affirmatif, nom_negatif = noms
+    if valeur is None:
+        if n_total <= 0:
+            return "sans_objet", "Panier vide : le rapport n'a pas de sujet."
+        return ("non_mesurable",
+                "Aucun des %d constituants du panier ne fournit %s : le rapport n'a "
+                "pas de dénominateur." % (n_total, nom_negatif))
+    if valeur > seuil:
+        return ("non_mesurable",
+                "Dénominateur effondré : %s ne représente que %s %% de la "
+                "capitalisation retenue (rapport de %s×, au-delà du seuil "
+                "d'absurdité de %s×). La valeur brute reste affichée, elle ne "
+                "mesure plus une valorisation."
+                % (nom_sujet, _fr_nombre(100.0 / valeur, 4),
+                   _fr_nombre(valeur, 0), _fr_nombre(seuil, 0)))
+    # « 1 constituants » : le lecteur voit d'abord la faute, ensuite le chiffre.
+    verbe = "constituant sur %d fournit" if n_avec == 1 else "constituants sur %d fournissent"
+    return ("mesurable",
+            ("%d " + verbe + " %s, soit %s %% de la capitalisation du panier.")
+            % (n_avec, n_total, nom_affirmatif, _fr_nombre(couverture_pct or 0.0, 0)))
+
+
 def load_previous_cache():
-    if not OUT_JSON.exists():
+    if not CACHE_PRECEDENT.exists():
         return {}
     try:
-        with OUT_JSON.open("r", encoding="utf-8") as f:
+        with CACHE_PRECEDENT.open("r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"[warn] could not load prev funda cache: {e}", file=sys.stderr)
@@ -558,10 +715,80 @@ def build_dlid_to_gecko(protocols_rows):
     return out
 
 
-def fetch_defillama_revenue(dlid_to_gecko):
-    """Returns (rev_map, source_map) tuples per gecko_id.
+def _agreger_bulk(data, dlid_to_gecko):
+    """Somme par gecko_id le total1y de l'appel groupé /overview/fees, quel que
+    soit le dataType demandé.
 
-    - rev_map     : gecko_id -> revenue_1y_usd
+    Factorisé le 05/09/2026 : on interroge désormais DEUX grandeurs sur le même
+    endpoint (frais payés, puis revenu gardé). Garder deux boucles jumelles,
+    c'était garantir qu'un correctif futur n'atterrisse que sur l'une des deux
+    et que les deux chiffres cessent d'être comparables sans que personne le voie.
+    """
+    out, sources = {}, {}
+    for p in ((data or {}).get("protocols") or []):
+        did = str(p.get("defillamaId") or "")
+        # Entrée chain-level : l'appel groupé renvoie un total1y de chaîne
+        # PARTIEL/FAUX (ETH 129M, SOL 38M, BNB 22M) très inférieur à la réalité.
+        # On l'IGNORE ici ; l'endpoint dédié /overview/fees/{slug} plus bas
+        # donne la vraie valeur (ETH 1156M, SOL 1706M, BNB 345M).
+        if did.startswith("chain#") or p.get("category") == "Chain":
+            continue
+        if not did:
+            continue
+        gid = dlid_to_gecko.get(did)
+        if not gid:
+            continue
+        rev = p.get("total1y")
+        if rev is None or rev <= 0:
+            r30 = p.get("total30d") or 0
+            if r30 > 0:
+                rev = r30 * 12
+        if rev is None or rev <= 0:
+            continue
+        # SOMME (pas max) — chaque version d'un protocole contribue.
+        out[gid] = out.get(gid, 0) + rev
+        if gid not in sources:
+            sources[gid] = {"kind": "protocol",
+                            "slug": p.get("slug") or "",
+                            "web":  p.get("slug") or ""}
+    return out, sources
+
+
+def _total1y_chain_native(cd, slug, autoriser_repli):
+    """total1y de la CHAÎNE elle-même dans une réponse /overview/fees/{slug}.
+
+    `autoriser_repli` : pour les frais on accepte de retomber sur le total1y de
+    l'endpoint (cas Stellar/XRPL où le natif EST le seul « protocole »). Pour le
+    revenu gardé on le REFUSE : ce total-là couvre tout l'écosystème déployé, et
+    l'attribuer au jeton de la chaîne fabriquerait un revenu qu'elle ne touche
+    pas. Une donnée absente reste absente.
+    """
+    native_rev = 0
+    native_entry = None
+    for p in ((cd or {}).get("protocols") or []):
+        p_id = str(p.get("defillamaId") or "")
+        if p_id == "chain#%s" % slug or (p.get("name") or "").lower() == slug.lower():
+            native_rev = p.get("total1y") or 0
+            if native_rev <= 0:
+                r30 = p.get("total30d") or 0
+                if r30 > 0:
+                    native_rev = r30 * 365.0 / 30.0
+            native_entry = p
+            break
+    if native_rev <= 0 and autoriser_repli:
+        native_rev = (cd or {}).get("total1y") or 0
+        if native_rev <= 0:
+            r30 = (cd or {}).get("total30d") or 0
+            if r30 > 0:
+                native_rev = r30 * 365.0 / 30.0
+    return native_rev, native_entry
+
+
+def fetch_defillama_revenue(dlid_to_gecko):
+    """Returns (fees_map, source_map, chain_breakdowns, revenu_net_map) per gecko_id.
+
+    - fees_map        : gecko_id -> frais_1y_usd (ce que PAIENT les utilisateurs)
+    - revenu_net_map  : gecko_id -> revenu_1y_usd (ce que GARDE le protocole)
     - source_map  : gecko_id -> {"kind": "protocol"|"chain", "slug": <api_slug>, "web": <ui_slug>}
       Permet au frontend de construire un lien d'audit qui pointe EXACTEMENT
       sur la page DeFiLlama où la valeur est affichée (chain page si revenu
@@ -611,47 +838,37 @@ def fetch_defillama_revenue(dlid_to_gecko):
     }
     CHAIN_SLUG_TO_GECKO = {slug: info[0] for slug, info in CHAIN_INFO.items()}
 
+    BASE = ("https://api.llama.fi/overview/fees?excludeTotalDataChart=true"
+            "&excludeTotalDataChartBreakdown=true&dataType=")
     try:
-        data = _http_get_json(
-            "https://api.llama.fi/overview/fees"
-            "?dataType=dailyFees"
-            "&excludeTotalDataChart=true"
-            "&excludeTotalDataChartBreakdown=true",
-            timeout=60)
+        data = _http_get_json(BASE + "dailyFees", timeout=60)
     except Exception as e:
-        print(f"[warn] DefiLlama /overview/fees: {e}", file=sys.stderr)
-        return {}
-    out = {}
-    sources = {}  # gecko_id -> {"kind": "protocol"|"chain", "slug": str, "web": str}
+        print(f"[warn] DefiLlama /overview/fees (dailyFees): {e}", file=sys.stderr)
+        # Arité stricte : les appelants dépaquettent quatre valeurs. L'ancien
+        # `return {}` faisait planter le collecteur ENTIER sur un simple
+        # incident réseau DeFiLlama, au lieu de publier sans frais.
+        return {}, {}, {}, {}
+    out, sources = _agreger_bulk(data, dlid_to_gecko)
     chain_count = 0
-    protos = (data or {}).get("protocols") or []
-    for p in protos:
-        did = str(p.get("defillamaId") or "")
-        # Chain-level entry : le bulk /overview/fees renvoie un total1y chain
-        # PARTIEL/FAUX (ETH 129M, SOL 38M, BNB 22M) très inférieur à la réalité.
-        # On les IGNORE ici et on récupère le vrai revenu chain depuis l'endpoint
-        # dédié /overview/fees/{slug} plus bas (ETH 1156M, SOL 1706M, BNB 345M).
-        if did.startswith("chain#") or p.get("category") == "Chain":
-            continue
-        # Cas standard : protocole DeFi
-        if not did:
-            continue
-        gid = dlid_to_gecko.get(did)
-        if not gid:
-            continue
-        rev = p.get("total1y")
-        if rev is None or rev <= 0:
-            r30 = p.get("total30d") or 0
-            if r30 > 0:
-                rev = r30 * 12
-        if rev is None or rev <= 0:
-            continue
-        # SOMME (pas max) — chaque version d'un protocole contribue.
-        out[gid] = out.get(gid, 0) + rev
-        if gid not in sources:
-            sources[gid] = {"kind": "protocol",
-                            "slug": p.get("slug") or "",
-                            "web":  p.get("slug") or ""}
+
+    # ── Le multiple s'appelait « P/S » mais son dénominateur est des FRAIS ──
+    # dailyFees = ce que paient les utilisateurs ; dailyRevenue = ce que garde
+    # le protocole (le reste va aux fournisseurs de liquidité, aux validateurs,
+    # ou est brûlé). Les deux diffèrent d'un facteur 3,1 sur la chaîne Ethereum
+    # (214,7 M$ payés contre 69,5 M$ gardés, mesuré le 05/09/2026). On collecte
+    # donc les deux et on publie les deux : le rapport garde les frais comme
+    # dénominateur — c'est ce qui se compare au chiffre d'affaires d'une action —
+    # mais le revenu gardé s'affiche à côté, sous son propre nom.
+    # Coût mesuré : 3,8 Mo, 0,4 s pour l'appel groupé.
+    revenu_net = {}
+    try:
+        data_net = _http_get_json(BASE + "dailyRevenue", timeout=60)
+        revenu_net, _ = _agreger_bulk(data_net, dlid_to_gecko)
+    except Exception as e:
+        # Pas de repli inventé : sans cet appel, le revenu gardé est simplement
+        # absent et le front-end l'affichera absent.
+        print(f"[warn] DefiLlama /overview/fees (dailyRevenue): {e} — revenu gardé absent",
+              file=sys.stderr)
 
     # ── Revenu CHAIN NATIVE UNIQUEMENT (fix méthodo 2026-06-04) ────────
     # Pour un L1 (ETH/SOL/BNB/TRX/XRP/XLM/BTC/LTC…), seul le revenu de la
@@ -663,40 +880,31 @@ def fetch_defillama_revenue(dlid_to_gecko):
     #
     # Méthode : pour chaque slug, on cherche dans protocols[] l'entrée
     # defillamaId="chain#{slug}" (le chain native) et on prend SON total1y.
-    chain_rev = {}        # gecko_id -> revenue $ (chain native uniquement)
+    chain_rev = {}        # gecko_id -> frais $ (chain native uniquement)
     chain_primary = {}    # gecko_id -> (api_slug, web_name) du chain qui contribue
     chain_breakdowns = {} # gecko_id -> [{name, slug, kind:'chain', rev_usd, url}]
+    chain_net = {}        # gecko_id -> revenu gardé $ (chain native uniquement)
     for slug, (gid, web_name) in CHAIN_INFO.items():
+        BASE_CHAIN = (f"https://api.llama.fi/overview/fees/{slug}"
+                      "?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true"
+                      "&dataType=")
         try:
-            cd = _http_get_json(
-                f"https://api.llama.fi/overview/fees/{slug}"
-                "?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true"
-                "&dataType=dailyFees", timeout=40)
+            cd = _http_get_json(BASE_CHAIN + "dailyFees", timeout=40)
         except Exception:
             cd = None
         if not cd:
             continue
-        # Trouve l'entrée chain native correspondant à ce slug
-        native_rev = 0
-        native_entry = None
-        for p in (cd.get("protocols") or []):
-            p_id = str(p.get("defillamaId") or "")
-            if p_id == f"chain#{slug}" or (p.get("name") or "").lower() == slug.lower():
-                native_rev = p.get("total1y") or 0
-                if native_rev <= 0:
-                    r30 = p.get("total30d") or 0
-                    if r30 > 0:
-                        native_rev = r30 * 365.0 / 30.0
-                native_entry = p
-                break
-        # Si pas d'entrée chain explicite (cas de Stellar/XRPL où le natif EST
-        # le seul "protocole"), fallback sur chain.total1y du résumé endpoint.
-        if native_rev <= 0:
-            native_rev = cd.get("total1y") or 0
-            if native_rev <= 0:
-                r30 = cd.get("total30d") or 0
-                if r30 > 0:
-                    native_rev = r30 * 365.0 / 30.0
+        native_rev, native_entry = _total1y_chain_native(cd, slug, autoriser_repli=True)
+        # Second appel, même chaîne : le revenu gardé. Coût mesuré ~0,3 s par
+        # chaîne, 25 chaînes. On le fait ici plutôt que dans une boucle séparée
+        # pour que les deux grandeurs décrivent le MÊME instant de collecte.
+        try:
+            cn = _http_get_json(BASE_CHAIN + "dailyRevenue", timeout=40)
+            net_rev, _ = _total1y_chain_native(cn, slug, autoriser_repli=False)
+            if net_rev > 0:
+                chain_net[gid] = chain_net.get(gid, 0) + net_rev
+        except Exception:
+            pass
         if native_rev > 0:
             chain_rev[gid] = chain_rev.get(gid, 0) + native_rev
             if gid not in chain_primary:
@@ -718,9 +926,13 @@ def fetch_defillama_revenue(dlid_to_gecko):
         out[gid] = rev  # chain native uniquement, pas ecosystem
         slug, web = chain_primary[gid]
         sources[gid] = {"kind": "chain", "slug": slug, "web": web}
+    for gid, net in chain_net.items():
+        revenu_net[gid] = net  # idem : chaîne native, pas écosystème
     if chain_count:
-        print(f"[info] revenue : {chain_count} chains (NATIVE only, pas ecosystem) — ETH/SOL/BNB/TRX/XRP réels", file=sys.stderr)
-    return out, sources, chain_breakdowns
+        print(f"[info] frais : {chain_count} chaînes (NATIVE only, pas ecosystem) — ETH/SOL/BNB/TRX/XRP réels", file=sys.stderr)
+    print(f"[info] revenu gardé (dailyRevenue) : {len(revenu_net)} gecko_id, "
+          f"dont {len(chain_net)} chaînes natives", file=sys.stderr)
+    return out, sources, chain_breakdowns, revenu_net
 
 
 # ─── Aggregation ────────────────────────────────────────────────────────
@@ -733,7 +945,8 @@ def _safe_div(a, b):
         return None
 
 
-def build_token_fund(cg_row, tvl_map, rev_map, rev_sources=None, tvl_chain_web=None, rev_breakdowns=None):
+def build_token_fund(cg_row, tvl_map, rev_map, rev_sources=None, tvl_chain_web=None,
+                    rev_breakdowns=None, net_rev_map=None):
     """Build per-token fundamentals from CG + DL data.
 
     rev_sources     : {gecko_id -> {"kind","slug","web"}} produit par
@@ -750,6 +963,7 @@ def build_token_fund(cg_row, tvl_map, rev_map, rev_sources=None, tvl_chain_web=N
     rev_sources = rev_sources or {}
     tvl_chain_web = tvl_chain_web or {}
     rev_breakdowns = rev_breakdowns or {}
+    net_rev_map = net_rev_map or {}
     cid = cg_row.get("id")
     mcap = cg_row.get("market_cap") or 0
     fdv = cg_row.get("fully_diluted_valuation") or mcap
@@ -763,6 +977,9 @@ def build_token_fund(cg_row, tvl_map, rev_map, rev_sources=None, tvl_chain_web=N
     if dl_slug in (None, "", "chain"):
         dl_slug = None
     rev = rev_map.get(cid)
+    # Revenu GARDÉ par le protocole (dailyRevenue), distinct des frais PAYÉS
+    # par les utilisateurs (dailyFees) qui restent le dénominateur du rapport.
+    revenu_net = net_rev_map.get(cid)
     rev_src = rev_sources.get(cid) if rev else None
     # Plus de seuil revenue<$100k (consigne 2026-06-03 : laisser passer toutes
     # les valeurs même petites). Le frontend les affichera telles quelles.
@@ -807,7 +1024,11 @@ def build_token_fund(cg_row, tvl_map, rev_map, rev_sources=None, tvl_chain_web=N
         "vol_mcap_pct": round(vol_mcap_pct, 2) if vol_mcap_pct is not None else None,
         "tvl_b": round((tvl or 0) / 1e9, 3) if tvl else None,
         "mc_tvl": round(mc_tvl, 2) if mc_tvl is not None else None,
+        # rev_m_1y = FRAIS payés par les utilisateurs (dénominateur du rapport).
         "rev_m_1y": round(rev / 1e6, 2) if rev else None,
+        # revenu_m_1y = ce que le protocole GARDE. Absent si DeFiLlama ne le
+        # publie pas pour ce gecko_id — absent, pas replié sur les frais.
+        "revenu_m_1y": round(revenu_net / 1e6, 2) if revenu_net else None,
         "ps_ttm": round(ps_ttm, 2) if ps_ttm is not None else None,
         "perf_7d":  cg_row.get("price_change_percentage_7d_in_currency"),
         "perf_30d": cg_row.get("price_change_percentage_30d_in_currency"),
@@ -871,19 +1092,69 @@ def aggregate_narrative(tokens):
     cmcap = sum((t.get("mcap_b") or 0) for t in crypto)
     cfdv  = sum((t.get("fdv_b")  or 0) for t in crypto)
     ctvl  = sum((t.get("tvl_b")  or 0) for t in crypto if t.get("tvl_b"))
-    crev  = sum((t.get("rev_m_1y") or 0) for t in crypto if t.get("rev_m_1y"))
 
     # FDV total affiché = crypto fdv + stocks mcap (les actions sont 100% en
     # circulation par construction → fdv = mcap pour elles). Permet d'avoir un
     # mcap_total ≤ fdv_total cohérent.
     fdv_total = cfdv + sum((t.get("mcap_b") or 0) for t in stocks)
 
+    # ── Le dénominateur du rapport, calculé UNE SEULE FOIS ──────────────
+    # Le revenu publié ne sommait que les jetons crypto, tandis que le rapport
+    # publié divisait par le panier COMPLET, actions comprises. Mesuré le
+    # 05/09/2026 sur le cache en ligne : 5 narratifs sur 25 divergeaient, et
+    # « Mineurs de bitcoin » affichait « — » en revenus à côté de 15,6× en
+    # prix/revenus, alors que son dénominateur réel valait 4 590,8 M$. Depuis
+    # qu'une colonne « Revenus » figure au tableau, l'incohérence était sous les
+    # yeux du lecteur. Une seule boucle produit désormais le total ET ses deux
+    # moitiés : elles ne peuvent plus diverger.
+    #
+    # Les deux moitiés restent SÉPARÉES parce que ce ne sont pas les mêmes
+    # revenus : les frais on-chain d'un protocole ne sont pas le chiffre
+    # d'affaires comptable d'une action cotée. Les additionner sans le dire
+    # serait un autre défaut ; ps_ttm_denominateur dit lequel domine.
+    mcap_with_rev_full = 0.0
+    rev_crypto_m = 0.0
+    rev_actions_m = 0.0
+    n_with_rev = 0
+    for t in tokens:
+        m = t.get("mcap_b") or 0
+        if m <= 0:
+            continue
+        if t.get("is_stock"):
+            rev_m_t = t.get("_stock_revenue_m")
+            # Garde anti reventes brutes : une action dont le chiffre d'affaires
+            # Yahoo dépasse 3× sa capitalisation (Galaxy Digital, ventes crypto
+            # comptabilisées brutes) n'est pas comparable — on l'exclut.
+            if rev_m_t and rev_m_t > 3 * m * 1000:
+                rev_m_t = None
+            if rev_m_t and rev_m_t > 0:
+                rev_actions_m += rev_m_t
+                mcap_with_rev_full += m
+                n_with_rev += 1
+        else:
+            rev_m_t = t.get("rev_m_1y")
+            if rev_m_t and rev_m_t > 0:
+                rev_crypto_m += rev_m_t
+                mcap_with_rev_full += m
+                n_with_rev += 1
+    revenue_total_m = rev_crypto_m + rev_actions_m
+
+    # Ce que les protocoles GARDENT, à côté de ce que les utilisateurs PAIENT.
+    # Crypto seulement : une action n'a pas de « revenu gardé » on-chain.
+    revenu_net_m = sum((t.get("revenu_m_1y") or 0) for t in crypto
+                       if (t.get("revenu_m_1y") or 0) > 0)
+
     out = {
         "mcap_total_b": round(mcap_total, 2),
         "fdv_total_b":  round(fdv_total, 2),
         "vol_total_b":  round(vol_total, 3),
         "tvl_total_b":  round(ctvl, 3) if ctvl else None,
-        "rev_m_1y_total": round(crev, 2) if crev else None,
+        # Ce champ EST le dénominateur de ps_ttm ci-dessous. Le contrôle
+        # test_narratifs_coherence.py échoue si les deux se remettent à diverger.
+        "rev_m_1y_total":   round(revenue_total_m, 2) if revenue_total_m > 0 else None,
+        "rev_m_1y_crypto":  round(rev_crypto_m, 2) if rev_crypto_m > 0 else None,
+        "rev_m_1y_actions": round(rev_actions_m, 2) if rev_actions_m > 0 else None,
+        "revenu_m_1y_total": round(revenu_net_m, 2) if revenu_net_m > 0 else None,
     }
 
     # circ_fdv_pct : CRYPTO-ONLY car les actions sont 100% par définition (toutes
@@ -909,43 +1180,75 @@ def aggregate_narrative(tokens):
     else:
         out["mc_tvl"] = None
         out["mc_tvl_coverage_mcap_pct"] = round(coverage_tvl * 100, 1) if cmcap else 0
-    # P/S TTM : Σmcap_with_rev / Σrev sur le PANIER COMPLET (crypto + stocks).
-    # - Pour les tokens crypto : revenue = DefiLlama (rev_m_1y, $M)
-    # - Pour les stocks       : revenue = Yahoo totalRevenue (_stock_revenue_m, $M)
-    # Sans inclure les stocks, Web3 Exchanges & Fintech (100 % HOOD/COIN/XYZ/GLXY)
-    # affichait P/S = — alors que les 4 stocks ont chacun leur revenue TTM
-    # publique. Idem Bitcoin Miners (100 % miners stocks).
-    mcap_with_rev_full = 0.0
-    revenue_total_m = 0.0
-    for t in tokens:
-        if t.get("is_stock"):
-            rev_m_t = t.get("_stock_revenue_m")
-            # Garde anti gross-pass-through : exclure du P/S une action dont le
-            # revenu Yahoo > 3× mcap (Galaxy Digital), sinon il dilue l'agrégat.
-            m_chk = (t.get("mcap_b") or 0) * 1000
-            if rev_m_t and m_chk > 0 and rev_m_t > 3 * m_chk:
-                rev_m_t = None
-        else:
-            rev_m_t = t.get("rev_m_1y")
-        m = t.get("mcap_b") or 0
-        if rev_m_t and rev_m_t > 0 and m > 0:
-            mcap_with_rev_full += m
-            revenue_total_m += rev_m_t
+
+    # Statut du rapport capitalisation/valeur verrouillée. Mesuré le 05/09/2026 :
+    # « Bitcoin institutionnel » publiait 369×, « Jetons de paiement » 349×. Le
+    # seuil et sa justification sont en tête de fichier (SEUIL_ABSURDITE_MC_TVL).
+    # « Sans objet » est réservé au cas structurel : un panier composé
+    # uniquement d'actions cotées n'a aucune valeur verrouillée à mesurer, ce
+    # n'est pas une donnée manquante, c'est une grandeur qui ne s'applique pas.
+    _sans_objet_tvl = None
+    if not crypto and stocks:
+        _sans_objet_tvl = ("Panier composé uniquement d'actions cotées : une action "
+                           "n'a pas de valeur verrouillée sur une chaîne.")
+    out["mc_tvl_statut"], out["mc_tvl_motif"] = _statut_et_motif(
+        out["mc_tvl"], SEUIL_ABSURDITE_MC_TVL,
+        sum(1 for t in crypto if (t.get("tvl_b") or 0) > 0), len(crypto),
+        out["mc_tvl_coverage_mcap_pct"],
+        ("la valeur verrouillée sur la chaîne",
+         "une valeur verrouillée sur la chaîne",
+         "de valeur verrouillée sur la chaîne"),
+        motif_sans_objet=_sans_objet_tvl)
+    # Prix/frais : Σmcap_des_constituants_avec_dénominateur / Σdénominateur, sur
+    # le PANIER COMPLET (crypto + actions). Sans les actions, « Places d'échange
+    # et fintech » (100 % HOOD/COIN/XYZ/GLXY) affichait « — » alors que les
+    # quatre publient leur chiffre d'affaires. Idem « Mineurs de bitcoin ».
+    # Le numérateur et le dénominateur viennent de la MÊME boucle, plus haut.
     coverage_rev_full = (mcap_with_rev_full / mcap_total) if mcap_total > 0 else 0
-    n_with_rev = sum(1 for t in tokens
-                     if (((t.get("_stock_revenue_m") if t.get("is_stock") else t.get("rev_m_1y")) or 0) > 0
-                         and (t.get("mcap_b") or 0) > 0))
     n_total_basket = len(tokens)
     out["ps_ttm_n_tokens"] = n_with_rev
     out["ps_ttm_n_total"] = n_total_basket
-    # P/S TTM : ratio brut, sans seuil (consigne 2026-06-03 : aucune data
-    # bloquée). Couverture mcap exposée dans le tooltip pour la nuance.
     if revenue_total_m > 0 and mcap_with_rev_full > 0:
         out["ps_ttm"] = round(mcap_with_rev_full * 1000 / revenue_total_m, 1)
         out["ps_ttm_coverage_mcap_pct"] = round(coverage_rev_full * 100, 1)
     else:
         out["ps_ttm"] = None
         out["ps_ttm_coverage_mcap_pct"] = round(coverage_rev_full * 100, 1) if mcap_total else 0
+
+    # Nature du dénominateur : le multiple s'appelait « P/S » alors que sa part
+    # crypto est constituée de FRAIS — ce que paient les utilisateurs — et non
+    # d'un chiffre d'affaires. Les deux ne se comparent pas ; un panier mixte
+    # doit le dire au lecteur au lieu de les fondre sous un seul mot.
+    if revenue_total_m <= 0:
+        out["ps_ttm_denominateur"] = None
+    elif rev_actions_m >= 0.95 * revenue_total_m:
+        out["ps_ttm_denominateur"] = "chiffre d'affaires"
+    elif rev_crypto_m >= 0.95 * revenue_total_m:
+        out["ps_ttm_denominateur"] = "frais"
+    else:
+        out["ps_ttm_denominateur"] = "mixte"
+
+    # Statut du rapport prix/frais. Mesuré le 05/09/2026 : « Jetons de paiement »
+    # publiait 126 256×, parce que XRP déclare 0,1 M$ de frais annuels pour
+    # 88,4 Md$ de capitalisation. Le seuil et sa justification sont en tête de
+    # fichier (SEUIL_ABSURDITE_PS_TTM). La valeur brute reste dans ps_ttm.
+    # Aucun anglicisme dans ce qui part à l'écran : « on-chain » devient
+    # « prélevés sur la chaîne ».
+    _MIXTE = ("le total des frais de chaîne et des chiffres d'affaires publiés",
+              "des frais de chaîne ou un chiffre d'affaires publié",
+              "de frais de chaîne ni de chiffre d'affaires publié")
+    _noms_ps = {
+        "frais": ("le total des frais prélevés sur la chaîne",
+                  "des frais prélevés sur la chaîne",
+                  "de frais prélevés sur la chaîne"),
+        "chiffre d'affaires": ("le chiffre d'affaires publié des actions du panier",
+                               "un chiffre d'affaires publié",
+                               "de chiffre d'affaires publié"),
+        "mixte": _MIXTE,
+    }.get(out["ps_ttm_denominateur"], _MIXTE)
+    out["ps_ttm_statut"], out["ps_ttm_motif"] = _statut_et_motif(
+        out["ps_ttm"], SEUIL_ABSURDITE_PS_TTM, n_with_rev, n_total_basket,
+        out["ps_ttm_coverage_mcap_pct"], _noms_ps)
 
     # Mcap-weighted perf — AUCUN seuil de couverture (consigne 2026-06-03 :
     # afficher toute la data). On calcule sur les tokens disponibles, même si
@@ -1032,6 +1335,49 @@ def aggregate_narrative(tokens):
     return out
 
 
+def rejouer_coingecko_depuis_cache(prev_cache):
+    """Reconstruit des lignes /coins/markets à partir du cache précédent.
+
+    Banc d'essai uniquement. Rejoue les valeurs TELLES QUELLES, incohérences
+    comprises : c'est justement l'entrée adverse dont on a besoin pour vérifier
+    que le correctif de valeur pleinement diluée et le garde-fou d'offre
+    attrapent les 22 jetons à capitalisation > valeur pleinement diluée mesurés
+    sur le cache en ligne du 04/09/2026.
+    """
+    lignes = {}
+    for n in (prev_cache.get("narratives") or []):
+        for t in (n.get("tokens") or []):
+            tid = t.get("id")
+            if not tid or t.get("is_stock") or tid in lignes:
+                continue
+            lignes[tid] = {
+                "id": tid,
+                "symbol": (t.get("symbol") or "").lower(),
+                "name": t.get("name"),
+                "image": t.get("image"),
+                "current_price": t.get("price"),
+                "market_cap": (t.get("mcap_b") or 0) * 1e9,
+                "fully_diluted_valuation": ((t.get("fdv_b") or 0) * 1e9) or None,
+                "total_volume": (t.get("vol_b") or 0) * 1e9,
+                "price_change_percentage_7d_in_currency":  t.get("perf_7d"),
+                "price_change_percentage_30d_in_currency": t.get("perf_30d"),
+                "price_change_percentage_1y_in_currency":  t.get("perf_1y"),
+            }
+    return lignes
+
+
+def rejouer_chiffre_affaires_actions(prev_cache):
+    """Chiffre d'affaires des actions relu dans le cache précédent (banc d'essai).
+    Évite de solliciter Yahoo pour un contrôle qui ne teste pas Yahoo."""
+    out = {}
+    for n in (prev_cache.get("narratives") or []):
+        for t in (n.get("tokens") or []):
+            if t.get("is_stock") and t.get("symbol") and t.get("_stock_revenue_m"):
+                out[t["symbol"]] = {"revenue_usd": t["_stock_revenue_m"] * 1e6,
+                                    "perf_1y": t.get("perf_1y")}
+    return out
+
+
 # ─── Main ───────────────────────────────────────────────────────────────
 def main():
     # Single-instance lock + load prev cache + load tracker data
@@ -1054,9 +1400,17 @@ def main():
 
     # 1. CoinGecko batch (still needed for FDV + perf_1y + image; price/mcap/perf_30d
     #    will be OVERRIDDEN by tracker values for consistency)
-    print("[info] fetching CoinGecko /coins/markets ...")
-    cg_data = fetch_coingecko_markets(all_ids)
-    print(f"[info] CG: {len(cg_data)}/{len(all_ids)} fetched ({time.time()-t0:.0f}s)")
+    if BANC_ESSAI:
+        # Le quota CoinGecko gratuit est déjà consommé par les autres collecteurs
+        # du site : un banc d'essai qui l'attaque fait échouer la collecte réelle
+        # qui suit, et l'erreur ressemble à un bug du site, pas à un quota.
+        cg_data = rejouer_coingecko_depuis_cache(prev_cache)
+        print(f"[banc] CoinGecko REJOUÉ depuis le cache précédent : "
+              f"{len(cg_data)}/{len(all_ids)} lignes — aucun appel réseau CoinGecko")
+    else:
+        print("[info] fetching CoinGecko /coins/markets ...")
+        cg_data = fetch_coingecko_markets(all_ids)
+        print(f"[info] CG: {len(cg_data)}/{len(all_ids)} fetched ({time.time()-t0:.0f}s)")
 
     # 2. DeFiLlama TVL + id→gecko map (single /protocols call)
     print("[info] fetching DefiLlama /protocols ...")
@@ -1081,8 +1435,9 @@ def main():
 
     # 3. DeFiLlama revenue (joined on defillamaId → gecko_id) + source attribution + breakdown
     print("[info] fetching DefiLlama /overview/fees ...")
-    rev_map, rev_sources, rev_breakdowns = fetch_defillama_revenue(dlid_to_gecko)
-    print(f"[info] DL rev: {len(rev_map)} gecko-mapped protocols ({time.time()-t0:.0f}s)")
+    rev_map, rev_sources, rev_breakdowns, net_rev_map = fetch_defillama_revenue(dlid_to_gecko)
+    print(f"[info] DL frais: {len(rev_map)} gecko-mapped, revenu gardé: {len(net_rev_map)} "
+          f"({time.time()-t0:.0f}s)")
 
     # 4. Per-token fundamentals (build_token_fund uses CG row, then OVERRIDE
     #    price/mcap/perf with tracker values when available — guarantees the
@@ -1093,14 +1448,35 @@ def main():
         row = cg_data.get(cid)
         if not row:
             continue
-        tf = build_token_fund(row, tvl_map, rev_map, rev_sources, tvl_chain_web_map, rev_breakdowns)
+        tf = build_token_fund(row, tvl_map, rev_map, rev_sources, tvl_chain_web_map,
+                              rev_breakdowns, net_rev_map)
         tt = tracker_tokens.get(cid)
         if tt:
             # Override visible fields with tracker values (single source of truth)
             if tt.get("price") is not None:
                 tf["price"] = tt["price"]
             if tt.get("mcap"):
+                # Le tracker fait foi pour le prix, donc pour la capitalisation.
+                # Mais la FDV vient de CoinGecko, collectee a un autre instant :
+                # la laisser telle quelle produit un ratio mcap/FDV superieur a
+                # 1 des que le cours a monte entre les deux passages. Mesure
+                # avant correction : 32 jetons sur 200, BTC a 1,0032.
+                #
+                # Le rapport offre_totale / offre_en_circulation est une donnee
+                # de protocole : il ne bouge pas d'une collecte a l'autre. On le
+                # lit sur le couple CoinGecko — coherent avec lui-meme — et on
+                # l'applique a la capitalisation fraiche.
+                _ancien_mcap = tf.get("mcap_b") or 0
+                _ancienne_fdv = tf.get("fdv_b") or 0
                 tf["mcap_b"] = round(tt["mcap"] / 1e9, 3)
+                if _ancien_mcap > 0 and _ancienne_fdv > 0:
+                    _rapport = _ancienne_fdv / _ancien_mcap
+                    # Aucun rapport d'offres n'est inferieur a 1 : la FDV compte
+                    # au moins les jetons deja en circulation.
+                    if _rapport < 1.0:
+                        _rapport = 1.0
+                    tf["fdv_b"] = round(tt["mcap"] / 1e9 * _rapport, 3)
+                    tf["circ_pct"] = round(100.0 / _rapport, 1)
             if tt.get("volume") is not None:
                 tf["vol_b"] = round((tt["volume"] or 0) / 1e9, 3)
             if tt.get("perf_7d") is not None:
@@ -1135,13 +1511,38 @@ def main():
         if tt.get("price") is not None:
             merged["price"] = tt["price"]
         if tt.get("mcap"):
+            # Meme piege que plus haut, sur le chemin de rattrapage.
+            _am = merged.get("mcap_b") or 0
+            _af = merged.get("fdv_b") or 0
             merged["mcap_b"] = round(tt["mcap"] / 1e9, 3)
+            if _am > 0 and _af > 0:
+                _r = max(_af / _am, 1.0)
+                merged["fdv_b"] = round(tt["mcap"] / 1e9 * _r, 3)
+                merged["circ_pct"] = round(100.0 / _r, 1)
         if tt.get("perf_30d") is not None:
             merged["perf_30d"] = tt["perf_30d"]
         token_fund[tid] = merged
         stale_filled += 1
     if stale_filled:
         print(f"[info] gap-filled {stale_filled} tokens from previous funda cache (marked _stale_funda=true)")
+
+    # ── Garde-fou d'offre : rien d'incohérent ne sort d'ici ─────────────
+    # Passe unique sur les objets QUI SERONT SÉRIALISÉS (token_fund est la même
+    # référence que les paniers construits plus bas) : aucun jeton ne peut donc
+    # échapper au contrôle, quel que soit le chemin qui l'a produit — CoinGecko
+    # frais, rattrapage depuis le cache précédent, ou surcharge par le tracker.
+    journal_offre = {"jetons_corriges": 0, "fdv_relevee": 0, "offre_ramenee": 0, "detail": []}
+    for _t in token_fund.values():
+        garantir_offre_coherente(_t, journal_offre)
+    if journal_offre["jetons_corriges"]:
+        print(f"[garde] offre : {journal_offre['jetons_corriges']} jetons corrigés "
+              f"({journal_offre['fdv_relevee']} valeurs pleinement diluées relevées, "
+              f"{journal_offre['offre_ramenee']} offres ramenées à 100 %) — "
+              + ", ".join(d["symbol"] or d["id"] for d in journal_offre["detail"][:12]),
+              file=sys.stderr)
+    else:
+        print("[garde] offre : aucun jeton incohérent (0 mcap > FDV, 0 offre > 100 %)",
+              file=sys.stderr)
 
     # 4c. Fetch perf_1y pour les STOCKS crypto-side (MSTR, COIN, HOOD, MARA, RIOT,
     #     IREN, BITF, etc.) — tradfi_cache.json ne calcule que 7d/30d sur 60 jours
@@ -1161,7 +1562,13 @@ def main():
     # Ainsi les narratives à stocks (Web3 Exchanges, Bitcoin Miners) ou mixtes
     # (Bitcoin Institutional, Stablecoins) peuvent avoir P/S sectoriel.
     stock_fundamentals = {}  # symbol -> {perf_1y, ps_ttm, revenue_usd}
-    if all_stock_symbols:
+    if all_stock_symbols and BANC_ESSAI:
+        stock_fundamentals = rejouer_chiffre_affaires_actions(prev_cache)
+        _couvertes = len(all_stock_symbols & set(stock_fundamentals))
+        print(f"[banc] chiffre d'affaires des actions REJOUÉ depuis le cache : "
+              f"{_couvertes}/{len(all_stock_symbols)} actions du panier courant "
+              f"— aucun appel Yahoo")
+    elif all_stock_symbols:
         try:
             import yfinance as yf
 
@@ -1285,6 +1692,10 @@ def main():
             if "revenue_usd" in f:
                 # Convertir en M$ pour homogénéité avec rev_m_1y crypto (qui est en M)
                 st["_stock_revenue_m"] = f["revenue_usd"] / 1e6
+            # Les actions passent par le même garde-fou : elles arrivent avec
+            # fdv = mcap et circ = 100 %, mais rien ne garantit qu'un futur
+            # chemin d'alimentation le respecte.
+            garantir_offre_coherente(st, journal_offre)
 
     # 5. Per-narrative aggregation + momentum cross-injection from tracker.
     #    On INJECTE les stocks proxies (CRCL, PYPL, MSTR, COIN, MARA, RIOT, etc.)
@@ -1353,7 +1764,9 @@ def main():
             "narratives_cache.json (price + mcap + volume + perf_7d/30d + momentum) — single source of truth, written by fetch_narratives.py",
             "CoinGecko /coins/markets (FDV, perf_1y, fallback price/mcap when tracker missing)",
             "DefiLlama /protocols (TVL par gecko_id)",
-            "DefiLlama /overview/fees?dataType=dailyFees (revenue TTM par gecko_id)",
+            "DefiLlama /overview/fees?dataType=dailyFees (FRAIS TTM par gecko_id — ce que PAIENT les utilisateurs, dénominateur de ps_ttm)",
+            "DefiLlama /overview/fees?dataType=dailyRevenue (REVENU TTM par gecko_id — ce que GARDE le protocole, publié dans revenu_m_1y_total)",
+            "Yahoo totalRevenue (chiffre d'affaires TTM des actions cotées du panier — publié dans rev_m_1y_actions)",
         ],
         "tracker_cache_updated": tracker.get("updated"),
         "n_narratives": len(narratives_out),
@@ -1363,6 +1776,25 @@ def main():
         "n_stale_filled": stale_filled,
         "n_with_tvl": sum(1 for t in token_fund.values() if t.get("tvl_b")),
         "n_with_rev": sum(1 for t in token_fund.values() if t.get("rev_m_1y")),
+        "n_with_revenu_net": sum(1 for t in token_fund.values() if t.get("revenu_m_1y")),
+        # Seuils publiés avec le cache : le lecteur (et le contrôle
+        # test_narratifs_coherence.py) doivent pouvoir rejouer la décision
+        # sans relire le code du collecteur.
+        "seuils_absurdite": {
+            "ps_ttm": SEUIL_ABSURDITE_PS_TTM,
+            "mc_tvl": SEUIL_ABSURDITE_MC_TVL,
+        },
+        # Journal du garde-fou d'offre : combien de jetons sont sortis avec une
+        # capitalisation supérieure à leur valeur pleinement diluée, ou plus de
+        # 100 % d'offre en circulation, et ont dû être corrigés. Un chiffre qui
+        # monte est le signal qu'une source a décroché, pas un détail cosmétique.
+        "garde_offre": {
+            "jetons_corriges":      journal_offre["jetons_corriges"],
+            "fdv_relevee":          journal_offre["fdv_relevee"],
+            "offre_ramenee_a_100":  journal_offre["offre_ramenee"],
+            "detail":               journal_offre["detail"][:60],
+        },
+        "banc_essai": BANC_ESSAI,
         "narratives": narratives_out,
     }
 
@@ -1374,13 +1806,21 @@ def main():
                 json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"[ok] wrote {OUT_JS}")
 
-    print("\n[summary] top 10 narratives by mcap:")
-    for n in narratives_out[:10]:
+    print("\n[recap] les 25 narratifs — prix/frais, statut, dénominateur :")
+    print(f"  {'narratif':<30}{'mcap Md$':>10}{'prix/frais':>12}{'statut':>16}"
+          f"{'denominateur':>20}{'frais M$':>11}{'gardé M$':>11}")
+    for n in narratives_out:
         ps = n.get("ps_ttm")
-        ps_s = f"{ps:.1f}x" if ps else "—"
-        tvl = n.get("tvl_total_b")
-        tvl_s = f"{tvl:.1f}B" if tvl else "—"
-        print(f"  {n['narrative']:<32} mcap={n['mcap_total_b']:>7.1f}B  P/S={ps_s:<7}  TVL={tvl_s:<8}  n={n['n_tokens']}  tvl_n={n['n_with_tvl']}")
+        rev = n.get("rev_m_1y_total")
+        net = n.get("revenu_m_1y_total")
+        print(f"  {n['narrative']:<30}{(n.get('mcap_total_b') or 0):>10.1f}"
+              f"{(f'{ps:.1f}' if ps else '—'):>12}{(n.get('ps_ttm_statut') or '—'):>16}"
+              f"{(n.get('ps_ttm_denominateur') or '—'):>20}"
+              f"{(f'{rev:.1f}' if rev else '—'):>11}{(f'{net:.1f}' if net else '—'):>11}")
+    _non_mes = [n['narrative'] for n in narratives_out if n.get('ps_ttm_statut') == 'non_mesurable' and n.get('ps_ttm')]
+    _non_mes_tvl = [n['narrative'] for n in narratives_out if n.get('mc_tvl_statut') == 'non_mesurable' and n.get('mc_tvl')]
+    print(f"\n[recap] prix/frais écartés comme non mesurables : {_non_mes or 'aucun'}")
+    print(f"[recap] capitalisation/TVL écartés comme non mesurables : {_non_mes_tvl or 'aucun'}")
 
 
 if __name__ == "__main__":

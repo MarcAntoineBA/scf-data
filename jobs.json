@@ -309,6 +309,35 @@
       "witness": null
     },
     {
+      "id": "crypto.capture",
+      "script": "fetch_crypto_capture.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "crypto_capture_cache.js",
+        "crypto_capture_cache.json",
+        "crypto_histoire_cache.js",
+        "crypto_histoire_cache.json"
+      ],
+      "witness": "crypto_capture_cache.json"
+    },
+    {
+      "id": "crypto.fiches",
+      "script": "fetch_crypto_fiches.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "crypto_fiches.js"
+      ],
+      "witness": "crypto_fiches.js"
+    },
+    {
       "id": "crypto-pe-hist",
       "script": "fetch_crypto_pe_hist.py",
       "args": [],

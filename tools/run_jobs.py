@@ -181,6 +181,11 @@ DEPENDANCES = {
     # L'actionnariat lit l'index des états pour savoir QUELLES sociétés
     # interroger — il sortait sur « sec_fundamentals_index.json absent ».
     "actionnariat": ["secfunda"],
+    # Les deux cents fiches d'actifs crypto sont bâties À PARTIR de la capture :
+    # `fetch_crypto_fiches.py` relit `crypto_capture_cache.json` pour la
+    # captation, l'âge et l'histoire. Lancés ensemble, la fiche décrirait le
+    # passage précédent.
+    "crypto.fiches": ["crypto.capture"],
 }
 
 # ── RAFALE INTERNE ────────────────────────────────────────────────────────────
