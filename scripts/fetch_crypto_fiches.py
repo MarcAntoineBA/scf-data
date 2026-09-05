@@ -344,6 +344,34 @@ def main():
                                "%.4g). C'est la série qui fait foi : elle est ce "
                                "que la fiche trace." % rapport),
                 }
+                # ⚠ ET LE RAPPORT QUI EN DESCEND DOIT SUIVRE.
+                # Corriger `frais_m` sans corriger `ps_ttm` laissait la fiche
+                # afficher « frais sur 1 an 1,29 M$ » et « prix / frais 5,9 × »
+                # à trois lignes d'écart, quand 232 M$ ÷ 1,29 M$ font 180.
+                # Mesuré : quatre jetons dans ce cas — Cosmos ×133,
+                # Hyperliquid ×116, Optimism ×30, XRP ×0,3. Le lecteur qui
+                # divise les deux montants affichés doit retrouver le rapport.
+                mcap_t = t.get("mcap_b")
+                if isinstance(mcap_t, (int, float)) and total_serie > 0:
+                    t["ps_ttm"] = round(mcap_t * 1000.0 / total_serie, 2)
+
+        # ── LE RAPPORT SE CALCULE SUR LES FRAIS QUE LA FICHE AFFICHE ──────
+        # ⚠ DEUX MESURES DES FRAIS COEXISTENT, ET CHAQUE LIGNE PRENAIT LA
+        # SIENNE. `frais_m` vient de la capture, qui isole la CHAÎNE NATIVE ;
+        # `ps_ttm` descend de `rev_m_1y`, que le collecteur des narratifs prend
+        # sur l'ÉCOSYSTÈME entier. Sur Optimism, le point d'entrée de la source
+        # rend 38,8 M$ pour les 198 protocoles déployés dessus et 1,29 M$ pour
+        # « OP Mainnet » lui-même : la fiche affichait « frais sur 1 an 1,29 M$ »
+        # et « prix / frais 5,9 × » à trois lignes d'écart, quand la division
+        # des deux montants donne 180. Les deux mesures sont défendables ; les
+        # mêler dans une même fiche ne l'est pas.
+        # Mesuré sur les 58 jetons qui portent les trois grandeurs : huit
+        # changent, sept de moins de huit pour cent — des arrondis — et seul
+        # Optimism bouge vraiment.
+        mcap_f, frais_f = t.get("mcap_b"), t.get("frais_m")
+        if (isinstance(mcap_f, (int, float)) and isinstance(frais_f, (int, float))
+                and frais_f > 0 and isinstance(t.get("ps_ttm"), (int, float))):
+            t["ps_ttm"] = round(mcap_f * 1000.0 / frais_f, 2)
         # L'ATH vient du cache de captation quand il l'a, du cache L1 sinon :
         # les deux le publient, et le premier couvre deux cents jetons quand
         # le second en couvre quinze.
