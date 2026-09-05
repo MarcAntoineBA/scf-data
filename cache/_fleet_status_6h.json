@@ -1,16 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-05T17:11:16Z",
-  "total": 27,
-  "ok": 27,
-  "secs": 3795.0,
-  "changed": 42,
-  "versionnes": 32,
-  "pieces_jointes": 10,
-  "absents": 23,
+  "ts": "2026-09-05T22:37:36Z",
+  "total": 30,
+  "ok": 29,
+  "secs": 4598.2,
+  "changed": 45,
+  "versionnes": 33,
+  "pieces_jointes": 12,
+  "absents": 28,
   "muets": [],
-  "failed": []
+  "failed": [
+   {
+    "job": "crypto.capture",
+    "why": "dépassement du plafond (75 min)"
+   }
+  ]
  },
- "updated": "2026-09-05T17:11:16Z"
+ "updated": "2026-09-05T22:37:36Z"
 }
