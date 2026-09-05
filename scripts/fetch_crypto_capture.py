@@ -313,6 +313,13 @@ SLUG_VERS_GECKO = {
 # Ces chaînes ne sont donc PAS collectées : leurs frais n'ont pas de jeton à
 # créditer. Ce n'est pas une perte d'information — c'est le refus d'en
 # fabriquer une fausse.
+# ⚠ QUATRE NOMS WEB NE CORRESPONDAIENT À AUCUNE PAGE DEFILLAMA, et ils servent
+# à construire les liens d'audit des fiches — ceux qui doivent prouver le
+# chiffre. Confrontés le 05/09/2026 aux 466 chaînes de `/v2/chains` et aux 359
+# de `/overview/fees` : « Ripple » n'existe pas (c'est XRPL), « Cosmos » non plus
+# (CosmosHub), « Bitcoin Cash » s'écrit en un mot (Bitcoincash) et « zkSync Era »
+# porte un Z majuscule (ZKsync Era). Un lien d'audit qui tombe en 404 est pire
+# qu'un lien absent : il donne l'apparence de la vérifiabilité.
 CHAINES = {
     "ethereum": ("ethereum", "Ethereum"),
     "solana": ("solana", "Solana"),
@@ -330,17 +337,17 @@ CHAINES = {
     "celestia": ("celestia", "Celestia"),
     "starknet": ("starknet", "Starknet"),
     "stellar": ("stellar", "Stellar"),
-    "xrpl": ("ripple", "Ripple"),
+    "xrpl": ("ripple", "XRPL"),
     "canton": ("canton-network", "Canton"),
     "hyperliquid-l1": ("hyperliquid", "Hyperliquid L1"),
     "hedera": ("hedera-hashgraph", "Hedera"),
     "algorand": ("algorand", "Algorand"),
-    "cosmos": ("cosmos", "Cosmos"),
+    "cosmos": ("cosmos", "CosmosHub"),
     "polkadot": ("polkadot", "Polkadot"),
     "cardano": ("cardano", "Cardano"),
     "bitcoin": ("bitcoin", "Bitcoin"),
     "litecoin": ("litecoin", "Litecoin"),
-    "bitcoin-cash": ("bitcoin-cash", "Bitcoin Cash"),
+    "bitcoin-cash": ("bitcoin-cash", "Bitcoincash"),
     "monero": ("monero", "Monero"),
     "zcash": ("zcash", "Zcash"),
     "tezos": ("tezos", "Tezos"),
@@ -351,7 +358,7 @@ CHAINES = {
     # est la vérité, et non un zéro.
     "injective": ("injective-protocol", "Injective"),
     "mantle": ("mantle", "Mantle"),
-    "zksync-era": ("zksync", "zkSync Era"),
+    "zksync-era": ("zksync", "ZKsync Era"),
     "sonic": ("sonic-3", "Sonic"),
     "berachain": ("berachain-bera", "Berachain"),
     "plasma": ("plasma", "Plasma"),
@@ -464,8 +471,14 @@ def somme_chaines(dtype):
         if natif > 0:
             out[gid] = out.get(gid, 0.0) + natif
             detail.setdefault(gid, {}).setdefault("lignes", []).append(
+                # ⚠ LE `slug` EST CELUI DE L'API, PAS CELUI DES PAGES WEB.
+                # `/overview/fees/bitcoin-cash` répond, `/fees/chain/bitcoin-cash`
+                # tombe en 404 : la page publique s'appelle « Bitcoincash ». La
+                # fiche construisait ses liens d'audit depuis le slug, donc
+                # vers des pages inexistantes. On publie le nom WEB à côté.
                 {"nom": (entree.get("name") if entree else web) or web,
-                 "slug": slug, "cat": "Chain", "usd": int(round(natif))})
+                 "slug": slug, "web": web,
+                 "cat": "Chain", "usd": int(round(natif))})
         time.sleep(0.25)
     return out, detail
 
