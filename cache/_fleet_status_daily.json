@@ -1,22 +1,18 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-05T08:55:33Z",
+  "ts": "2026-09-06T09:18:29Z",
   "total": 38,
-  "ok": 32,
-  "secs": 1126.4,
-  "changed": 1727,
-  "versionnes": 1722,
+  "ok": 34,
+  "secs": 1525.4,
+  "changed": 1837,
+  "versionnes": 1832,
   "pieces_jointes": 5,
-  "absents": 30,
+  "absents": 36,
   "muets": [
-   "gtrends.serpapi (315.6 h)"
+   "gtrends.serpapi (340.0 h)"
   ],
   "failed": [
-   {
-    "job": "marche",
-    "why": "ValueError: not enough values to unpack (expected 3, got 2)"
-   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -32,12 +28,8 @@
    {
     "job": "savoirbake",
     "why": "script absent"
-   },
-   {
-    "job": "actionnariat",
-    "why": "[fatal] ~/Library/Caches/site_crypto_finance/sec_fundamentals_index.json absent : lancer d'abord fetch_sec_fundamentals.py"
    }
   ]
  },
- "updated": "2026-09-05T08:55:33Z"
+ "updated": "2026-09-06T09:18:29Z"
 }
