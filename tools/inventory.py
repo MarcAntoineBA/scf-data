@@ -147,6 +147,11 @@ CADENCE_OVERRIDES = {
     "com.bassetti.sentiment.fng": "6h",
     "com.bassetti.ecosysteme.indicators": "6h",
     "com.bassetti.l1history": "6h",
+    # Coin Metrics ne publie la realized cap qu'une fois par jour, mais avec un
+    # décalage variable : à six heures, le point du jour est pris dans la foulée
+    # sans interroger la source pour rien. Le collecteur porte en plus sa propre
+    # garde de six heures, qui saute les passages inutiles.
+    "com.bassetti.realizedcap": "6h",
     "com.bassetti.ipocal": "6h",
     "com.bassetti.atlasmaritime": "6h",       # ~11 min d'exécution
 

@@ -188,6 +188,22 @@
       "witness": "btc_cycle_cache.json"
     },
     {
+      "id": "realizedcap",
+      "script": "fetch_realized_cap.py",
+      "args": [
+        "--force"
+      ],
+      "schedule": "4 créneau(x)/jour",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "realized_cap_cache.js",
+        "realized_cap_cache.json"
+      ],
+      "witness": "realized_cap_cache.json"
+    },
+    {
       "id": "btccycle.live",
       "script": "fetch_btc_cycle.py",
       "args": [
