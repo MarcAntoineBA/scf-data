@@ -1,21 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-06T12:58:47Z",
+  "ts": "2026-09-06T17:38:03Z",
   "total": 30,
-  "ok": 29,
-  "secs": 4590.0,
-  "changed": 43,
+  "ok": 28,
+  "secs": 4595.6,
+  "changed": 41,
   "versionnes": 33,
-  "pieces_jointes": 10,
-  "absents": 28,
+  "pieces_jointes": 8,
+  "absents": 29,
   "muets": [],
   "failed": [
    {
     "job": "crypto.capture",
     "why": "dépassement du plafond (75 min)"
+   },
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
    }
   ]
  },
- "updated": "2026-09-06T12:58:47Z"
+ "updated": "2026-09-06T17:38:03Z"
 }
