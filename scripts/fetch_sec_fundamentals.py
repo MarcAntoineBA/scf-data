@@ -1319,7 +1319,15 @@ def entrees_bareme(exs):
             if (isinstance(d.get("capex"), (int, float))
                 and isinstance(d.get("revenue"), (int, float))
                 and d["revenue"] > 0) else None),
-        "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
+        # ⚠ SUR TOUT L'HISTORIQUE, PAS SUR LE DERNIER EXERCICE. Lu sur le seul
+        # dernier exercice, ce drapeau classait « ne distribue pas » 360 fiches
+        # portant un dividende à leur historique : elles basculaient en
+        # `nul_par_nature` sur les quatre critères Dividende — donc non
+        # pénalisées — ET récupéraient le point du taux de distribution. Une
+        # société qui vient de COUPER son dividende n'est pas une société qui
+        # n'en verse pas : la première a échoué, la seconde n'avait rien à montrer.
+        "verse_dividende": bool(
+            any(e.get("dps") or e.get("dividends_paid") for e in exs)),
         "croissances": {
             "ca":  _croissances(pa("ca_par_action")),
             "fcf": _croissances(pa("fcf_par_action")),
@@ -2145,7 +2153,16 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
         "altman_z": altman,
         "altman_detail": altman_detail,
 
-        "verse_dividende": bool(dernier.get("dps") or dernier.get("dividends_paid")),
+        # ⚠ SUR TOUT L'HISTORIQUE, PAS SUR LE DERNIER EXERCICE. Lu sur le seul
+        # dernier exercice, ce drapeau classait « ne distribue pas » 360 fiches
+        # portant un dividende à leur historique : elles basculaient en
+        # `nul_par_nature` sur les quatre critères Dividende — donc non
+        # pénalisées — ET récupéraient le point du taux de distribution. Une
+        # société qui vient de COUPER son dividende n'est pas une société qui
+        # n'en verse pas : la première a échoué, la seconde n'avait rien à montrer.
+        "verse_dividende": bool(
+            any(e.get("dps") or e.get("dividends_paid") for e in exercices)
+            if exercices else (dernier.get("dps") or dernier.get("dividends_paid"))),
         # Les divisions détectées sont RENDUES, pas seulement appliquées : une
         # correction muette est une correction qu'on ne peut pas contester.
         "divisions_action": divisions,

@@ -222,7 +222,20 @@ _BAREME = [
     ("Profits", "marge_brute", "Marge brute",                50, 30, "haut"),
     ("Profits", "marge_ope",   "Marge d’exploitation",       20, 10, "haut"),
     ("Profits", "marge_nette", "Marge nette",                20, 10, "haut"),
-    ("Profits", "capex_ocf",   "Investissements / cash",     20, 40, "bas"),
+
+    # ⚠ CE CRITÈRE N'EST PAS UNE MARGE, ET IL ÉTAIT RANGÉ PARMI ELLES.
+    #
+    # Les investissements sont un EMPLOI de trésorerie, pas une composante du
+    # profit. Rangé sous « Profits », il faisait afficher « 3,0 / 4 » à CNOOC
+    # dont les TROIS marges sont pourtant au point plein (77,9 % de marge brute,
+    # 42,1 % d'exploitation, 30,7 % nette) : le lecteur y lisait une faiblesse de
+    # rentabilité là où il n'y a qu'une intensité capitalistique.
+    #
+    # Le barème du concurrent fixe les CRITÈRES et les SEUILS — c'est ce qu'on
+    # promet de reproduire, et rien n'y touche ici. Le REGROUPEMENT en catégories
+    # est un choix d'affichage : le total sur 20 et chaque point sont inchangés,
+    # seul le rangement l'est.
+    ("Investissements", "capex_ocf", "Investissements / cash", 20, 40, "bas"),
 
     ("Croissance", "croissance_ca_1a",  "Chiffre d’affaires par action, 1 an",   10, 5, "haut"),
     ("Croissance", "croissance_ca_5a",  "Chiffre d’affaires par action, 5 ans",  10, 5, "haut"),
@@ -259,6 +272,40 @@ _BAREME = [
 # comparables. Le concurrent le reconnaît dans son aide — « la note n'est pas
 # faite pour noter ces entreprises » — et la calcule quand même.
 _CRITERES_INDUSTRIELS = {"marge_brute", "capex_ocf"}
+
+# ⚠ LES SEUILS SONT UNIVERSELS, ET CE N'EST PAS NEUTRE.
+#
+# Aucun des vingt critères n'a de seuil sectorisé. Ce choix est DÉLIBÉRÉ — le
+# barème reproduit celui d'un concurrent, et le sectoriser reviendrait à
+# inventer une autre note, exactement ce que ce fichier promet de ne pas faire.
+# Mais le biais est réel, et il se mesure. Médiane de la note ramenée par
+# secteur, sur l'univers en cache (2026-09-07) :
+#
+#     Financials     10,00      Industrials     7,10
+#     Technology      7,50      Energy          6,50
+#     Utilities       6,40      Real Estate     6,00
+#     Materials       5,90
+#
+# Soit 4,1 points d'écart entre le premier et le dernier. Les trois critères qui
+# le produisent, en points moyens obtenus :
+#
+#     capex_ocf     Financials 0,896  contre  Utilities 0,148   (6,1×)
+#     roic_1a       Consumer Staples 0,380  contre  Real Estate 0,126   (3,0×)
+#     marge_brute   Financials 0,704  contre  Industrials 0,269   (2,6×)
+#
+# Les secteurs capitalistiques — Utilities, Materials, Energy — cumulent les
+# trois pénalités : ils investissent lourdement (capex_ocf), immobilisent
+# beaucoup de capital (roic) et sont cycliques (predictibilite). Les financières
+# cumulent les trois avantages, dont la substitution ROE→ROIC.
+#
+# CNOOC est l'exemple type : 18,24 % de ROIC — plus du double de la médiane de
+# l'univers, à 8,34 % — et seulement un demi-point, parce que le seuil du point
+# plein est à 20 %. La note dit « par rapport à ces repères », jamais « bonne »
+# ou « mauvaise » : c'est le radar, en percentile de l'industrie, qui répond à
+# « bonne POUR UN PÉTROLIER ».
+#
+# Cette réserve est affichée au lecteur sous la note, et non gardée ici.
+_BIAIS_SECTORIEL_ASSUME = True
 
 
 # ── LE BARÈME DE SUBSTITUTION ─────────────────────────────────────────────
@@ -360,14 +407,21 @@ def note_quantitative(r):
         if fait_nul:
             pt = 0.0
 
-        # Le taux de distribution d'une société qui ne distribue rien vaut ZÉRO,
-        # pas « inconnu » — et zéro est en dessous du seuil, donc le point est
-        # acquis. Le concurrent le documente ainsi dans son propre barème ; sans
-        # cette règle, 121 sociétés sur 315 perdaient le critère par simple
-        # absence de ligne alors que la réponse est évidente.
+        # ⚠ LE POINT OFFERT EST DEVENU UN CRITÈRE MUET.
+        #
+        # L'ancienne règle donnait le point PLEIN à toute société ne distribuant
+        # rien : « zéro est en dessous du seuil, donc le point est acquis ».
+        # 4 302 fiches le décrochaient sans qu'aucun taux n'ait été mesuré — un
+        # point gagné en ne faisant rien, qui poussait mécaniquement vers le haut
+        # la note des sociétés sans dividende.
+        #
+        # Ne RIEN distribuer et distribuer PRUDEMMENT ne sont pas la même chose.
+        # Le critère devient donc muet : il sort du dénominateur de la note
+        # ramenée, exactement comme une ligne que le dépôt ne publie pas. La note
+        # ne récompense plus ni ne punit une politique qui n'existe pas.
         if pt is None and cle == "payout_benefices" and not verse:
-            pt = 1.0
-            fait_nul = True
+            pt = None
+            fait_nul = False
 
         # ── LE REMPLACEMENT, QUAND LE DÉPÔT SE TAIT ──
         #
@@ -639,8 +693,15 @@ def _serie_sans_baisse_dividende(dps_par_annee):
     compte ; on rend les deux, nommés.
     """
     vals = [v for _, v in dps_par_annee if v is not None]
+    # ⚠ NONE, PAS ZÉRO. Rendre `0` sur une série trop courte fabriquait un
+    # compteur à zéro indiscernable d'un dividende coupé, et le barème le notait
+    # comme un échec mesuré. C'était le SEUL des vingt critères qui ne pouvait
+    # jamais être muet : 0 fois sur 3 775 fiches, quand les autres le sont entre
+    # 1 448 et 14 336 fois — la signature d'un critère qui ne sait pas se taire.
+    # `None` le rend muet, donc hors de la note ramenée : on ne compte pas
+    # comme un échec ce qu'on n'a pas pu mesurer.
     if len(vals) < 2:
-        return 0
+        return None
     streak = 0
     for i in range(len(vals) - 1, 0, -1):
         if vals[i] >= vals[i - 1] and vals[i] > 0:
@@ -658,8 +719,10 @@ def _serie_hausses_dividende(dps_par_annee):
     c'est ce qui fait la valeur du critère.
     """
     vals = [v for _, v in dps_par_annee if v is not None]
+    # Même règle que `_serie_sans_baisse_dividende` : une série trop courte est
+    # une absence de mesure, pas un compteur à zéro.
     if len(vals) < 2:
-        return 0
+        return None
     streak = 0
     for i in range(len(vals) - 1, 0, -1):
         if vals[i] > vals[i - 1]:

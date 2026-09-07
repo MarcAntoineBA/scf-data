@@ -1298,7 +1298,11 @@ def notes_historiques(exercices):
             "annees_sans_baisse_dividende": _serie_sans_baisse_dividende(spa("dps")),
             "dette_ebitda_brut": sd.get("dette_ebitda_brut"),
             "payout_benefices": sd.get("payout_benefices"),
-            "verse_dividende": bool(sd.get("dps") or sd.get("dividends_paid")),
+            # Même correction que le résumé, mais bornée à ce qu'on savait ALORS :
+            # `sous` est la série connue à cette date, pas la série complète. La
+            # note du passé reste calculée sans regarder l'avenir.
+            "verse_dividende": bool(
+                any(x.get("dps") or x.get("dividends_paid") for x in sous)),
             "croissances": {"ca": _croissances(spa("ca_par_action")),
                             "fcf": _croissances(spa("fcf_par_action")),
                             "div": _croissances(spa("dps"))},
@@ -1985,7 +1989,16 @@ def construire_resume(exercices, divisions=None, unites_actions=None):
         "payout_fcf": d.get("payout_fcf"),
         "piotroski": piotroski, "piotroski_detail": piotroski_detail,
         "altman_z": altman, "altman_detail": altman_detail,
-        "verse_dividende": bool(d.get("dps") or d.get("dividends_paid")),
+        # ⚠ SUR TOUT L'HISTORIQUE, PAS SUR LE DERNIER EXERCICE. Lu sur le seul
+        # `d`, ce drapeau classait « ne distribue pas » 360 fiches portant un
+        # dividende à leur historique : elles basculaient en `nul_par_nature`
+        # sur les quatre critères Dividende — donc non pénalisées — ET
+        # récupéraient le point offert du taux de distribution. Une société qui
+        # vient de COUPER son dividende n'est pas une société qui n'en verse
+        # pas : la première a échoué, la seconde n'avait rien à montrer.
+        "verse_dividende": bool(
+            any(x.get("dps") or x.get("dividends_paid") for x in exercices)
+            if exercices else (d.get("dps") or d.get("dividends_paid"))),
         "divisions_action": divisions,
         "unites_actions_corrigees": unites_actions,
     }
