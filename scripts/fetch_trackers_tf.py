@@ -1088,7 +1088,8 @@ def process_universe(name, cache_path, is_crypto, bench_sym, bench_label, stem):
 
 
 def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_crypto,
-                            is_fresh, max_pts=140, min_cover=0.60):
+                            is_fresh, max_pts=140, max_pts_daily=1200,
+                            min_cover=0.60):
     """Ampleur du marché dans le temps : % des constituants en hausse SUR LA
     FENÊTRE, la fenêtre glissant barre après barre.
 
@@ -1130,6 +1131,10 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
     per_slot = {}
     seen = set()
     daily = tf["grain"] == "d"
+    # Le journalier prend TOUT l'historique disponible (les barres remontent a
+    # aout 2024) ; l'horaire garde une fenetre glissante, 140 barres couvrant
+    # deja les ~6 derniers jours qu'une lecture 1H/4H demande.
+    plafond = max_pts_daily if daily else max_pts
     for narr in narratives:
         for t in narr.get("tokens") or []:
             k = asset_key(t, is_crypto)
@@ -1140,7 +1145,7 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
             b = metric_bars(ysym, tf) if ysym else []
             if not is_fresh(b, tf):
                 continue
-            lo = max(n_back if daily else n_back + 1, len(b) - max_pts)
+            lo = max(n_back if daily else n_back + 1, len(b) - plafond)
             for i in range(lo, len(b)):
                 ref = b[i - n_back][1] if daily else b[i - n_back - 1][2]
                 c = b[i][2]
@@ -1162,9 +1167,15 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
     # Effectif de référence : le plus large panier observé sur la série. Un point
     # qui n'en atteint pas `min_cover` est mesuré sur un marché à moitié fermé —
     # on ne le publie pas plutôt que de le faire passer pour une journée entière.
-    keys = sorted(per_slot)[-max_pts:]
+    keys = sorted(per_slot)[-plafond:]
     nmax = max(per_slot[k][1] for k in keys)
-    seuil = max(5, int(nmax * min_cover))
+    # Le seuil de couverture ne vaut QU'EN JOURNALIER, ou deux journees de bourse
+    # mondiale sont comparables. En horaire, l'effectif qui cote varie par nature
+    # avec l'heure -- mesure : 534 titres quand Wall Street est ouverte, 250 en
+    # seance asiatique, 118 sur Tokyo seul. Le seuil y coupait 33 heures sur 40 et
+    # vidait la serie 1H (71 points -> 22) : un historique muet a la place d'un
+    # historique faux. Seul le plancher demeure, qui repond a une autre question.
+    seuil = max(5, int(nmax * min_cover)) if daily else 0
 
     # LA JOURNÉE EN COURS ÉCHAPPE AU SEUIL. À 14 h à Paris, l'Asie et l'Europe
     # ont coté mais pas Wall Street : 416 titres sur 797, sous le seuil.
@@ -1180,7 +1191,12 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
     # jauge montre alors la dernière vraie séance. Même raisonnement que
     # `cluster_anchor`, qui refuse déjà de laisser ces six titres périmer les 791
     # autres.
-    plancher = max(5, int(nmax * 0.25))
+    # En horaire, un plancher proportionnel se retournerait contre la mesure :
+    # 25 % de 534 vaut 133, ce qui ecarterait Tokyo seul (118 titres) -- une heure
+    # de cotation parfaitement reelle, et precisement ce qu'une lecture 1H veut
+    # montrer. Le plancher vise les SIX titres du dimanche, pas une place entiere :
+    # en horaire il est donc bas et absolu.
+    plancher = max(5, int(nmax * 0.25)) if daily else 30
 
     out = []
     for ts in keys:
