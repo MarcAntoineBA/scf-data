@@ -1088,7 +1088,7 @@ def process_universe(name, cache_path, is_crypto, bench_sym, bench_label, stem):
 
 
 def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_crypto,
-                            is_fresh, max_pts=140):
+                            is_fresh, max_pts=140, min_cover=0.60):
     """Ampleur du marché dans le temps : % des constituants en hausse SUR LA
     FENÊTRE, la fenêtre glissant barre après barre.
 
@@ -1104,9 +1104,32 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
 
     Ici le dernier point est la valeur de la jauge par construction : c'est
     littéralement la même mesure, au même instant.
+
+    ── LE PIÈGE DES FUSEAUX (corrigé le 2026-09-07) ──────────────────────────
+    Grouper les mesures par HORODATAGE EXACT paraît naturel — c'est faux dès que
+    l'univers couvre plusieurs places. Une barre journalière est horodatée à
+    l'ouverture de SA bourse : Tokyo à 00:00 UTC, Hong Kong à 01:30, l'Europe à
+    07:00, New York à 13:30. Chaque journée produisait donc jusqu'à SIX points,
+    chacun calculé sur un panier différent — 18 titres japonais, puis 48, puis
+    64, puis 377 quand Wall Street ouvrait. Mesuré sur le cache réel : `n`
+    oscillait entre 6 et 377 d'un point au suivant. La courbe ne racontait pas
+    le marché dans le temps, elle alternait des paniers hétérogènes, et le
+    zigzag qu'on y lisait était l'ouverture des bourses, pas la participation.
+    Le tracker crypto avait la même maladie en plus discret : ses 17 actions
+    (COIN, MSTR, MARA…) déposaient chaque jour un point à 13:30 sur 17 titres,
+    au milieu d'une série mesurée sur 139.
+
+    Deux règles suppriment le problème, dans l'esprit de `cluster_anchor` :
+      1. en grain journalier, les barres sont regroupées par JOUR UTC — une
+         journée de bourse mondiale est un point, pas six ;
+      2. un point n'est publié que si le panier mesuré atteint `min_cover` de
+         l'effectif habituel de la série. Un jour où seules quelques places
+         cotent (dimanche du Golfe, demi-séance) ne vaut pas un point : il est
+         absent, ce qui est honnête, plutôt que présent et faux.
     """
-    per_ts = {}
+    per_slot = {}
     seen = set()
+    daily = tf["grain"] == "d"
     for narr in narratives:
         for t in narr.get("tokens") or []:
             k = asset_key(t, is_crypto)
@@ -1117,23 +1140,62 @@ def compute_breadth_history(narratives, keymap, metric_bars, tf, n_back, is_cryp
             b = metric_bars(ysym, tf) if ysym else []
             if not is_fresh(b, tf):
                 continue
-            lo = max(n_back if tf["grain"] == "d" else n_back + 1, len(b) - max_pts)
+            lo = max(n_back if daily else n_back + 1, len(b) - max_pts)
             for i in range(lo, len(b)):
-                ref = b[i - n_back][1] if tf["grain"] == "d" else b[i - n_back - 1][2]
+                ref = b[i - n_back][1] if daily else b[i - n_back - 1][2]
                 c = b[i][2]
                 if not ref or ref <= 0 or not c or c <= 0:
                     continue
-                slot = per_ts.setdefault(b[i][0], [0, 0])
+                # Grain journalier : le jour UTC, pas l'heure d'ouverture de la
+                # place. Grain horaire : l'horodatage tel quel, les barres
+                # horaires étant déjà alignées sur l'heure ronde.
+                slot_key = (b[i][0] // 86400) * 86400 if daily else b[i][0]
+                slot = per_slot.setdefault(slot_key, [0, 0, 0])
                 slot[1] += 1
+                slot[2] = max(slot[2], b[i][0])   # dernier cours réel du slot
                 if c > ref:
                     slot[0] += 1
-    out = []
-    for ts in sorted(per_ts)[-max_pts:]:
-        up, tot = per_ts[ts]
-        if tot >= 5:
-            out.append({"t": ts, "breadth": round(100.0 * up / tot, 2), "n": tot})
-    return out
 
+    if not per_slot:
+        return []
+
+    # Effectif de référence : le plus large panier observé sur la série. Un point
+    # qui n'en atteint pas `min_cover` est mesuré sur un marché à moitié fermé —
+    # on ne le publie pas plutôt que de le faire passer pour une journée entière.
+    keys = sorted(per_slot)[-max_pts:]
+    nmax = max(per_slot[k][1] for k in keys)
+    seuil = max(5, int(nmax * min_cover))
+
+    # LA JOURNÉE EN COURS ÉCHAPPE AU SEUIL. À 14 h à Paris, l'Asie et l'Europe
+    # ont coté mais pas Wall Street : 416 titres sur 797, sous le seuil.
+    # L'écarter serait rigoureux pour l'historique et faux pour la jauge, dont
+    # l'aiguille doit montrer AUJOURD'HUI — et le contrat de cette fonction est
+    # que le dernier point EST l'aiguille. On la garde donc toujours, en publiant
+    # `partial` pour que la page puisse le dire au lieu de le taire. Les points
+    # antérieurs, eux, sont définitifs : un jour passe sous le seuil est un jour
+    # où le gros du marché n'a pas coté, il n'a rien a raconter.
+    # Plancher dur, y compris pour la journée en cours : le dimanche, seules les
+    # bourses du Golfe cotent et elles ne sont que six dans l'univers. Six titres
+    # ne sont pas « le marché » — ce point-là est écarté comme les autres, et la
+    # jauge montre alors la dernière vraie séance. Même raisonnement que
+    # `cluster_anchor`, qui refuse déjà de laisser ces six titres périmer les 791
+    # autres.
+    plancher = max(5, int(nmax * 0.25))
+
+    out = []
+    for ts in keys:
+        up, tot, last_ts = per_slot[ts]
+        courant = ts == keys[-1]
+        if tot < plancher:
+            continue
+        if tot < seuil and not courant:
+            continue
+        pt = {"t": last_ts if daily else ts,
+              "breadth": round(100.0 * up / tot, 2), "n": tot}
+        if tot < seuil:
+            pt["partial"] = True      # places encore fermées à l'heure de collecte
+        out.append(pt)
+    return out
 
 def publish(payload, stem, js_var):
     for base in (CACHE_DIR, DESKTOP):
