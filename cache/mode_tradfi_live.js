@@ -1,1 +1,1 @@
-window.__MODE_TRADFI_LIVE__={"mode":"alpha","dist_pct":8.33,"price":770.0,"ma":711.0,"perf_30d":0.05,"ref_asset":"S&P 500","ma_label":"MA200","updated":"2026-09-08T12:25:21.995933+00:00"};
+window.__MODE_TRADFI_LIVE__={"mode":"alpha","dist_pct":8.33,"price":770.0,"ma":711.0,"perf_30d":0.05,"ref_asset":"S&P 500","ma_label":"MA200","updated":"2026-09-08T17:29:11.646849+00:00"};
