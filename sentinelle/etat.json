@@ -1,7 +1,10 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1788757080.44104,
- "motifs": [],
- "verifie_le": "2026-09-07 23:36 UTC"
+ "en_panne": true,
+ "depuis": 1788843200.2417579,
+ "derniere_alerte": 1788843200.2417579,
+ "motifs": [
+  "macro_calendar_cache.json : 7.0 h (seuil 6 h) — calendrier macro",
+  "prediction_markets_cache.json : 8.3 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »"
+ ],
+ "verifie_le": "2026-09-08 04:53 UTC"
 }
