@@ -1,23 +1,27 @@
 {
  "bucket": "10min",
  "run": {
-  "ts": "2026-09-09T17:04:49Z",
+  "ts": "2026-09-09T17:14:48Z",
   "total": 5,
-  "ok": 4,
-  "secs": 31.2,
-  "changed": 13,
-  "versionnes": 13,
+  "ok": 3,
+  "secs": 30.7,
+  "changed": 8,
+  "versionnes": 8,
   "pieces_jointes": 0,
   "absents": 36,
   "muets": [
-   "trackerstf (3.4 h)"
+   "trackerstf (3.5 h)"
   ],
   "failed": [
    {
     "job": "hlaccount",
     "why": "script absent"
+   },
+   {
+    "job": "orderflow.funding",
+    "why": "RuntimeError: source injoignable après 3 tentatives : 502 Server Error: Bad Gateway for url: https://api.loris.tools/funding"
    }
   ]
  },
- "updated": "2026-09-09T17:04:49Z"
+ "updated": "2026-09-09T17:14:48Z"
 }
