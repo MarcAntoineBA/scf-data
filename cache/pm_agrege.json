@@ -10,8 +10,8 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0445,
-    "volume": 4968573.281876001,
-    "liquidite": 53513.38506,
+    "volume": 4968578.841876,
+    "liquidite": 49586.35126,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -20,7 +20,7 @@
     "mid": 0.055,
     "bid": 0.05,
     "ask": 0.06,
-    "volume": 226551.18
+    "volume": 226653.27
    },
    "mesures": {
     "consensus_pondere_volume": 0.045,
@@ -41,9 +41,9 @@
    "polymarket": {
     "id": "73331",
     "question": "US defaults on debt by 2027?",
-    "prob": 0.0285,
+    "prob": 0.029,
     "volume": 18050.769978,
-    "liquidite": 2099.83887,
+    "liquidite": 2073.84487,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -67,8 +67,8 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.795,
-    "volume": 8825338.564423002,
-    "liquidite": 82917.4586,
+    "volume": 8828838.400927998,
+    "liquidite": 99944.5988,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
@@ -81,37 +81,13 @@
    },
    "mesures": null,
    "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
-  },
-  {
-   "id": "hypotheque-30-ans-2026",
-   "libelle": "Taux hypothécaire 30 ans en 2026 (sens opposés)",
-   "equivalence": "juxtaposition",
-   "note_reglement": "Même source (enquête PMMS de Freddie Mac) mais SENS OPPOSÉS et seuils différents : Polymarket cote « atteint ou dépasse 6,75 % », Kalshi cote « passe sous 5,75 % ». Les deux peuvent être vrais la même année. Rapprocher leurs prix n'aurait aucun sens ; on les montre ensemble parce qu'ils bornent le même intervalle.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "197683",
-    "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
-    "prob": 0.9215,
-    "volume": 79966.898947,
-    "liquidite": 16246.07042,
-    "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
-   },
-   "kalshi": {
-    "ticker": "KXFM30YMTG-26DEC31-T5.75",
-    "titre": "Will any 2026 Freddie Mac Primary Mortgage Market Survey (PMMS) report a 30-Year Fixed-Rate Mortgage rate below 5.75%?",
-    "mid": 0.12,
-    "bid": 0.09,
-    "ask": 0.15,
-    "volume": 44358.92
-   },
-   "mesures": null,
-   "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
   }
  ],
  "lacunes": [
-  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 55 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
-  "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée"
+  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 60 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
+  "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
+  "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-10T14:30:05+00:00",
+ "generated_at": "2026-09-10T18:37:19+00:00",
  "paires_declarees": 6
 }
