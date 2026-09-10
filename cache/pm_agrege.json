@@ -10,8 +10,8 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0445,
-    "volume": 4968250.891081002,
-    "liquidite": 52839.16929,
+    "volume": 4968250.891080999,
+    "liquidite": 54221.89713,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -20,7 +20,7 @@
     "mid": 0.045,
     "bid": 0.04,
     "ask": 0.05,
-    "volume": 225139.66
+    "volume": 225221.14
    },
    "mesures": {
     "consensus_pondere_volume": 0.0445,
@@ -41,25 +41,25 @@
    "polymarket": {
     "id": "769594",
     "question": "How many Senators will vote for the Clarity Act?",
-    "prob": 0.295,
-    "volume": 16933.500494,
-    "liquidite": 26119.40515,
+    "prob": 0.33,
+    "volume": 16975.500494,
+    "liquidite": 26082.43135,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
     "ticker": "KXVOTECLARITY-26MAY16-T58",
     "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
-    "mid": 0.265,
-    "bid": 0.23,
-    "ask": 0.3,
+    "mid": 0.275,
+    "bid": 0.24,
+    "ask": 0.31,
     "volume": 3458.88
    },
    "mesures": {
-    "consensus_pondere_volume": 0.2899,
-    "ecart_points": -3.0,
+    "consensus_pondere_volume": 0.3207,
+    "ecart_points": -5.5,
     "sens": "Polymarket plus haut",
     "cout_execution_kalshi_points": 7.0,
-    "ecart_net_de_cout_points": -4.0,
+    "ecart_net_de_cout_points": -1.5,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -75,7 +75,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.0305,
     "volume": 18050.769978,
-    "liquidite": 2081.64587,
+    "liquidite": 2079.06185,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -99,16 +99,16 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.735,
-    "volume": 8780776.598877998,
-    "liquidite": 117451.5966,
+    "volume": 8780784.301581,
+    "liquidite": 137429.0706,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
     "ticker": "KXFED-26DEC-T3.50",
     "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
-    "mid": 0.935,
-    "bid": 0.93,
-    "ask": 0.94,
+    "mid": 0.925,
+    "bid": 0.92,
+    "ask": 0.93,
     "volume": 30399.44
    },
    "mesures": null,
@@ -123,18 +123,18 @@
    "polymarket": {
     "id": "197683",
     "question": "Will the 30-year Mortgage Rate hit __ in 2026?",
-    "prob": 0.9835,
-    "volume": 78865.703298,
-    "liquidite": 16746.99448,
+    "prob": 0.979,
+    "volume": 79283.859413,
+    "liquidite": 15707.14455,
     "url": "https://polymarket.com/event/will-the-30-year-mortgage-rate-hit-in-2026"
    },
    "kalshi": {
     "ticker": "KXFM30YMTG-26DEC31-T5.75",
     "titre": "Will any 2026 Freddie Mac Primary Mortgage Market Survey (PMMS) report a 30-Year Fixed-Rate Mortgage rate below 5.75%?",
-    "mid": 0.12,
-    "bid": 0.08,
-    "ask": 0.16,
-    "volume": 44316.2
+    "mid": 0.125,
+    "bid": 0.1,
+    "ask": 0.15,
+    "volume": 44345.7
    },
    "mesures": null,
    "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
@@ -143,6 +143,6 @@
  "lacunes": [
   "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée"
  ],
- "generated_at": "2026-09-09T21:46:02+00:00",
+ "generated_at": "2026-09-10T00:18:03+00:00",
  "paires_declarees": 6
 }
