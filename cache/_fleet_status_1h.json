@@ -1,16 +1,19 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-09-12T05:52:30Z",
+  "ts": "2026-09-12T10:48:45Z",
   "total": 26,
   "ok": 26,
-  "secs": 329.7,
-  "changed": 47,
-  "versionnes": 36,
+  "secs": 213.6,
+  "changed": 41,
+  "versionnes": 30,
   "pieces_jointes": 11,
   "absents": 30,
-  "muets": [],
+  "muets": [
+   "crypto-pe-hist (4.9 h)",
+   "cryptoytd (4.9 h)"
+  ],
   "failed": []
  },
- "updated": "2026-09-12T05:52:30Z"
+ "updated": "2026-09-12T10:48:45Z"
 }
