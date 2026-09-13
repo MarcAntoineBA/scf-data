@@ -1,25 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-13T14:04:58Z",
+  "ts": "2026-09-13T18:17:47Z",
   "total": 31,
-  "ok": 29,
-  "secs": 4635.2,
-  "changed": 44,
-  "versionnes": 34,
-  "pieces_jointes": 10,
+  "ok": 30,
+  "secs": 4634.2,
+  "changed": 46,
+  "versionnes": 35,
+  "pieces_jointes": 11,
   "absents": 28,
   "muets": [],
   "failed": [
    {
     "job": "crypto.capture",
     "why": "dépassement du plafond (75 min)"
-   },
-   {
-    "job": "crypto.vesting",
-    "why": "[refus] calendrier NON écrit : 74 jetons contre 103 dans le cache existant. Une collecte partielle ne remplace pas une collecte."
    }
   ]
  },
- "updated": "2026-09-13T14:04:58Z"
+ "updated": "2026-09-13T18:17:47Z"
 }
