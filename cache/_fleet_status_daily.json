@@ -1,20 +1,16 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-13T11:03:10Z",
+  "ts": "2026-09-14T11:05:39Z",
   "total": 39,
-  "ok": 34,
-  "secs": 4753.6,
-  "changed": 2346,
-  "versionnes": 2341,
-  "pieces_jointes": 5,
+  "ok": 35,
+  "secs": 3357.0,
+  "changed": 1820,
+  "versionnes": 1816,
+  "pieces_jointes": 4,
   "absents": 36,
   "muets": [],
   "failed": [
-   {
-    "job": "atlasbudget",
-    "why": "dépassement du plafond (70 min)"
-   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -33,5 +29,5 @@
    }
   ]
  },
- "updated": "2026-09-13T11:03:10Z"
+ "updated": "2026-09-14T11:05:39Z"
 }
