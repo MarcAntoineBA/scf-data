@@ -49,18 +49,23 @@ def fetch_llama_revenue(slug):
 def fetch_llama_prices(coin, supply, years=5, period="1w"):
     """Prix depuis DefiLlama Coins API, converti en mcap via supply actuel.
     period='1w' (weekly) ou '1d' (daily).
-    L'API plafonne le span a ~1000 weekly / ~500 daily.
-    Pour daily, si le start est trop ancien pour un coin recent, l'API renvoie 400.
-    On utilise donc years=2 pour daily (couvre ~500j sans depasser l'histoire du coin).
+    L'API plafonne le span a ~1000 weekly / ~500 daily, et renvoie span points en
+    AVANCANT depuis start : la profondeur reelle est donc imposee par span, pas par
+    years. On en deduit start, pour que la fenetre se termine aujourd'hui.
     """
     try:
-        # Daily : fenetre plus courte (2 ans) pour respecter l'API
-        eff_years = years if period == "1w" else min(years, 2)
-        start = int(datetime.now().timestamp()) - eff_years * 365 * 86400
+        # L'API part de start et rend span points EN AVANCANT : la fenetre demandee
+        # doit donc finir aujourd'hui, pas commencer il y a deux ans. Le daily plafonnant
+        # a 500 points, un start a -2 ans avec span=500 s'arretait 230 jours avant le
+        # present (constate : dernier point au 27/01/2026 dans un cache reecrit toutes
+        # les 6 h). On cale desormais le start sur le NOMBRE DE POINTS demande.
         if period == "1w":
-            span = min(eff_years * 52, 1000)
+            span = min(years * 52, 1000)
+            recul_j = span * 7
         else:
-            span = min(eff_years * 365, 500)
+            span = min(years * 365, 500)
+            recul_j = span
+        start = int(datetime.now().timestamp()) - recul_j * 86400
         url = f"https://coins.llama.fi/chart/{coin}?start={start}&period={period}&span={span}"
         d = http_get(url)
         coins_data = d.get("coins", {})
