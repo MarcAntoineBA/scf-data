@@ -380,6 +380,33 @@ def build():
     sp_gold = ratio(sp, gold_m)             # S&P 500 / Or  (maître)
     comm_eq = ratio(ppi, sp)                # Matières premières / Actions
     comm_real = ratio(ppi, cpi)             # Indice MP réel (PPI ÷ CPI)
+    # Le PPI publie avec ~10 jours de retard sur le mois écoulé (PPIACO d'août sort le
+    # 10 septembre). La fonction ratio() étant une INTERSECTION stricte, tout mois que le S&P a déjà
+    # mais que le PPI n'a pas encore fait disparaître le dernier point de ces deux courbes :
+    # à l'écran, elles semblaient mortes depuis six semaines alors que la donnée était à
+    # jour. On prolonge du DERNIER PPI connu sur les mois déjà cotés côté actions/CPI —
+    # le composite faisait déjà exactement ce forward-fill pour le pendule (cf. plus bas),
+    # les courbes affichées ne le faisaient pas. Les points prolongés sont marqués
+    # 'ppi_stale_from' dans meta : ils portent un PPI de report, jamais une valeur inventée.
+    def prolonger_ppi(rat, den, nom):
+        """Prolonge un ratio PPI/x sur les mois que le dénominateur a déjà, PPI reporté."""
+        if not rat or not ppi:
+            return rat, None
+        dernier_ppi = max(ppi)
+        manquants = [k for k in den if k > dernier_ppi and k > max(rat)]
+        if not manquants:
+            return rat, None
+        out = dict(rat)
+        for k in manquants:
+            if den[k]:
+                out[k] = ppi[dernier_ppi] / den[k]
+        log(f"{nom} : PPI s'arrête à {dernier_ppi}, prolongé sur {sorted(manquants)} (PPI reporté)")
+        return out, dernier_ppi
+
+    comm_eq, ce_stale = prolonger_ppi(comm_eq, sp, "comm_eq")
+    comm_real, cr_stale = prolonger_ppi(comm_real, cpi, "comm_real")
+    # Toujours renseigné : c'est le dernier mois publié par le PPI, prolongement ou non.
+    ppi_stale_from = ce_stale or cr_stale or (max(ppi) if ppi else None)
     # Rebase 1982=100 (MÊME base que le PPIACO nominal FRED, qui est 1982=100) → comparabilité
     # directe : en 1982 nominal & réel valent 100 ; aujourd'hui PPIACO≈284 mais réel≈82, l'écart EST
     # l'inflation cumulée. Scaling linéaire positif → percentile/zone du pendule inchangés.
@@ -564,6 +591,10 @@ def build():
         "meta": {
             "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "updated_unix": int(time.time()),
+            # Dernier mois RÉELLEMENT publié par le PPI. Les points de comm_eq / comm_real
+            # postérieurs à cette date reportent ce PPI : le site l'affiche plutôt que de
+            # laisser croire à une courbe figée (ou, pire, à une donnée fraîche inventée).
+            "ppi_last_month": ppi_stale_from,
             "history_start": min(min(sp_gold), min(comm_real)) if sp_gold else None,
             "sources": {
                 "gold": "Prix officiels US (étalon-or $19.39/$20.67 pré-1934) + datahub/LBMA (1934+) + Yahoo GC=F daily (2000+)",
@@ -664,6 +695,20 @@ def sanity(p):
         retard_j = (now - ser[-1][0]) / 86400.0
         assert retard_j < 10, (f"{sk} périmée : dernier point il y a {retard_j:.0f} jours "
                                f"({len(ser)} pts) — jambe daily probablement manquante")
+
+    # FRAICHEUR des series MENSUELLES. Meme maladie que ci-dessus, un cran plus lent, et
+    # c est exactement ce qui s est produit : comm_eq et comm_real se sont arretees au
+    # 1er aout et y sont restees six semaines. Elles etaient longues (1364 pts), la garde
+    # du vide ne voyait rien, celle du recul non plus (elles ne reculaient pas : elles
+    # n avancaient plus). Seule une borne sur la DERNIERE DATE attrape ce cas.
+    # 70 jours = deux mois pleins de marge : une serie mensuelle publiee avec un mois de
+    # decalage doit tenir dans cette fenetre, sinon la chaine amont est cassee.
+    for sk in ('sp_gold', 'comm_eq', 'comm_real', 'sp500', 'gold'):
+        ser = s.get(sk) or []
+        assert ser, f'{sk} vide'
+        retard_j = (now - ser[-1][0]) / 86400.0
+        assert retard_j < 70, (f'{sk} perimee : dernier point il y a {retard_j:.0f} jours '
+                               f'({len(ser)} pts) - serie mensuelle qui n avance plus')
 
 
 def write_outputs(p):
