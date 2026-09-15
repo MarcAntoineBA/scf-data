@@ -1,29 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-15T18:59:56Z",
+  "ts": "2026-09-15T23:37:37Z",
   "total": 31,
-  "ok": 28,
-  "secs": 4630.7,
-  "changed": 41,
+  "ok": 30,
+  "secs": 4651.6,
+  "changed": 45,
   "versionnes": 35,
-  "pieces_jointes": 6,
-  "absents": 29,
+  "pieces_jointes": 10,
+  "absents": 28,
   "muets": [],
   "failed": [
    {
-    "job": "atlasmaritime",
-    "why": "AssertionError: escales mondiales/j trop basses"
-   },
-   {
     "job": "crypto.capture",
-    "why": "dépassement du plafond (75 min)"
-   },
-   {
-    "job": "hydrocarbures",
     "why": "dépassement du plafond (75 min)"
    }
   ]
  },
- "updated": "2026-09-15T18:59:56Z"
+ "updated": "2026-09-15T23:37:37Z"
 }
