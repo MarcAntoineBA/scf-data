@@ -10,8 +10,8 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0435,
-    "volume": 4991092.974805999,
-    "liquidite": 62590.53085,
+    "volume": 4992296.284805998,
+    "liquidite": 62409.42114,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -20,7 +20,7 @@
     "mid": 0.055,
     "bid": 0.05,
     "ask": 0.06,
-    "volume": 249911.3
+    "volume": 250159.66
    },
    "mesures": {
     "consensus_pondere_volume": 0.044,
@@ -41,9 +41,9 @@
    "polymarket": {
     "id": "73331",
     "question": "US defaults on debt by 2027?",
-    "prob": 0.0285,
+    "prob": 0.0275,
     "volume": 18267.069977999992,
-    "liquidite": 2600.961,
+    "liquidite": 2659.80598,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -56,38 +56,14 @@
    },
    "mesures": null,
    "pourquoi_pas_de_consensus": "équivalence déclarée « partielle » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
-  },
-  {
-   "id": "fed-hausse-vs-niveau-2026",
-   "libelle": "Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi)",
-   "equivalence": "juxtaposition",
-   "note_reglement": "Ces deux marchés ne posent PAS la même question et l'écart apparent de ~30 points n'a aucun sens. Polymarket demande s'il y aura une HAUSSE en 2026 ; Kalshi demande si le NIVEAU dépassera 3,50 % après la réunion du 9 décembre. Un taux peut finir au-dessus de 3,50 % sans aucune hausse. Juxtaposés parce qu'ils éclairent le même sujet, jamais comparés.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "101936",
-    "question": "Fed rate hike in 2026?",
-    "prob": 0.936,
-    "volume": 9856914.235191,
-    "liquidite": 199209.00371,
-    "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
-   },
-   "kalshi": {
-    "ticker": "KXFED-26DEC-T3.50",
-    "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
-    "mid": 0.975,
-    "bid": 0.97,
-    "ask": 0.98,
-    "volume": 33738.89
-   },
-   "mesures": null,
-   "pourquoi_pas_de_consensus": "équivalence déclarée « juxtaposition » : les deux contrats ne règlent pas à l'identique, un consensus serait un chiffre inventé. Les deux prix sont montrés côte à côte."
   }
  ],
  "lacunes": [
   "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 60 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
   "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
+  "paire « Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi) » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-16T16:57:30+00:00",
+ "generated_at": "2026-09-16T20:11:53+00:00",
  "paires_declarees": 6
 }
