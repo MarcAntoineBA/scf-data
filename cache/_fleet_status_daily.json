@@ -1,15 +1,17 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-15T10:08:19Z",
+  "ts": "2026-09-16T09:59:38Z",
   "total": 39,
   "ok": 35,
-  "secs": 1850.8,
-  "changed": 2340,
-  "versionnes": 2335,
+  "secs": 1663.8,
+  "changed": 1821,
+  "versionnes": 1816,
   "pieces_jointes": 5,
   "absents": 36,
-  "muets": [],
+  "muets": [
+   "gtrends.serpapi (70.9 h)"
+  ],
   "failed": [
    {
     "job": "desk.complet",
@@ -29,5 +31,5 @@
    }
   ]
  },
- "updated": "2026-09-15T10:08:19Z"
+ "updated": "2026-09-16T09:59:38Z"
 }
