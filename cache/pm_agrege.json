@@ -10,8 +10,8 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0435,
-    "volume": 4990222.499872998,
-    "liquidite": 58187.1683,
+    "volume": 4990303.664806002,
+    "liquidite": 62135.29237,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -20,7 +20,7 @@
     "mid": 0.045,
     "bid": 0.04,
     "ask": 0.05,
-    "volume": 248280.17
+    "volume": 248414.16
    },
    "mesures": {
     "consensus_pondere_volume": 0.0436,
@@ -29,38 +29,6 @@
     "cout_execution_kalshi_points": 1.0,
     "ecart_net_de_cout_points": -0.85,
     "actionnable": false,
-    "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
-   }
-  },
-  {
-   "id": "clarity-act-58-senateurs",
-   "libelle": "Plus de 58 sénateurs votent pour la loi crypto",
-   "equivalence": "forte",
-   "note_reglement": "MÊME SEUIL CHIFFRÉ (58) et même critère : nombre de sénateurs votant « Yea » sur le premier vote de passage d'une loi de structure de marché crypto avant le 1er janvier 2027. Kalshi nomme sa source (Library of Congress), Polymarket ne la nomme pas — sur un vote du Sénat, le décompte officiel ne prête pas à deux lectures. ⚠ L'issue Polymarket « Above 58 » est la FAVORITE d'un marché à issues multiples : si elle change, l'agrégation se suspend d'elle-même.",
-   "declare_le": "2026-08-13",
-   "polymarket": {
-    "id": "769594",
-    "question": "How many Senators will vote for the Clarity Act?",
-    "prob": 0.135,
-    "volume": 79297.86519699999,
-    "liquidite": 12196.83075,
-    "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
-   },
-   "kalshi": {
-    "ticker": "KXVOTECLARITY-26MAY16-T58",
-    "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
-    "mid": 0.08,
-    "bid": 0.07,
-    "ask": 0.09,
-    "volume": 15524.27
-   },
-   "mesures": {
-    "consensus_pondere_volume": 0.126,
-    "ecart_points": -5.5,
-    "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 2.0,
-    "ecart_net_de_cout_points": 3.5,
-    "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -75,7 +43,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.028,
     "volume": 18267.069977999992,
-    "liquidite": 2630.10135,
+    "liquidite": 2664.34467,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -99,15 +67,15 @@
     "id": "101936",
     "question": "Fed rate hike in 2026?",
     "prob": 0.955,
-    "volume": 9748344.145296996,
-    "liquidite": 213958.9299,
+    "volume": 9759748.931096999,
+    "liquidite": 231944.9544,
     "url": "https://polymarket.com/event/fed-rate-hike-in-2026"
    },
    "kalshi": {
     "ticker": "KXFED-26DEC-T3.50",
     "titre": "Will the upper bound of the federal funds rate be above 3.50% following the Fed's Dec 9, 2026 meeting?",
-    "mid": 0.965,
-    "bid": 0.95,
+    "mid": 0.97,
+    "bid": 0.96,
     "ask": 0.98,
     "volume": 33738.89
    },
@@ -116,9 +84,10 @@
   }
  ],
  "lacunes": [
+  "paire « Plus de 58 sénateurs votent pour la loi crypto » : l'issue cotée sur Polymarket est passée de « Above 58 » (déclarée) à « Above 60 » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration",
   "paire « Prochain modèle Mythos d'Anthropic avant le 1er octobre 2026 » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-16T00:22:52+00:00",
+ "generated_at": "2026-09-16T06:04:53+00:00",
  "paires_declarees": 6
 }
