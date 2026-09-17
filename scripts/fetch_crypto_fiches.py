@@ -715,6 +715,10 @@ def main():
 
     doc = {
         "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # Les courbes, l'âge et la captation des fiches viennent de la
+        # captation : une fiche régénérée sur une captation figée n'est pas plus
+        # fraîche qu'elle. Le bandeau et le filet lisent cette date d'abord.
+        "donnees_du": cap.get("donnees_du"),
         "source_updated": nf.get("updated"),
         "capture_updated": cap.get("genere_le"),
         "histoire_updated": hist.get("genere_le"),

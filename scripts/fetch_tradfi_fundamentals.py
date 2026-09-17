@@ -55,7 +55,7 @@ import random
 import warnings
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 warnings.filterwarnings("ignore")
@@ -846,6 +846,15 @@ def aggregate_sector(stocks):
         positive_only = k in _POSITIVE_ONLY
         raw_pairs = []  # (value, weight, symbol)
         for s in stocks:
+            # ⚠ UNE LIGNE RECOPIEE N'ENTRE PAS DANS LA MEDIANE. Le bouche-trou
+            # plus bas recopie la ligne precedente quand la source se tait, et
+            # recopie ses propres recopies : sans limite d'age. Mesure le
+            # 17/09/2026 : 47 lignes sur 67 dans « Banques », dont la mediane de
+            # croissance du chiffre d'affaires valait 7,9 % publiee et 13,5 % sur
+            # les seules lignes fraiches. La ligne reste publiee — la page
+            # l'etiquette « perime » —, elle ne fait simplement plus la norme.
+            if s.get("_stale_funda"):
+                continue
             v = s.get(k)
             w = (s.get("mcap_b") or 0)
             if v is None or w <= 0:
@@ -1001,6 +1010,9 @@ def main():
             fusion = {k: v for k, v in anc.items() if k not in _PERISSABLES}
             fusion.update({k: v for k, v in frais.items() if v is not None})
             fusion["_stale_funda"] = True
+            fusion["_stale_depuis"] = anc.get("_stale_depuis") or \
+                (anc.get("_stale_funda") and "inconnu") or \
+                datetime.now(timezone.utc).strftime("%Y-%m-%d")
         else:
             fusion = dict(frais)
         fusion.setdefault("price_usd", None)
@@ -1186,6 +1198,11 @@ def main():
         # Refresh price/mcap from current tracker_quotes if available
         tq = tracker_quotes.get(sym, {})
         merged = {**prev, "_stale_funda": True}
+        # Depuis quand la ligne est recopiee : sans cette date, une recopie de
+        # trois semaines ne se distinguait pas d'une recopie de la veille.
+        merged["_stale_depuis"] = prev.get("_stale_depuis") or \
+            (prev.get("_stale_funda") and "inconnu") or \
+            datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if tq.get("price") is not None:
             merged["price_usd"] = tq["price"]
         if tq.get("mcap"):

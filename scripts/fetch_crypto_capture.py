@@ -504,18 +504,94 @@ def fusion(proto, chaine):
 # On écrit donc l'avancement au fur et à mesure dans un fichier de reprise, et
 # on le relit au démarrage : un second passage ne redemande que ce qui manque.
 # C'est aussi ce qui rend le collecteur relançable sans scrupule.
+#
+# ⚠ LA REPRISE ÉTAIT DEVENUE UN GEL. Elle ne se vidait jamais : une fois les deux
+# cents jetons obtenus, chaque passage suivant sautait TOUS les appels. Mesuré
+# le 17/09/2026 sur `crypto_capture_cache.js` « généré » la veille : 197 séries
+# de cours sur 200 s'arrêtaient au 03/09 — bitcoin à 81 039 $ —, et les plus
+# hauts, plus bas et « pire chute » dataient d'avant. Le fichier se rafraîchissait,
+# pas sa donnée, et aucun garde-fou de fraîcheur ne pouvait le voir : ils lisent
+# `genere_le`.
+# Chaque fiche d'identité porte désormais sa date (`_le`), et c'est son ÂGE qui
+# décide d'un nouvel appel, plus sa seule présence. Les séries de cours, elles,
+# sont retirées à chaque passage (voir `historique_cours`).
 REPRISE = os.path.join(CACHE, ".crypto_capture_reprise.json")
+
+# ⚠ LE PLAFOND DE LA COLLECTE EN LIGNE. Sur les exécuteurs de GitHub, le palier
+# gratuit de CoinGecko répond 429 à la chaîne, et chaque refus coûte 35 s
+# d'attente : les quatre cents appels n'ont JAMAIS tenu dans les 75 minutes du
+# seau « 6h » — 24 passages sur 24 tués du 09 au 17/09/2026. Tuée, la captation
+# n'était jamais publiée, donc jamais rapatriée comme base du passage suivant,
+# qui repartait de zéro et se faisait tuer à son tour. Le site ne tenait plus
+# que par le filet du PC, une à deux fois par jour.
+# D'où deux changements : les cours viennent de coins.llama.fi (une requête par
+# jeton, sans refus de débit mesuré), et CoinGecko reçoit un BUDGET de temps,
+# consacré aux fiches d'identité les plus anciennes. Ce qui n'est pas rafraîchi
+# dans le budget garde sa dernière valeur — et sa date.
+BUDGET_CG_S = 60.0 * float(os.environ.get("SCF_CAPTURE_BUDGET_CG_MIN", "15"))
+IDENTITE_MAX_JOURS = float(os.environ.get("SCF_CAPTURE_IDENTITE_JOURS", "7"))
+# La base d'un exécuteur neuf : la captation déjà publiée. Sans elle, le premier
+# passage en ligne publierait deux cents jetons sans âge ni record, et le site,
+# qui sert la copie la plus récente, préférerait cette version appauvrie.
+GRAINE = os.environ.get(
+    "SCF_CAPTURE_GRAINE",
+    "https://site-crypto-finance.pages.dev/data/crypto_capture_cache.json")
+_FIN_CG = [None]
+
+
+def _maintenant_iso():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _age_jours(iso):
+    """Âge d'une date `_le`, en jours ; l'absence de date vaut « jamais »."""
+    try:
+        t = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return float("inf")
+    return (datetime.now(timezone.utc) - t).total_seconds() / 86400.0
+
+
+def _budget_cg_restant():
+    """Secondes restantes du budget CoinGecko, décompté dès le premier appel."""
+    if _FIN_CG[0] is None:
+        _FIN_CG[0] = time.time() + BUDGET_CG_S
+    return _FIN_CG[0] - time.time()
 
 
 def _lire_reprise():
-    if not os.path.exists(REPRISE):
-        return {"identite": {}, "cours": {}}
-    try:
-        d = json.load(open(REPRISE, encoding="utf-8"))
-        return {"identite": d.get("identite") or {},
-                "cours": d.get("cours") or {}}
-    except Exception:
-        return {"identite": {}, "cours": {}}
+    """Ce qu'on sait déjà : la reprise, la captation précédente, sinon la graine.
+
+    Des deux premières, chaque fiche d'identité garde la plus RÉCEMMENT
+    rafraîchie : la reprise d'un passage interrompu peut être plus fraîche que
+    la dernière captation écrite, ou l'inverse.
+    """
+    etat = {"identite": {}, "cours": {}}
+    if os.path.exists(REPRISE):
+        try:
+            d = json.load(open(REPRISE, encoding="utf-8"))
+            etat = {"identite": d.get("identite") or {},
+                    "cours": d.get("cours") or {}}
+        except Exception:
+            pass
+    prec = lire_cache("crypto_capture_cache.json") or \
+        lire_cache("crypto_capture_cache.js") or {}
+    for cid, fiche in (prec.get("identite") or {}).items():
+        deja = etat["identite"].get(cid)
+        if deja is None or _age_jours(fiche.get("_le")) < _age_jours(deja.get("_le")):
+            etat["identite"][cid] = fiche
+    for cid, pts in (prec.get("cours") or {}).items():
+        if pts and (not etat["cours"].get(cid)
+                    or pts[-1][0] > etat["cours"][cid][-1][0]):
+            etat["cours"][cid] = pts
+    if not etat["identite"] and GRAINE:
+        g = _get(GRAINE, timeout=120, essais=2)
+        if isinstance(g, dict):
+            etat["identite"] = g.get("identite") or {}
+            etat["cours"] = etat["cours"] or (g.get("cours") or {})
+            print("[info] graine : %d identités reprises de la captation publiée"
+                  % len(etat["identite"]))
+    return etat
 
 
 def _ecrire_reprise(etat):
@@ -537,12 +613,19 @@ def fiche_identite(ids, etat=None):
     pas transporter des mégaoctets de tickers.
     """
     out = dict((etat or {}).get("identite") or {})
-    reste = [c for c in ids if c not in out]
-    if out:
-        print("[cg] identité : %d déjà connues, %d à collecter"
-              % (len(out), len(reste)))
-    n = len(reste)
+    # Les plus anciennes d'abord — une fiche sans date n'a jamais été
+    # rafraîchie depuis que la date existe, elle passe en tête.
+    reste = sorted((c for c in ids
+                    if _age_jours((out.get(c) or {}).get("_le")) > IDENTITE_MAX_JOURS),
+                   key=lambda c: -_age_jours((out.get(c) or {}).get("_le")))
+    print("[cg] identité : %d à jour (moins de %g j), %d à rafraîchir, budget %d min"
+          % (len(ids) - len(reste), IDENTITE_MAX_JOURS, len(reste), BUDGET_CG_S // 60))
+    n, faites = len(reste), 0
     for i, cid in enumerate(reste, 1):
+        if _budget_cg_restant() <= 0:
+            print("[cg] budget épuisé : %d identités rafraîchies, %d gardent leur "
+                  "valeur précédente, datée" % (faites, n - faites), flush=True)
+            break
         d = _get(CG + "/coins/" + urllib.parse.quote(cid) +
                  "?localization=false&tickers=false&market_data=true"
                  "&community_data=true&developer_data=true&sparkline=false",
@@ -586,7 +669,12 @@ def fiche_identite(ids, etat=None):
             # sur CoinGecko : ni un fondamental, ni du bruit — un signal de
             # notoriété, qu'on étiquette comme tel dans la fiche.
             "suivi_cg": d.get("watchlist_portfolio_users"),
+            "_le": _maintenant_iso(),
+            # Les records viennent du même appel : ils sont frais, et
+            # `recaler_records` n'a pas à les recalculer.
+            "_records_le": _maintenant_iso(),
         }
+        faites += 1
         if i % 10 == 0 or i == n:
             print("[cg] identité %d/%d" % (i, n), flush=True)
             if etat is not None:
@@ -599,21 +687,108 @@ def fiche_identite(ids, etat=None):
     return out
 
 
-def historique_cours(ids, etat=None):
-    """gecko_id -> [[ts_ms, prix], …] quotidien, toute la vie cotée.
+def rafraichir_records(ids, ident):
+    """Plus haut, plus bas, écart au record et rang : TOUS les jetons, un appel.
 
-    `days=max&interval=daily` rend un point par jour depuis la première
-    cotation. C'est ce qui permet à la fiche de proposer les mêmes horizons
-    que la fiche action — jusqu'à « Max », qui est ici la vraie information :
-    le jeton a-t-il déjà vécu un cycle ?
+    Ce sont les seuls champs de la fiche d'identité qui bougent avec le cours —
+    la « pire chute » en descend. `/coins/markets` les publie pour 250 jetons
+    par page : les rafraîchir ici, à chaque passage, laisse le budget des appels
+    unitaires à ce qui ne change presque jamais — genèse, catégories, code.
     """
-    out = dict((etat or {}).get("cours") or {})
-    reste = [c for c in ids if c not in out]
-    if out:
-        print("[cg] historique : %d déjà connus, %d à collecter"
-              % (len(out), len(reste)))
-    n = len(reste)
-    for i, cid in enumerate(reste, 1):
+    servis = 0
+    for k in range(0, len(ids), 250):
+        lot = ids[k:k + 250]
+        d = _get(CG + "/coins/markets?vs_currency=usd&per_page=250&page=1&ids=" +
+                 ",".join(urllib.parse.quote(c) for c in lot), timeout=60)
+        for ligne in (d if isinstance(d, list) else []):
+            cid = ligne.get("id")
+            if cid not in lot:
+                continue
+            fiche = ident.setdefault(cid, {})
+            for cle, champ in (("ath", "ath"), ("ath_date", "ath_date"),
+                               ("ath_chg_pct", "ath_change_percentage"),
+                               ("atl", "atl"), ("atl_date", "atl_date"),
+                               ("atl_chg_pct", "atl_change_percentage"),
+                               ("rang_cg", "market_cap_rank")):
+                if ligne.get(champ) is not None:
+                    fiche[cle] = ligne[champ]
+            fiche["_records_le"] = _maintenant_iso()
+            servis += 1
+        time.sleep(2.5)
+    print("[cg] records et rang : %d/%d jetons, appel groupé" % (servis, len(ids)),
+          flush=True)
+    return servis
+
+
+def recaler_records(ids, ident, hist):
+    """Si l'appel groupé n'a pas répondu, l'écart au record se recalcule.
+
+    Sur le dernier cours de la série fraîche : un record ne peut que monter, un
+    plus bas que descendre, et l'écart est un simple rapport. Sans ce repli, un
+    refus de CoinGecko figerait de nouveau la « pire chute » au jour du dernier
+    succès.
+    """
+    n = 0
+    for cid in ids:
+        fiche = ident.get(cid)
+        pts = hist.get(cid) or []
+        if not fiche or not pts or _age_jours(fiche.get("_records_le")) < 1.0:
+            continue
+        px, quand = pts[-1][1], datetime.fromtimestamp(pts[-1][0] / 1000.0, timezone.utc)
+        iso = quand.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        if isinstance(fiche.get("ath"), (int, float)) and fiche["ath"] > 0:
+            if px > fiche["ath"]:
+                fiche["ath"], fiche["ath_date"] = px, iso
+            fiche["ath_chg_pct"] = round(100.0 * (px / fiche["ath"] - 1.0), 5)
+            n += 1
+        if isinstance(fiche.get("atl"), (int, float)) and fiche["atl"] > 0:
+            if px < fiche["atl"]:
+                fiche["atl"], fiche["atl_date"] = px, iso
+            fiche["atl_chg_pct"] = round(100.0 * (px / fiche["atl"] - 1.0), 5)
+    if n:
+        print("[cours] écart au record recalculé sur le dernier cours pour %d jetons" % n)
+    return n
+
+
+def historique_cours(ids, etat=None):
+    """gecko_id -> [[ts_ms, prix], …] quotidien sur `HIST_JOURS` jours.
+
+    ⚠ RETIRÉE À CHAQUE PASSAGE, JAMAIS REPRISE TELLE QUELLE : c'est la reprise
+    qui avait figé 197 séries au 03/09/2026 (voir le point de reprise).
+
+    La source est coins.llama.fi, sur les mêmes identifiants CoinGecko : une
+    requête par jeton — sa grille plafonne vers cinq cents points par requête,
+    une année quotidienne en compte 366 —, mais sans les refus de débit du
+    palier gratuit de CoinGecko. Mesuré le 17/09/2026 : 0,7 s par jeton, point
+    du jour compris. CoinGecko ne sert plus que de repli pour les jetons que
+    coins.llama.fi ne sert pas, dans le budget. Au-delà, la série précédente est
+    gardée : ses dates sont sur la courbe, qui montre alors son dernier jour.
+    """
+    prec = dict((etat or {}).get("cours") or {})
+    jours = int(HIST_JOURS)
+    depart = int((datetime.now(timezone.utc) - timedelta(days=jours)).timestamp())
+    out, manquants = {}, []
+    for i, cid in enumerate(ids, 1):
+        d = _get(LLAMA_COINS + "/chart/coingecko:" + urllib.parse.quote(cid) +
+                 "?period=1d&span=%d&start=%d" % (jours + 1, depart),
+                 timeout=60, essais=2)
+        pr = ((((d or {}).get("coins") or {}).get("coingecko:" + cid)) or {}).get("prices") or []
+        pts = [[int(p["timestamp"]) * 1000, round(float(p["price"]), 8)]
+               for p in pr
+               if isinstance(p, dict) and isinstance(p.get("timestamp"), (int, float))
+               and isinstance(p.get("price"), (int, float))
+               and math.isfinite(p["price"]) and p["price"] > 0]
+        if len(pts) >= 2:
+            out[cid] = pts
+        else:
+            manquants.append(cid)
+        if i % 25 == 0 or i == len(ids):
+            print("[llama] cours %d/%d (%d servis)" % (i, len(ids), len(out)), flush=True)
+        time.sleep(0.2)
+    repli = 0
+    for cid in manquants:
+        if _budget_cg_restant() <= 0:
+            break
         d = _get(CG + "/coins/" + urllib.parse.quote(cid) +
                  "/market_chart?vs_currency=usd&days=%s&interval=daily" % HIST_JOURS,
                  timeout=60)
@@ -624,12 +799,15 @@ def historique_cours(ids, etat=None):
                    and isinstance(p[1], (int, float)) and math.isfinite(p[1])]
             if pts:
                 out[cid] = pts
-        if i % 10 == 0 or i == n:
-            print("[cg] historique %d/%d (%d servis)" % (i, n, len(out)), flush=True)
-            if etat is not None:
-                etat["cours"] = out
-                _ecrire_reprise(etat)
+                repli += 1
         time.sleep(2.5)
+    gardees = 0
+    for cid in ids:
+        if cid not in out and prec.get(cid):
+            out[cid] = prec[cid]
+            gardees += 1
+    print("[cours] %d séries fraîches (dont %d par CoinGecko), %d anciennes gardées "
+          "faute de source" % (len(out) - gardees, repli, gardees), flush=True)
     if etat is not None:
         etat["cours"] = out
         _ecrire_reprise(etat)
@@ -1691,12 +1869,18 @@ def main():
     hist = {}
     if AVEC_HIST:
         etat = _lire_reprise()
-        print("[info] CoinGecko : fiche d'identité de %d jetons "
-              "(≈ %d min) ..." % (len(ids), int(len(ids) * 2.6 / 60) + 1))
-        ident = fiche_identite(ids, etat)
-        print("[info] CoinGecko : historique de cours (≈ %d min) ..."
-              % (int(len(ids) * 2.6 / 60) + 1))
+        # Les cours d'abord : ils ne coûtent rien au budget CoinGecko, et le
+        # recalage des records en a besoin si l'appel groupé échoue.
+        print("[info] coins.llama.fi : cours quotidiens de %d jetons "
+              "(≈ %d min) ..." % (len(ids), int(len(ids) * 0.9 / 60) + 1))
         hist = historique_cours(ids, etat)
+        ident = dict(etat.get("identite") or {})
+        rafraichir_records(ids, ident)
+        etat["identite"] = ident
+        print("[info] CoinGecko : fiches d'identité, dans un budget de %d min ..."
+              % (BUDGET_CG_S // 60))
+        ident = fiche_identite(ids, etat)
+        recaler_records(ids, ident, hist)
     else:
         print("[info] SCF_CAPTURE_HIST=0 : identité et historique non collectés.")
         # On ne perd pas ce qu'un passage précédent avait obtenu : sans cela,
@@ -1865,6 +2049,18 @@ def main():
                                  or etages["frais_detail"].get(cid) or None),
             # ── l'âge et l'histoire ──
             "genesis": idt.get("genesis"),
+            # ⚠ CE CHAMP NE PORTE PAS UNE PREMIÈRE COTATION.
+            # Il vaut la première date de la SÉRIE SERVIE, et le palier gratuit
+            # de CoinGecko n'en sert plus que 365 jours (cf. HIST_JOURS). Mesuré
+            # le 06/09/2026 : 174 jetons sur 200 portaient la même valeur —
+            # exactement un an avant le jour de collecte — dont bitcoin, dont la
+            # genèse est de 2009. Un nom qui affirme « première cotation » sur
+            # une borne de cache est un piège : la logique d'âge, elle, a déjà
+            # refusé de s'en servir (voir le commentaire plus haut) et lit
+            # `genesis`. On le renomme donc pour ce qu'il est.
+            # `premiere_cotation` reste publié le temps qu'un cache plus ancien
+            # circule encore ; il disparaîtra une fois la rotation faite.
+            "debut_serie": (premiere.strftime("%Y-%m-%d") if premiere else None),
             "premiere_cotation": (premiere.strftime("%Y-%m-%d") if premiere else None),
             "age_jours": age_j,
             "age_source": source,
@@ -1890,16 +2086,25 @@ def main():
             "n_points_cours": len(pts),
         }
 
+    # ⚠ LA DATE DE LA DONNÉE, PAS CELLE DU FICHIER. `genere_le` avançait à
+    # chaque passage pendant que 197 séries restaient au 03/09 : aucun bandeau,
+    # aucun filet ne pouvait le voir. `donnees_du` est la médiane des derniers
+    # points de cours ; c'est elle que les gardes de fraîcheur lisent d'abord.
+    derniers = sorted(p[-1][0] for p in hist.values() if p)
+    donnees_du = (datetime.fromtimestamp(derniers[len(derniers) // 2] / 1000.0, timezone.utc)
+                  .strftime("%Y-%m-%dT%H:%M:%SZ") if derniers else None)
     doc = {
         "genere_le": maintenant.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "donnees_du": donnees_du,
         "source_updated": nf.get("updated"),
         "univers": len(sortie),
         "sources": [
             "DefiLlama /overview/fees?dataType=dailyFees (ce que paient les utilisateurs)",
             "DefiLlama /overview/fees?dataType=dailyRevenue (ce que garde le protocole)",
             "DefiLlama /overview/fees?dataType=dailyHoldersRevenue (ce qui revient au jeton)",
-            "CoinGecko /coins/{id} (genèse, plus haut, plus bas, dépôt de code)",
-            "CoinGecko /coins/{id}/market_chart (cours quotidien, toute la vie cotée)",
+            "CoinGecko /coins/{id} (genèse, catégories, dépôt de code — rafraîchis par ancienneté)",
+            "CoinGecko /coins/markets (plus haut, plus bas, écart au record, rang — à chaque passage)",
+            "coins.llama.fi /chart (cours quotidien sur un an ; CoinGecko en repli)",
         ],
         "methode": (
             "La captation se lit en trois étages : les utilisateurs paient des "
