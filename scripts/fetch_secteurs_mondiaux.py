@@ -74,6 +74,107 @@ SECTEURS_PARASITES = {
     "Consumer Goods", "Industrial Goods", "Services",
 }
 
+# ── LA NOMENCLATURE SIC, TRADUITE VERS GICS ────────────────────────────────
+# Voir l'en-tete du patch : certaines places (Emirats, Vietnam, Malaisie...)
+# livrent l'industrie en SIC et AUCUN secteur. Sans cette table, ces societes
+# tombent dans « Non classe », qui n'est pas un secteur et n'est comparable a
+# rien. Les libelles sont explicites ; on transcrit, on ne devine pas.
+SIC_VERS_GICS = {
+    # Finance
+    "Commercial Banks": "Financials",
+    "State Commercial Banks": "Financials",
+    "National Commercial Banks": "Financials",
+    "Savings Institutions": "Financials",
+    "Life Insurance": "Financials",
+    "Fire, Marine, and Casualty Insurance": "Financials",
+    "Insurance Agents, Brokers, and Service": "Financials",
+    "Security Brokers, Dealers, and Flotation Companies": "Financials",
+    "Personal Credit Institutions": "Financials",
+    "Federal and Federally-Sponsored Credit Agencies": "Financials",
+    "Short-Term Business Credit Institutions": "Financials",
+    "Finance Services": "Financials",
+    "Unit Investment Trusts, Face-Amount Certificate Offices, and Closed-End Management Investment Offices": "Financials",
+    # Immobilier
+    "Real Estate": "Real Estate",
+    "Real Estate Investment Trusts": "Real Estate",
+    "Real Estate Agents and Managers": "Real Estate",
+    "Land Subdividers and Developers, Except Cemeteries": "Real Estate",
+    "Operators of Apartment Buildings": "Real Estate",
+    "Operative Builders": "Real Estate",
+    # Energie
+    "Crude Petroleum and Natural Gas": "Energy",
+    "Petroleum Refining": "Energy",
+    "Drilling Oil and Gas Wells": "Energy",
+    "Oil and Gas Field Services": "Energy",
+    "Petroleum and Petroleum Products Wholesalers, Except Bulk Stations and Terminals": "Energy",
+    "Bituminous Coal and Lignite Surface Mining": "Energy",
+    "Natural Gas Transmission": "Energy",
+    # Services aux collectivites
+    "Electric Services": "Utilities",
+    "Electric and Other Services Combined": "Utilities",
+    "Water Supply": "Utilities",
+    "Gas and Other Services Combined": "Utilities",
+    "Cogeneration Services and Small Power Producers": "Utilities",
+    # Materiaux
+    "Steel Works, Blast Furnaces, And Rolling And Finishing Mills": "Materials",
+    "Industrial Organic Chemicals": "Materials",
+    "Industrial Inorganic Chemicals": "Materials",
+    "Plastics Materials And Synthetic Resins, Synthetic Rubber, Cellulosic And Other Manmade Fibers, Except Glass": "Materials",
+    "Primary Production of Aluminum": "Materials",
+    "Metal Mining": "Materials",
+    "Gold Mining": "Materials",
+    "Concrete, Gypsum, And Plaster Products": "Materials",
+    "Cement, Hydraulic": "Materials",
+    "Paperboard Mills": "Materials",
+    "Paper Mills": "Materials",
+    "Miscellaneous Plastics Products": "Materials",
+    "Fabricated Rubber Products, Not Elsewhere Classified": "Materials",
+    "Agricultural Chemicals": "Materials",
+    "Nitrogenous Fertilizers": "Materials",
+    # Technologie
+    "Semiconductors and Related Devices": "Technology",
+    "Computer Programming, Data Processing, And Other Computer Related Services": "Technology",
+    "Prepackaged Software": "Technology",
+    "Services-Computer Programming, Data Processing, Etc.": "Technology",
+    "Electronic Computers": "Technology",
+    "Computer Peripheral Equipment, Not Elsewhere Classified": "Technology",
+    "Printed Circuit Boards": "Technology",
+    "Electronic Components and Accessories": "Technology",
+    "Instruments for Measuring and Testing of Electricity and Electrical Signals": "Technology",
+    # Communication
+    "Telephone Communications": "Communication Services",
+    "Radiotelephone Communications": "Communication Services",
+    "Radio and Television Broadcasting Stations": "Communication Services",
+    "Cable and Other Pay Television Services": "Communication Services",
+    "Communications Services, Not Elsewhere Classified": "Communication Services",
+    # Sante
+    "Pharmaceutical Preparations": "Healthcare",
+    "Biological Products, Except Diagnostic Substances": "Healthcare",
+    "General Medical and Surgical Hospitals": "Healthcare",
+    "Medical, Dental, and Hospital Equipment and Supplies": "Healthcare",
+    "Services-Health Services": "Healthcare",
+    # Industrie
+    "Heavy Construction Other Than Building Construction Contractors": "Industrials",
+    "Special Industry Machinery, not elsewhere classified": "Industrials",
+    "Deep Sea Foreign Transportation of Freight": "Industrials",
+    "Water Transportation": "Industrials",
+    "Air Transportation, Scheduled": "Industrials",
+    "Trucking, Except Local": "Industrials",
+    "Construction - Special Trade Contractors": "Industrials",
+    "General Building Contractors": "Industrials",
+    "Motorcycles, Bicycles, and Parts": "Consumer Discretionary",
+    "Motor Vehicles and Passenger Car Bodies": "Consumer Discretionary",
+    "Retail Stores, Not Elsewhere Classified": "Consumer Discretionary",
+    "Hotels and Motels": "Consumer Discretionary",
+    # Consommation de base
+    "Agricultural Production Crops": "Consumer Staples",
+    "Food and Kindred Products": "Consumer Staples",
+    "Beverages": "Consumer Staples",
+    "Grocery Stores": "Consumer Staples",
+    "Cigarettes": "Consumer Staples",
+}
+
+
 SECTEURS_FR = {
     "Technology": "Technologie",
     "Financials": "Finance",
@@ -99,6 +200,46 @@ POSITIVES = {"peRatio", "peForward", "psRatio", "pbRatio", "evEbitda",
 PLAFONDS = {"peRatio": 200.0, "peForward": 300.0, "pbRatio": 100.0,
             "psRatio": 50.0, "evEbitda": 150.0, "evSales": 60.0,
             "beta": 4.0, "interestCoverage": 500.0}
+
+# ── LES VALEURS QU'AUCUNE SOCIETE NE PEUT PORTER ───────────────────────────
+# `PLAFONDS` ci-dessus ne couvre que la VALORISATION. Les rendements, marges et
+# taux de distribution n'avaient aucune borne — et ce sont eux que faussent les
+# BDR bresiliens (suffixe `.SA`), certificats de societes americaines cotes a
+# Sao Paulo dont le dividende est libelle dans une devise et le cours dans une
+# autre.
+#
+# Audit du 08/09/2026 sur les 3 000 societes : 79 valeurs impossibles, dont 13
+# sur `.SA`.
+#     B1DX34.SA  Becton, Dickinson   rendement du dividende      812,34 %
+#     HONB34.SA  Honeywell           taux de distribution      1 914,58 %
+#     N2TN34.SA  Nutanix             rendement des capitaux propres 37 460 %
+#
+# L'EFFET N'EST PAS MARGINAL : la seule ligne Becton Dickinson faisait passer
+# le rendement du dividende de la SANTE de 1,48 % a 6,20 %. Quatre fois trop,
+# sur une grandeur que le lecteur compare d'un secteur a l'autre.
+#
+# ⚠ ON NE BORNE PAS AU PLUS SERRE. Ces bornes laissent passer toutes les
+# valeurs economiquement possibles, meme extremes : une marge d'exploitation de
+# -900 % existe (une biotech sans revenus), un rendement de 20 % aussi (une
+# societe en difficulte). On n'ecarte QUE ce qui ne peut pas etre vrai —
+# ecarter une valeur extreme mais reelle serait pire que le defaut corrige.
+BORNES_PLAUSIBLES = {
+    "dividendYield":   (0.0, 25.0),
+    "payoutRatio":     (-500.0, 1000.0),
+    "buybackYield":    (-100.0, 100.0),
+    "fcfYield":        (-200.0, 200.0),
+    "roe":             (-500.0, 500.0),
+    "roa":             (-200.0, 200.0),
+    "roic":            (-500.0, 500.0),
+    "roce":            (-500.0, 500.0),
+    "profitMargin":    (-1000.0, 100.0),
+    "grossMargin":     (-500.0, 100.0),
+    "operatingMargin": (-1000.0, 100.0),
+    "ebitdaMargin":    (-1000.0, 100.0),
+    "currentRatio":    (0.0, 100.0),
+    "debtEquity":      (-50.0, 100.0),
+    "debtEbitda":      (-100.0, 200.0),
+}
 
 GRANDEURS = [
     "peRatio", "peForward", "psRatio", "pbRatio", "evEbitda", "evSales",
@@ -183,6 +324,12 @@ def winsoriser(valeurs):
     return [min(max(v, bas), haut) for v in valeurs]
 
 
+# Ce qui a ete ecarte comme impossible, par grandeur. Publie dans la sortie :
+# un filtre muet est un filtre qu'on oublie, et le jour ou il ecarte trop, rien
+# ne le dit.
+n_aberrantes = collections.Counter()
+
+
 def agreger(membres, ix, cle_nom):
     """Moyenne ponderee par la capitalisation, winsorisee, avec garde de couverture."""
     def g(r, c):
@@ -204,6 +351,11 @@ def agreger(membres, ix, cle_nom):
                 continue
             pl = PLAFONDS.get(grandeur)
             if pl is not None and abs(x) > pl:
+                continue
+            # Les bornes de plausibilite : voir BORNES_PLAUSIBLES ci-dessus.
+            bp = BORNES_PLAUSIBLES.get(grandeur)
+            if bp is not None and not (bp[0] <= x <= bp[1]):
+                n_aberrantes[grandeur] += 1
                 continue
             paires.append((x, capi))
 
@@ -478,17 +630,47 @@ def main():
     # se retrouver a cheval sur deux secteurs selon la source, on retient le
     # majoritaire et on publie sa part pour que le doute reste visible.
     secteur_des_industries = collections.defaultdict(collections.Counter)
+
+    # Le secteur GICS deja connu pour chaque NOM de societe : une meme societe
+    # cotee sur plusieurs places n'a besoin que d'UNE cotation bien etiquetee.
+    gics_du_nom = {}
+    for t in top:
+        s = g(t[1], "sector")
+        if s:
+            nom_s = g(t[1], "name")
+            if nom_s:
+                gics_du_nom.setdefault(nom_s, s)
+
     n_sans_secteur = 0
+    n_resolus_nom = 0
+    n_resolus_sic = 0
     for t in top:
         sec = g(t[1], "sector")
+        ind = g(t[1], "industry")
+        if not sec:
+            # 1. Un jumeau cote ailleurs porte-t-il deja le secteur ?
+            sec = gics_du_nom.get(g(t[1], "name"))
+            if sec:
+                n_resolus_nom += 1
+            else:
+                # 2. L'industrie est en SIC : on la traduit.
+                sec = SIC_VERS_GICS.get((ind or "").strip())
+                if sec:
+                    n_resolus_sic += 1
         if not sec:
             n_sans_secteur += 1
             sec = "Non classe"
         par_secteur[sec].append(t)
-        ind = g(t[1], "industry")
         if ind:
             par_industrie[ind].append(t)
             secteur_des_industries[ind][sec] += 1
+
+    if n_resolus_nom or n_resolus_sic:
+        print("[nomenclature] %d societes ramenees a GICS "
+              "(%d par jumeau cote ailleurs, %d par traduction SIC) ; "
+              "%d restent non classees"
+              % (n_resolus_nom + n_resolus_sic, n_resolus_nom, n_resolus_sic,
+                 n_sans_secteur))
 
     secteurs = {n: agreger(m, ix, n) for n, m in par_secteur.items()
                 if len(m) >= MIN_TITRES}
@@ -541,6 +723,14 @@ def main():
             "cotations, non le maximum : une place isolee affiche parfois une "
             "valeur aberrante." % (n_cotations, n_noms)),
         "winsorisation": "5-95 centiles avant moyenne ponderee",
+        # Ce que les bornes de plausibilite ont ecarte. Un filtre muet est un
+        # filtre qu'on oublie : le jour ou il coupe trop, rien ne le dirait.
+        "valeurs_impossibles": (sum(n_aberrantes.values()) or 0),
+        "valeurs_impossibles_detail": dict(n_aberrantes),
+        "bornes_plausibilite": ("les valeurs qu'aucune societe ne peut porter "
+                                "sont ecartees — un BDR bresilien affichait "
+                                "812 % de rendement du dividende, ce qui "
+                                "quadruplait la moyenne de son secteur"),
         "couverture_minimale_cellule": "40 % du groupe, sinon la cellule est vide",
         "formule_score": ("0,55 x rang(momentum relatif a 3 mois) + 0,225 x "
                           "rang(largeur au-dessus de la MA50) + 0,225 x rang(momentum de prix)"),

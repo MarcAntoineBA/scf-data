@@ -64,7 +64,7 @@ import urllib.parse
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -1827,6 +1827,12 @@ def main():
     narratives_out.sort(key=lambda n: (n.get("mcap_total_b") or 0), reverse=True)
 
     payload = {
+        # ⚠ `updated` est l'heure LOCALE de la machine, sans fuseau : Paris sur le
+        # Mac, UTC sur un runner. La page lisait les deux comme une heure de Paris,
+        # et vieillissait de deux heures tout fichier publié par la collecte en
+        # ligne — le 17/09/2026, « narratifs 9,2 h » pour un fichier de 7,2 h.
+        # `genere_le` porte le fuseau ; le bandeau et les gardes le lisent d'abord.
+        "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated": datetime.now().strftime("%Y-%m-%d %H:%M %Z") or
                    datetime.now().strftime("%Y-%m-%d %H:%M"),
         "fetch_ts": int(time.time()),

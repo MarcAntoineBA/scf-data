@@ -18,7 +18,7 @@ except Exception:
 import yfinance as yf
 import json, sys, warnings, urllib.request, re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 warnings.filterwarnings('ignore')
 
@@ -295,7 +295,11 @@ def fetch():
 
     sp500 = fetch_sp500_pe_hist()
     # `all_pe_hist` is the field name expected by Bulle_IA.html / Comparaison_PER.html
-    payload = {'updated': datetime.now().isoformat(), 'all_pe_hist': result}
+    # ⚠ `updated` est l'heure LOCALE de la machine, sans fuseau (Paris sur le Mac,
+    # UTC sur un runner) ; `genere_le` porte le fuseau, et c'est elle que le bandeau
+    # et les gardes de fraîcheur lisent d'abord.
+    payload = {'genere_le': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+               'updated': datetime.now().isoformat(), 'all_pe_hist': result}
     # Les séries reprises sont NOMMÉES dans le cache : une page qui affiche onze
     # courbes doit pouvoir dire lesquelles datent d'aujourd'hui.
     if perdus:

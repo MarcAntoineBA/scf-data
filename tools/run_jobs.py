@@ -174,6 +174,12 @@ DEPENDANCES = {
     # aucune requête réseau, trois secondes et demie, mais rien du tout
     # si l'un des deux n'a pas encore écrit.
     "secteursmonde": ["marche", "univers"],
+    # ⚠ LE CACHE QUE LA PAGE AFFICHE VRAIMENT, `secteurs_mondiaux.js` (avec le X),
+    # n'était déclaré nulle part : seul le filet du PC le relançait, et l'onglet
+    # « Secteurs » vieillissait dès que le PC était éteint (32 h mesurées le
+    # 04/09/2026, 22 h le 17/09). Il se DÉRIVE des fragments de marché, sans
+    # réseau, en trois secondes : sa place est ici, derrière eux.
+    "secteursmondiaux": ["marche", "univers"],
     # La collecte de marché lit `univers_actions.json` pour savoir rattacher
     # « epa/MC » à « MC.PA ». Ce lien n'était pas déclaré : les deux partaient
     # ensemble dans la même vague, et la lecture arrivait avant l'écriture.

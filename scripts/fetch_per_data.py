@@ -18,7 +18,7 @@ except Exception:
 
 import requests, json, sys, re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 # Le cache est centralisé dans ~/Library/Caches/site_crypto_finance/ (les
@@ -333,6 +333,10 @@ def main():
             pass
 
     payload = {
+        # ⚠ `updated` est l'heure LOCALE de la machine, sans fuseau : Paris sur le
+        # Mac, UTC sur un runner. `genere_le` porte le fuseau, et c'est elle que le
+        # bandeau « comparateur » et les gardes de fraîcheur lisent d'abord.
+        "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "crypto": crypto,
         "tradfi": tradfi,
         "sp500_pe": sp500_pe,

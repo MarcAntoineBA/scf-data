@@ -31,7 +31,7 @@ except Exception:
 
 import json, sys, time, math
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 try:
     import yfinance as yf
@@ -399,6 +399,12 @@ def main():
     payload = clean_nan({
         "markets": markets,
         "benchmark": benchmark,
+        # ⚠ `updated` est l'heure LOCALE de la machine, sans fuseau : Paris sur le
+        # Mac, UTC sur un runner. La page lisait les deux comme une heure de Paris,
+        # et vieillissait de deux heures tout fichier publié par la collecte en
+        # ligne — le 17/09/2026, « narratifs 9,2 h » pour un fichier de 7,2 h.
+        # `genere_le` porte le fuseau ; le bandeau et les gardes le lisent d'abord.
+        "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "sources": {
             "fundamentals": "Yahoo Finance (ETF info: SPY, EWJ, MCHI, INDA, etc.)",

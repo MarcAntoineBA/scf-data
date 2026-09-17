@@ -33,6 +33,10 @@ on:
 
 permissions:
   contents: write   # l'état anti-bruit est versionné (voir l'étape « Mémoriser »)
+  # Le RATTRAPAGE : quand un bloc du bandeau de la page approche de sa tolérance,
+  # la sentinelle relance elle-même le workflow de collecte qui le produit
+  # (workflow_dispatch). Un cron sauté ne devient plus un bandeau.
+  actions: write
 
 # Deux exécutions concurrentes se marcheraient dessus sur sentinelle/etat.json.
 concurrency:
@@ -54,6 +58,8 @@ jobs:
       # tomberait en panne d'installation serait une sentinelle muette.
       - name: Contrôler le site public
         id: controle
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python tools/sentinelle_publique.py
         continue-on-error: true
 

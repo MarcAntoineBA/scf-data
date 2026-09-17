@@ -3250,6 +3250,19 @@
       "witness": "secteurs_monde.json"
     },
     {
+      "id": "secteursmondiaux",
+      "script": "fetch_secteurs_mondiaux.py",
+      "args": [],
+      "schedule": "toutes les 24 h",
+      "per_day": 1.0,
+      "cadence": "daily",
+      "category": "public",
+      "outputs": [
+        "secteurs_mondiaux.js"
+      ],
+      "witness": "secteurs_mondiaux.js"
+    },
+    {
       "id": "tv_others",
       "script": "fetch_tv_others_cache.py",
       "args": [],

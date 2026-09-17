@@ -1275,6 +1275,12 @@ def main():
     sectors_out.sort(key=lambda s: (s.get("mcap_total_b") or 0), reverse=True)
 
     payload = {
+        # ⚠ `updated` est l'heure LOCALE de la machine, sans fuseau : Paris sur le
+        # Mac, UTC sur un runner. La page lisait les deux comme une heure de Paris,
+        # et vieillissait de deux heures tout fichier publié par la collecte en
+        # ligne — le 17/09/2026, « narratifs 9,2 h » pour un fichier de 7,2 h.
+        # `genere_le` porte le fuseau ; le bandeau et les gardes le lisent d'abord.
+        "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated": datetime.now().strftime("%Y-%m-%d %H:%M %Z") or
                    datetime.now().strftime("%Y-%m-%d %H:%M"),
         "fetch_ts": int(time.time()),
