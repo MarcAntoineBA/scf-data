@@ -10,24 +10,24 @@
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
     "prob": 0.0425,
-    "volume": 5006360.944805999,
-    "liquidite": 64348.9277,
+    "volume": 5006371.384805999,
+    "liquidite": 65583.87915,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.035,
-    "bid": 0.03,
-    "ask": 0.04,
-    "volume": 257078.21
+    "mid": 0.045,
+    "bid": 0.04,
+    "ask": 0.05,
+    "volume": 258015.09
    },
    "mesures": {
-    "consensus_pondere_volume": 0.0421,
-    "ecart_points": -0.75,
-    "sens": "Polymarket plus haut",
+    "consensus_pondere_volume": 0.0426,
+    "ecart_points": 0.25,
+    "sens": "Kalshi plus haut",
     "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": -0.25,
+    "ecart_net_de_cout_points": -0.75,
     "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -42,25 +42,25 @@
     "id": "769594",
     "question": "How many Senators will vote for the Clarity Act?",
     "prob": 0.105,
-    "volume": 104764.04949,
-    "liquidite": 25615.08282,
+    "volume": 104788.04948999999,
+    "liquidite": 27601.31749,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
     "ticker": "KXVOTECLARITY-26MAY16-T58",
     "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
-    "mid": 0.09,
+    "mid": 0.085,
     "bid": 0.08,
-    "ask": 0.1,
-    "volume": 17092.42
+    "ask": 0.09,
+    "volume": 17532.68
    },
    "mesures": {
-    "consensus_pondere_volume": 0.1029,
-    "ecart_points": -1.5,
+    "consensus_pondere_volume": 0.1021,
+    "ecart_points": -2.0,
     "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 2.0,
-    "ecart_net_de_cout_points": -0.5,
-    "actionnable": false,
+    "cout_execution_kalshi_points": 1.0,
+    "ecart_net_de_cout_points": 1.0,
+    "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -95,6 +95,6 @@
   "paire « Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi) » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-17T18:17:45+00:00",
+ "generated_at": "2026-09-17T21:24:55+00:00",
  "paires_declarees": 6
 }
