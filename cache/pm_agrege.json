@@ -9,26 +9,26 @@
    "polymarket": {
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
-    "prob": 0.0435,
-    "volume": 4999492.354806,
-    "liquidite": 60572.12402,
+    "prob": 0.0425,
+    "volume": 5003580.134805998,
+    "liquidite": 61136.16631,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.055,
-    "bid": 0.05,
+    "mid": 0.05,
+    "bid": 0.04,
     "ask": 0.06,
-    "volume": 250654.74
+    "volume": 256172.24
    },
    "mesures": {
-    "consensus_pondere_volume": 0.044,
-    "ecart_points": 1.15,
+    "consensus_pondere_volume": 0.0429,
+    "ecart_points": 0.75,
     "sens": "Kalshi plus haut",
-    "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 0.15,
-    "actionnable": true,
+    "cout_execution_kalshi_points": 2.0,
+    "ecart_net_de_cout_points": -1.25,
+    "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -41,25 +41,25 @@
    "polymarket": {
     "id": "769594",
     "question": "How many Senators will vote for the Clarity Act?",
-    "prob": 0.105,
-    "volume": 95093.930555,
-    "liquidite": 25027.096,
+    "prob": 0.115,
+    "volume": 103021.462823,
+    "liquidite": 29020.95497,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
     "ticker": "KXVOTECLARITY-26MAY16-T58",
     "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
     "mid": 0.075,
-    "bid": 0.07,
-    "ask": 0.08,
-    "volume": 16983.42
+    "bid": 0.06,
+    "ask": 0.09,
+    "volume": 17052.42
    },
    "mesures": {
-    "consensus_pondere_volume": 0.1005,
-    "ecart_points": -3.0,
+    "consensus_pondere_volume": 0.1093,
+    "ecart_points": -4.0,
     "sens": "Polymarket plus haut",
-    "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 2.0,
+    "cout_execution_kalshi_points": 3.0,
+    "ecart_net_de_cout_points": 1.0,
     "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
@@ -73,9 +73,9 @@
    "polymarket": {
     "id": "73331",
     "question": "US defaults on debt by 2027?",
-    "prob": 0.0275,
+    "prob": 0.029,
     "volume": 18267.069977999992,
-    "liquidite": 2658.65768,
+    "liquidite": 2490.3027,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -95,6 +95,6 @@
   "paire « Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi) » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-17T01:28:13+00:00",
+ "generated_at": "2026-09-17T07:46:56+00:00",
  "paires_declarees": 6
 }
