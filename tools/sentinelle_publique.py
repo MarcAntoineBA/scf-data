@@ -291,11 +291,26 @@ def rattraper(cadences, etat, maintenant, a_blanc=False):
             if runs is None:
                 lignes.append(f"  ↻ {wf} : pas de jeton GitHub, relance impossible d'ici")
                 continue
-            actifs = [r for r in runs.get("workflow_runs", [])
+            passages = runs.get("workflow_runs", [])
+            actifs = [r for r in passages
                       if r.get("status") in ("queued", "in_progress", "waiting", "requested", "pending")]
             if actifs:
                 lignes.append(f"  ↻ {wf} : un passage est déjà {actifs[0].get('status')}, il rafraîchira")
                 continue
+            # Un passage RÉCENT qui n'a pas rafraîchi le bloc n'est pas un réveil
+            # manqué : c'est le collecteur qui a échoué, et relancer tout le seau
+            # ne le réparera pas (l'alarme, elle, le dira). On ne relance que si le
+            # dernier passage date de plus d'une cadence et d'une heure.
+            if passages:
+                try:
+                    cree = datetime.strptime(passages[0]["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+                    ecart = (maintenant - cree.replace(tzinfo=timezone.utc).timestamp()) / 3600.0
+                except (KeyError, ValueError):
+                    ecart = None
+                if ecart is not None and ecart < CADENCE_H.get(cadence, 0) + 1.0:
+                    lignes.append(f"  ↻ {wf} : dernier passage il y a {h(ecart)}, le suivant est "
+                                  f"attendu — pas de relance (si le bloc reste vieux, c'est son collecteur)")
+                    continue
             github("POST", f"/actions/workflows/{wf}/dispatches", {"ref": "main"})
             faits[wf] = maintenant
             lignes.append(f"  ↻ {wf} : RELANCÉ")
