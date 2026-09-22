@@ -1,13 +1,8 @@
 {
- "en_panne": true,
- "depuis": 1790053840.6674638,
+ "en_panne": false,
+ "depuis": null,
  "derniere_alerte": 1790053840.6674638,
- "motifs": [
-  "prediction_markets_cache.json : 7.1 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »",
-  "bloc « fondamentaux » (tradfi_fundamentals_cache.js) : 13.5 h (tolérance 11 h) — bandeau « Données datées de 13.5h » sur la page",
-  "bloc « fiches crypto » (crypto_fiches.js) : 14.7 h (tolérance 14 h) — bandeau « Données datées de 14.7h » sur la page",
-  "bloc « capture crypto » (crypto_capture_cache.js) : 14.7 h (tolérance 11 h) — bandeau « Données datées de 14.7h » sur la page"
- ],
- "verifie_le": "2026-09-22 05:10 UTC",
+ "motifs": [],
+ "verifie_le": "2026-09-22 10:06 UTC",
  "rattrapages": {}
 }
