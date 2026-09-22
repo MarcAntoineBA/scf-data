@@ -1,8 +1,10 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1790053840.6674638,
- "motifs": [],
- "verifie_le": "2026-09-22 15:05 UTC",
+ "en_panne": true,
+ "depuis": 1790103645.0711522,
+ "derniere_alerte": 1790103645.0711522,
+ "motifs": [
+  "macro_calendar_cache.json : 7.1 h (seuil 6 h) — calendrier macro"
+ ],
+ "verifie_le": "2026-09-22 19:00 UTC",
  "rattrapages": {}
 }
