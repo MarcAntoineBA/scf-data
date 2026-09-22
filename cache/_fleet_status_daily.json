@@ -1,16 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-21T10:39:35Z",
+  "ts": "2026-09-22T10:15:48Z",
   "total": 40,
-  "ok": 36,
-  "secs": 1554.3,
-  "changed": 2339,
-  "versionnes": 2335,
-  "pieces_jointes": 4,
+  "ok": 35,
+  "secs": 2686.8,
+  "changed": 1821,
+  "versionnes": 1816,
+  "pieces_jointes": 5,
   "absents": 37,
   "muets": [],
   "failed": [
+   {
+    "job": "atlasquarterly",
+    "why": "[ABORT] garde-fou de référence en échec — rien écrit."
+   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -29,5 +33,5 @@
    }
   ]
  },
- "updated": "2026-09-21T10:39:35Z"
+ "updated": "2026-09-22T10:15:48Z"
 }
