@@ -1,8 +1,12 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1790103645.0711522,
- "motifs": [],
- "verifie_le": "2026-09-23 00:47 UTC",
+ "en_panne": true,
+ "depuis": 1790143673.6771085,
+ "derniere_alerte": 1790143673.6771085,
+ "motifs": [
+  "macro_calendar_cache.json : 6.1 h (seuil 6 h) — calendrier macro",
+  "prediction_markets_cache.json : 8.6 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »",
+  "bloc « fiches crypto » (crypto_fiches.js) : 16.3 h (tolérance 14 h) — bandeau « Données datées de 16.3h » sur la page"
+ ],
+ "verifie_le": "2026-09-23 06:07 UTC",
  "rattrapages": {}
 }
