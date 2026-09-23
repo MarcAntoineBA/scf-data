@@ -9,9 +9,9 @@
    "polymarket": {
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
-    "prob": 0.0345,
-    "volume": 5069275.3936359985,
-    "liquidite": 65399.78541,
+    "prob": 0.0355,
+    "volume": 5069346.979619998,
+    "liquidite": 67360.73528,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
@@ -20,15 +20,15 @@
     "mid": 0.045,
     "bid": 0.04,
     "ask": 0.05,
-    "volume": 280906.22
+    "volume": 281612.59
    },
    "mesures": {
-    "consensus_pondere_volume": 0.0351,
-    "ecart_points": 1.05,
+    "consensus_pondere_volume": 0.036,
+    "ecart_points": 0.95,
     "sens": "Kalshi plus haut",
     "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": 0.05,
-    "actionnable": true,
+    "ecart_net_de_cout_points": -0.05,
+    "actionnable": false,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -41,9 +41,9 @@
    "polymarket": {
     "id": "73331",
     "question": "US defaults on debt by 2027?",
-    "prob": 0.02,
+    "prob": 0.0195,
     "volume": 18283.069978000003,
-    "liquidite": 3060.79218,
+    "liquidite": 3078.09907,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -64,6 +64,6 @@
   "paire « Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi) » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.00% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-09-23T00:36:35+00:00",
+ "generated_at": "2026-09-23T06:07:36+00:00",
  "paires_declarees": 6
 }
