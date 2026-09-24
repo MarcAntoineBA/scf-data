@@ -1,21 +1,16 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-24T13:56:41Z",
+  "ts": "2026-09-24T19:13:52Z",
   "total": 31,
-  "ok": 30,
-  "secs": 4189.9,
+  "ok": 31,
+  "secs": 4799.4,
   "changed": 45,
-  "versionnes": 34,
-  "pieces_jointes": 11,
+  "versionnes": 35,
+  "pieces_jointes": 10,
   "absents": 29,
   "muets": [],
-  "failed": [
-   {
-    "job": "crypto.vesting",
-    "why": "[refus] calendrier NON écrit : 74 jetons contre 101 dans le cache existant. Une collecte partielle ne remplace pas une collecte."
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-09-24T13:56:41Z"
+ "updated": "2026-09-24T19:13:52Z"
 }
