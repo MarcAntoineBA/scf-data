@@ -1,8 +1,11 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1790207294.50619,
- "motifs": [],
- "verifie_le": "2026-09-24 19:19 UTC",
+ "en_panne": true,
+ "depuis": 1790289273.3403306,
+ "derniere_alerte": 1790289273.3403306,
+ "motifs": [
+  "macro_calendar_cache.json : 8.0 h (seuil 6 h) — calendrier macro",
+  "bloc « fiches crypto » (crypto_fiches.js) : 14.6 h (tolérance 14 h) — bandeau « Données datées de 14.6h » sur la page"
+ ],
+ "verifie_le": "2026-09-24 22:34 UTC",
  "rattrapages": {}
 }
