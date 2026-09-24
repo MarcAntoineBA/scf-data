@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-24T07:31:06Z",
+  "ts": "2026-09-24T13:56:41Z",
   "total": 31,
   "ok": 30,
-  "secs": 4553.0,
-  "changed": 43,
-  "versionnes": 35,
-  "pieces_jointes": 8,
-  "absents": 30,
+  "secs": 4189.9,
+  "changed": 45,
+  "versionnes": 34,
+  "pieces_jointes": 11,
+  "absents": 29,
   "muets": [],
   "failed": [
    {
-    "job": "hydrocarbures",
-    "why": "dépassement du plafond (75 min)"
+    "job": "crypto.vesting",
+    "why": "[refus] calendrier NON écrit : 74 jetons contre 101 dans le cache existant. Une collecte partielle ne remplace pas une collecte."
    }
   ]
  },
- "updated": "2026-09-24T07:31:06Z"
+ "updated": "2026-09-24T13:56:41Z"
 }
