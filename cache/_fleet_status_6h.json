@@ -1,16 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-27T14:25:10Z",
+  "ts": "2026-09-27T19:05:05Z",
   "total": 31,
-  "ok": 31,
-  "secs": 4551.9,
-  "changed": 45,
-  "versionnes": 35,
+  "ok": 30,
+  "secs": 4498.5,
+  "changed": 43,
+  "versionnes": 33,
   "pieces_jointes": 10,
   "absents": 30,
   "muets": [],
-  "failed": []
+  "failed": [
+   {
+    "job": "reservesorust",
+    "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
+   }
+  ]
  },
- "updated": "2026-09-27T14:25:10Z"
+ "updated": "2026-09-27T19:05:05Z"
 }
