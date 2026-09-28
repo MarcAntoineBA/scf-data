@@ -133,8 +133,11 @@ RETRIES = 3
 _last_call = [0.0]
 
 
-def _get(url, accept_404=False):
-    """GET avec débit maîtrisé, gzip, et reprise sur 429/503."""
+def _get(url, accept_404=False, brut=False):
+    """GET avec débit maîtrisé, gzip, et reprise sur 429/503.
+
+    `brut` rend les octets tels quels : une instance XBRL n'est pas du JSON.
+    """
     for essai in range(RETRIES):
         delta = time.time() - _last_call[0]
         if delta < DEBIT:
@@ -143,14 +146,14 @@ def _get(url, accept_404=False):
         req = urllib.request.Request(url, headers={
             "User-Agent": UA,
             "Accept-Encoding": "gzip",
-            "Accept": "application/json",
+            "Accept": "*/*" if brut else "application/json",
         })
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
                 raw = r.read()
                 if r.headers.get("Content-Encoding") == "gzip":
                     raw = gzip.decompress(raw)
-                return json.loads(raw)
+                return raw if brut else json.loads(raw)
         except urllib.error.HTTPError as e:
             if e.code == 404 and accept_404:
                 return None
@@ -3348,6 +3351,257 @@ def fusionner_faits(vieux, neuf):
     return out
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Quand `companyfacts` saute un dépôt
+# ─────────────────────────────────────────────────────────────────────────
+# ⚠ L'API AGRÉGÉE N'EST PAS LE DÉPÔT, ET ELLE PEUT EN OUBLIER UN.
+#
+# Mesuré le 27/09/2026 sur seize sociétés figées : Southern, Duke, AEP,
+# Dominion, Sempra, Entergy, Exelon, Con Edison, NXP, Garmin, Humana, Biogen,
+# Johnson Controls, GE HealthCare, Citigroup, Cardinal Health. Toutes ont DÉPOSÉ
+# leur 10-Q — EDGAR le liste, `isXBRL` vaut 1, l'instance se télécharge — et
+# `companyfacts` n'en porte AUCUN fait. Southern : 10-Q du 30/06/2026 déposé le
+# 30/07, zéro fait. Citigroup : les 10-Q de mars ET de juin absents. Cardinal
+# Health : le 10-Q de mars absent alors que le 10-K de juin, déposé APRÈS, est
+# là. Ce n'est donc pas une API « en retard » d'un bloc : ce sont des dépôts
+# sautés, un par un, et la date du dernier dépôt connu ne suffit pas à les voir.
+#
+# Le collecteur ne pouvait rien en savoir : la série s'arrêtait au dernier
+# trimestre que l'API connaissait, et rien ne distinguait « pas encore déposé »
+# de « déposé, mais oublié par l'API ». Rejoué le 27/09/2026 sur ces seize
+# sociétés, le code d'avant rend À L'IDENTIQUE les trimestres publiés : aucun
+# calcul n'est fautif, c'est la matière qui manque.
+#
+# On demande donc à EDGAR la liste des dépôts (une requête `submissions` par
+# société), et pour chaque rapport périodique récent absent de `companyfacts`
+# on lit son instance XBRL — le fichier même dont l'API tire ses faits — en ne
+# gardant que ce qu'elle en aurait gardé : les faits NON DIMENSIONNELS de la
+# société, sous `us-gaap` et `ifrs-full`, les deux seules taxonomies lues ici.
+
+# Un an de rapports, plus la marge d'un 10-K tardif. Au-delà, un dépôt sauté
+# n'aurait plus d'effet sur le dernier trimestre, qui est ce qu'on répare.
+JOURS_COMPLEMENT = 400
+# Trois 10-Q et un 10-K : le plus grand trou qu'une année puisse laisser.
+MAX_DEPOTS_COMPLETES = 4
+
+
+def _depots_connus(facts):
+    """Les numéros de dépôt dont `companyfacts` porte au moins un fait lu ici."""
+    connus = set()
+    for taxo in ("us-gaap", "ifrs-full"):
+        for corps in (facts.get(taxo) or {}).values():
+            for pts in (corps.get("units") or {}).values():
+                for p in pts:
+                    connus.add(p.get("accn"))
+    return connus
+
+
+def _taxo_instance(uri):
+    """Le nom `companyfacts` d'un espace de noms XBRL, ou None s'il n'est pas lu.
+
+    L'espace porte l'année de la taxonomie (`http://fasb.org/us-gaap/2026`) : on
+    reconnaît la RACINE, sans quoi le changement de millésime viderait tout.
+    """
+    if uri.startswith("http://fasb.org/us-gaap/"):
+        return "us-gaap"
+    if "xbrl.ifrs.org/taxonomy/" in uri and uri.rstrip("/").endswith("/ifrs-full"):
+        return "ifrs-full"
+    return None
+
+
+def faits_instance(brut, cik, accn, forme, depose):
+    """Les faits d'une instance XBRL, rangés exactement comme `companyfacts`.
+
+    {taxonomie: {concept: {"units": {unité: [points]}}}}, chaque point portant
+    start (s'il s'agit d'une durée), end, val, accn, fy, fp, form, filed, frame.
+
+    ⚠ SEULS LES FAITS NON DIMENSIONNELS DE LA SOCIÉTÉ. Le 10-Q de Southern est
+    un dépôt COMMUN à six sociétés : le chiffre d'affaires de Georgia Power y
+    figure sous le même concept que celui du groupe, distingué par un axe
+    `LegalEntityAxis`. Un contexte qui porte un segment ou un scénario est donc
+    écarté, comme `companyfacts` l'écarte ; l'identifiant doit être le CIK
+    interrogé, sans quoi on prêterait à une société les faits d'une autre.
+    """
+    import xml.etree.ElementTree as ET
+    X = "{http://www.xbrl.org/2003/instance}"
+    racine = ET.fromstring(brut)
+    cik_n = str(int(cik))
+
+    contextes = {}
+    for c in racine.iter(X + "context"):
+        ent, per = c.find(X + "entity"), c.find(X + "period")
+        if ent is None or per is None:
+            continue
+        if ent.find(X + "segment") is not None or c.find(X + "scenario") is not None:
+            continue
+        ident = (ent.findtext(X + "identifier") or "").strip()
+        if not ident.isdigit() or str(int(ident)) != cik_n:
+            continue
+        inst = (per.findtext(X + "instant") or "").strip()
+        deb = (per.findtext(X + "startDate") or "").strip()
+        fin = (per.findtext(X + "endDate") or "").strip()
+        if inst:
+            contextes[c.get("id")] = (None, inst[:10])
+        elif deb and fin:
+            contextes[c.get("id")] = (deb[:10], fin[:10])
+
+    def mesure(el):
+        ms = [(m.text or "").strip().split(":")[-1]
+              for m in (el.findall(X + "measure") if el is not None else [])]
+        return ms[0] if len(ms) == 1 and ms[0] else None
+
+    unites = {}
+    for u in racine.iter(X + "unit"):
+        div = u.find(X + "divide")
+        if div is None:
+            m = mesure(u)
+        else:
+            a = mesure(div.find(X + "unitNumerator"))
+            b = mesure(div.find(X + "unitDenominator"))
+            m = "%s/%s" % (a, b) if a and b else None
+        if m:
+            unites[u.get("id")] = m      # « USD », « shares », « USD/shares »
+
+    nil = "{http://www.w3.org/2001/XMLSchema-instance}nil"
+    fy = fp = None
+    retenus = {}
+    for el in racine:
+        ctx = el.get("contextRef")
+        if not ctx or not isinstance(el.tag, str) or not el.tag.startswith("{"):
+            continue
+        uri, nom = el.tag[1:].split("}", 1)
+        if uri.startswith("http://xbrl.sec.gov/dei/"):
+            # L'exercice et la période du DÉPÔT : `companyfacts` les pose sur
+            # chacun de ses faits, et `_annuels` exige « FY » pour un exercice.
+            if ctx in contextes and nom == "DocumentFiscalYearFocus":
+                fy = (el.text or "").strip()
+            elif ctx in contextes and nom == "DocumentFiscalPeriodFocus":
+                fp = (el.text or "").strip()
+            continue
+        taxo = _taxo_instance(uri)
+        unite = unites.get(el.get("unitRef"))
+        periode = contextes.get(ctx)
+        if not taxo or not unite or not periode or el.get(nil) == "true":
+            continue
+        try:
+            val = float((el.text or "").strip())
+        except ValueError:
+            continue
+        if not math.isfinite(val):
+            continue
+        if val == int(val):
+            val = int(val)
+        deb, fin = periode
+        # ⚠ UN SEUL POINT PAR PÉRIODE, LE PLUS PRÉCIS. Une instance répète un
+        # fait à chaque endroit du document où il est affiché, et pas toujours
+        # à la même précision. Mesuré sur le 10-Q de mars 2026 de Citigroup :
+        # l'actif du 31/12/2025 y figure à 2 657 202 M$ (au million) ET à
+        # 2 657 000 M$ (au milliard). `companyfacts` n'en garde qu'un — 605 170
+        # couples (dépôt, période) relus sur dix-neuf sociétés, AUCUN à deux
+        # valeurs — et c'est le plus précis : sur le 10-Q de mars 2026
+        # d'Entergy, que l'API a ingéré, six faits doublés ainsi, six fois la
+        # valeur la plus précise retenue. Garder le dernier lu aurait arrondi
+        # l'actif d'une banque au milliard.
+        prec = el.get("decimals") or ""
+        rang = (float("inf") if prec == "INF"
+                else int(prec) if prec.lstrip("-").isdigit() else float("-inf"))
+        cle = (taxo, nom, unite, deb, fin)
+        if cle in retenus and retenus[cle][0] >= rang:
+            continue
+        p = {"end": fin, "val": val, "accn": accn, "form": forme,
+             "filed": depose, "frame": None}
+        if deb and deb != fin:
+            # Une durée de zéro jour n'a pas de début dans `companyfacts`.
+            p["start"] = deb
+        retenus[cle] = (rang, p)
+
+    fy = int(fy) if fy and fy.isdigit() else None
+    out = {}
+    for (taxo, nom, unite, _deb, _fin), (_rang, p) in retenus.items():
+        p["fy"], p["fp"] = fy, fp
+        (out.setdefault(taxo, {}).setdefault(nom, {"units": {}})["units"]
+            .setdefault(unite, []).append(p))
+    return out
+
+
+def completer_depots(cik, facts):
+    """(faits complémentaires ou None, rapport) — voir le bandeau ci-dessus.
+
+    Le rapport dit ce qui a été repris, ce qui n'a pas pu l'être, et la date du
+    dernier rapport périodique qu'EDGAR connaît : c'est elle qui permet de dire,
+    après construction, qu'une série trimestrielle est en retard sur la source.
+
+    Aucun échec ici n'empêche la construction : sans `submissions`, sans
+    instance, la société est bâtie sur `companyfacts` comme avant — et le
+    rapport le dit, au lieu de se taire.
+    """
+    rapport = {"completes": [], "echecs": [], "dernier_rapport": None}
+    subs = _get("https://data.sec.gov/submissions/CIK%s.json" % cik,
+                accept_404=True)
+    recent = ((subs or {}).get("filings") or {}).get("recent") or {}
+    connus = _depots_connus(facts)
+    borne = (datetime.now(timezone.utc)
+             - timedelta(days=JOURS_COMPLEMENT)).date().isoformat()
+
+    def champ(nom, i):
+        v = recent.get(nom) or []
+        return v[i] if i < len(v) else None
+
+    manquants = []
+    for i, forme in enumerate(recent.get("form") or []):
+        # Les amendements (« 10-Q/A ») sont laissés à l'API : ce qu'on répare,
+        # c'est le rapport lui-même, pas une annexe redéposée.
+        if forme not in FORMES_PERIODIQUES:
+            continue
+        depose = champ("filingDate", i) or ""
+        if depose < borne:
+            continue
+        periode = champ("reportDate", i) or None
+        if (forme in ("10-Q", "10-K") and periode
+                and (rapport["dernier_rapport"] or "") < periode):
+            rapport["dernier_rapport"] = periode
+        accn = champ("accessionNumber", i)
+        if not accn or accn in connus or not champ("isXBRL", i):
+            continue
+        manquants.append((depose, accn, forme,
+                          champ("primaryDocument", i) or "", periode))
+
+    complement = None
+    for depose, accn, forme, prim, periode in sorted(manquants)[-MAX_DEPOTS_COMPLETES:]:
+        dossier = "https://www.sec.gov/Archives/edgar/data/%d/%s/" % (
+            int(cik), accn.replace("-", ""))
+        try:
+            brut = None
+            # EDGAR extrait l'instance d'un document XBRL « en ligne » sous le
+            # nom du document suivi de `_htm.xml` ; à défaut, l'index du dépôt.
+            if prim.lower().endswith((".htm", ".html")):
+                brut = _get(dossier + prim.rsplit(".", 1)[0] + "_htm.xml",
+                            accept_404=True, brut=True)
+            if brut is None:
+                idx = _get(dossier + "index.json", accept_404=True) or {}
+                noms = [it.get("name") or ""
+                        for it in (idx.get("directory") or {}).get("item") or []]
+                inst = [n for n in noms if n.endswith("_htm.xml")]
+                if inst:
+                    brut = _get(dossier + inst[0], accept_404=True, brut=True)
+            if brut is None:
+                rapport["echecs"].append("%s %s : instance introuvable" % (forme, accn))
+                continue
+            faits = faits_instance(brut, cik, accn, forme, depose)
+        except DelaiGlobalAtteint:
+            raise
+        except Exception as e:
+            rapport["echecs"].append("%s %s : %s" % (forme, accn, str(e)[:60]))
+            continue
+        if not faits:
+            rapport["echecs"].append("%s %s : aucun fait de la société" % (forme, accn))
+            continue
+        complement = fusionner_faits(complement, faits)
+        rapport["completes"].append("%s %s déposé le %s (période %s)"
+                                    % (forme, accn, depose, periode))
+    return complement, rapport
+
+
 def charger_cik():
     """La correspondance ticker → CIK, indexée SOUS LES DEUX ÉCRITURES.
 
@@ -3678,10 +3932,13 @@ def main():
     # restaient sur le disque, intacts, et plus personne ne savait qu'ils
     # existaient. Une donnée qu'on garde et qu'on cesse d'annoncer est perdue
     # aussi sûrement qu'une donnée effacée.
-    trim_precedent = {}
-    if not opts["trimestres"]:
-        trim_precedent = {s: v["trim"] for s, v in _index_precedent().items()
-                          if isinstance(v, dict) and v.get("trim")}
+    #
+    # ⚠ CHARGÉE DANS LES DEUX MODES, COMME LE DIT LE COMMENTAIRE DE LA REPRISE.
+    # Elle ne l'était que sous `--sans-trimestres` : la reprise écrite plus bas
+    # « dans les deux modes » ne s'exécutait donc JAMAIS dans la passe
+    # quotidienne. Elle y est maintenant — mais MARQUÉE, voir plus bas.
+    trim_precedent = {s: v["trim"] for s, v in _index_precedent().items()
+                      if isinstance(v, dict) and v.get("trim")}
 
     index = {}
     paquets = {}
@@ -3693,6 +3950,14 @@ def main():
     # se soignent pas pareil — et « construction refusée » est le seul où c'est
     # notre code qui dit non à une donnée existante.
     perdus = {"sans_cik": [], "reseau": [], "faits_vides": [], "construction": []}
+    # Ce qui n'est PAS perdu mais pas à jour, nommé à part pour la même raison :
+    #   · api_en_retard — des dépôts qu'EDGAR liste et que `companyfacts` n'a pas,
+    #     repris depuis leur instance (ou non repris, avec la cause) ;
+    #   · trim_perime   — le dernier trimestre bâti est plus ancien que le
+    #     dernier rapport périodique qu'EDGAR connaît : la série est en retard
+    #     sur la source, quoi qu'on ait tenté ;
+    #   · trim_repris   — la passe n'a rien bâti, le résumé précédent est gardé.
+    retards = {"api_en_retard": [], "trim_perime": [], "trim_repris": []}
     recoiffees = []
     interrompu = False
     for i, (sym, meta) in enumerate(sorted(univers.items()), 1):
@@ -3748,6 +4013,23 @@ def main():
             echecs += 1
             perdus["faits_vides"].append(sym)
             continue
+
+        # ── LES DÉPÔTS QUE `companyfacts` A SAUTÉS ──
+        # Voir `completer_depots`. Un échec ici n'est pas fatal : la société est
+        # bâtie sur `companyfacts` comme avant, et le rapport dit pourquoi.
+        try:
+            complement, retard = completer_depots(cik, faits)
+        except DelaiGlobalAtteint:
+            print("[!] délai global atteint après %d sociétés — on écrit ce qui "
+                  "a été construit et on s'arrête." % ok, file=sys.stderr)
+            interrompu = True
+            break
+        except Exception as e:
+            complement = None
+            retard = {"completes": [], "dernier_rapport": None,
+                      "echecs": ["liste EDGAR illisible : %s" % str(e)[:60]]}
+        if complement:
+            faits = fusionner_faits(faits, complement)
         try:
             bati = construire(faits, meta.get("mcap"),
                               beta=meta.get("beta"), cours=cours.get(sym),
@@ -3791,6 +4073,30 @@ def main():
             echecs += 1
             perdus["construction"].append(sym)
             continue
+
+        # ── CE QUE LA SOURCE SAIT ET QUE LA SÉRIE NE MONTRE PAS ──
+        # Posé sur `bati["resume"]`, donc dans le paquet de détail ET dans
+        # l'index : la fiche peut le dire, et l'audit n'a plus à le deviner.
+        if retard["completes"]:
+            bati["resume"]["depots_hors_api"] = retard["completes"]
+            retards["api_en_retard"].append(
+                "%s : %s" % (sym, " ; ".join(retard["completes"])))
+        tr = bati["resume"].get("trim")
+        if tr:
+            # La date de CETTE construction : un résumé repris par une passe
+            # ultérieure la garde, et dit ainsi son âge. Posée ici et non dans
+            # `construire`, qui reste une fonction des seuls faits.
+            tr["bati_le"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        attendu = retard.get("dernier_rapport")
+        ecart = _jours_entre(tr["dernier"], attendu) if (tr and attendu) else None
+        # Une semaine de tolérance : un calendrier de 52-53 semaines déclare
+        # parfois la fin de mois comme période du rapport (Garmin, 27/06).
+        if ecart is not None and ecart > 7:
+            tr["perime"], tr["attendu"] = True, attendu
+            retards["trim_perime"].append(
+                "%s (dernier trimestre %s, EDGAR a %s%s)"
+                % (sym, tr["dernier"], attendu,
+                   " — " + " ; ".join(retard["echecs"]) if retard["echecs"] else ""))
 
         # ⚠ On ne repose PAS de cours quand `construire` a refusé les grandeurs
         # de marché : il l'a fait parce que les états ne sont pas en dollars, et
@@ -3968,8 +4274,19 @@ def main():
         # ses 73 trimestres, `index.societes.AAPL.trim` tombe à None.
         # La reprise vaut donc dans les DEUX modes — ce que la passe n'a pas
         # rebâti, elle ne doit pas l'effacer de l'index.
+        #
+        # ⚠ MAIS UNE REPRISE N'EST PAS UNE CONSTRUCTION, ET ELLE DOIT LE DIRE.
+        # Quand la passe a TENTÉ de bâtir et n'a rien rendu, le résumé repris
+        # est marqué `perime` et garde son `bati_le` : sans cette marque, un
+        # échec de construction se lisait comme une série à jour. Sous
+        # `--sans-trimestres`, rien n'a été tenté : le résumé passe tel quel.
         if not r.get("trim") and sym in trim_precedent:
-            r["trim"] = trim_precedent[sym]
+            repris = dict(trim_precedent[sym])
+            if opts["trimestres"]:
+                repris["perime"] = True
+                retards["trim_repris"].append(
+                    "%s (bâti le %s)" % (sym, repris.get("bati_le") or "?"))
+            r["trim"] = repris
         index[sym] = r
         if principal:
             # L'index sert le tri, le filtrage et la note : sans cette seconde
@@ -4125,11 +4442,32 @@ def main():
                          "code les refuse. C'est celui-là qu'il faut regarder."),
                 "compte": {k: len(v) for k, v in perdus.items()},
                 "perdus": perdus,
+                "note_retards": ("Publiées mais pas à jour. « api_en_retard » : "
+                                 "dépôts listés par EDGAR et absents de "
+                                 "companyfacts, lus dans leur instance XBRL. "
+                                 "« trim_perime » : dernier trimestre bâti plus "
+                                 "ancien que le dernier rapport qu'EDGAR connaît. "
+                                 "« trim_repris » : rien bâti, résumé précédent "
+                                 "gardé et marqué périmé."),
+                "compte_retards": {k: len(v) for k, v in retards.items()},
+                "retards": retards,
             }, fh, ensure_ascii=False, indent=1)
         print("[ok] echecs nommes dans sec_echecs.json : %s"
               % ", ".join("%s %d" % (k, len(v)) for k, v in sorted(perdus.items()) if v))
     except OSError as e:
         print("[warn] sec_echecs.json non ecrit : %s" % e, file=sys.stderr)
+    # Dit à chaque passe, même à zéro : un compteur qui n'apparaît que quand il
+    # sonne ne prouve pas, les autres jours, qu'on l'a regardé.
+    print("[%s] trimestriel à jour de la source ? %d société(s) complétée(s) "
+          "depuis le dépôt (companyfacts en retard), %d encore en retard sur "
+          "EDGAR, %d résumé(s) repris sans reconstruction"
+          % ("!" if retards["trim_perime"] or retards["trim_repris"] else "ok",
+             len(retards["api_en_retard"]), len(retards["trim_perime"]),
+             len(retards["trim_repris"])),
+          file=sys.stderr if retards["trim_perime"] or retards["trim_repris"] else sys.stdout)
+    for cle in ("trim_perime", "trim_repris"):
+        for ligne in retards[cle][:12]:
+            print("      %s : %s" % (cle, ligne), file=sys.stderr)
 
     print(f"[ok] index : {OUT_JSON.stat().st_size // 1024} Ko")
     if poids:

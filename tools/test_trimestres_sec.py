@@ -440,6 +440,136 @@ def main():
     valeurs = [t.get("revenue") for t in sortie]
     verifie("et sa valeur n'est PAS corrigée en douce", valeurs, [100.0] * 4)
 
+    # ══════════════════════════════════════════════════════════════════════
+    # LE DÉPÔT QUE `companyfacts` A SAUTÉ
+    # ══════════════════════════════════════════════════════════════════════
+    # Mesuré le 27/09/2026 : quarante-huit sociétés figées alors que leur 10-Q
+    # suivant était déposé — seize vérifiées une à une, dont Southern, Duke,
+    # Humana (juin absent), Citigroup (mars ET juin absents). EDGAR listait le
+    # dépôt, `companyfacts` n'en portait aucun fait, et la série s'arrêtait sans
+    # rien dire. Le correctif lit l'instance XBRL du dépôt manquant. Ces contrôles reproduisent la forme réelle de l'instance de
+    # Southern : espace de noms par défaut, taxonomie 2026, dépôt COMMUN avec
+    # des filiales sous `LegalEntityAxis`, faits répétés à deux précisions.
+    # ⚠ L'ORDRE DES FAITS EST ADVERSE, EXPRÈS : la filiale et l'autre CIK
+    # précèdent la société, le doublon arrondi encadre le précis. Dans l'ordre
+    # naturel, retirer le filtre des segments, celui du CIK ou la règle de
+    # précision ne faisait tomber AUCUN contrôle — éprouvé en mutant le code.
+    print()
+    print("LE DÉPÔT QUE L'API A SAUTÉ — lu dans son instance XBRL")
+    instance = b"""<?xml version="1.0" encoding="utf-8"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+  xmlns:dei="http://xbrl.sec.gov/dei/2026" xmlns:us-gaap="http://fasb.org/us-gaap/2026"
+  xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrldi="http://xbrl.org/2006/xbrldi"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:so="http://example.com/so">
+ <context id="h1"><entity><identifier scheme="http://www.sec.gov/CIK">0000092122</identifier></entity>
+  <period><startDate>2026-01-01</startDate><endDate>2026-06-30</endDate></period></context>
+ <context id="q2"><entity><identifier scheme="http://www.sec.gov/CIK">0000092122</identifier></entity>
+  <period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+ <context id="fin"><entity><identifier scheme="http://www.sec.gov/CIK">0000092122</identifier></entity>
+  <period><instant>2026-06-30</instant></period></context>
+ <context id="filiale"><entity><identifier scheme="http://www.sec.gov/CIK">0000092122</identifier>
+  <segment><xbrldi:explicitMember dimension="dei:LegalEntityAxis">so:GeorgiaPowerMember</xbrldi:explicitMember></segment></entity>
+  <period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+ <context id="autre"><entity><identifier scheme="http://www.sec.gov/CIK">0000011111</identifier></entity>
+  <period><startDate>2026-04-01</startDate><endDate>2026-06-30</endDate></period></context>
+ <unit id="usd"><measure>iso4217:USD</measure></unit>
+ <unit id="bpa"><divide><unitNumerator><measure>iso4217:USD</measure></unitNumerator>
+  <unitDenominator><measure>xbrli:shares</measure></unitDenominator></divide></unit>
+ <dei:DocumentFiscalYearFocus contextRef="h1">2026</dei:DocumentFiscalYearFocus>
+ <dei:DocumentFiscalPeriodFocus contextRef="h1">Q2</dei:DocumentFiscalPeriodFocus>
+ <us-gaap:NetIncomeLoss contextRef="filiale" unitRef="usd" decimals="-6">9000000</us-gaap:NetIncomeLoss>
+ <us-gaap:NetIncomeLoss contextRef="autre" unitRef="usd" decimals="-6">7000000</us-gaap:NetIncomeLoss>
+ <us-gaap:NetIncomeLoss contextRef="h1" unitRef="usd" decimals="-6">31000000</us-gaap:NetIncomeLoss>
+ <us-gaap:NetIncomeLoss contextRef="q2" unitRef="usd" decimals="-6">15000000</us-gaap:NetIncomeLoss>
+ <us-gaap:NetIncomeLoss contextRef="q2" unitRef="usd" decimals="-6">15000000</us-gaap:NetIncomeLoss>
+ <us-gaap:Assets contextRef="fin" unitRef="usd" decimals="-9">2000000000</us-gaap:Assets>
+ <us-gaap:Assets contextRef="fin" unitRef="usd" decimals="-6">2003000000</us-gaap:Assets>
+ <us-gaap:Assets contextRef="fin" unitRef="usd" decimals="-9">2000000000</us-gaap:Assets>
+ <us-gaap:EarningsPerShareDiluted contextRef="q2" unitRef="bpa" decimals="2">1.03</us-gaap:EarningsPerShareDiluted>
+ <us-gaap:Revenues contextRef="q2" unitRef="usd" xsi:nil="true"/>
+ <so:ExtensionPropre contextRef="q2" unitRef="usd" decimals="-6">5</so:ExtensionPropre>
+</xbrl>"""
+    lu = F.faits_instance(instance, "0000092122", "0000092122-26-000054",
+                          "10-Q", "2026-07-30")
+    ni = sorted((p.get("start"), p["end"], p["val"])
+                for p in lu["us-gaap"]["NetIncomeLoss"]["units"]["USD"])
+    verifie("seuls les faits NON DIMENSIONNELS de la société", ni,
+            [("2026-01-01", "2026-06-30", 31000000),
+             ("2026-04-01", "2026-06-30", 15000000)])
+    verifie("le plus PRÉCIS de deux doublons l'emporte",
+            [p["val"] for p in lu["us-gaap"]["Assets"]["units"]["USD"]],
+            [2003000000])
+    verifie("l'unité divisée s'écrit comme dans l'API",
+            sorted(lu["us-gaap"]["EarningsPerShareDiluted"]["units"]), ["USD/shares"])
+    pt = lu["us-gaap"]["NetIncomeLoss"]["units"]["USD"][0]
+    verifie("chaque point porte le dépôt, la forme et l'exercice",
+            (pt["accn"], pt["form"], pt["filed"], pt["fy"], pt["fp"]),
+            ("0000092122-26-000054", "10-Q", "2026-07-30", 2026, "Q2"))
+    verifie("ni fait nul, ni extension propre, ni taxonomie inconnue",
+            (sorted(lu), "Revenues" in lu["us-gaap"]), (["us-gaap"], False))
+
+    # De bout en bout : `companyfacts` porte l'exercice 2025 et le 10-Q de mars ;
+    # EDGAR liste en plus le 10-Q de juin, que l'API a sauté.
+    api = bloc(("NetIncomeLoss", "USD", [
+        duree("2025-01-01", "2025-12-31", 50.0e6, forme="10-K", accn="a-10k",
+              depose="2026-02-19"),
+        duree("2026-01-01", "2026-03-31", 16.0e6, accn="a-q1", depose="2026-04-30"),
+    ]), ("Assets", "USD", [
+        # Un exercice sans aucun poste d'ancrage n'en est pas un (voir
+        # `ANCRES_EXERCICE`) : le bilan de clôture le fait exister.
+        instant("2025-12-31", 1.9e9, forme="10-K", accn="a-10k",
+                depose="2026-02-19"),
+    ]))
+    liste = {"filings": {"recent": {
+        "form": ["10-Q", "8-K", "10-Q", "10-K"],
+        "accessionNumber": ["0000092122-26-000054", "x-8k", "a-q1", "a-10k"],
+        "filingDate": ["2026-07-30", "2026-07-01", "2026-04-30", "2026-02-19"],
+        "reportDate": ["2026-06-30", "2026-07-01", "2026-03-31", "2025-12-31"],
+        "isXBRL": [1, 0, 1, 1],
+        "primaryDocument": ["so-20260630.htm", "x.htm", "q1.htm", "k.htm"]}}}
+    demandes = []
+
+    def faux_get(url, accept_404=False, brut=False):
+        demandes.append(url.rsplit("/", 1)[-1])
+        if "submissions" in url:
+            return liste
+        if url.endswith("so-20260630_htm.xml"):
+            return instance
+        return None
+
+    vrai_get = F._get
+    F._get = faux_get
+    try:
+        complement, rapport = F.completer_depots("0000092122", api)
+    finally:
+        F._get = vrai_get
+    verifie("seul le dépôt ABSENT de l'API est téléchargé", demandes,
+            ["CIK0000092122.json", "so-20260630_htm.xml"])
+    verifie("le rapport nomme le dernier rapport périodique d'EDGAR",
+            rapport["dernier_rapport"], "2026-06-30")
+    avant = (F.construire(api) or {"resume": {}})["resume"].get("trim") or {}
+    apres = (F.construire(F.fusionner_faits(api, complement))
+             or {"resume": {}})["resume"].get("trim") or {}
+    verifie("SANS le complément, la série s'arrête en mars", avant.get("dernier"),
+            "2026-03-31")
+    verifie("AVEC lui, le trimestre de juin est rendu", apres.get("dernier"),
+            "2026-06-30")
+
+    # Un échec réseau n'empêche rien : la société est bâtie comme avant.
+    def get_en_panne(url, accept_404=False, brut=False):
+        if "submissions" in url:
+            return liste
+        raise OSError("réseau coupé")
+
+    F._get = get_en_panne
+    try:
+        complement, rapport = F.completer_depots("0000092122", api)
+    finally:
+        F._get = vrai_get
+    verifie("une instance illisible ne lève rien et se DIT",
+            (complement, len(rapport["echecs"]), rapport["dernier_rapport"]),
+            (None, 1, "2026-06-30"))
+
     print()
     if échecs:
         print("✗ %d contrôle(s) en échec :" % len(échecs))

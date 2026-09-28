@@ -248,8 +248,20 @@ GRANDEURS = [
     "interestCoverage", "dividendYield", "payoutRatio", "buybackYield",
     "fcfYield", "croissance_ca_pct", "croissance_bpa_pct",
     "croissance_ca_3a_pct", "beta",
-    "ch1m", "ch3m", "ch6m", "ch1y", "ch3y", "ch5y",
+    "ch1w", "ch1m", "ch3m", "ch6m", "chYTD", "ch1y", "ch3y", "ch5y",
 ]
+
+# ⚠ LES PERFORMANCES NE SE MOYENNENT PAS COMME UN RATIO (corrigé le 27/09/2026).
+# Pondérer une variation PASSÉE par la capitalisation d'AUJOURD'HUI donne aux
+# gagnants le poids qu'ils ont acquis EN montant : une action multipliée par six
+# pèse six fois plus qu'au départ. Mesuré sur les semi-conducteurs : +149 % sur un
+# an par l'ancienne formule, +67 % pour le portefeuille réellement détenu sur la
+# période (et +66,8 % par l'indice quotidien chaîné du comparateur). La bonne
+# formule est celle d'un portefeuille pondéré au DÉPART :
+#     Σ capi_fin / Σ (capi_fin / (1 + r)) − 1
+# (la capitalisation de départ de chaque titre vaut capi_fin / (1 + r)).
+# L'écart est négligeable sur un mois, énorme sur un an et plus.
+PERFORMANCES = {"ch1w", "ch1m", "ch3m", "ch6m", "chYTD", "ch1y", "ch3y", "ch5y"}
 
 
 def charger_univers():
@@ -368,9 +380,18 @@ def agreger(membres, ix, cle_nom):
 
         vals = winsoriser([p[0] for p in paires])
         poids = [p[1] for p in paires]
-        den = sum(poids)
-        sortie[grandeur] = (round(sum(v * w for v, w in zip(vals, poids)) / den, 4)
-                            if den else None)
+        if grandeur in PERFORMANCES:
+            # Portefeuille pondéré au départ (voir PERFORMANCES plus haut). Une
+            # variation de −100 % n'a pas de capitalisation de départ calculable :
+            # elle est écartée plutôt que de diviser par zéro.
+            garde = [(v, w) for v, w in zip(vals, poids) if v > -99.9]
+            depart = sum(w / (1 + v / 100.0) for v, w in garde)
+            fin = sum(w for _, w in garde)
+            sortie[grandeur] = round((fin / depart - 1) * 100.0, 4) if depart > 0 else None
+        else:
+            den = sum(poids)
+            sortie[grandeur] = (round(sum(v * w for v, w in zip(vals, poids)) / den, 4)
+                                if den else None)
         sortie[grandeur + "_n"] = len(paires)
         sortie[grandeur + "_median"] = round(statistics.median([p[0] for p in paires]), 4)
 
@@ -601,7 +622,42 @@ def poser_note_fondamentale(groupe):
         "criteres": criteres,
     }
 
+# ⚠ GARDE D'ÂGE DES ENTRÉES (27/09/2026). Le filet du PC relançait ce script sur
+# des fragments restés au 29/08 : la sortie, datée de l'heure du calcul, affichait
+# quatre semaines de retard sous une date du jour, et rien n'échouait. Au-delà de
+# ce seuil on REFUSE d'écrire : le fichier précédent reste en place, avec sa vraie
+# date. Dérogation explicite : SCF_ACCEPTER_ENTREES_ANCIENNES=1.
+ENTREES_MAX_H = 48
+
+
+def date_des_entrees():
+    """La plus ANCIENNE date `genere_le` des fragments (lue en tête de fichier)."""
+    dates = []
+    for f in sorted(glob.glob(os.path.join(CACHE, "marche_[0-9][0-9].json"))):
+        with open(f, encoding="utf-8") as fh:
+            tete = fh.read(400)
+        i = tete.find('"genere_le"')
+        if i < 0:
+            continue
+        j = tete.index('"', tete.index(":", i) + 1) + 1
+        brut = tete[j:tete.index('"', j)].replace(" UTC", "").replace("Z", "")
+        for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+            try:
+                dates.append(datetime.strptime(brut, fmt).replace(tzinfo=timezone.utc))
+                break
+            except ValueError:
+                pass
+    return min(dates) if dates else None
+
+
 def main():
+    entrees = date_des_entrees()
+    age_h = ((datetime.now(timezone.utc) - entrees).total_seconds() / 3600.0) if entrees else None
+    if (age_h is None or age_h > ENTREES_MAX_H) and os.environ.get("SCF_ACCEPTER_ENTREES_ANCIENNES") != "1":
+        print("[refus] fragments de marche vieux de %s h (seuil %d h) dans %s : on ne publie "
+              "pas un agregat perime sous une date du jour. Fichier precedent conserve."
+              % ("?" if age_h is None else int(age_h), ENTREES_MAX_H, CACHE), file=sys.stderr)
+        return 3
     societes, ix, n_frag = charger_univers()
     retenues, n_cotations, n_noms = dedoublonner(societes, ix)
 
@@ -704,6 +760,9 @@ def main():
     plancher = top[-1][3]
     sortie = {
         "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # La date des DONNEES, pas du calcul : `donnees_du` est le champ que la
+        # pastille de fraicheur de la page lit en premier.
+        "donnees_du": entrees.strftime("%Y-%m-%dT%H:%M:%SZ") if entrees else None,
         "source": "collecte de marche (stockanalysis), agregee hors ligne",
         "univers": len(top),
         "univers_societes_totales": n_noms,

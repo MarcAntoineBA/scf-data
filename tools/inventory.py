@@ -376,6 +376,34 @@ def main():
                          category=cat, outputs=outputs_of(script, witness.get(label)),
                          witness=witness.get(label)))
 
+    # ⚠ LES JOBS DÉCLARÉS À LA MAIN NE DOIVENT PAS DISPARAÎTRE (28/09/2026).
+    # Plusieurs collecteurs n'existent que dans ce dépôt — screener, secfunda,
+    # intlfunda, secteursmondiaux, marche… : ni plist sur le Mac, ni ligne dans
+    # SANS_PLIST. Ils ont été ajoutés à la main dans jobs.json, et une régénération
+    # les EFFAÇAIT en silence — donc arrêtait leur collecte sans une erreur.
+    # On reprend du jobs.json existant TOUT job absent de cette régénération, et on
+    # le nomme. Une disparition silencieuse (collecte arrêtée sans erreur) coûte bien
+    # plus cher qu'un job gardé à tort : retirer un job se fait donc EXPLICITEMENT,
+    # en l'effaçant de jobs.json à la main. (Premier essai : garder seulement les
+    # jobs sans script sur le Mac — `reservesorust`, job cloud dont le script existe
+    # aussi sur le Mac, aurait encore disparu.)
+    ancien_json = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs.json")
+    ids = {j["id"] for j in jobs}
+    try:
+        anciens = json.load(open(ancien_json)).get("jobs", [])
+    except Exception:
+        anciens = []
+    repris = []
+    for j in anciens:
+        if j.get("id") in ids:
+            continue
+        jobs.append(j)
+        ids.add(j["id"])
+        repris.append(j["id"])
+    if repris:
+        print(f"  ↺ {len(repris)} job(s) déclaré(s) à la main conservé(s) : "
+              + ", ".join(sorted(repris)))
+
     by_cat = {}
     for j in jobs:
         by_cat.setdefault(j["category"], []).append(j)
