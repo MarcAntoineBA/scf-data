@@ -1,16 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-28T08:28:46Z",
+  "ts": "2026-09-28T16:57:40Z",
   "total": 31,
-  "ok": 31,
-  "secs": 5066.9,
-  "changed": 46,
-  "versionnes": 35,
+  "ok": 30,
+  "secs": 4802.4,
+  "changed": 47,
+  "versionnes": 36,
   "pieces_jointes": 11,
-  "absents": 30,
+  "absents": 471,
   "muets": [],
-  "failed": []
+  "failed": [
+   {
+    "job": "tradfihist",
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=514 kept=200 fail=15 (tentes=729)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandon"
+   }
+  ]
  },
- "updated": "2026-09-28T08:28:46Z"
+ "updated": "2026-09-28T16:57:40Z"
 }
