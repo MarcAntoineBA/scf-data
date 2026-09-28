@@ -1,8 +1,11 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1790497389.8463304,
- "motifs": [],
- "verifie_le": "2026-09-27 22:23 UTC",
+ "en_panne": true,
+ "depuis": 1790557293.7336235,
+ "derniere_alerte": 1790557293.7336235,
+ "motifs": [
+  "bloc « fondamentaux » (tradfi_fundamentals_cache.js) : 11.7 h (tolérance 11 h) — bandeau « Données datées de 11.7h » sur la page",
+  "bloc « capture crypto » (crypto_capture_cache.js) : 12.7 h (tolérance 11 h) — bandeau « Données datées de 12.7h » sur la page"
+ ],
+ "verifie_le": "2026-09-28 01:01 UTC",
  "rattrapages": {}
 }
