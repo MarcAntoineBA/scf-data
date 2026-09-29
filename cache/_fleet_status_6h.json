@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-28T16:57:40Z",
+  "ts": "2026-09-29T01:07:45Z",
   "total": 31,
   "ok": 30,
-  "secs": 4802.4,
-  "changed": 47,
-  "versionnes": 36,
-  "pieces_jointes": 11,
-  "absents": 471,
+  "secs": 4544.4,
+  "changed": 45,
+  "versionnes": 35,
+  "pieces_jointes": 10,
+  "absents": 473,
   "muets": [],
   "failed": [
    {
     "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=514 kept=200 fail=15 (tentes=729)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandon"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=4 kept=4 fail=8 (tentes=16)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne pou"
    }
   ]
  },
- "updated": "2026-09-28T16:57:40Z"
+ "updated": "2026-09-29T01:07:45Z"
 }
