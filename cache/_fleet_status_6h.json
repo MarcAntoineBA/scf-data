@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-29T08:12:57Z",
+  "ts": "2026-09-29T15:13:34Z",
   "total": 31,
   "ok": 30,
-  "secs": 4314.3,
-  "changed": 42,
-  "versionnes": 33,
-  "pieces_jointes": 9,
-  "absents": 473,
+  "secs": 3833.2,
+  "changed": 40,
+  "versionnes": 32,
+  "pieces_jointes": 8,
+  "absents": 400,
   "muets": [],
   "failed": [
    {
-    "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=18 kept=42 fail=15 (tentes=75)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne "
+    "job": "atlasmaritime",
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
    }
   ]
  },
- "updated": "2026-09-29T08:12:57Z"
+ "updated": "2026-09-29T15:13:34Z"
 }
