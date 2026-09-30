@@ -97,12 +97,20 @@ def main():
         if s:
             g["roe"] = s
         if code == "sp500":
-            c = []
+            # ⚠ LICENCE : les chiffres de S&P DJI ne se republient pas (conditions du
+            # fichier officiel). On publie le RÉSULTAT du contrôle (écarts agrégés),
+            # jamais les valeurs de S&P ni l'écart année par année (qui les redonnerait).
+            e = []
             for i, y in enumerate(o["annees"]):
-                if y in ctl and o["bn"][i]:
-                    c.append({"annee": y, "calcule": round(o["bn"][i], 2), "publie": ctl[y]["bn"],
-                              "ecart": round(100 * (o["bn"][i] / ctl[y]["bn"] - 1), 1)})
-            g["controle"] = {"grandeur": "bn", "source": "S&P Dow Jones Indices (bénéfice par action publié, GAAP, douze mois à fin décembre), série reprise par R. Shiller (Yale) ; 2023 : S&P DJI", "points": c}
+                if y in ctl and o["bn"][i] and y != 2008:
+                    e.append((abs(100 * (o["bn"][i] / ctl[y]["bn"] - 1)), y))
+            e8 = next((100 * (o["bn"][i] / ctl[2008]["bn"] - 1) for i, y in enumerate(o["annees"]) if y == 2008 and o["bn"][i]), None)
+            if e:
+                g["controle"] = {"grandeur": "bn", "source": "bénéfice par action publié par S&P Dow Jones Indices (GAAP, douze mois à fin décembre)",
+                                 "periode": [min(y for _, y in e), max(y for _, y in e)], "n": len(e),
+                                 "ecart_moyen_abs": round(sum(a for a, _ in e) / len(e), 1),
+                                 "ecart_max_abs": round(max(e)[0], 1), "annee_ecart_max": max(e)[1],
+                                 "sous_3pct": sum(1 for a, _ in e if a < 3), "hors_2008": e8 is not None and abs(e8) > 20}
         G[code] = g
     doc = {"genere_le": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "version": 1,
            "methode": ("Par part d'indice : niveau de l'indice fin décembre × Σ poids × (grandeur / capitalisation) "
