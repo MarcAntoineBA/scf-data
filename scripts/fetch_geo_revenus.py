@@ -401,11 +401,21 @@ def agreger(etat, marche, taux, certificats=None):
     # capitalisation de la maison mère ET un chiffre d'affaires en monnaie
     # locale étiqueté « USD » : ils gagnaient le choix et gonflaient les
     # États-Unis à 2e16 $. On prend la cotation de la place du pays de l'ISIN.
+    # Les cotations SANS ISIN (Lima « bvl/AMZNUS », Sofia, Kazakhstan) sont
+    # rattachées à leur société par le nom normalisé : sinon chacune compte
+    # pour une société de plus, avec un chiffre d'affaires en monnaie locale.
+    isin_du_nom = {}
+    for sym, m in marche.items():
+        isin = m.get("isin") or ""
+        if len(isin) == 12:
+            isin_du_nom.setdefault(_nom_norm(m.get("nom")), isin)
     principales = {}
     for sym, m in marche.items():
         if sym in (certificats or ()):
             continue                  # TSM : TSMC est comptée à Taipei
-        cle = m.get("isin") or sym
+        isin = m.get("isin") or ""
+        cle = isin if len(isin) == 12 else \
+            isin_du_nom.get(_nom_norm(m.get("nom"))) or ("nom", _nom_norm(m.get("nom")) or sym)
         cur = principales.get(cle)
         if cur is None or rang_cotation(sym, m) < rang_cotation(cur, marche[cur]):
             principales[cle] = sym
