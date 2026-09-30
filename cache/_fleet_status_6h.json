@@ -1,21 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-30T08:03:42Z",
+  "ts": "2026-09-30T15:10:12Z",
   "total": 31,
-  "ok": 30,
-  "secs": 4361.9,
-  "changed": 46,
-  "versionnes": 35,
-  "pieces_jointes": 11,
-  "absents": 398,
+  "ok": 29,
+  "secs": 4524.7,
+  "changed": 43,
+  "versionnes": 34,
+  "pieces_jointes": 9,
+  "absents": 327,
   "muets": [],
   "failed": [
    {
+    "job": "reservesorust",
+    "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
+   },
+   {
     "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=1 kept=0 fail=15 (tentes=16)) : macrotrends : 2 x HTTP 403 et AUCUNE reponse 200 sur ce passage (blocage anti-robot ?)"
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-30 08:03', donnees du 2026-09-11 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
    }
   ]
  },
- "updated": "2026-09-30T08:03:42Z"
+ "updated": "2026-09-30T15:10:12Z"
 }
