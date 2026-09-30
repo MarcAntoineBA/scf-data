@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-29T15:13:34Z",
+  "ts": "2026-09-30T00:04:53Z",
   "total": 31,
   "ok": 30,
-  "secs": 3833.2,
-  "changed": 40,
-  "versionnes": 32,
+  "secs": 3774.8,
+  "changed": 41,
+  "versionnes": 33,
   "pieces_jointes": 8,
-  "absents": 400,
+  "absents": 398,
   "muets": [],
   "failed": [
    {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+    "job": "tradfihist",
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-29 08:12', donnees du 2026-09-10 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
    }
   ]
  },
- "updated": "2026-09-29T15:13:34Z"
+ "updated": "2026-09-30T00:04:53Z"
 }
