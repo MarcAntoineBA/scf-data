@@ -432,6 +432,11 @@ def agreger(etat, marche, taux, certificats=None):
             capi = m.get("capi_usd") or 0
             if ca_usd > 1e10 and capi and ca_usd > 20 * capi:
                 ca_usd = None
+            # Aucune société au monde ne vend plus de 1 200 milliards de dollars
+            # par an (Walmart et Amazon, les deux premières, sont vers 700) :
+            # au-delà, c'est une unité fausse (SpaceX à 11 000 milliards).
+            elif ca_usd > 1.2e12:
+                ca_usd = None
         for fam, cle in (("secteurs", m.get("secteur")), ("industries", m.get("industrie")),
                          ("pays", iso_du_pays(m.get("pays")))):
             if not cle:
