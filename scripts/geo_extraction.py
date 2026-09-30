@@ -769,9 +769,22 @@ def _scan_grid(grid, targets, dc, domicile, origine):
                     if re.fullmatch(r"\W*(19|20)\d\d\W*", t):
                         continue
                 if not lab and not UNITLIKE.search(t) and not re.fullmatch(r"[\W\d]*", t):
-                    lab = t
+                    lab, j_lab = t, j
                 if lab and yr:
                     break
+            if lab:
+                # en-tete sur plusieurs lignes : on remonte tant que les lignes
+                # d'en-tete portent un morceau de libelle dans CETTE colonne —
+                # sauf un titre etale sur toute la largeur du tableau.
+                jj = j_lab - 1
+                while jj >= 0 and header[jj] and len(lab) <= 60:
+                    t2 = grid[jj][k].strip()
+                    if not t2 or YEAR.search(t2) or UNITLIKE.search(t2) or re.fullmatch(r"[\W\d]*", t2):
+                        break
+                    if len({grid[jj][kk].strip() for kk in numcols}) == 1:
+                        break
+                    lab = t2 + " " + lab
+                    jj -= 1
             col_label[k], col_year[k] = lab, yr
         for t in numcols:
             v = nums[i][t]

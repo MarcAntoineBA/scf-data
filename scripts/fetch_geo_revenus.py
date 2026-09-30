@@ -288,12 +288,30 @@ def exercice_depuis(r):
     }
 
 
+def libelles_plausibles(zones):
+    """Deux zones au même nom, ou un libellé qui commence par « and » / « et »,
+    trahissent un en-tête de tableau mal recollé : les parts peuvent être
+    justes et les noms faux. On écarte l'exercice plutôt que d'afficher
+    « Amérique » deux fois."""
+    import re
+    vus = set()
+    for z in zones:
+        t = (z.get("lib_source") or "").strip()
+        if re.match(r"^(and|et|und|e|y|&|of|de|du|des)\b", t):
+            return False
+        cle = t.lower()
+        if cle in vus:
+            return False
+        vus.add(cle)
+    return True
+
+
 def fiche_depuis(r, sym, pays_iso, source, depot_id):
     exs = [exercice_depuis(r)]
     for h in r.get("historique") or []:
         if h.get("zones"):
             exs.append(exercice_depuis(h))
-    exs = [e for e in exs if e["zones"]]
+    exs = [e for e in exs if e["zones"] and libelles_plausibles(e["zones"])]
     return {
         "statut": "ok" if exs else "non_ventile",
         "source": source,
@@ -672,10 +690,36 @@ def libelle_affiche(z):
 # ── LEI : L'IDENTIFIANT QU'EXIGENT LES DÉPÔTS EUROPÉENS ────────────────────
 _verrou_lei = threading.Lock()
 _verrou_gleif = threading.Lock()
+# Nombre de processus qui interrogent la GLEIF en même temps : chacun espace
+# ses requêtes d'autant, pour que le total reste sous 60 par minute.
+_N_PROCESSUS = 1
 
 
-def lei_de(isin, table):
+def _nom_norm(t):
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", t or "").encode("ascii", "ignore").decode().lower()
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", t).split())
+
+
+def _gleif(params):
+    import requests
+    with _verrou_gleif:
+        time.sleep(1.05 * _N_PROCESSUS)
+        r = requests.get("https://api.gleif.org/api/v1/lei-records", params=params, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError("GLEIF %s" % r.status_code)
+    return r.json().get("data") or []
+
+
+def lei_de(isin, table, nom=None):
     """ISIN -> LEI par l'API publique de la GLEIF (sans clé, 60 requêtes/min).
+
+    ⚠ La table ISIN -> LEI de la GLEIF est INCOMPLÈTE : Nokia, Kone, Neste,
+    Nordea, Tenaris n'y sont pas (mesuré le 30/09/2026). Repli : le nom légal,
+    à l'identique après normalisation, DANS le pays de l'ISIN — et seulement
+    s'il désigne une seule entité. Deux Nordea Bank Abp possibles : on ne
+    choisit pas (le piège de l'homonyme a déjà coûté 122 fiches ailleurs).
 
     Relevé une fois et gardé : un LEI ne change pas. Un échec est gardé aussi,
     daté, pour ne pas redemander chaque jour ce que la GLEIF ignore."""
@@ -684,23 +728,23 @@ def lei_de(isin, table):
     if x is not None:
         if x.get("lei") or age_jours(x.get("le")) < 60:
             return x.get("lei")
-    lei = None
+    lei, via = None, None
     try:
-        import requests
-        with _verrou_gleif:           # 60 requêtes/minute : une à la fois
-            time.sleep(1.05)
-            r = requests.get("https://api.gleif.org/api/v1/lei-records",
-                             params={"filter[isin]": isin, "page[size]": 1}, timeout=30)
-        if r.status_code == 200:
-            data = r.json().get("data") or []
-            if data:
-                lei = data[0].get("id")
-        else:
-            return None               # panne passagère : on ne mémorise rien
+        data = _gleif({"filter[isin]": isin, "page[size]": 1})
+        if data:
+            lei, via = data[0].get("id"), "isin"
+        elif nom:
+            data = _gleif({"filter[entity.legalName]": nom,
+                           "filter[entity.legalAddress.country]": isin[:2], "page[size]": 10})
+            exacts = [d for d in data
+                      if _nom_norm(((d.get("attributes") or {}).get("entity") or {})
+                                   .get("legalName", {}).get("name")) == _nom_norm(nom)]
+            if len(exacts) == 1:
+                lei, via = exacts[0].get("id"), "nom"
     except Exception:
-        return None
+        return None                   # panne passagère : on ne mémorise rien
     with _verrou_lei:
-        table[isin] = {"lei": lei, "le": dt.date.today().isoformat()}
+        table[isin] = {"lei": lei, "le": dt.date.today().isoformat(), "via": via}
     return lei
 
 
@@ -758,7 +802,7 @@ def travailler_europe(GX, sym, m, table_lei, ancien):
     essais = []
     if francaise:
         essais.append(("amf", isin))
-    lei = lei_de(isin, table_lei)
+    lei = lei_de(isin, table_lei, m.get("nom"))
     if lei:
         essais.append(("xbrlorg", lei))
     if not essais:
@@ -883,6 +927,97 @@ def planifier(etat, sec, eur, marche, recheck):
     return taches
 
 
+def _enfant(conn, genre, sym, charge, ancien, table_lei, n_proc):
+    """Le travail d'UNE société, dans son propre processus.
+
+    Pourquoi un processus et pas un fil : le 30/09/2026, une société a fait
+    tourner la recherche de découpage pendant plus de quinze minutes. En fils,
+    elle gardait le verrou global de Python et affamait les cinq autres — la
+    passe entière a relevé 200 sociétés en trente minutes, puis a dépassé son
+    budget sans pouvoir s'arrêter. Un processus, lui, s'abat."""
+    global _N_PROCESSUS
+    _N_PROCESSUS = n_proc
+    import geo_extraction as GX
+    # Chaque processus espace ses requêtes de N fois l'intervalle permis :
+    # à N processus, le total reste sous la limite de chaque source (10/s SEC).
+    GX._MIN_GAP = {h: g * n_proc for h, g in GX._MIN_GAP.items()}
+    GX._MIN_GAP.setdefault("filings.xbrl.org", 0.3 * n_proc)
+    try:
+        if genre == "sec":
+            rec = travailler_sec(GX, sym, charge, {sym: {"pays": charge.get("_pays")}})
+        else:
+            rec = travailler_europe(GX, sym, charge, table_lei, ancien)
+            if rec is ancien:
+                rec = {"_inchange": True}
+            isin = charge.get("isin")
+            if isin and isin in table_lei:
+                rec["_lei_maj"] = (isin, table_lei[isin])
+    except Exception as e:
+        rec = {"statut": "echec", "motif": "%s: %s" % (type(e).__name__, str(e)[:160]),
+               "verifie_le": dt.date.today().isoformat()}
+    try:
+        conn.send(rec)
+    finally:
+        conn.close()
+
+
+def ordonnancer(GX, taches, sec, eur, marche, etat, table_lei, fin_de, compte,
+                n_proc, arret, delai, sauver):
+    """N processus au plus, chacun borné à `delai` secondes ; plus aucun
+    lancement après `arret`. Les paquets sont écrits toutes les cinq minutes :
+    une passe coupée net (plafond du runner, machine éteinte) garde ce
+    qu'elle a relevé."""
+    import collections
+    import multiprocessing as mp
+    ctx = mp.get_context("fork")
+    file = collections.deque(taches)
+    en_cours = {}
+    faits, derniere_sauvegarde = 0, time.time()
+    while file or en_cours:
+        while file and len(en_cours) < n_proc and time.time() < arret:
+            _, _, genre, sym = file.popleft()
+            if genre == "sec":
+                charge = dict(sec[sym], _pays=(marche.get(sym) or {}).get("pays"))
+            else:
+                charge = eur[sym]
+            lecture, ecriture = ctx.Pipe(duplex=False)
+            p = ctx.Process(target=_enfant, args=(ecriture, genre, sym, charge, etat.get(sym),
+                                                  table_lei, n_proc), daemon=True)
+            p.start()
+            ecriture.close()
+            en_cours[sym] = (p, lecture, time.time(), genre)
+        if not en_cours:
+            break
+        for sym, (p, lecture, debut, genre) in list(en_cours.items()):
+            rec = None
+            if lecture.poll():
+                try:
+                    rec = lecture.recv()
+                except Exception:
+                    rec = {"statut": "echec", "motif": "réponse illisible du processus"}
+            elif not p.is_alive():
+                rec = {"statut": "echec", "motif": "processus mort sans réponse (code %s)" % p.exitcode}
+            elif time.time() - debut > delai:
+                p.kill()
+                rec = {"statut": "echec", "motif": "délai dépassé (%d s)" % delai}
+            if rec is None:
+                continue
+            p.join(5)
+            lecture.close()
+            del en_cours[sym]
+            rec.setdefault("verifie_le", dt.date.today().isoformat())
+            fin_de(sym, genre, rec)
+            faits += 1
+            if faits % 50 == 0:
+                journal("  %d/%d · %s" % (faits, len(taches), compte))
+        if time.time() - derniere_sauvegarde > 300:
+            sauver()
+            derniere_sauvegarde = time.time()
+            journal("  sauvegarde intermédiaire (%d fiches)" % len(etat))
+        time.sleep(0.2)
+    return faits
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--budget", type=int, default=2100,
@@ -893,6 +1028,8 @@ def main():
     ap.add_argument("--sans-europe", action="store_true")
     ap.add_argument("--sans-sec", action="store_true")
     ap.add_argument("--max", type=int, default=0, help="nombre de sociétés au plus (essai)")
+    ap.add_argument("--delai-societe", type=int, default=300,
+                    help="secondes au plus par société ; au-delà son processus est arrêté")
     a = ap.parse_args()
 
     import tempfile
@@ -929,46 +1066,36 @@ def main():
             % (len(taches), sum(1 for t in taches if t[0] == 0), sum(1 for t in taches if t[0] == 1),
                sum(1 for t in taches if t[0] == 2)))
 
-    verrou = threading.Lock()
     compte = {"ok": 0, "non_ventile": 0, "echec": 0, "inchange": 0}
     arret = t0 + a.budget
+    meta_partielle = {"updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                      "source": "SEC EDGAR (10-K, 20-F, 40-F), AMF et filings.xbrl.org (ESEF)",
+                      "note": "Zones telles que publiées par chaque société dans son rapport annuel."}
 
-    def un(t):
-        _, _, genre, sym = t
-        if time.time() > arret:
-            return None
+    def fin_de(sym, genre, rec):
         ancien = etat.get(sym)
-        try:
-            if genre == "sec":
-                rec = travailler_sec(GX, sym, sec[sym], marche)
-            else:
-                rec = travailler_europe(GX, sym, eur[sym], table_lei, ancien)
-        except Exception as e:
-            rec = {"statut": "echec", "motif": "%s: %s" % (type(e).__name__, str(e)[:160]),
-                   "verifie_le": dt.date.today().isoformat()}
-            traceback.print_exc()
-        if rec is not ancien:
+        maj = rec.pop("_lei_maj", None)
+        if maj:
+            table_lei[maj[0]] = maj[1]
+        if rec.get("_inchange") and ancien is not None:
+            rec = dict(ancien, verifie_le=dt.date.today().isoformat())
+            compte["inchange"] += 1
+        else:
+            rec.pop("_inchange", None)
             rec = conserver_si_meilleur(ancien, rec, rec.get("depot_id"))
-        with verrou:
-            if ancien is not None and (rec is ancien or (
-                    rec.get("statut") == "ok" and rec.get("depot_id") == ancien.get("depot_id"))):
+            if ancien is not None and rec.get("statut") == "ok" and rec.get("depot_id") == ancien.get("depot_id"):
                 compte["inchange"] += 1
             else:
                 compte[rec.get("statut") if rec.get("statut") in compte else "echec"] += 1
-            etat[sym] = rec
+        etat[sym] = rec
         # Le motif de chaque échec va au journal : un compteur seul ne dit pas
         # si c'est une source, un débit ou le code qui cède.
         if rec.get("statut") == "echec":
             journal("  échec %s (%s) : %s" % (sym, genre, (rec.get("motif") or "?")[:150]))
-        return sym
 
-    faits = 0
-    with cf.ThreadPoolExecutor(max_workers=max(1, a.parallele)) as ex:
-        for s in ex.map(un, taches):
-            if s:
-                faits += 1
-                if faits % 50 == 0:
-                    journal("  %d/%d · %s" % (faits, len(taches), compte))
+    faits = ordonnancer(GX, taches, sec, eur, marche, etat, table_lei, fin_de, compte,
+                        max(1, a.parallele), arret, a.delai_societe,
+                        lambda: ecrire_paquets(etat, meta_partielle) and ecrire_json(FICHIER_LEI, table_lei))
 
     # Les miroirs : la fiche d'ASML.AS est celle d'ASML, dite comme telle.
     for principal, us in miroirs.items():
