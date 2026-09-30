@@ -634,6 +634,15 @@ def _recoller(t):
     dans le tableau du rapport garde son espace dans le texte extrait."""
     import re
     t = re.sub(r"(\w)- (\w)", r"\1-\2", t or "")
+    # « AMÉRIQUE DU NORD » (Sodexo) : les capitales d'un tableau ne sont pas
+    # un nom. Minuscules, puis majuscule aux mots pleins — pas aux mots-outils.
+    lettres = [c for c in t if c.isalpha()]
+    if len(lettres) > 4 and all(c.isupper() for c in lettres):
+        petits = {"du", "de", "des", "la", "le", "les", "et", "hors", "d", "l", "of", "the", "and"}
+        mots = []
+        for i, w in enumerate(t.lower().split(" ")):
+            mots.append(w if (i and w in petits) else w[:1].upper() + w[1:])
+        t = " ".join(mots)
     t = re.sub(r"\s*\((?:\d|[a-z])\)\s*$", "", t)      # renvoi de note : « North America(1) »
     t = re.sub(r"(\w)\((?:\d|[a-z])\)", r"\1", t)
     return " ".join(t.split())
@@ -1104,6 +1113,16 @@ def main():
     marche = lire_marche()
     etat = lire_etat()
     n_avant = sum(1 for r in etat.values() if r.get("statut") == "ok")
+    # Les libellés affichés se recalculent à chaque passage depuis le libellé
+    # source : une traduction ajoutée au collecteur profite aussi aux fiches
+    # relevées avant elle, sans attendre le prochain rapport de la société.
+    for r in etat.values():
+        for e in r.get("exercices") or []:
+            for z in e.get("zones") or []:
+                if z.get("lib_source"):
+                    z["lib"] = libelle_affiche({"libelle_source": z["lib_source"], "iso": z.get("code"),
+                                                "type": "pays" if z.get("code") else None,
+                                                "libelle_fr": None})
     sec, miroirs = ({}, {}) if a.sans_sec else univers_sec()
     eur = {} if a.sans_europe else univers_europe(marche)
     # Linde, Spotify, Ferrari… déposent à la SEC ET sont cotées en Europe : la
