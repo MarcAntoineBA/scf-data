@@ -110,13 +110,13 @@ FICHIER_DU_BLOC = {
 }
 # Repli si la page est injoignable ou si sa liste change de forme : une sentinelle
 # aveugle parce que le HTML a bougé serait le pire des défauts.
-BANDEAU_SECOURS = [
-    ("comparateur", "__PER_DATA__", 8.0), ("indices", "__GLOBAL_MARKETS__", 12.0),
-    ("fondamentaux", "__TRADFI_FUNDAMENTALS__", 11.0),
-    ("narratifs", "__NARRATIVES_FUNDAMENTALS__", 11.0),
-    ("historiques", "__PE_HIST_LIVE__", 22.0), ("fiches crypto", "__CRYPTO_FICHES__", 14.0),
-    ("capture crypto", "__CRYPTO_CAPTURE__", 11.0), ("calendrier", "__CRYPTO_VESTING__", 28.0),
-    ("secteurs", "__SECTEURS_MONDIAUX__", 28.0),
+BANDEAU_SECOURS = [    # = la page au 30/09/2026 (seuils recalés, voir `seuil_relance`)
+    ("comparateur", "__PER_DATA__", 12.0), ("indices", "__GLOBAL_MARKETS__", 12.0),
+    ("fondamentaux", "__TRADFI_FUNDAMENTALS__", 28.0),
+    ("narratifs", "__NARRATIVES_FUNDAMENTALS__", 20.0),
+    ("historiques", "__PE_HIST_LIVE__", 22.0), ("fiches crypto", "__CRYPTO_FICHES__", 30.0),
+    ("capture crypto", "__CRYPTO_CAPTURE__", 30.0), ("calendrier", "__CRYPTO_VESTING__", 28.0),
+    ("secteurs", "__SECTEURS_MONDIAUX__", 32.0),
 ]
 
 # ── LE RATTRAPAGE ───────────────────────────────────────────────────────────
@@ -208,6 +208,20 @@ def horodatage(d, origine=""):
         except ValueError:
             pass
     return None, None
+
+
+def seuil_relance(tolerance, cadences):
+    """Âge à partir duquel on relance la collecte d'un bloc.
+
+    30/09/2026 : les seuils de la page ont été recalés sur ce que voit le
+    visiteur (maximum d'une semaine normale plus un quart) — le bandeau
+    s'affichait 5 à 6 h par jour sans aucune panne. Relancer à « seuil − marge »
+    aurait retardé le rattrapage d'autant (narratifs : de 9 h à 18 h). On relance
+    donc dès qu'une chaîne SAINE aurait déjà dû rafraîchir le bloc — cadence,
+    publication, dérive du cron —, et au plus tard à « seuil − marge »."""
+    seuil = tolerance - MARGE_RATTRAPAGE_H
+    attendus = [CADENCE_H[c] + PUBLICATION_H + DERIVE_CRON_H for c in cadences if c in CADENCE_H]
+    return min(seuil, max(attendus)) if attendus else seuil
 
 
 def blocs_du_bandeau():
@@ -393,7 +407,7 @@ def main():
             marque = "✗"
             motifs.append(f"bloc « {libelle} » ({nom}) : {h(age)} (tolérance {tolerance:g} h) — "
                           f"bandeau « Données datées de {age:.1f}h » sur la page")
-        if age > tolerance - MARGE_RATTRAPAGE_H and cadences:
+        if cadences and age > seuil_relance(tolerance, cadences):
             a_relancer |= cadences
             if marque == "✓":
                 marque = "↻"
