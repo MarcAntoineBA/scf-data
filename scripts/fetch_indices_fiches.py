@@ -66,8 +66,10 @@ except Exception:
     pass
 
 import base64
+import collections
 import csv
 import difflib
+import glob
 import gzip
 import io
 import json
@@ -82,7 +84,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+
+# Yahoo répond 403 aux requêtes sans empreinte TLS de navigateur depuis les
+# machines du nuage (requirements.txt du dépôt) : curl_cffi quand il est là.
+try:
+    from curl_cffi import requests as _cffi
+except Exception:
+    _cffi = None
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 # Sortie déplaçable : tester sans écrire dans le dossier partagé par Syncthing.
@@ -164,18 +173,15 @@ SUFFIXE = {"epa": ".PA", "ams": ".AS", "ebr": ".BR", "etr": ".DE", "fra": ".F",
 PREFIXE = {v: k for k, v in SUFFIXE.items()}
 
 CHAMPS = """
-name exchange country priceCurrency sector industry price marketCap float
+name isin exchange country priceCurrency sector industry price marketCap float
 floatPercent sharesOut high52 low52 ma50 ma200 rsi beta allTimeHigh
 allTimeHighChange allTimeHighDate high52ch low52ch peRatio peForward psRatio
 pbRatio evEbitda earningsYield fcfYield dividendYield buybackYield grossMargin
 operatingMargin profitMargin roe roic revenueGrowth epsGrowth revenueThisYear
 debtEquity debtEbitda ch1m ch3m ch6m chYTD ch1y ch3y ch5y analystRatings
-priceTargetChange
+priceTargetChange interestCoverage currentRatio payoutRatio revenue3y marketCapUsd
 """.split()
 
-HORIZONS = [("1m", "ch1m"), ("3m", "ch3m"), ("6m", "ch6m"), ("ytd", "chYTD"),
-            ("1a", "ch1y"), ("3a", "ch3y"), ("5a", "ch5y")]
-HORIZONS_CONTRIB = ("1m", "3m", "ytd", "1a")
 
 MAX_HISTO = 1000
 
@@ -186,7 +192,7 @@ def log(*a):
     print(*a, file=sys.stderr)
 
 
-def _get(url, ua=UA, accept="*/*", referer=None, debit=0.35, essais=3, timeout=120):
+def _get(url, ua=UA, accept="*/*", referer=None, debit=0.35, essais=3, timeout=120, navigateur=False):
     for essai in range(essais):
         d = time.time() - _last[0]
         if d < debit:
@@ -195,6 +201,23 @@ def _get(url, ua=UA, accept="*/*", referer=None, debit=0.35, essais=3, timeout=1
         h = {"User-Agent": ua, "Accept-Encoding": "gzip", "Accept": accept}
         if referer:
             h["Referer"] = referer
+        if navigateur and _cffi is not None:
+            try:
+                r = _cffi.get(url, headers={"Accept": accept}, impersonate="chrome120", timeout=timeout)
+                if r.status_code == 200:
+                    return r.content
+                if r.status_code in (400, 404):
+                    return None
+                if essai == essais - 1:
+                    log("[warn] %s → HTTP %s" % (url[:90], r.status_code))
+                    return None
+                time.sleep((6 if r.status_code == 429 else 2) * (essai + 1))
+            except Exception as e:
+                if essai == essais - 1:
+                    log("[warn] %s → %s" % (url[:90], e))
+                    return None
+                time.sleep(2 * (essai + 1))
+            continue
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=h),
                                         timeout=timeout) as r:
@@ -254,6 +277,10 @@ def symbole_yahoo(chemin):
     suf = SUFFIXE.get(pre)
     if not suf:
         return None
+    if pre == "bmv":
+        # Yahoo colle la série au code à Mexico : AMXB.MX, GFNORTEO.MX — et non
+        # AMX-B.MX, qui ne répond pas (21 membres de l'IPC sans cours sinon).
+        return t.replace(".", "") + suf
     return t.replace(".", "-") + suf
 
 
@@ -558,63 +585,415 @@ def plafonner(poids, plafond):
     return w
 
 
-# ── L'INDICE LUI-MÊME : son historique, son record ──────────────────────────
+# ── L'INDICE LUI-MÊME : ses clôtures, son record, ses performances ──────────
+#
+# ⚠ LA PERFORMANCE D'UN INDICE EST CELLE QU'IL PUBLIE (30/09/2026). La première
+# version affichait en tête « l'indice (reconstitué) » : la somme des variations
+# de ses membres ACTUELS, pondérés par leur poids de départ. Elle s'écartait de
+# l'indice publié de 0,3 à 9 points sur un an (Bovespa +17,8 % contre +26,9 %,
+# DAX +3,4 % contre +6,7 %) : entrées et sorties de la période, poids estimés,
+# et surtout les DIVIDENDES que le DAX et l'Ibovespa réinvestissent. Le chiffre
+# de tête est désormais toujours l'indice publié ; la reconstitution ne sert
+# plus qu'à DÉCOMPOSER ce chiffre titre par titre, et l'écart restant est
+# publié à côté, sous son nom.
+#
+# LES FENÊTRES sont celles du Comparateur (fetch_comparateur.py, FENETRES) :
+# mêmes durées, même référence — le dernier cours AU PLUS TARD la date cible.
+# Un indice ne peut pas afficher deux performances différentes selon l'onglet.
+# « 3a » en plus : le screener publie ch3y pour les membres.
+FENETRES = [("1s", 7), ("1m", 30), ("3m", 91), ("6m", 182), ("ytd", "ytd"),
+            ("1a", 365), ("2a", 730), ("3a", 1095), ("5a", 1826), ("10a", 3650)]
+# Fenêtres couvertes par les cours quotidiens des membres (trois ans tirés) :
+# au-delà, l'attribution titre par titre ne serait plus que l'histoire des
+# survivants — on publie l'indice, pas sa décomposition.
+FEN_MEMBRES = ("1s", "1m", "3m", "6m", "ytd", "1a", "2a")
+FEN_CONTRIB = ("1m", "3m", "6m", "ytd", "1a", "2a")
+SCREENER_FEN = {"1m": "ch1m", "3m": "ch3m", "6m": "ch6m", "ytd": "chYTD", "1a": "ch1y"}
 
-def yahoo_serie(ticker, intervalle, periode):
-    u = ("https://query1.finance.yahoo.com/v8/finance/chart/%s?range=%s&interval=%s"
-         % (urllib.parse.quote(ticker), periode, intervalle))
-    raw = _get(u, accept="application/json", timeout=40)
+# Indices de RENTABILITÉ (dividendes réinvestis). Leurs membres sont alors lus
+# en cours AJUSTÉS des dividendes : c'est la seule façon que la somme des
+# contributions retombe sur l'indice publié.
+RENTABILITE = {
+    "dax40": "Le DAX est un indice de rentabilité : les dividendes y sont réinvestis.",
+    "ibov": "L'Ibovespa est un indice de rentabilité : les dividendes y sont réinvestis.",
+}
+
+# ⚠ PAS DE « POIDS ÉGAUX » RECONSTITUÉ (30/09/2026). Les membres d'AUJOURD'HUI
+# rééquilibrés à poids égaux donnaient pour le S&P 500 +13,2 % sur un an et
+# +28,0 % sur deux, contre +10,0 % et +16,4 % pour l'indice officiel S&P 500
+# Equal Weight (^SPXEW) — alors que la semaine et le mois tombaient au dixième
+# près. C'est le biais du survivant : les titres entrés en cours de route, choisis
+# parce qu'ils avaient monté, comptent depuis le début ; ceux qui sont sortis
+# n'y sont plus. À poids égaux, chacun pèse autant qu'Apple : l'erreur est
+# énorme. On ne publie donc que l'équipondéré OFFICIEL, là où il existe. Pour
+# les autres, on décrit « les membres d'aujourd'hui » (titre médian, part qui
+# bat l'indice) — une phrase exacte telle qu'elle est écrite.
+EGAL_OFFICIEL = {"sp500": ("^SPXEW", "S&P 500 Equal Weight")}
+
+SPARK = "https://query1.finance.yahoo.com/v8/finance/spark"
+LOT = 20                 # au-delà de 20 symboles, le spark répond 400
+SAUT_MAX = 0.60          # |variation quotidienne| au-delà : erreur de cours, pas un marché
+PIC_FACTEUR = 5.0        # un cours > 5× (ou < 1/5) la médiane de ses 10 voisins : retiré
+TROU_JOURS = 30          # une performance ne franchit pas une suspension plus longue
+REPORT_MAX = 10          # jours calendaires pendant lesquels un dernier cours est reporté
+JOURS_SERIES = 520       # ~2 ans de séances pour les séries publiées
+PART_SEANCE_MIN = 0.25   # sans cours publié de l'indice : une séance = 25 % du poids cote
+
+
+def nettoyer(serie):
+    """Retire les cours ISOLÉS aberrants — règle de fetch_comparateur.py : un
+    point plus de 5 fois au-dessus ou au-dessous de la médiane de ses 5 voisins
+    de chaque côté. Un vrai changement de niveau persiste et reste."""
+    if len(serie) < 11:
+        return serie, 0
+    lp = [math.log(c) for _, c in serie]
+    garde, n = [], 0
+    for i, pt in enumerate(serie):
+        vois = lp[max(0, i - 5):i] + lp[i + 1:i + 6]
+        if abs(lp[i] - statistics.median(vois)) > math.log(PIC_FACTEUR):
+            n += 1
+            continue
+        garde.append(pt)
+    return garde, n
+
+
+def en_dates_locales(pts):
+    """Règle de fetch_comparateur.py. Yahoo horodate une barre quotidienne à
+    l'OUVERTURE de la séance, en UTC — Sydney ouvre à 23 h UTC la veille, la date
+    UTC est fausse d'un jour. On ramène l'ouverture la plus fréquente vers 9 h 30
+    locales, ce qui donne le décalage, donc la date de séance."""
+    heures = collections.Counter(round(((t % 86400) / 3600.0) * 4) / 4 for t, _ in pts)
+    h = heures.most_common(1)[0][0]
+    decalage = ((9.5 - h + 12) % 24) - 12
+    jours = collections.OrderedDict()
+    for t, c in pts:
+        jours[datetime.fromtimestamp(t + decalage * 3600, timezone.utc).date().isoformat()] = c
+    return list(jours.items())
+
+
+def yahoo_jours(ticker, periode="max", ajuste=False):
+    """Clôtures quotidiennes [(date de séance ISO, clôture)], nettoyées. La date
+    est ramenée à l'heure de la place par meta.gmtoffset."""
+    # ⚠ `range=max` est ramené par Yahoo à des barres MENSUELLES (mesuré le
+    # 30/09/2026 : 440 points sur le CAC 40). Les bornes explicites gardent le pas
+    # quotidien : 9 439 séances depuis 1990.
+    plage = ("period1=0&period2=%d" % int(time.time())) if periode == "max" else ("range=" + periode)
+    u = ("https://query1.finance.yahoo.com/v8/finance/chart/%s?%s&interval=1d%s"
+         % (urllib.parse.quote(ticker, safe=""), plage, "&events=div,split" if ajuste else ""))
+    raw = _get(u, accept="application/json", timeout=60, navigateur=True)
     if not raw:
         return []
     try:
         r = json.loads(raw)["chart"]["result"][0]
+        off = int((r.get("meta") or {}).get("gmtoffset") or 0)
         ts = r["timestamp"]
-        cl = r["indicators"]["quote"][0]["close"]
-        return [(t, c) for t, c in zip(ts, cl) if estnb(c)]
+        cl = (r["indicators"]["adjclose"][0]["adjclose"] if ajuste
+              else r["indicators"]["quote"][0]["close"])
+    except Exception:
+        return []
+    jours = collections.OrderedDict()
+    for t, c in zip(ts, cl):
+        if estnb(c) and c > 0:
+            jours[datetime.fromtimestamp(t + off, timezone.utc).date().isoformat()] = float(c)
+    return nettoyer(list(jours.items()))[0]
+
+
+def spark_jours(symboles, periode="3y"):
+    """{symbole: [(date de séance, clôture)]} par lots de 20. Rend (cours, lots en échec)."""
+    out, echecs = {}, 0
+    for i in range(0, len(symboles), LOT):
+        lot = symboles[i:i + LOT]
+        u = (SPARK + "?symbols=" + ",".join(urllib.parse.quote(s, safe="") for s in lot)
+             + "&range=" + periode + "&interval=1d")
+        raw = _get(u, accept="application/json", timeout=40, debit=0.15, navigateur=True)
+        try:
+            d = json.loads(raw) if raw else None
+        except Exception:
+            d = None
+        if not isinstance(d, dict):
+            echecs += 1
+            continue
+        for s, o in d.items():
+            if not o or not o.get("timestamp"):
+                continue
+            pts = [(int(t), float(c)) for t, c in zip(o["timestamp"], o.get("close") or [])
+                   if estnb(c) and c > 0]
+            if len(pts) >= 5:
+                out[s] = nettoyer(en_dates_locales(pts))[0]
+    return out, echecs
+
+
+def date_cible(fin, j):
+    """La date de référence d'une fenêtre (celle du Comparateur)."""
+    if j == "ytd":
+        return date(fin.year, 1, 1) - timedelta(days=1)
+    return fin - timedelta(days=j)
+
+
+def dernier_au_plus_tard(dates, cible_iso):
+    """Rang du dernier élément ≤ cible dans une liste de dates triées, ou None."""
+    lo, hi = 0, len(dates)
+    while lo < hi:
+        m = (lo + hi) // 2
+        if dates[m] <= cible_iso:
+            lo = m + 1
+        else:
+            hi = m
+    return lo - 1 if lo > 0 else None
+
+
+def perfs_indice(serie):
+    """{fenêtre: (performance %, date de référence)} lues sur les clôtures mêmes."""
+    dates = [d for d, _ in serie]
+    fin = date.fromisoformat(dates[-1])
+    v = serie[-1][1]
+    out = {}
+    for f, j in FENETRES:
+        c = date_cible(fin, j).isoformat()
+        k = dernier_au_plus_tard(dates, c)
+        # La série doit COUVRIR la date cible : une référence plus de dix jours
+        # avant elle serait un autre point de départ.
+        if k is None or (date.fromisoformat(c) - date.fromisoformat(dates[k])).days > REPORT_MAX:
+            out[f] = (None, None)
+        else:
+            out[f] = (rd(100 * (v / serie[k][1] - 1), 2), dates[k])
+    return out
+
+
+def csindex_jours(code_indice="000300"):
+    """Clôtures OFFICIELLES de China Securities Index. Yahoo ne rend qu'un point
+    par jour pour le CSI 300 (000300.SS) ; cette source-ci rend 6 004 séances
+    depuis 2002, contrôlées le 30/09/2026 contre EastMoney et Sina sur 5 040
+    séances : écart maximal 0,01 point."""
+    fin = time.strftime("%Y%m%d")
+    u = ("https://www.csindex.com.cn/csindex-home/perf/index-perf?indexCode=%s&startDate=20020101&endDate=%s"
+         % (code_indice, fin))
+    raw = _get(u, accept="application/json", timeout=60, referer="https://www.csindex.com.cn/")
+    try:
+        d = json.loads(raw)
+        jours = []
+        for x in d.get("data") or []:
+            t, c = str(x.get("tradeDate") or ""), x.get("close")
+            if len(t) == 8 and estnb(c) and c > 0:
+                jours.append(("%s-%s-%s" % (t[:4], t[4:6], t[6:]), float(c)))
+        jours.sort()
+        return nettoyer(jours)[0]
     except Exception:
         return []
 
 
-def niveau_indice(ticker):
-    """Semaines sur dix ans pour le graphe, jours sur dix ans + mois depuis
-    l'origine pour le record. Un record se lit sur des CLÔTURES : un plus haut en
-    séance n'est pas un niveau où l'indice a terminé une journée."""
-    jours = yahoo_serie(ticker, "1d", "10y")
-    mois = yahoo_serie(ticker, "1mo", "max")
+SOURCE_NIVEAU = {"csi300": csindex_jours}
+
+
+def niveau_indice(ticker, code=None):
+    """Toute la vie cotée en clôtures quotidiennes : le record se lit sur des
+    CLÔTURES de séance (un plus haut en séance n'est pas un niveau où l'indice a
+    terminé une journée), et plus sur des fins de mois avant dix ans — une fin de
+    mois n'est pas le plus haut du mois."""
+    jours = SOURCE_NIVEAU[code]() if code in SOURCE_NIVEAU else yahoo_jours(ticker, "max")
     if len(jours) < 200:
         return None
-    rec_v, rec_t = max((c, t) for t, c in jours)
-    debut10 = jours[0][0]
-    for t, c in mois:
-        if t < debut10 and c > rec_v:
-            rec_v, rec_t = c, t
-    dernier_t, dernier = jours[-1]
-    # Semaines : la dernière clôture de chaque semaine calendaire.
-    sem = {}
-    for t, c in jours:
-        sem[int(t // (7 * 86400))] = (t, c)
-    hebdo = [[int(t // 86400), rd(c, 2)] for t, c in sorted(sem.values())]
-    hebdo[-1] = [int(dernier_t // 86400), rd(dernier, 2)]
-    # Pire repli depuis le record, sur dix ans (jours).
-    pic, pire, pire_t = -1e18, 0.0, None
-    for t, c in jours:
+    dernier_d, dernier = jours[-1]
+    rec_v, rec_d = max((c, d) for d, c in jours)
+    fin = date.fromisoformat(dernier_d)
+    dix = (fin - timedelta(days=3652)).isoformat()
+    j10 = [(d, c) for d, c in jours if d >= dix]
+    # Semaines : la dernière clôture de chaque semaine ISO, sur dix ans.
+    sem = collections.OrderedDict()
+    for d, c in j10:
+        y, w, _ = date.fromisoformat(d).isocalendar()
+        sem[(y, w)] = (d, c)
+    epoch = date(1970, 1, 1)
+    hebdo = [[(date.fromisoformat(d) - epoch).days, rd(c, 2)] for d, c in sem.values()]
+    pic, pire, pire_d = -1e18, 0.0, None
+    for d, c in j10:
         pic = max(pic, c)
-        dd = c / pic - 1
-        if dd < pire:
-            pire, pire_t = dd, t
-    un_an = [c for t, c in jours if t >= dernier_t - 365 * 86400]
+        if c / pic - 1 < pire:
+            pire, pire_d = c / pic - 1, d
+    un_an = [c for d, c in jours if d >= (fin - timedelta(days=365)).isoformat()]
+    pf = perfs_indice(jours)
     return {
-        "dernier": rd(dernier, 2),
-        "date": datetime.fromtimestamp(dernier_t, timezone.utc).strftime("%Y-%m-%d"),
-        "record": rd(rec_v, 2),
-        "record_date": datetime.fromtimestamp(rec_t, timezone.utc).strftime("%Y-%m-%d"),
+        "dernier": rd(dernier, 2), "date": dernier_d,
+        "depuis": jours[0][0],
+        "record": rd(rec_v, 2), "record_date": rec_d,
         "ecart_record_pct": rd(100 * (dernier / rec_v - 1), 2),
         "plus_haut_1a": rd(max(un_an), 2) if un_an else None,
-        "pire_repli_10a_pct": rd(100 * pire, 1),
-        "pire_repli_10a_date": (datetime.fromtimestamp(pire_t, timezone.utc).strftime("%Y-%m-%d")
-                                if pire_t else None),
+        "pire_repli_10a_pct": rd(100 * pire, 1), "pire_repli_10a_date": pire_d,
+        "perf": {f: v for f, (v, _) in pf.items()},
+        "refs": {f: r for f, (_, r) in pf.items()},
         "hebdo": hebdo,
+        # Les séances des trois dernières années : le calendrier des séries.
+        "_jours": [(d, c) for d, c in jours if d >= (fin - timedelta(days=1100)).isoformat()],
     }
+
+
+# ── LES MEMBRES, SÉANCE PAR SÉANCE ───────────────────────────────────────────
+
+def cours_aligne(serie, cal):
+    """Le cours d'un titre à chaque séance du calendrier : son dernier cours au
+    plus tard ce jour-là, reporté au plus REPORT_MAX jours (au-delà : None — un
+    titre suspendu ne doit pas figer l'indice)."""
+    out, j, n = [], 0, len(serie)
+    for d in cal:
+        while j < n and serie[j][0] <= d:
+            j += 1
+        if j == 0:
+            out.append(None)
+            continue
+        dd, c = serie[j - 1]
+        out.append(c if (date.fromisoformat(d) - date.fromisoformat(dd)).days <= REPORT_MAX else None)
+    return out
+
+
+def drapeaux_moyennes(serie):
+    """{date: (au-dessus MM50, au-dessus MM200, à 2 % du plus haut 52 semaines)}
+    sur les séances PROPRES du titre (pas sur le calendrier de l'indice)."""
+    out, cl = {}, [c for _, c in serie]
+    s50 = s200 = 0.0
+    for i, (d, c) in enumerate(serie):
+        s50 += c
+        s200 += c
+        if i >= 50:
+            s50 -= cl[i - 50]
+        if i >= 200:
+            s200 -= cl[i - 200]
+        m50 = s50 / 50 if i >= 49 else None
+        m200 = s200 / 200 if i >= 199 else None
+        haut = max(cl[max(0, i - 251):i + 1]) if i >= 251 else None
+        out[d] = (None if m50 is None else c > m50, None if m200 is None else c > m200,
+                  None if haut is None else c >= 0.98 * haut)
+    return out
+
+
+def calendrier_membres(series, poids):
+    """Sans clôtures publiées de l'indice (CSI 300) : une séance est un jour où
+    au moins 25 % du poids a coté — la règle du Comparateur."""
+    compte = collections.Counter()
+    for k, s in series.items():
+        for d, _ in s:
+            compte[d] += poids.get(k, 0.0)
+    tot = sum(poids.values()) or 1.0
+    return sorted(d for d, w in compte.items() if w >= PART_SEANCE_MIN * tot)
+
+
+def series_indice(rows, cours, niveau, egal=None):
+    """Les séries quotidiennes publiées, sur ~2 ans de séances :
+      · officiel   — clôtures publiées de l'indice ;
+      · reconstitue — les membres ACTUELS pondérés par la capitalisation (poids
+                      d'aujourd'hui ramenés en arrière par les cours) ;
+      · egal_officiel — l'indice équipondéré OFFICIEL, s'il existe (EGAL_OFFICIEL) ;
+      · mm50/mm200/haut52 — part des titres au-dessus de leur moyenne 50/200
+                     séances, ou à 2 % de leur plus haut d'un an, en nombre et
+                     en poids ;
+      · top10      — poids des dix premiers.
+    Composition d'AUJOURD'HUI tout du long : un titre entré en cours de route
+    compte depuis le début. Dit à l'écran ; écart mesuré contre l'officiel."""
+    avec = [r for r in rows if r["sym"] in cours and cours[r["sym"]]]
+    if len(avec) < max(5, 0.6 * len(rows)):
+        return None
+    if niveau and niveau.get("_jours"):
+        cal = [d for d, _ in niveau["_jours"]]
+        off = dict(niveau["_jours"])
+    else:
+        cal = calendrier_membres({r["sym"]: cours[r["sym"]] for r in avec},
+                                 {r["sym"]: r["w"] for r in avec})
+        off = {}
+    cal = cal[-(JOURS_SERIES + 1):]
+    if len(cal) < 60:
+        return None
+    n = len(cal)
+    px = {id(r): cours_aligne(cours[r["sym"]], cal) for r in avec}
+    fin = {id(r): px[id(r)][-1] for r in avec}
+    avec = [r for r in avec if fin[id(r)]]
+    # Les drapeaux de moyennes, reportés comme les cours : un titre sans séance
+    # ce jour-là (jour férié local) garde son dernier état connu.
+    fl = {id(r): cours_aligne(list(drapeaux_moyennes(cours[r["sym"]]).items()), cal) for r in avec}
+    reconst = [100.0]
+    mm = {"mm50": [], "mm200": [], "haut52": []}
+    mmp = {"mm50": [], "mm200": [], "haut52": []}
+    top10, couv = [], []
+    wT = {id(r): r["w"] for r in avec}
+    for t in range(n):
+        # poids du jour : poids d'aujourd'hui × (cours du jour / cours d'aujourd'hui)
+        w = {i: wT[i] * px[i][t] / fin[i] for i in wT if px[i][t]}
+        tw = sum(w.values())
+        couv.append(rd(100 * sum(wT[i] for i in w) / (sum(wT.values()) or 1), 1))
+        ws = sorted(w.values(), reverse=True)
+        top10.append(rd(100 * sum(ws[:10]) / tw, 2) if tw else None)
+        if t:
+            num = den = 0.0
+            for i, wi in wprec.items():
+                a, b = px[i][t - 1], px[i][t]
+                if a and b and abs(b / a - 1) < SAUT_MAX:
+                    num += wi * b / a
+                    den += wi
+            reconst.append(reconst[-1] * (num / den) if den else reconst[-1])
+        wprec = w
+        for cle, pos in (("mm50", 0), ("mm200", 1), ("haut52", 2)):
+            nb_ok = nb_oui = 0
+            w_ok = w_oui = 0.0
+            for r in avec:
+                f = fl[id(r)][t]
+                if not px[id(r)][t] or f is None or f[pos] is None:
+                    continue
+                nb_ok += 1
+                w_ok += w.get(id(r), 0.0)
+                if f[pos]:
+                    nb_oui += 1
+                    w_oui += w.get(id(r), 0.0)
+            # Sous la moitié des titres mesurés, la part ne dit plus rien.
+            ok = nb_ok >= max(5, 0.5 * len(avec))
+            mm[cle].append(rd(100 * nb_oui / nb_ok, 1) if ok else None)
+            mmp[cle].append(rd(100 * w_oui / w_ok, 1) if ok and w_ok else None)
+    eg = dict((egal or {}).get("_jours") or [])
+    for r in avec:
+        f = fl[id(r)][-1]
+        if f:
+            r["mm50_drap"], r["mm200_drap"], r["haut52_drap"] = f
+    return {
+        "d": cal,
+        "officiel": [rd(off.get(d), 2) for d in cal] if off else None,
+        "egal_officiel": [rd(eg.get(d), 2) for d in cal] if eg else None,
+        "reconstitue": [rd(x, 3) for x in reconst],
+
+        "mm50": mm["mm50"], "mm50_poids": mmp["mm50"],
+        "mm200": mm["mm200"], "mm200_poids": mmp["mm200"],
+        "haut52": mm["haut52"], "haut52_poids": mmp["haut52"],
+        "top10": top10, "couverture": couv,
+        "n_titres": len(avec),
+    }
+
+
+def perfs_membres(rows, cours, niveau, cal_fin=None):
+    """Pose r['p'] = {fenêtre: variation} sur les dates de référence de l'INDICE :
+    dernier cours au plus tard la séance de référence de l'indice, pas plus de
+    REPORT_MAX jours avant, et pas au travers d'une suspension de TROU_JOURS."""
+    refs = (niveau or {}).get("refs") or {}
+    if not refs and cal_fin:
+        fin = date.fromisoformat(cal_fin)
+        refs = {f: date_cible(fin, j).isoformat() for f, j in FENETRES}
+    fin_d = (niveau or {}).get("date") or cal_fin
+    for r in rows:
+        r["p"] = {}
+        s = cours.get(r["sym"])
+        if not s or not fin_d:
+            continue
+        dates = [d for d, _ in s]
+        kf = dernier_au_plus_tard(dates, fin_d)
+        if kf is None or (date.fromisoformat(fin_d) - date.fromisoformat(dates[kf])).days > REPORT_MAX:
+            continue
+        for f in FEN_MEMBRES:
+            ref = refs.get(f)
+            if not ref:
+                continue
+            k = dernier_au_plus_tard(dates, ref)
+            if k is None or (date.fromisoformat(ref) - date.fromisoformat(dates[k])).days > REPORT_MAX:
+                continue
+            trou = any((date.fromisoformat(b) - date.fromisoformat(a)).days > TROU_JOURS
+                       for a, b in zip(dates[k:kf], dates[k + 1:kf + 1]))
+            if trou:
+                continue
+            r["p"][f] = 100 * (s[kf][1] / s[k][1] - 1)
 
 
 # ── AGRÉGATS ─────────────────────────────────────────────────────────────────
@@ -827,9 +1206,12 @@ def ampleur(rows):
                 rd(100 * sum(r["w"] for r in vrais) / (sum(r["w"] for r in ok) or 1), 1))
 
     def au_dessus(champ):
+        # Les drapeaux posés par series_indice (cours quotidiens, les mêmes que
+        # la courbe d'ampleur), à défaut ceux du screener (voir traiter).
+        cle = {"ma50": "mm50_drap", "ma200": "mm200_drap"}[champ]
+
         def f(r):
-            p, m = r["v"].get("price"), r["v"].get(champ)
-            return (p > m) if estnb(p) and estnb(m) and m > 0 else None
+            return r.get(cle)
         return f
 
     def seuil(champ, s, sens=1):
@@ -866,52 +1248,79 @@ def ampleur(rows):
     return out
 
 
-def performance(rows, niveau):
-    """Par horizon : indice reconstitué, équipondéré, médiane, participation,
-    contributions. Mesuré sur les membres ACTUELS : un titre entré en cours de
-    période compte pour toute la période (biais du survivant, dit à l'écran)."""
+def performance(rows, niveau, series, rentab=False, egal=None):
+    """Par fenêtre : l'indice PUBLIÉ d'abord ; puis sa décomposition titre par
+    titre sur les MÊMES séances (contribution = poids de départ × variation),
+    l'écart entre la somme des contributions et l'indice publié sous son nom,
+    les poids égaux lus sur la série quotidienne, le titre médian, la
+    participation. Au-delà de deux ans, les variations des membres sont celles
+    du screener et ne portent que sur les membres ACTUELS (dit à l'écran)."""
+    off = (niveau or {}).get("perf") or {}
+    refs = (niveau or {}).get("refs") or {}
+    tot_w = sum(r["w"] for r in rows) or 1.0
     out = {}
-    for h, champ in HORIZONS:
-        pts = [(r, r["v"].get(champ) / 100.0) for r in rows
-               if estnb(r["v"].get(champ)) and r["v"][champ] > -99.9]
-        if len(pts) < max(5, 0.6 * len(rows)):
+    for h, _ in FENETRES:
+        d = {"officiel": off.get(h)}
+        if h in FEN_MEMBRES:
+            pts = [(r, r["p"][h] / 100.0) for r in rows
+                   if h in (r.get("p") or {}) and r["p"][h] > -99.9]
+            d["source"] = "cours"
+            # Cours quotidiens des membres indisponibles (Yahoo muet depuis la
+            # machine de collecte) : les variations du screener, aux fenêtres
+            # APPROCHÉES (un mois calendaire au lieu de 30 jours), dit dans
+            # `source` — plutôt qu'aucune décomposition.
+            champ = SCREENER_FEN.get(h)
+            if champ and sum(r["w"] for r, _ in pts) < 0.6 * tot_w:
+                pts = [(r, r["v"].get(champ) / 100.0) for r in rows
+                       if estnb(r["v"].get(champ)) and r["v"][champ] > -99.9]
+                for r, x in pts:
+                    r.setdefault("p", {})[h] = 100 * x
+                d["source"] = "screener (fenêtres approchées)"
+        elif h in ("3a", "5a"):
+            champ = {"3a": "ch3y", "5a": "ch5y"}[h]
+            pts = [(r, r["v"].get(champ) / 100.0) for r in rows
+                   if estnb(r["v"].get(champ)) and r["v"][champ] > -99.9]
+            d["source"] = "screener (membres actuels)"
+        else:
+            pts = []
+        if h in ("3a", "5a") and rentab:
+            # Variations de COURS des membres face à un indice qui réinvestit les
+            # dividendes : rien de comparable. On publie l'indice seul.
+            pts = []
+        couv = sum(r["w"] for r, _ in pts) / tot_w
+        if len(pts) < max(5, 0.6 * len(rows)) or couv < 0.6:
+            if estnb(d["officiel"]):
+                out[h] = d
             continue
         w0 = {id(r): r["w"] / (1 + x) for r, x in pts}
         tot0 = sum(w0.values())
         R = sum(w0[id(r)] / tot0 * x for r, x in pts)
         xs = [x for _, x in pts]
-        ew = sum(xs) / len(xs)
-        d = {
-            "indice": rd(100 * R, 2), "equipondere": rd(100 * ew, 2),
+        # « Font mieux que l'indice » : que l'indice PUBLIÉ quand on l'a.
+        ref = d["officiel"] / 100.0 if estnb(d["officiel"]) else R
+        longue = h not in FEN_MEMBRES
+        d.update({
+            # Au-delà de deux ans, les membres actuels ne recomposent plus l'indice
+            # d'alors : pas de reconstitution, seulement ce que font ses membres.
+            "reconstitue": None if longue else rd(100 * R, 2),
+            "ecart": None if longue or not estnb(d["officiel"]) else rd(d["officiel"] - 100 * R, 2),
+            "membres_actuels": longue,
             "mediane": rd(100 * statistics.median(xs), 2),
+            "moyenne": rd(100 * sum(xs) / len(xs), 2),
             "positifs": rd(100 * sum(1 for x in xs if x > 0) / len(xs), 1),
-            "battent": rd(100 * sum(1 for x in xs if x > R) / len(xs), 1),
-            "couverture": rd(100 * sum(r["w"] for r, _ in pts) / (sum(r["w"] for r in rows) or 1), 1),
-        }
-        if h in HORIZONS_CONTRIB:
+            "battent": rd(100 * sum(1 for x in xs if x > ref) / len(xs), 1),
+            "couverture": rd(100 * couv, 1), "n": len(xs),
+        })
+        if h in FEN_CONTRIB:
             c = sorted(((r, 100 * w0[id(r)] / tot0 * x) for r, x in pts), key=lambda t: -t[1])
             tot_c = 100 * R
-            # Combien de titres font la moitié du mouvement de l'indice, dans son sens.
-            sens = c if tot_c >= 0 else list(reversed(c))
-            acc, n50 = 0.0, None
-            for i, (_, ci) in enumerate(sens):
-                acc += ci
-                if tot_c != 0 and acc / tot_c >= 0.5:
-                    n50 = i + 1
-                    break
-            gros = sorted(rows, key=lambda r: -r["w"])[:10]
-            ids10 = {id(r) for r in gros}
-            c10 = sum(ci for r, ci in c if id(r) in ids10)
+            gros = {id(r) for r in sorted(rows, key=lambda r: -r["w"])[:10]}
+            c10 = sum(ci for r, ci in c if id(r) in gros)
             # Quand l'indice a peu bougé (moins d'un point), « la moitié de son
-            # mouvement » ne veut plus rien dire : 0,08 % de hausse sur un mois donnait
-            # « 1 titre fait la moitié » et « les dix premiers font 1 859 % ».
+            # mouvement » ne veut plus rien dire.
             petit = abs(tot_c) < 1.0
-            d["n_moitie"] = None if petit else n50
-            # La mesure qui a toujours un sens : sur l'ensemble des GAINS de la
-            # période (les titres en hausse seulement), combien de titres en font la moitié.
             gains = [ci for _, ci in c if ci > 0]
-            g_tot = sum(gains)
-            acc, ng = 0.0, None
+            g_tot, acc, ng = sum(gains), 0.0, None
             for i, ci in enumerate(gains):
                 acc += ci
                 if g_tot > 0 and acc >= 0.5 * g_tot:
@@ -921,12 +1330,10 @@ def performance(rows, niveau):
             d["gains_bruts"] = rd(g_tot, 2)
             d["pertes_brutes"] = rd(sum(ci for _, ci in c if ci < 0), 2)
             d["contrib_top10"] = rd(c10, 2)
-            d["part_top10"] = (rd(100 * c10 / tot_c, 0)
-                               if not petit and c10 * tot_c > 0 else None)
-            d["hausses"] = [[r["sym"], r["nom"], rd(ci, 3), rd(100 * x, 1)]
-                            for r, ci in c[:12] for x in [r["v"][champ] / 100.0]]
-            d["baisses"] = [[r["sym"], r["nom"], rd(ci, 3), rd(100 * x, 1)]
-                            for r, ci in list(reversed(c))[:12] for x in [r["v"][champ] / 100.0]]
+            d["part_top10"] = rd(100 * c10 / tot_c, 0) if not petit and c10 * tot_c > 0 else None
+            d["hausses"] = [[r["sym"], r["nom"], rd(ci, 3), rd(r["p"].get(h), 1)] for r, ci in c[:12]]
+            d["baisses"] = [[r["sym"], r["nom"], rd(ci, 3), rd(r["p"].get(h), 1)]
+                            for r, ci in list(reversed(c))[:12]]
             for r, ci in c:
                 r.setdefault("contrib", {})[h] = rd(ci, 3)
         if h == "1a":
@@ -935,76 +1342,64 @@ def performance(rows, niveau):
             d["quantiles"] = [rd(v, 1) for v in q]
             d["ecart_type"] = rd(100 * statistics.pstdev(xs), 1)
         out[h] = d
-    # Écart entre l'indice reconstitué et l'indice réel, sur un an : il mesure
-    # ce que la reconstitution ne voit pas (entrées/sorties, dividendes, poids).
-    if niveau and niveau.get("hebdo") and "1a" in out:
-        hb = niveau["hebdo"]
-        fin = hb[-1][0]
-        debut = next((c for j, c in reversed(hb) if j <= fin - 365), None)
-        if debut:
-            reel = 100 * (hb[-1][1] / debut - 1)
-            out["1a"]["reel"] = rd(reel, 2)
+    # Les poids égaux : l'indice équipondéré OFFICIEL seulement (EGAL_OFFICIEL).
+    for h, v in ((egal or {}).get("perf") or {}).items():
+        if h in out:
+            out[h]["equipondere"] = v
+        elif estnb(v):
+            out[h] = {"equipondere": v}
     return out
 
 
-def repartition(rows, cle, fx=None):
-    g = {}
-    for r in rows:
+def repartition(rows, cle):
+    """Les groupes d'un indice (secteurs, métiers, pays) : poids, titres, P/E du
+    groupe, participation, et pour chaque fenêtre la variation du groupe
+    (portefeuille pondéré au DÉPART) et sa contribution en points d'indice."""
+    g = collections.OrderedDict()
+    for r in sorted(rows, key=lambda r: -r["w"]):
         k = cle(r) or "Non classé"
         e = g.setdefault(k, {"w": 0.0, "n": 0, "ey": 0.0, "wey": 0.0, "mm200": 0, "mm200_n": 0,
-                             "c_ytd": 0.0, "c_1a": 0.0})
+                             "c": collections.Counter(), "p": {}, "top": []})
         e["w"] += r["w"]
         e["n"] += 1
+        if len(e["top"]) < 3:
+            e["top"].append(r["sym"])
         x = r["v"].get("earningsYield")
         if estnb(x):
             e["ey"] += r["w"] * x
             e["wey"] += r["w"]
-        p, m = r["v"].get("price"), r["v"].get("ma200")
-        if estnb(p) and estnb(m) and m > 0:
+        m = r.get("mm200_drap")
+        if m is not None:
             e["mm200_n"] += 1
-            e["mm200"] += 1 if p > m else 0
-        e["c_ytd"] += (r.get("contrib") or {}).get("ytd") or 0.0
-        e["c_1a"] += (r.get("contrib") or {}).get("1a") or 0.0
+            e["mm200"] += 1 if m else 0
+        for h, ci in (r.get("contrib") or {}).items():
+            if estnb(ci):
+                e["c"][h] += ci
+        for h, x in (r.get("p") or {}).items():
+            a = e["p"].setdefault(h, [0.0, 0.0, 0.0])      # Σ w_fin, Σ w_départ, Σ w_fin (couverts)
+            if estnb(x) and x > -99.9:
+                a[0] += r["w"]
+                a[1] += r["w"] / (1 + x / 100.0)
     tot = sum(e["w"] for e in g.values()) or 1.0
     out = []
     for k, e in sorted(g.items(), key=lambda t: -t[1]["w"]):
-        out.append([k, rd(100 * e["w"] / tot, 2), e["n"],
-                    rd(100.0 / (e["ey"] / e["wey"]), 1) if e["wey"] and e["ey"] > 0 else None,
-                    rd(100 * e["mm200"] / e["mm200_n"], 0) if e["mm200_n"] else None,
-                    rd(e["c_ytd"], 2), rd(e["c_1a"], 2)])
+        perf = {}
+        for h, (wf, wd, _) in e["p"].items():
+            # Pas de variation de groupe sur moins de 60 % de son poids.
+            if wd > 0 and wf >= 0.6 * e["w"]:
+                perf[h] = rd(100 * (wf / wd - 1), 2)
+        out.append({
+            "nom": k, "poids": rd(100 * e["w"] / tot, 2), "n": e["n"],
+            "pe": rd(100.0 / (e["ey"] / e["wey"]), 1) if e["wey"] and e["ey"] > 0 else None,
+            "mm200": rd(100 * e["mm200"] / e["mm200_n"], 0) if e["mm200_n"] else None,
+            "perf": perf, "contrib": {h: rd(v, 3) for h, v in e["c"].items()},
+            "top": e["top"],
+        })
     return out
 
 
 TAILLES = [(200e9, "géantes (> 200 Md$)"), (50e9, "très grandes (50-200 Md$)"),
            (10e9, "grandes (10-50 Md$)"), (2e9, "moyennes (2-10 Md$)"), (0, "petites (< 2 Md$)")]
-
-
-# ── LES CHAMPS D'UNE LIGNE DE FICHE ──────────────────────────────────────────
-LIGNE = ["sym", "chemin", "nom", "secteur", "industrie", "pays", "poids", "capi_usd",
-         "pe", "pe_fwd", "ps", "pb", "rdt_div", "marge_nette", "roe", "crois_ca",
-         "ch1m", "chYTD", "ch1y", "ch3y", "ch5y", "ath_ecart", "ath_date", "haut1a_ecart",
-         "mm50", "mm200", "rsi", "c_ytd", "c_1a", "potentiel"]
-
-
-def ligne_fiche(r, fx):
-    v = r["v"]
-    p = v.get("price")
-
-    def dessus(m):
-        m = v.get(m)
-        return (1 if p > m else 0) if estnb(p) and estnb(m) and m > 0 else None
-    capi = v.get("marketCap")
-    return [r["sym"], r["cle"], r["nom"], v.get("sector"), v.get("industry"), v.get("country"),
-            rd(100 * r["w"], 4), rd(capi * fx / 1e9, 2) if estnb(capi) and fx else None,
-            rd(v.get("peRatio"), 1), rd(v.get("peForward"), 1), rd(v.get("psRatio"), 2),
-            rd(v.get("pbRatio"), 2), rd(v.get("dividendYield"), 2), rd(v.get("profitMargin"), 1),
-            rd(v.get("roe"), 1), rd(v.get("revenueGrowth"), 1),
-            rd(v.get("ch1m"), 1), rd(v.get("chYTD"), 1), rd(v.get("ch1y"), 1),
-            rd(v.get("ch3y"), 1), rd(v.get("ch5y"), 1),
-            rd(v.get("allTimeHighChange"), 1), v.get("allTimeHighDate"), rd(v.get("high52ch"), 1),
-            dessus("ma50"), dessus("ma200"), rd(v.get("rsi"), 0),
-            (r.get("contrib") or {}).get("ytd"), (r.get("contrib") or {}).get("1a"),
-            rd(v.get("priceTargetChange"), 1)]
 
 
 # ── CHANGES (seulement pour afficher des milliards de dollars) ───────────────
@@ -1301,7 +1696,103 @@ def ecart_aux_officiels(rows):
             "top10_officiel": rd(100 * sum(r["w"] for r in rs[:10]), 1)}
 
 
-def traiter(ix, places, fx, precedent):
+# ── LA NOTE /20 — celle des secteurs, sur les membres de l'indice ───────────
+# Même barème, mêmes seuils ABSOLUS, mêmes bornes de plausibilité, même lecture
+# de la MÉDIANE des titres : la fonction est celle de fetch_secteurs_mondiaux.py,
+# importée et non recopiée — deux copies divergeraient, et un indice noté 12
+# ne se comparerait plus à un secteur noté 12. Les valeurs sont celles des
+# fragments de la collecte de marché (fetch_marche_actions.py), comme pour les
+# secteurs : un membre du CAC 40 a la même marge sur sa fiche, dans son secteur
+# et dans son indice.
+
+# Les champs du screener qui portent un autre nom dans la collecte de marché
+# (fetch_marche_actions.py, RENOMS) — le barème des secteurs lit ceux-là.
+RENOMS_MARCHE = {"revenue3y": "croissance_ca_3a_pct", "revenueGrowth": "croissance_ca_pct",
+                 "epsGrowth": "croissance_bpa_pct"}
+
+
+def charger_marche():
+    """Rien à charger : les valeurs viennent du screener de l'indice lui-même.
+    (La première idée — relire les fragments `marche_NN.json` — ne couvrait que
+    55 % du TAIEX et 27 % de l'IPC : ces places n'y sont presque pas.)"""
+    return {"source": "screener"}
+
+
+def note_indice(code, rows, marche):
+    """(groupe agrégé avec `note_fondamentale`, couverture en poids %)."""
+    try:
+        import fetch_secteurs_mondiaux as fsm
+    except Exception as e:
+        log("[warn] note : fetch_secteurs_mondiaux introuvable (%s)" % e)
+        return None, None
+    champs = sorted(set(fsm.GRANDEURS) | {"price", "ma50", "ma200"})
+    ix = {c: i for i, c in enumerate(champs)}
+    inverse = {v: k for k, v in RENOMS_MARCHE.items()}
+    membres = []
+    for r in rows:
+        v = [r["v"].get(inverse.get(c, c)) for c in champs]
+        membres.append((r["sym"], v, r["nom"], r["v"].get("marketCapUsd") or r.get("_usd") or 0.0, 1))
+    g = fsm.agreger(membres, ix, code)
+    fsm.poser_note_fondamentale(g)
+    return g, 100.0
+
+
+# ── LES CHAMPS D'UNE LIGNE DE FICHE ──────────────────────────────────────────
+# p* : variation du titre sur les séances de référence de l'INDICE (cours
+# quotidiens) ; p3a/p5a : screener. c* : contribution en points d'indice.
+# chYTD/ch1y/ch1m/c_ytd/c_1a : noms de la première version, gardés le temps que
+# la page qui les lit soit remplacée.
+LIGNE = ["sym", "chemin", "nom", "secteur", "industrie", "pays", "poids", "capi_usd",
+         "pe", "pe_fwd", "ps", "pb", "rdt_div", "marge_nette", "roe", "crois_ca",
+         "p1s", "p1m", "p3m", "p6m", "pytd", "p1a", "p2a", "p3a", "p5a",
+         "ath_ecart", "ath_date", "haut1a_ecart", "mm50", "mm200", "rsi",
+         "c1m", "c3m", "c6m", "cytd", "c1a", "c2a", "potentiel",
+         "ch1m", "chYTD", "ch1y", "ch3y", "ch5y", "c_ytd", "c_1a"]
+
+
+def ligne_fiche(r, fx):
+    v, p, c = r["v"], r.get("p") or {}, r.get("contrib") or {}
+    capi = v.get("marketCap")
+
+    def drap(x):
+        return None if x is None else (1 if x else 0)
+    return [r["sym"], r["cle"], r["nom"], v.get("sector"), v.get("industry"), v.get("country"),
+            rd(100 * r["w"], 4), rd(capi * fx / 1e9, 2) if estnb(capi) and fx else None,
+            rd(v.get("peRatio"), 1), rd(v.get("peForward"), 1), rd(v.get("psRatio"), 2),
+            rd(v.get("pbRatio"), 2), rd(v.get("dividendYield"), 2), rd(v.get("profitMargin"), 1),
+            rd(v.get("roe"), 1), rd(v.get("revenueGrowth"), 1),
+            rd(p.get("1s"), 2), rd(p.get("1m"), 2), rd(p.get("3m"), 2), rd(p.get("6m"), 2),
+            rd(p.get("ytd"), 2), rd(p.get("1a"), 2), rd(p.get("2a"), 2),
+            rd(v.get("ch3y"), 1), rd(v.get("ch5y"), 1),
+            rd(v.get("allTimeHighChange"), 1), v.get("allTimeHighDate"), rd(v.get("high52ch"), 1),
+            drap(r.get("mm50_drap")), drap(r.get("mm200_drap")), rd(v.get("rsi"), 0),
+            c.get("1m"), c.get("3m"), c.get("6m"), c.get("ytd"), c.get("1a"), c.get("2a"),
+            rd(v.get("priceTargetChange"), 1),
+            rd(p.get("1m", v.get("ch1m")), 1), rd(p.get("ytd", v.get("chYTD")), 1),
+            rd(p.get("1a", v.get("ch1y")), 1), rd(v.get("ch3y"), 1), rd(v.get("ch5y"), 1),
+            c.get("ytd"), c.get("1a")]
+
+
+def cours_des_membres(ix, rows, memo):
+    """{symbole Yahoo: [(séance, clôture)]} sur trois ans. Indice de rentabilité :
+    cours AJUSTÉS des dividendes, titre par titre (le spark n'en donne pas)."""
+    syms = [r["sym"] for r in rows if r.get("sym")]
+    ajuste = ix["code"] in RENTABILITE
+    cle = "adj" if ajuste else "brut"
+    manque = [s for s in syms if (cle, s) not in memo]
+    echecs = 0
+    if ajuste:
+        for s in manque:
+            memo[(cle, s)] = yahoo_jours(s, "3y", ajuste=True)
+    elif manque:
+        got, echecs = spark_jours(manque, "3y")
+        for s in manque:
+            memo[(cle, s)] = got.get(s) or []
+    out = {s: memo[(cle, s)] for s in syms if memo.get((cle, s))}
+    return out, echecs, ajuste
+
+
+def traiter(ix, places, fx, precedent, memo_cours, marche):
     rows, compo, absents, membres = composer(ix, places, precedent)
     if not rows:
         return None
@@ -1315,12 +1806,23 @@ def traiter(ix, places, fx, precedent):
         log("[warn] %s : %d membres rattachés sur %d — sous le seuil, on garde le précédent"
             % (ix["nom"], len(rows), n_membres))
         return None
-    niveau = niveau_indice(ix["ticker"])
+    niveau = niveau_indice(ix["ticker"], ix["code"])
+    egal = niveau_indice(EGAL_OFFICIEL[ix["code"]][0]) if ix["code"] in EGAL_OFFICIEL else None
+    cours, lots_ko, ajuste = cours_des_membres(ix, rows, memo_cours)
+    series = series_indice(rows, cours, niveau, egal)
+    perfs_membres(rows, cours, niveau, cal_fin=series["d"][-1] if series else None)
+    # Les drapeaux de moyennes : ceux des cours quotidiens (les mêmes que la
+    # courbe d'ampleur), à défaut ceux du screener.
+    for r in rows:
+        if "mm200_drap" not in r:
+            p_, m50, m200 = r["v"].get("price"), r["v"].get("ma50"), r["v"].get("ma200")
+            r["mm50_drap"] = (p_ > m50) if estnb(p_) and estnb(m50) and m50 > 0 else None
+            r["mm200_drap"] = (p_ > m200) if estnb(p_) and estnb(m200) and m200 > 0 else None
     val = valorisation(rows)
     rent = rentabilite(rows)
     conc = concentration(rows)
     amp = ampleur(rows)
-    perf = performance(rows, niveau)
+    perf = performance(rows, niveau, series, rentab=ix["code"] in RENTABILITE, egal=egal)
     # La capitalisation est dans la devise PRINCIPALE du cours : Londres cote en
     # pence mais publie sa capitalisation en livres (Shell : 3 568,5 GBX,
     # 206 Md£) — vérifié le 30/09/2026.
@@ -1331,8 +1833,15 @@ def traiter(ix, places, fx, precedent):
         r["fx"] = fx.get(dev)
         r["_usd"] = c * r["fx"] if estnb(c) and r["fx"] else None
     capi_tot = sum(r["_usd"] for r in rows if estnb(r["_usd"]))
-    secteurs = repartition(rows, lambda r: r["v"].get("sector"))
-    pays = repartition(rows, lambda r: r["v"].get("country"))
+    note, couv_note = note_indice(ix["code"], rows, marche)
+    groupes = {"secteurs": repartition(rows, lambda r: r["v"].get("sector")),
+               "industries": repartition(rows, lambda r: r["v"].get("industry")),
+               "pays": repartition(rows, lambda r: r["v"].get("country"))}
+    # Format de la première version (tableaux), gardé pour la page en place.
+    secteurs = [[x["nom"], x["poids"], x["n"], x["pe"], x["mm200"],
+                 x["contrib"].get("ytd"), x["contrib"].get("1a")] for x in groupes["secteurs"]]
+    pays = [[x["nom"], x["poids"], x["n"], x["pe"], x["mm200"],
+             x["contrib"].get("ytd"), x["contrib"].get("1a")] for x in groupes["pays"]]
     tt = {}
     for r in rows:
         u = r.get("_usd")
@@ -1344,47 +1853,67 @@ def traiter(ix, places, fx, precedent):
     tailles = [[lib, rd(100 * tt[lib][0], 1), tt[lib][1]] for _, lib in TAILLES if lib in tt]
     rs = sorted(rows, key=lambda r: -r["w"])
     top = [[r["sym"], r["nom"], r["v"].get("sector"), rd(100 * r["w"], 2),
-            rd(r["v"].get("chYTD"), 1), rd(r["v"].get("ch1y"), 1),
+            rd((r.get("p") or {}).get("ytd", r["v"].get("chYTD")), 1),
+            rd((r.get("p") or {}).get("1a", r["v"].get("ch1y")), 1),
             rd(r["v"].get("allTimeHighChange"), 1), rd(r["v"].get("peRatio"), 1)] for r in rs[:10]]
+    niv = {k: v for k, v in (niveau or {}).items() if k not in ("hebdo", "_jours")} or None
+    perf_synth = {h: dict({k: v for k, v in d.items() if k not in ("hausses", "baisses", "hist")},
+                          indice=d.get("reconstitue"))
+                  for h, d in perf.items()}
+    medianes = None
+    if note:
+        medianes = {k[:-7]: note[k] for k in note if k.endswith("_median")}
     synth = {
         "code": ix["code"], "nom": ix["nom"], "ticker": ix["ticker"], "devise": ix["devise"],
+        "rentabilite_phrase": RENTABILITE.get(ix["code"]),
+        "egal_officiel": ({"ticker": EGAL_OFFICIEL[ix["code"]][0], "nom": EGAL_OFFICIEL[ix["code"]][1]}
+                          if egal else None),
+        "type": "rentabilité" if ix["code"] in RENTABILITE else "prix",
         "n_membres": n_membres, "n_rattaches": len(rows),
         "couverture_membres": rd(100 * len(rows) / n_membres, 1) if n_membres else None,
         "absents": absents[:30],
         "composition": compo, "poids_methode": methode, "poids_detail": methode_info,
         "plafond": ix.get("plafond"),
         "capi_usd_md": rd(capi_tot / 1e9, 0) if capi_tot else None,
-        "valorisation": val, "rentabilite": rent, "concentration": {k: v for k, v in conc.items() if k != "courbe"},
+        "valorisation": val, "rentabilite": rent,
+        "concentration": {k: v for k, v in conc.items() if k != "courbe"},
         "ampleur": {k: v for k, v in amp.items() if not k.startswith("hist_")},
-        "performance": {h: {k: v for k, v in d.items() if k not in ("hausses", "baisses", "hist")}
-                        for h, d in perf.items()},
-        "niveau": {k: v for k, v in (niveau or {}).items() if k != "hebdo"} or None,
+        "performance": perf_synth,
+        "niveau": niv,
         "secteurs": secteurs, "tailles": tailles, "top10": top,
+        "note_fondamentale": (note or {}).get("note_fondamentale"),
+        "note_couverture": couv_note,
+        "medianes": medianes,
+        "cours_membres": {"titres": len(cours), "sur": len(rows), "ajustes_dividendes": ajuste,
+                          "lots_en_echec": lots_ko},
     }
     if methode == "officiels" and ix["code"] == "sp500":
         synth["controle_estimation"] = ecart_aux_officiels(rows)
     # ── L'HISTORIQUE DES MESURES, accumulé un point par jour ──
     h = dict((precedent or {}).get("histo") or {})
     jour = time.strftime("%Y-%m-%d")
-    series = {"mm200": amp.get("mm200"), "mm50": amp.get("mm50"), "rec5": amp.get("record_5"),
-              "repli20": amp.get("repli_20"), "top10": conc.get("top10"),
-              "neff": conc.get("n_effectif"), "pe": val.get("pe"),
-              "ecart_ew_ytd": rd(((perf.get("ytd") or {}).get("indice") or 0) - ((perf.get("ytd") or {}).get("equipondere") or 0), 2)
-              if perf.get("ytd") else None}
+    p_ytd = perf.get("ytd") or {}
+    series_h = {"mm200": amp.get("mm200"), "mm50": amp.get("mm50"), "rec5": amp.get("record_5"),
+                "repli20": amp.get("repli_20"), "top10": conc.get("top10"), "top1": conc.get("top1"),
+                "neff": conc.get("n_effectif"), "pe": val.get("pe"), "pe_fwd": val.get("pe_fwd"),
+                "rdt_div": val.get("rdt_div"), "niveau": (niveau or {}).get("dernier"),
+                "ecart_ew_ytd": (rd(p_ytd["officiel"] - p_ytd["equipondere"], 2)
+                                 if estnb(p_ytd.get("officiel")) and estnb(p_ytd.get("equipondere")) else None)}
     d = list(h.get("d") or [])
     if d and d[-1] == jour:
-        for k in series:
-            if h.get(k):
+        for k in list(h):
+            if k != "d" and h.get(k):
                 h[k] = list(h[k])[:-1]
         d = d[:-1]
     d.append(jour)
     h["d"] = d[-MAX_HISTO:]
-    for k, x in series.items():
+    for k, x in series_h.items():
         prev = list(h.get(k) or [])
         prev = prev + [None] * (len(d) - 1 - len(prev))
         h[k] = (prev + [x])[-MAX_HISTO:]
     fiche = {
-        "code": ix["code"], "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "code": ix["code"], "version": 2,
+        "genere_le": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "synthese": synth,
         "champs": LIGNE, "lignes": [ligne_fiche(r, r.get("fx")) for r in rs],
         "courbe_concentration": conc.get("courbe"),
@@ -1392,8 +1921,11 @@ def traiter(ix, places, fx, precedent):
         "contributions": {k: {"hausses": v.get("hausses"), "baisses": v.get("baisses")}
                           for k, v in perf.items() if v.get("hausses")},
         "hist_perf_1a": (perf.get("1a") or {}).get("hist"),
+        "groupes": groupes,
         "pays": pays,
-        "niveau": niveau,
+        "series": series,
+        "note": note and {k: note[k] for k in note if k.endswith("_median") or k.endswith("_n")},
+        "niveau": dict({k: v for k, v in (niveau or {}).items() if k != "_jours"}) if niveau else None,
         "histo": h,
         "composition": compo,
         "membres": [{"cle": m["cle"], "nom": m.get("nom"), "poids_officiel": m.get("poids_officiel")}
@@ -1429,6 +1961,8 @@ def main():
     for p in pays:
         places[p] = screener(p)
         log("[info] screener %s : %s lignes" % (p, len(places[p]) if places[p] else "MUET"))
+    marche = charger_marche()
+    memo_cours = {}
     ancien = lire_json("indices_fiches.json") or {}
     anciens = {s.get("code"): s for s in (ancien.get("indices") or [])}
     synths, repris = [], []
@@ -1438,7 +1972,7 @@ def main():
         if places.get(ix["pays"]):
             try:
                 res = traiter(ix, [places[ix["pays"]]] + [places.get(p) for p in PLACES_EN_PLUS.get(ix["pays"], [])],
-                              fx, precedent)
+                              fx, precedent, memo_cours, marche)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -1447,10 +1981,12 @@ def main():
             synth, fiche = res
             taille = ecrire("indice_%s.json" % ix["code"], fiche)
             synths.append(synth)
-            log("[ok] %-13s %4d/%4d membres  poids %-25s  top10 %5s %%  P/E %5s  mm200 %5s %%  %d Ko"
-                % (ix["nom"], synth["n_rattaches"], synth["n_membres"], synth["poids_methode"],
+            p1 = (synth["performance"].get("1a") or {})
+            log("[ok] %-13s %4d/%4d membres  cours %4d  top10 %5s %%  P/E %5s  mm200 %5s %%  1 an publié %6s / reconstitué %6s  note %s  %d Ko"
+                % (ix["nom"], synth["n_rattaches"], synth["n_membres"], synth["cours_membres"]["titres"],
                    synth["concentration"]["top10"], synth["valorisation"]["pe"],
-                   synth["ampleur"]["mm200"], taille // 1024))
+                   synth["ampleur"]["mm200"], p1.get("officiel"), p1.get("reconstitue"),
+                   (synth.get("note_fondamentale") or {}).get("note"), taille // 1024))
         elif ix["code"] in anciens:
             # Un indice qui échoue garde sa dernière synthèse, datée : jamais un trou.
             s = dict(anciens[ix["code"]])
@@ -1472,7 +2008,11 @@ def main():
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "duree_s": round(time.time() - t0, 1),
         "repris": repris,
+        "version": 2,
         "methode": [
+            "Performance : celle de l'indice PUBLIÉ (clôtures quotidiennes), sur les fenêtres du "
+            "Comparateur ; sa décomposition titre par titre porte sur les mêmes séances, et l'écart "
+            "restant est publié sous son nom.",
             "Composition : avoirs du SPY pour le S&P 500, fichier de Nikkei pour le Nikkei 225, "
             "portefeuille théorique de la B3 pour l'Ibovespa, toutes les actions de la place pour "
             "le KOSPI et le TAIEX, liste Wikipédia pour les douze autres.",
