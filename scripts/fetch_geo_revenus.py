@@ -907,6 +907,11 @@ def main():
     n_avant = sum(1 for r in etat.values() if r.get("statut") == "ok")
     sec, miroirs = ({}, {}) if a.sans_sec else univers_sec()
     eur = {} if a.sans_europe else univers_europe(marche)
+    # Linde, Spotify, Ferrari… déposent à la SEC ET sont cotées en Europe : la
+    # SEC balise zone par zone, c'est elle qu'on lit, l'autre cotation reçoit
+    # la fiche en miroir par l'ISIN.
+    isin_sec = {(marche.get(t) or {}).get("isin") for t in sec} - {None, ""}
+    eur = {k: v for k, v in eur.items() if v.get("isin") not in isin_sec}
     table_lei = lire_json(FICHIER_LEI, {}) or {}
     journal("univers : %d SEC, %d miroirs, %d européennes ; %d fiches déjà publiées (%d ventilées)"
             % (len(sec), len(miroirs), len(eur), len(etat), n_avant))

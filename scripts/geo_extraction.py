@@ -91,7 +91,7 @@ def http_get(url, cache_name=None, binary=False, tries=4):
         if cl and r.headers.get("Content-Encoding") in (None, "", "identity") and int(cl) != len(b):
             time.sleep(1)                      # telechargement tronque : on recommence
             continue
-        if cache_name:
+        if cache_name == "sec_company_tickers.json":   # cache disque borne
             open(os.path.join(CACHE, cache_name), "wb").write(b)
         return b if binary else b.decode("utf-8", "replace")
     raise RuntimeError(f"echec GET {url}")
