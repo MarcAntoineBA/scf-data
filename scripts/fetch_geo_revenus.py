@@ -194,10 +194,24 @@ def univers_sec():
     return out, miroirs
 
 
+# Les pays dont les sociétés cotées déposent un rapport ESEF (UE + EEE).
+ISIN_ESEF = set("FR DE NL BE LU IT ES PT IE AT FI DK SE NO PL GR CZ HU IS EE LV LT "
+                "SI SK HR RO BG CY MT".split())
+
+
 def univers_europe(marche):
-    """Les sociétés cotées sur une place européenne, avec un ISIN — l'ordre de
-    passage (par capitalisation) est décidé plus loin, dans `planifier`."""
-    out = {}
+    """Les sociétés européennes, UNE ligne par société.
+
+    ⚠ Deux pièges mesurés au premier passage (28 échecs sur 40) :
+      · les places européennes cotent aussi des AMÉRICAINES — NVIDIA à
+        Francfort (NVD.DE), Apple à Milan (1AAPL.MI). Leur ISIN commence par
+        US : elles n'ont aucun rapport ESEF, et elles passaient en tête de la
+        file par leur capitalisation. On ne garde que les ISIN d'un pays ESEF ;
+      · une européenne est cotée sur plusieurs places (AIR.PA, AIR.DE,
+        AIR.F) : on ne la relève qu'une fois, sur la cotation de son pays
+        (sinon la plus grosse), et les autres reçoivent la même fiche en
+        miroir, par l'ISIN — voir `miroirs_par_isin`."""
+    par_isin = {}
     for sym, m in marche.items():
         if "." not in sym:
             continue
@@ -205,10 +219,45 @@ def univers_europe(marche):
         if suf not in PLACES_ESEF:
             continue
         isin = m.get("isin") or ""
-        if len(isin) != 12:
+        if len(isin) != 12 or isin[:2] not in ISIN_ESEF:
             continue
+        par_isin.setdefault(isin, []).append((sym, suf, m))
+    out = {}
+    for isin, lignes in par_isin.items():
+        def rang(x):
+            sym, suf, m = x
+            chez_elle = PLACES_ESEF.get(suf) == isin[:2]
+            return (not chez_elle, -(m.get("capi_usd") or 0), len(sym))
+        sym, suf, m = sorted(lignes, key=rang)[0]
         out[sym] = dict(m, place=suf)
     return out
+
+
+def miroirs_par_isin(etat, marche):
+    """Toute cotation d'une société relevée reçoit la même fiche, par l'ISIN :
+    NVD.DE (Francfort) celle de NVDA, AIR.DE celle d'AIR.PA. On n'écrase
+    jamais une fiche relevée pour elle-même."""
+    source = {}
+    for sym, rec in etat.items():
+        if rec.get("statut") != "ok" or rec.get("miroir_de"):
+            continue
+        isin = (marche.get(sym) or {}).get("isin")
+        if isin and len(isin) == 12:
+            source.setdefault(isin, sym)
+    n = 0
+    for sym, m in marche.items():
+        isin = m.get("isin")
+        src = source.get(isin) if isin else None
+        if not src or src == sym:
+            continue
+        cur = etat.get(sym)
+        if cur and cur.get("statut") == "ok" and not cur.get("miroir_de"):
+            continue
+        mi = dict(etat[src])
+        mi["miroir_de"] = src
+        etat[sym] = mi
+        n += 1
+    return n
 
 
 # ── LA NORMALISATION D'UN RELEVÉ ────────────────────────────────────────────
@@ -510,6 +559,90 @@ def _recoller(t):
     return " ".join(t.split())
 
 
+# Traduction mot à mot, en dernier recours, et SEULEMENT si chaque mot du
+# libellé est connu : un libellé à moitié traduit se lit plus mal que
+# l'original. Les expressions longues passent avant les mots.
+_EXPR = [
+    ("latin america and the caribbean", "Amérique latine et Caraïbes"),
+    ("europe the middle east and africa", "Europe, Moyen-Orient, Afrique"),
+    ("europe middle east and africa", "Europe, Moyen-Orient, Afrique"),
+    ("asia pacific and japan", "Asie-Pacifique et Japon"),
+    ("united states and canada", "États-Unis et Canada"),
+    ("western hemisphere excluding us", "Hémisphère occidental hors États-Unis"),
+    ("western hemisphere", "Hémisphère occidental"),
+    ("latin america", "Amérique latine"), ("north america", "Amérique du Nord"),
+    ("south america", "Amérique du Sud"), ("central america", "Amérique centrale"),
+    ("middle east", "Moyen-Orient"), ("north africa", "Afrique du Nord"),
+    ("southeast asia", "Asie du Sud-Est"), ("south east asia", "Asie du Sud-Est"),
+    ("asia pacific", "Asie-Pacifique"), ("asia oceania", "Asie, Océanie"),
+    ("mainland china", "Chine continentale"), ("china s mainland", "Chine continentale"),
+    ("united states", "États-Unis"), ("united kingdom", "Royaume-Uni"),
+    ("rest of the world", "reste du monde"), ("rest of world", "reste du monde"),
+    ("other countries", "autres pays"), ("other regions", "autres régions"),
+    ("other areas", "autres zones"), ("non us", "hors États-Unis"),
+    ("outside the us", "hors États-Unis"), ("outside us", "hors États-Unis"),
+    ("other international operations", "autres activités internationales"),
+    ("foreign countries", "pays étrangers"), ("non us operations", "activités hors États-Unis"),
+    ("us", "États-Unis"), ("usa", "États-Unis"), ("uk", "Royaume-Uni"),
+    ("other than", "hors"), ("except", "hors"),
+]
+_EXPR.sort(key=lambda x: -len(x[0]))      # l'expression la plus longue d'abord
+_MOTS = {
+    "asia": "Asie", "europe": "Europe", "africa": "Afrique", "oceania": "Océanie",
+    "caribbean": "Caraïbes", "pacific": "Pacifique", "japan": "Japon", "china": "Chine",
+    "canada": "Canada", "mexico": "Mexique", "india": "Inde", "korea": "Corée", "taiwan": "Taïwan",
+    "germany": "Allemagne", "france": "France", "australia": "Australie", "brazil": "Brésil",
+    "australasia": "Australasie", "emea": "EMEA", "apac": "APAC", "apjc": "Asie-Pacifique, Japon, Chine",
+    "eame": "Europe, Afrique, Moyen-Orient", "latam": "Amérique latine", "ucan": "",
+    "americas": "Amériques", "america": "Amérique", "and": "et", "excluding": "hors",
+    "other": "autres", "than": "que", "foreign": "étranger", "international": "international",
+    "operations": "activités", "regions": "régions", "region": "région", "the": "", "of": "",
+}
+
+
+def _cle_traduction(src):
+    """Minuscules, sans accents, « U.S. » -> « us », « / » -> virgule, et les
+    virgules gardées comme mots : elles séparent des zones."""
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", src).encode("ascii", "ignore").decode().lower()
+    # Un acronyme entre parenthèses (« (EMEA) », « (“APAC”) ») ne dit rien de
+    # plus ; une précision (« (other than Japan and China) ») se traduit.
+    t = re.sub(r"\(\s*[\"']?[a-z]{2,6}[\"']?\s*\)", " ", t)
+    t = t.replace("(", " ( ").replace(")", " ) ")
+    t = re.sub(r"\b([a-z])\.(?=[a-z]\.)", r"\1", t)     # u.s. -> us.
+    t = t.replace(".", " ").replace("/", " , ").replace("&", " and ").replace("-", " ")
+    t = re.sub(r"[\"'\u2019`]", " ", t)
+    t = t.replace(",", " , ")
+    return " ".join(t.split())
+
+
+def _traduire(cle):
+    import re
+    t = " " + cle + " "
+    for en, fr in _EXPR:
+        t = re.sub(r"(?<=[ ,])" + re.escape(en) + r"(?=[ ,])", "§" + fr + "§", t)
+    morceaux = re.split(r"(§[^§]*§)", t)
+    sortie = []
+    for m in morceaux:
+        if m.startswith("§"):
+            sortie.append(m.strip("§"))
+            continue
+        for mot in m.split():
+            if mot in (",", "(", ")"):
+                sortie.append(mot)
+                continue
+            if mot not in _MOTS:
+                return None
+            if _MOTS[mot]:
+                sortie.append(_MOTS[mot])
+    txt = " ".join(sortie).strip()
+    txt = re.sub(r"\s+([,)])", r"\1", txt)
+    txt = re.sub(r"\(\s+", "(", txt)
+    txt = re.sub(r"(,\s*)+", ", ", txt).strip(" ,")
+    return (txt[:1].upper() + txt[1:]) if txt else None
+
+
 def libelle_affiche(z):
     """Le libellé à afficher : la traduction de `geo_zones` pour un pays, la
     table ci-dessus pour une zone anglaise ou locale, sinon le libellé de la
@@ -524,7 +657,16 @@ def libelle_affiche(z):
         cle = GZ.norm(src)
     except Exception:
         cle = src.lower()
-    return TRAD_ZONES.get(cle.strip(), src)
+    cle = cle.strip()
+    if cle in TRAD_ZONES:
+        return TRAD_ZONES[cle]
+    # « Europe, the Middle East, and Africa (“EMEA”) » : l'acronyme entre
+    # parenthèses et les barres obliques ne changent pas le sens.
+    cle2 = _cle_traduction(src)
+    sans_ponct = " ".join(cle2.replace(",", " ").replace("(", " ").replace(")", " ").split())
+    if sans_ponct in TRAD_ZONES:
+        return TRAD_ZONES[sans_ponct]
+    return _traduire(cle2) or src
 
 
 # ── LEI : L'IDENTIFIANT QU'EXIGENT LES DÉPÔTS EUROPÉENS ────────────────────
@@ -661,8 +803,15 @@ def travailler_europe(GX, sym, m, table_lei, ancien):
                 f["lei"] = lei
             return f
         except Exception as e:
-            dernier = {"statut": "echec", "motif": "%s: %s" % (type(e).__name__, str(e)[:160]),
-                       "source": nom_src}
+            if " 404 " in str(e) or "NOT FOUND" in str(e):
+                # La base n'a aucun dépôt pour ce LEI (l'Allemagne entière,
+                # par exemple) : c'est une absence de source, pas une panne à
+                # retenter chaque semaine.
+                dernier = {"statut": "non_ventile", "motif": "aucun rapport ESEF dans %s" % nom_src,
+                           "source": nom_src}
+            else:
+                dernier = {"statut": "echec", "motif": "%s: %s" % (type(e).__name__, str(e)[:160]),
+                           "source": nom_src}
     dernier = dernier or {"statut": "echec", "motif": "aucune source"}
     dernier.update({"pays_iso": dom, "verifie_le": dt.date.today().isoformat()})
     return dernier
@@ -802,6 +951,10 @@ def main():
             else:
                 compte[rec.get("statut") if rec.get("statut") in compte else "echec"] += 1
             etat[sym] = rec
+        # Le motif de chaque échec va au journal : un compteur seul ne dit pas
+        # si c'est une source, un débit ou le code qui cède.
+        if rec.get("statut") == "echec":
+            journal("  échec %s (%s) : %s" % (sym, genre, (rec.get("motif") or "?")[:150]))
         return sym
 
     faits = 0
@@ -819,6 +972,8 @@ def main():
             mi = dict(src)
             mi["miroir_de"] = us
             etat[principal] = mi
+    n_isin = miroirs_par_isin(etat, marche)
+    journal("miroirs par ISIN : %d cotations secondaires" % n_isin)
 
     meta = {
         "updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
