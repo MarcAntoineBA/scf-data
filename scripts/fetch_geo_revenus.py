@@ -369,12 +369,30 @@ def agreger(etat, marche, taux):
             g["pays"][k] = g["pays"].get(k, 0.0) + poids * p
 
     totaux = {"secteurs": {}, "industries": {}, "pays": {}}
+    # ⚠ LE DÉNOMINATEUR COMPTE DES SOCIÉTÉS, PAS DES COTATIONS. Apple est cotée
+    # dix fois (New York, Toronto, Francfort, Milan, São Paulo…) : compter
+    # chaque ligne annonçait « 0,3 % du chiffre d'affaires couvert » pour un
+    # secteur Technologie où Apple, NVIDIA et Microsoft l'étaient. Une ligne
+    # par ISIN, la plus grosse capitalisation.
+    principales = {}
     for sym, m in marche.items():
+        cle = m.get("isin") or sym
+        cur = principales.get(cle)
+        if cur is None or (m.get("capi_usd") or 0) > (marche[cur].get("capi_usd") or 0):
+            principales[cle] = sym
+    for sym in principales.values():
+        m = marche[sym]
         # Le dénominateur de couverture : toutes les sociétés du groupe.
         ca_usd = None
         dev = m.get("devise_cours")
         if isinstance(m.get("ca"), (int, float)) and dev in taux:
             ca_usd = m["ca"] * taux[dev]
+            # Garde-fou : un chiffre d'affaires cinquante fois la capitalisation
+            # et au-delà de cent milliards est une erreur d'unité de la source
+            # (Apple à Santiago : des pesos étiquetés « USD »).
+            capi = m.get("capi_usd") or 0
+            if ca_usd > 1e11 and capi and ca_usd > 50 * capi:
+                ca_usd = None
         for fam, cle in (("secteurs", m.get("secteur")), ("industries", m.get("industrie")),
                          ("pays", iso_du_pays(m.get("pays")))):
             if not cle:
