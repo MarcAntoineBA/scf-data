@@ -344,7 +344,28 @@ def taux_usd():
         return {"USD": 1.0}
 
 
-def agreger(etat, marche, taux):
+# Place de cotation -> pays, pour reconnaître la cotation « chez elle ».
+PLACE_PAYS = dict(PLACES_ESEF, L="GB", IL="GB", T="JP", HK="HK", TO="CA", V="CA", NE="CA",
+                  AX="AU", KS="KR", KQ="KR", TW="TW", TWO="TW", SS="CN", SZ="CN", NS="IN",
+                  BO="IN", SA="BR", MX="MX", JK="ID", BK="TH", KL="MY", SI="SG", TA="IL",
+                  JO="ZA", IS="TR", SR="SA", NZ="NZ", CN="CA", SN="CL", BA="AR", LM="PE")
+
+
+def rang_cotation(sym, m):
+    """Plus petit = plus « principale » : d'abord la cotation dans le pays de
+    l'ISIN, puis une cotation sans chemin de gré à gré, puis la capitalisation."""
+    isin = m.get("isin") or ""
+    if "/" in sym:
+        place = None
+    elif "." not in sym:
+        place = "US"
+    else:
+        place = PLACE_PAYS.get(sym.rsplit(".", 1)[1])
+    chez_elle = bool(isin) and place == isin[:2]
+    return (not chez_elle, "/" in sym, -(m.get("capi_usd") or 0))
+
+
+def agreger(etat, marche, taux, certificats=None):
     """La répartition d'un GROUPE = moyenne des répartitions de ses sociétés,
     pondérée par leur chiffre d'affaires en dollars.
 
@@ -374,11 +395,19 @@ def agreger(etat, marche, taux):
     # chaque ligne annonçait « 0,3 % du chiffre d'affaires couvert » pour un
     # secteur Technologie où Apple, NVIDIA et Microsoft l'étaient. Une ligne
     # par ISIN, la plus grosse capitalisation.
+    #
+    # ⚠ ET LA COTATION PRINCIPALE N'EST PAS LA PLUS GROSSE. Les certificats de
+    # Buenos Aires (AAPLD.BA), Santiago (UNH.SN) ou du Kazakhstan portent la
+    # capitalisation de la maison mère ET un chiffre d'affaires en monnaie
+    # locale étiqueté « USD » : ils gagnaient le choix et gonflaient les
+    # États-Unis à 2e16 $. On prend la cotation de la place du pays de l'ISIN.
     principales = {}
     for sym, m in marche.items():
+        if sym in (certificats or ()):
+            continue                  # TSM : TSMC est comptée à Taipei
         cle = m.get("isin") or sym
         cur = principales.get(cle)
-        if cur is None or (m.get("capi_usd") or 0) > (marche[cur].get("capi_usd") or 0):
+        if cur is None or rang_cotation(sym, m) < rang_cotation(cur, marche[cur]):
             principales[cle] = sym
     for sym in principales.values():
         m = marche[sym]
@@ -391,7 +420,7 @@ def agreger(etat, marche, taux):
             # et au-delà de cent milliards est une erreur d'unité de la source
             # (Apple à Santiago : des pesos étiquetés « USD »).
             capi = m.get("capi_usd") or 0
-            if ca_usd > 1e11 and capi and ca_usd > 50 * capi:
+            if ca_usd > 1e10 and capi and ca_usd > 20 * capi:
                 ca_usd = None
         for fam, cle in (("secteurs", m.get("secteur")), ("industries", m.get("industrie")),
                          ("pays", iso_du_pays(m.get("pays")))):
@@ -1134,7 +1163,7 @@ def main():
     ecrire_json(FICHIER_LEI, table_lei)
 
     taux = taux_usd()
-    agr, n_sans_taux = agreger(etat, marche, taux)
+    agr, n_sans_taux = agreger(etat, marche, taux, certificats=set(miroirs.values()))
     agr["indices"] = agreger_indices(etat)
     agr.update(meta)
     agr["n_sans_taux"] = n_sans_taux
