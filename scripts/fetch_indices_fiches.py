@@ -326,7 +326,10 @@ def compo_ssga():
                 w = float(cel.get("E") or "")
             except ValueError:
                 continue
-            if t and t != "-" and w > 0:
+            # ⚠ Un droit à paiement conditionnel (CVR Hologic, libellé « TPG INC »
+            # dans le fichier du 29/09/2026) porte un poids infime : il faisait un
+            # 504e « membre ». Le plus petit vrai membre pèse cent fois plus.
+            if t and t != "-" and w >= 0.0005 and not re.search(r"\b(CVR|RIGHTS?)\b", cel.get("A") or ""):
                 membres.append({"cle": t, "nom": cel.get("A"), "poids_officiel": w})
     return membres, {"source": "Avoirs du SPY (State Street)", "url": "https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy",
                      "date": date, "poids": "officiels"}
@@ -695,7 +698,16 @@ def yahoo_jours(ticker, periode="max", ajuste=False):
     for t, c in zip(ts, cl):
         if estnb(c) and c > 0:
             jours[datetime.fromtimestamp(t + off, timezone.utc).date().isoformat()] = float(c)
-    return nettoyer(list(jours.items()))[0]
+    out = list(jours.items())
+    # ⚠ La séance EN COURS n'est pas une clôture (règle de fetch_comparateur_indices.py) :
+    # deux passages sur quatre tombent pendant la séance de New York, et le S&P
+    # affichait « +14,4 % sur un an » à 22 h pour +15,0 % à la clôture de la veille.
+    per = ((r.get("meta") or {}).get("currentTradingPeriod") or {}).get("regular") or {}
+    if out and per.get("start") and per.get("end") and time.time() < per["end"]:
+        seance = datetime.fromtimestamp(per["start"] + off, timezone.utc).date().isoformat()
+        if out[-1][0] == seance:
+            out.pop()
+    return nettoyer(out)[0]
 
 
 def spark_jours(symboles, periode="3y"):
@@ -1125,9 +1137,11 @@ def rentabilite(rows):
     }
 
 
-def concentration(rows):
+def concentration(rows, total=None):
+    """`total` : dénominateur imposé (1.0 quand les poids sont des parts de
+    l'indice ENTIER, membres introuvables compris)."""
     ws = sorted((r["w"] for r in rows), reverse=True)
-    tot = sum(ws) or 1.0
+    tot = total or sum(ws) or 1.0
     ws = [w / tot for w in ws]
     cum, acc = [], 0.0
     for w in ws:
@@ -1459,6 +1473,14 @@ def composer(ix, places, precedent):
     lignes = {}
     for pl in places:
         lignes.update(pl or {})
+    ix["_exact"] = False
+    mx, meta_x = composition_exacte(ix, lignes)
+    if mx:
+        membres, meta, src = mx, meta_x, "exact"
+        ix["_exact"] = True
+        # Le total du FICHIER, membres introuvables compris (les fonds cotés du
+        # FTSE 100 : 1,4 %) : on ne redistribue pas leur poids sur les autres.
+        ix["_poids_total"] = sum(m["poids_officiel"] for m in mx)
     if src == "place":
         membres = [{"cle": k, "nom": v.get("name"), "poids_officiel": None}
                    for k, v in lignes.items()
@@ -1484,7 +1506,7 @@ def composer(ix, places, precedent):
         if src == "ssga":
             cle = cle.replace("/", ".")
         k = cle if cle in lignes and cle not in deja else None
-        if not k and src == "wiki":
+        if not k and src in ("wiki", "exact"):
             # « BT.A » vs « BT-A », « RR. » vs « RR » : on essaie les graphies voisines.
             alts = [cle.replace(".", "-"), cle.replace("-", "."), cle.rstrip(".")]
             if ix["code"] == "ipc" and "." not in cle.split("/")[-1]:
@@ -1601,6 +1623,83 @@ def etf_top(etf):
     return None, None
 
 
+# ── LES POIDS EXACTS : le fichier du fonds qui réplique l'indice ────────────
+# ⚠ AUDIT DU 30/09/2026 contre les fonds répliquants : l'estimation par le
+# flottant se trompait de 0,07 à 2,55 points en moyenne sur le top 10 (DAX :
+# Airbus à 0,96 % pour 6,44 % réels — non rapproché dans l'ETF de recalage puis
+# plafonné au 25e ; IPC : FEMSA à 14,2 % pour 7,3 %), et la liste Wikipédia
+# était PÉRIMÉE presque partout (CAC : Edenred et Teleperformance sorties,
+# Eiffage et Euronext absentes ; DAX : Porsche SE au lieu d'Hochtief ; FTSE 100 :
+# Balfour Beatty, sorti en 2009 ; IPC : 34 membres au lieu de 35).
+# Quand un fichier exact existe, il fait donc la COMPOSITION et les POIDS ;
+# Wikipédia n'est plus qu'un repli.
+LECTEURS_EXACTS, FONDS_EXACTS = {}, {
+    "cac40": "Amundi CAC 40 UCITS ETF", "ibex35": "Amundi IBEX 35 UCITS ETF",
+    "dax40": "iShares Core DAX UCITS ETF (DE)", "ftse100": "iShares Core FTSE 100 UCITS ETF",
+    "ftsemib": "iShares FTSE MIB UCITS ETF", "smi": "iShares SMI ETF (CH)",
+    "tsx": "iShares Core S&P/TSX Capped Composite (XIC)", "ipc": "iShares NAFTRAC",
+    "nikkei225": "Nikkei Inc. (facteurs d'ajustement officiels × cours)", "kospi": "liste KIND, capitalisation des actions ordinaires",
+    "taiex": "TAIFEX (poids officiels)", "hsi": "Tracker Fund of Hong Kong (2800)",
+    "csi300": "iShares Core CSI 300 (2846)", "nifty50": "NSE Indices (poids officiels)", "asx200": "SPDR S&P/ASX 200 (STW)",
+}
+for _mod in ("poids_exacts_europe", "poids_exacts_asie", "poids_exacts_ameriques"):
+    try:
+        _m = __import__(_mod)
+        LECTEURS_EXACTS.update(getattr(_m, "LECTEURS", None) or getattr(_m, "INDICES", {}) or {})
+    except Exception:
+        pass
+PLACE_MAISON = {"FR": "epa", "DE": "etr", "UK": "lon", "IT": "bit", "ES": "bme", "CH": "swx",
+                "CA": "tsx", "MX": "bmv", "AU": "asx", "HK": "hkg", "IN": "nse", "JP": "tyo",
+                "KR": "krx", "TW": "tpe"}
+
+
+def composition_exacte(ix, lignes):
+    """(membres, meta) depuis le fichier exact, ou (None, None). Chaque membre est
+    retrouvé dans le screener par son ISIN (cotation de la place de l'indice de
+    préférence : Airbus a la même ISIN à Paris et à Francfort)."""
+    lecteur = LECTEURS_EXACTS.get(ix["code"])
+    if not lecteur:
+        return None, None
+    try:
+        date_, xs, url = lecteur()
+    except Exception as e:
+        log("[warn] %s : fichier exact indisponible (%s) — liste de repli" % (ix["nom"], e))
+        return None, None
+    xs = [x for x in (xs or []) if estnb(x.get("poids")) and x["poids"] > 0]
+    if len(xs) < 10:
+        return None, None
+    maison = PLACE_MAISON.get(ix["pays"])
+    par_isin = {}
+    for k, v in lignes.items():
+        if v.get("isin"):
+            par_isin.setdefault(v["isin"], []).append(k)
+    def par_code(code):
+        """Le code de place → chemin du screener (Tokyo 6857 → tyo/6857 ;
+        Shanghai/Shenzhen selon le premier chiffre ; M&M → nse/M_M)."""
+        code = str(code or "").strip()
+        if not code:
+            return None
+        pre = maison
+        if ix["code"] == "csi300":
+            pre = "sha" if code[:1] in ("6", "9") else "she"
+        for v in (code, code.replace("&", "_"), code.replace("-", "_"), code.replace(".", "_"),
+                  code.replace("-", "."), code.replace(".", "-"), code.lstrip("0").zfill(4)):
+            if pre and "%s/%s" % (pre, v) in lignes:
+                return "%s/%s" % (pre, v)
+        return None
+    membres = []
+    for x in xs:
+        cands = sorted(par_isin.get(x.get("isin") or "", []),
+                       key=lambda k: (0 if maison and k.startswith(maison + "/") else 1, len(k)))
+        k = cands[0] if cands else par_code(x.get("code_place") or x.get("ticker"))
+        membres.append({"cle": k or (x.get("ticker") or x.get("code_place") or x.get("isin") or ""),
+                        "nom": x.get("nom"), "poids_officiel": x["poids"], "isin": x.get("isin")})
+    return membres, {"source": "Avoirs du fonds %s, qui réplique physiquement l'indice"
+                               % FONDS_EXACTS.get(ix["code"], "répliquant"),
+                     "url": url, "date": date_, "poids": "exacts (fonds répliquant, au %s)" % date_,
+                     "exact": True}
+
+
 def ponderer(ix, rows):
     """Pose r['w'] (somme 1) et rend un dict qui décrit la méthode.
 
@@ -1615,10 +1714,14 @@ def ponderer(ix, rows):
     officiels = [r for r in rows if estnb(r.get("officiel"))]
     if officiels and len(officiels) >= 0.9 * len(rows):
         tot = sum(r["officiel"] for r in officiels)
+        if ix.get("_exact") and estnb(ix.get("_poids_total")) and ix["_poids_total"] >= tot:
+            tot = ix["_poids_total"]
         for r in rows:
             r["w"] = (r["officiel"] / tot) if estnb(r.get("officiel")) else 0.0
+        # Un membre de la liste absent du fichier exact : le fonds (ou le
+        # fournisseur) ne le tient plus — la liste Wikipédia est en retard.
         rows[:] = [r for r in rows if r["w"] > 0]
-        return {"libelle": "officiels"}
+        return {"libelle": "exacts" if ix.get("_exact") else "officiels"}
     capi_seule = ix["source"] == "place"
     base = bases(rows, capi_seule)
     tot = sum(base.values()) or 1.0
@@ -1659,6 +1762,14 @@ def ponderer(ix, rows):
             info["controle"] = {"etf": etf.upper(), "ecart_moyen_top10_pts": rd(sum(e) / len(e), 2)}
             reste = max(0.0, 1.0 - sum(exacts.values()))
             plancher = min(exacts.values())
+            # ⚠ Un poids exact de l'ETF NON RAPPROCHÉ (Airbus : coté à Paris chez
+            # nous, à Francfort dans l'ETF) est un gros membre qui tombe dans « le
+            # reste » : le plafonner au 25e l'a mis à 0,96 % pour 6,45 % réels
+            # (30/09/2026). Plafond seulement si tout le haut a été rapproché.
+            non_rapproches = [k for k, p in (top or {}).items() if p > 0 and k not in par_chemin]
+            if non_rapproches:
+                plancher = float("inf")
+                info["non_rapproches"] = non_rapproches[:10]
             autres = {i: x for i, x in w.items() if i not in exacts}
             ta = sum(autres.values()) or 1.0
             autres = {i: x / ta * reste for i, x in autres.items()}
@@ -1792,12 +1903,48 @@ def cours_des_membres(ix, rows, memo):
     return out, echecs, ajuste
 
 
+# La concentration EXACTE, mois par mois, lue dans les avoirs des fonds qui
+# répliquent l'indice (construire_histo_indices.py) : chargée une fois par passage.
+HISTO_MENSUEL = {}
+
+
+def histo_mensuel(ix, precedent, conc, rows, methode):
+    """La concentration EXACTE, mois par mois. Amorcée par les avoirs mensuels
+    passés du fonds répliquant (indices_histo.json), puis relue dans la fiche
+    précédente et prolongée à chaque passage : le point du mois courant est
+    réécrit avec les poids du jour, et devient celui de fin de mois. Seulement
+    avec des poids exacts ou officiels — jamais d'estimation dans cette série."""
+    hm = (precedent or {}).get("histo_mensuel")
+    base = HISTO_MENSUEL.get(ix["code"])
+    if base and (not hm or len(base.get("mois") or []) > len(hm.get("mois") or [])):
+        hm = base
+    hm = {k: (list(v) if isinstance(v, list) else v) for k, v in (hm or {}).items()}
+    if methode not in ("exacts", "officiels"):
+        return hm or None
+    for k in ("mois", "n", "top1", "top5", "top10", "neff", "hhi", "premier"):
+        hm.setdefault(k, [])
+    mois = time.strftime("%Y-%m")
+    if hm["mois"] and hm["mois"][-1] == mois:
+        for k in ("mois", "n", "top1", "top5", "top10", "neff", "hhi", "premier"):
+            if hm[k]:
+                hm[k].pop()
+    premier = max(rows, key=lambda r: r["w"]) if rows else None
+    for k, v in (("mois", mois), ("n", conc.get("n")), ("top1", conc.get("top1")), ("top5", conc.get("top5")),
+                 ("top10", conc.get("top10")), ("neff", conc.get("n_effectif")), ("hhi", conc.get("hhi")),
+                 ("premier", premier["nom"] if premier else None)):
+        hm[k].append(v)
+    hm.setdefault("source", "Poids %s relevés à chaque passage de la collecte." % methode)
+    hm["pas"] = "mensuel"
+    return hm
+
+
 def traiter(ix, places, fx, precedent, memo_cours, marche):
     rows, compo, absents, membres = composer(ix, places, precedent)
     if not rows:
         return None
     methode_info = ponderer(ix, rows)
     methode = methode_info["libelle"]
+
     n_membres = len(membres)
     # ── GARDE : une composition mal rattachée ne se publie pas ──
     # Moins de 85 % des membres retrouvés, c'est une table Wikipédia qui a changé
@@ -1820,7 +1967,7 @@ def traiter(ix, places, fx, precedent, memo_cours, marche):
             r["mm200_drap"] = (p_ > m200) if estnb(p_) and estnb(m200) and m200 > 0 else None
     val = valorisation(rows)
     rent = rentabilite(rows)
-    conc = concentration(rows)
+    conc = concentration(rows, 1.0 if ix.get("_exact") else None)
     amp = ampleur(rows)
     perf = performance(rows, niveau, series, rentab=ix["code"] in RENTABILITE, egal=egal)
     # La capitalisation est dans la devise PRINCIPALE du cours : Londres cote en
@@ -1927,6 +2074,7 @@ def traiter(ix, places, fx, precedent, memo_cours, marche):
         "note": note and {k: note[k] for k in note if k.endswith("_median") or k.endswith("_n")},
         "niveau": dict({k: v for k, v in (niveau or {}).items() if k != "_jours"}) if niveau else None,
         "histo": h,
+        "histo_mensuel": histo_mensuel(ix, precedent, conc, rows, methode),
         "composition": compo,
         "membres": [{"cle": m["cle"], "nom": m.get("nom"), "poids_officiel": m.get("poids_officiel")}
                     for m in membres],
@@ -1962,6 +2110,8 @@ def main():
         places[p] = screener(p)
         log("[info] screener %s : %s lignes" % (p, len(places[p]) if places[p] else "MUET"))
     marche = charger_marche()
+    HISTO_MENSUEL.update(((lire_json("indices_histo.json") or {}).get("indices")) or {})
+    log("[info] concentration exacte mensuelle : %s" % (", ".join(sorted(HISTO_MENSUEL)) or "aucune"))
     memo_cours = {}
     ancien = lire_json("indices_fiches.json") or {}
     anciens = {s.get("code"): s for s in (ancien.get("indices") or [])}

@@ -20,6 +20,10 @@ qu'il échoue. Un test qui passe aussi sur le code cassé ne protège rien.
       ramenée au bon jour.
   [8] Un cours isolé cinq fois trop haut est retiré ; un vrai changement de
       niveau reste.
+  [9] Fichier exact : membre retrouvé par ISIN, cotation de la place de
+      l'indice préférée (Airbus : Francfort pour le DAX, pas Paris).
+ [10] Concentration sur le total du FICHIER : les membres introuvables (fonds
+      cotés du FTSE 100) ne sont pas redistribués sur les autres.
 """
 import copy
 import os
@@ -165,6 +169,33 @@ def t8_nettoyer():
     verifier("vrai changement de niveau gardé", n2 == 0)
 
 
+def t9_exact():
+    print("[9] composition exacte par ISIN")
+    lignes = {"epa/AIR": {"isin": "NL0000235190", "name": "Airbus SE"},
+              "etr/AIR": {"isin": "NL0000235190", "name": "Airbus SE"},
+              "etr/SAP": {"isin": "DE0007164600", "name": "SAP SE"}}
+    xs = [{"isin": "NL0000235190", "nom": "AIRBUS", "poids": 6.4}, {"isin": "DE0007164600", "nom": "SAP", "poids": 10.7}]
+    xs += [{"isin": "XX%010d" % i, "nom": "Titre %d" % i, "poids": 1.0} for i in range(10)]
+    ix = {"code": "essai", "pays": "DE", "nom": "Essai"}
+    F.LECTEURS_EXACTS["essai"] = lambda: ("2026-09-29", xs, "fichier d'essai")
+    try:
+        m, meta = F.composition_exacte(ix, lignes)
+    finally:
+        F.LECTEURS_EXACTS.pop("essai", None)
+    verifier("Airbus → cotation de Francfort", m and m[0]["cle"] == "etr/AIR", str(m and m[0]["cle"]))
+    verifier("poids exacts portés", m and m[1]["poids_officiel"] == 10.7)
+    verifier("méthode dite exacte", bool(meta and meta.get("exact")))
+
+
+def t10_total():
+    print("[10] concentration sur le total du fichier")
+    rows = [{"w": 0.3}, {"w": 0.2}] + [{"w": 0.04} for _ in range(12)]    # 98 % du fichier
+    for r in rows:
+        r["v"] = {}
+    c = F.concentration(rows, 1.0)
+    verifier("le premier pèse 30 %, pas 30,6 %", abs(c["top1"] - 30.0) < 1e-9, str(c["top1"]))
+
+
 def tout():
     del ECHECS[:]
     t1_fenetres()
@@ -175,12 +206,15 @@ def tout():
     t6_note()
     t7_dates()
     t8_nettoyer()
+    t9_exact()
+    t10_total()
     return list(ECHECS)
 
 
 def mutants():
     """Chaque mutation casse une règle ; le test doit échouer."""
-    orig = {k: getattr(F, k) for k in ("dernier_au_plus_tard", "performance", "SCREENER_FEN", "PIC_FACTEUR", "FEN_MEMBRES")}
+    orig = {k: getattr(F, k) for k in ("dernier_au_plus_tard", "performance", "SCREENER_FEN", "PIC_FACTEUR", "FEN_MEMBRES",
+                                        "PLACE_MAISON", "concentration")}
     cas = []
 
     def m1():   # référence APRÈS la date cible
@@ -215,6 +249,15 @@ def mutants():
     def m5():   # reconstitution publiée à 3 ans
         F.FEN_MEMBRES = F.FEN_MEMBRES + ("3a",)
     cas.append(("reconstitution à 3 ans", m5))
+
+    def m6():   # plus de préférence pour la place de l'indice
+        F.PLACE_MAISON = {}
+    cas.append(("place de l'indice ignorée", m6))
+
+    def m7():   # renormalisation sur les seuls membres trouvés
+        src = orig["concentration"]
+        F.concentration = lambda rows, total=None: src(rows, None)
+    cas.append(("renormalisation sur les trouvés", m7))
 
     rates = 0
     for nom, casser in cas:
