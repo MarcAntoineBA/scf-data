@@ -1,16 +1,16 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-09-29T11:57:45Z",
+  "ts": "2026-09-30T11:35:13Z",
   "total": 40,
-  "ok": 35,
-  "secs": 3693.6,
-  "changed": 2493,
-  "versionnes": 2484,
+  "ok": 34,
+  "secs": 2972.4,
+  "changed": 1951,
+  "versionnes": 1942,
   "pieces_jointes": 9,
-  "absents": 404,
+  "absents": 329,
   "muets": [
-   "gtrends.serpapi (73.1 h)"
+   "gtrends.serpapi (96.7 h)"
   ],
   "failed": [
    {
@@ -30,10 +30,14 @@
     "why": "script absent"
    },
    {
+    "job": "marche",
+    "why": "[fatal] 74107 lignes reçues de la source contre 85182 au passage précédent, soit 13 % de moins. L'univers de la source ne varie pas ainsi : c'est un bridage ou une panne. On garde les fragments exista"
+   },
+   {
     "job": "secteursmondiaux",
-    "why": "[refus] fragments de marche vieux de 787 h (seuil 48 h) dans ~/work/scf-data/scf-data/scripts : on ne publie pas un agregat perime sous une date du jour. Fichier precedent conserve."
+    "why": "[refus] fragments de marche vieux de 810 h (seuil 48 h) dans ~/work/scf-data/scf-data/scripts : on ne publie pas un agregat perime sous une date du jour. Fichier precedent conserve."
    }
   ]
  },
- "updated": "2026-09-29T11:57:45Z"
+ "updated": "2026-09-30T11:35:13Z"
 }
