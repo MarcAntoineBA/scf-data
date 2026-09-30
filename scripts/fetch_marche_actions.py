@@ -294,6 +294,57 @@ def taux_bce():
     return out
 
 
+# ── LES DEVISES QUE NI LE CACHE NI LA BCE NE DONNENT SUR LE SERVEUR ──
+#
+# Sur le serveur de collecte, les deux caches de taux lus plus bas N'EXISTENT
+# PAS : `tradfi_fx_cache.json` est écrit par une autre cadence et jamais publié,
+# le passage quotidien ne le voit donc pas. Restait la BCE, qui ne cote ni le
+# riyal saoudien, ni le dirham émirati, ni le dollar de Taïwan (cessé en 2020).
+# Mesuré le 30/09/2026 : depuis la migration de début septembre, les fragments
+# portaient 7 lignes en TWD au lieu de 997, 6 en SAR au lieu de 206 — Saudi
+# Aramco (1 600 Md$), TSMC en cotation locale, MediaTek, Hon Hai, Al Rajhi
+# absents du tableau des métiers, sans autre trace que la liste
+# `devises_sans_taux` de l'index.
+#
+# Les parités FIXES d'abord : ces six devises sont arrimées au dollar par leur
+# banque centrale, depuis des décennies — le cours de marché s'en écarte de
+# quelques dixièmes de pour cent. Unités de devise pour UN dollar.
+PARITES_FIXES_USD = {"SAR": 3.75, "AED": 3.6725, "QAR": 3.64,
+                     "OMR": 0.3845, "BHD": 0.376, "JOD": 0.709}
+# Puis Yahoo, pour des devises LIQUIDES seulement, dont le cours affiché est le
+# cours réel — pas le peso argentin ni le rouble, où le cours officiel ment.
+# Fourchette : unités pour un dollar hors desquelles le cours est une erreur.
+DEVISES_YAHOO = {"TWD": (20.0, 50.0)}
+
+
+def taux_yahoo(devises):
+    """{DEVISE: valeur d'une unité en dollars} au dernier cours Yahoo — seulement
+    pour les devises demandées, et seulement dans leur fourchette."""
+    out = {}
+    if not devises:
+        return out
+    try:
+        from curl_cffi import requests as _cr        # sans elle, Yahoo répond 403
+    except Exception:
+        print("[warn] curl_cffi absent : pas de taux Yahoo pour %s" % ", ".join(devises),
+              file=sys.stderr)
+        return out
+    for dev in devises:
+        try:
+            r = _cr.get("https://query1.finance.yahoo.com/v8/finance/chart/%s=X"
+                        "?range=5d&interval=1d" % dev, impersonate="chrome120", timeout=20)
+            par_dollar = r.json()["chart"]["result"][0]["meta"]["regularMarketPrice"]
+            bas, haut = DEVISES_YAHOO[dev]
+            if not (bas <= par_dollar <= haut):
+                print("[warn] %s à %s pour un dollar chez Yahoo, hors fourchette %s-%s : "
+                      "écarté" % (dev, par_dollar, bas, haut), file=sys.stderr)
+                continue
+            out[dev] = 1.0 / par_dollar
+        except Exception as e:
+            print("[warn] taux %s indisponible chez Yahoo : %s" % (dev, e), file=sys.stderr)
+    return out
+
+
 def charger_taux():
     """{DEVISE: valeur d'une unité en dollars}, au dernier jour connu.
 
@@ -341,6 +392,17 @@ def charger_taux():
         out.setdefault(dev, t)
     print("[info] taux : %d du cache, %d ajoutés par la BCE"
           % (len(out) - len(bce) + sum(1 for d2 in bce if d2 in out), len(bce)))
+    # Puis les parités fixes, puis Yahoo : eux aussi bouchent, n'écrasent pas.
+    fixes = [d for d in PARITES_FIXES_USD if d not in out]
+    for dev in fixes:
+        out[dev] = 1.0 / PARITES_FIXES_USD[dev]
+    yahoo = taux_yahoo([d for d in DEVISES_YAHOO if d not in out])
+    for dev, t in yahoo.items():
+        out.setdefault(dev, t)
+    if fixes or yahoo:
+        print("[info] taux : %d par parité fixe au dollar (%s), %d au marché chez "
+              "Yahoo (%s)" % (len(fixes), ", ".join(fixes) or "-",
+                              len(yahoo), ", ".join(sorted(yahoo)) or "-"))
     # Les sous-unités se déduisent de leur devise mère.
     for sous, (mere, div) in SOUS_UNITES.items():
         if mere in out:
@@ -540,14 +602,81 @@ def _publie_precedemment(cache):
     return n
 
 
+# ── UNE PLACE ENTIÈRE QUI QUITTE LA SOURCE N'EST PAS UN BRIDAGE ──
+#
+# Le 30/09/2026, le hors-cote américain (OTCMKTS : onze mille titres, 3 993
+# publiés la veille) a quitté d'un bloc le point d'entrée. 74 107 lignes brutes
+# contre 85 182, soit 13 % de moins : le garde-fou a tout refusé et republié les
+# fragments de la veille. Or les quatre-vingt-cinq autres places étaient là, au
+# titre près — un bridage, lui, ampute PARTOUT. Conséquence : l'onglet Secteurs
+# « daté de 29 h » et toutes les fiches figées d'un jour, pour une place dont
+# 66 sociétés seulement n'avaient aucune autre cotation (les autres sont des
+# doublons hors-cote de sociétés cotées chez elles : Nestlé, Toyota…).
+#
+# La règle : une place qui publiait au moins PLACE_DISPARUE_MIN sociétés et
+# n'envoie plus AUCUNE ligne, alors que tous les pays ont répondu, est une place
+# DISPARUE. Elle sort des deux côtés de la comparaison, l'index la nomme
+# (`places_disparues`, avec la date du constat) tant qu'elle n'est pas revenue,
+# et le reste de la collecte est jugé seul. Au-delà de PLACES_DISPARUES_MAX des
+# sociétés publiées, on refuse quand même : ce n'est plus une place qui s'en va,
+# c'est la source qui change, et cela mérite un regard humain.
+PLACE_DISPARUE_MIN = 200
+PLACES_DISPARUES_MAX = 0.15
+
+
+def _publies_par_place(cache):
+    """{place: sociétés publiées} au passage précédent, relu dans les fragments."""
+    import glob as _g
+    n = {}
+    for f in _g.glob(str(cache / "marche_[0-9]*.json")):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+            i = d["champs"].index("exchange")
+            for r in (d.get("societes") or {}).values():
+                p = (r[i] if i < len(r) else None) or "?"
+                n[p] = n.get(p, 0) + 1
+        except Exception:
+            pass
+    return n
+
+
+def _index_precedent(cache, brutes_avant):
+    """L'index du passage précédent — seulement s'il décrit BIEN les fragments
+    relus (même compte brut) : un index d'un autre jour ferait retirer d'une
+    comparaison des lignes qui n'en faisaient pas partie."""
+    try:
+        with open(cache / "marche_actions_index.json", encoding="utf-8") as fh:
+            ex = json.load(fh).get("exhaustivite") or {}
+    except Exception:
+        return {}
+    return ex if ex.get("lignes_brutes") == brutes_avant else {}
+
+
+def _places_disparues(publies_avant, brutes_places, muets):
+    """Les places présentes au passage précédent et absentes, EN BLOC, de celui-ci.
+    Un pays muet interdit la conclusion : ses places manqueraient aussi."""
+    if muets:
+        return {}
+    return {p: n for p, n in publies_avant.items()
+            if n >= PLACE_DISPARUE_MIN and not brutes_places.get(p)}
+
+
 def _refuser_effondrement(avant, maintenant, muets, appels,
-                          brutes_avant=0, brutes=0):
+                          brutes_avant=0, brutes=0,
+                          disparues=None, brutes_disparues_avant=None):
     """Refuse d'écrire une collecte manifestement amputée.
 
     Écrit après avoir vu, sur cette machine, une collecte bridée écraser 37 986
     sociétés par 24 435 — vingt-sept pays muets — et se terminer par « [ok] ».
     Mieux vaut la donnée de la veille, qui est datée, que celle d'aujourd'hui
     amputée d'un tiers, qui est fausse.
+
+    `disparues` : {place: sociétés publiées au passage précédent} des places
+    sorties en bloc de la source (voir PLACE_DISPARUE_MIN). `brutes_disparues_avant`
+    : leurs lignes BRUTES au passage précédent, ou None si ce passage ne les a
+    pas notées — le contrôle brut est alors sauté et le contrôle des sociétés
+    publiées, sur les places restantes, se resserre de 90 à 95 %.
     """
     # Zéro pays muet sur un run sain. Le seuil d'un dixième — huit pays sur
     # quatre-vingt-six — laissait passer une collecte déjà amputée.
@@ -557,6 +686,23 @@ def _refuser_effondrement(avant, maintenant, muets, appels,
             "ou est en panne : on ne réécrit pas les fragments avec un "
             "échantillon. Relancer plus tard."
             % (len(muets), appels, ", ".join(sorted(muets)[:8])))
+    seuil_publie = 0.90
+    if disparues and avant:
+        perdu = sum(disparues.values())
+        if perdu > avant * PLACES_DISPARUES_MAX:
+            raise SystemExit(
+                "[fatal] %d place(s) sortie(s) en bloc de la source (%s), soit "
+                "%.0f %% des sociétés publiées au passage précédent. Au-delà de "
+                "%.0f %%, ce n'est plus une place qui s'en va : c'est la source "
+                "qui change. On garde les fragments existants."
+                % (len(disparues), ", ".join(sorted(disparues)),
+                   100.0 * perdu / avant, 100.0 * PLACES_DISPARUES_MAX))
+        avant -= perdu
+        if brutes_disparues_avant is None:
+            brutes_avant = 0
+            seuil_publie = 0.95
+        else:
+            brutes_avant -= brutes_disparues_avant
     # Le compte BRUT d'abord : c'est l'univers de la source, pas notre filtrage.
     # Un run bridé a publié 34 525 au lieu de 38 075 — neuf pour cent de moins —
     # et le seuil d'un quart ne s'est pas déclenché. Sur le brut, l'écart aurait
@@ -568,13 +714,45 @@ def _refuser_effondrement(avant, maintenant, muets, appels,
             "pas ainsi : c'est un bridage ou une panne. On garde les fragments "
             "existants."
             % (brutes, brutes_avant, 100.0 * (1 - brutes / float(brutes_avant))))
-    if avant and maintenant < avant * 0.90:
+    if avant and maintenant < avant * seuil_publie:
         raise SystemExit(
             "[fatal] %d sociétés collectées contre %d au passage précédent, soit "
             "%.0f %% de moins. Aucune cause normale — jour férié, place fermée — "
             "ne fait perdre un quart de l'univers. On garde les fragments "
             "existants."
             % (maintenant, avant, 100.0 * (1 - maintenant / float(avant))))
+
+
+def _juger_collecte(cache, brut, publiees, muets, appels, horo):
+    """Compare la collecte du jour au passage précédent relu dans `cache` ; lève
+    SystemExit si elle est amputée. Rend ({place: lignes brutes},
+    {place disparue: constat}) pour l'index."""
+    brutes_places = {}
+    for v in brut.values():
+        p = v.get("exchange") or "?"
+        brutes_places[p] = brutes_places.get(p, 0) + 1
+    brutes_avant = _lignes_brutes_precedent(cache)
+    ex_avant = _index_precedent(cache, brutes_avant)
+    disparues = _places_disparues(_publies_par_place(cache), brutes_places, muets)
+    bp_avant = ex_avant.get("lignes_brutes_par_place")
+    _refuser_effondrement(_publie_precedemment(cache), publiees,
+                          muets, appels, brutes_avant, len(brut),
+                          disparues,
+                          sum(bp_avant.get(p, 0) for p in disparues)
+                          if isinstance(bp_avant, dict) else None)
+    # Le constat reste écrit tant que la place n'est pas revenue : dès le passage
+    # suivant, les fragments ne la contiennent plus et elle ne « disparaîtrait »
+    # plus — sans ce report, l'index l'oublierait en un jour.
+    places_disparues = {p: d for p, d in (ex_avant.get("places_disparues") or {}).items()
+                        if not brutes_places.get(p)}
+    for p, n in disparues.items():
+        places_disparues.setdefault(p, {"publiees_avant": n, "constatee_le": horo})
+    if disparues:
+        print("[!] place(s) sortie(s) EN BLOC de la source depuis le passage "
+              "précédent : %s. Collecte publiée sans elle(s), le reste jugé seul."
+              % ", ".join("%s (%d sociétés publiées)" % kv for kv in sorted(disparues.items())),
+              file=sys.stderr)
+    return brutes_places, places_disparues
 
 
 def main():
@@ -710,6 +888,7 @@ def main():
     _capi_depot = [0]
     _capi_absurdes = [0]
     _capi_converties = [0]
+    _capi_devise_inconnue = [0]
 
     def _med(x):
         x = sorted(x)
@@ -906,8 +1085,22 @@ def main():
         # Le facteur a été mesuré dans le fichier lui-même — voir
         # `calibrer_capitalisations`. Il ramène `mc` dans la devise du cours,
         # dont le taux est connu.
+        # ── NI VÉRIFIABLE NI CONVERTIBLE : ON IGNORE EN QUELLE DEVISE ELLE EST ──
+        #
+        # Les lignes en dollars de Buenos Aires n'ont pas de nombre d'actions,
+        # et leur capitalisation est en PESOS. Leur facteur (≈ 1 500) se mesurait
+        # par cotation croisée — sur les cotations hors-cote américaines des mêmes
+        # sociétés. Le 30/09/2026 la source a retiré le hors-cote : plus de
+        # facteur, et 289 lignes seraient sorties TELLES QUELLES en dollars —
+        # Cablevisión à 1 678 Md$ au lieu de 1,1, NVIDIA à huit millions de
+        # milliards. Mesuré ce jour-là : ce sont les SEULES lignes concernées.
+        # Sans facteur mesuré ni devise de place déduite, rien ne dit en quelle
+        # devise est `marketCap` : non publiée, et comptée.
         f = facteur_capi(pl, dev)
-        if f and f > 0 and abs(f - 1.0) > 0.02:
+        if f is None:
+            _capi_devise_inconnue[0] += 1
+            return 0.0
+        if f > 0 and abs(f - 1.0) > 0.02:
             _capi_converties[0] += 1
             v["_capi_facteur"] = round(f, 6)
             mc = mc / f
@@ -955,14 +1148,17 @@ def main():
         print("[ok] %d société(s) écartée(s) : leur capitalisation supposerait plus "
               "de %d milliards d'actions, donc elle n'est pas dans la devise du "
               "cours" % (_capi_absurdes[0], int(ACTIONS_IMPLICITES_MAX / 1e9)))
+    if _capi_devise_inconnue[0]:
+        print("[ok] %d ligne(s) écartée(s) : ni nombre d'actions pour vérifier la "
+              "capitalisation, ni facteur mesuré pour savoir en quelle devise elle est"
+              % _capi_devise_inconnue[0])
     if sans_taux:
         print("[ok] devises sans taux, sociétés non publiées faute de comparaison : %s"
               % ", ".join(sorted(x for x in sans_taux if x)))
 
     # ── On ne réécrit pas les fragments avec un échantillon ──
-    _refuser_effondrement(_publie_precedemment(CACHE_DIR), len(retenus),
-                          muets, len(appels),
-                          _lignes_brutes_precedent(CACHE_DIR), len(brut))
+    brutes_places, places_disparues = _juger_collecte(
+        CACHE_DIR, brut, len(retenus), muets, len(appels), horo)
 
     frag = {}
     for sym, v in retenus:
@@ -1011,6 +1207,10 @@ def main():
             "appels": len(appels),
             "pays_muets": muets,
             "lignes_brutes": len(brut),
+            # Par place : la base du garde-fou « place disparue » au passage suivant.
+            "lignes_brutes_par_place": dict(sorted(brutes_places.items(),
+                                                   key=lambda kv: -kv[1])),
+            "places_disparues": places_disparues,
             "rattachees": len(lignes),
             "sans_correspondance": sans_symbole,
             "converties_de_pence": pence,
@@ -1021,6 +1221,7 @@ def main():
             "seuil_capitalisation_usd": SEUIL_CAPI_USD,
             "plus_petite_capitalisation_usd_publiee": seuil_capi,
             "devises_sans_taux": sorted(x for x in sans_taux if x),
+            "capitalisations_devise_inconnue": _capi_devise_inconnue[0],
             "suivis_en_profondeur_publies": suivis_retenus,
             "fragments": len(poids),
             "format": "une ligne = un tableau, la liste des champs est en tête "
