@@ -1070,6 +1070,19 @@ def valorisation(rows):
     pe = 100.0 / (ey / wey) if wey and ey > 0 else None
     pes = [r["v"]["peRatio"] for r in rows if estnb(r["v"].get("peRatio")) and r["v"]["peRatio"] > 0]
     pertes = sum(r["w"] for r in rows if estnb(r["v"].get("earningsYield")) and r["v"]["earningsYield"] < 0)
+    # ⚠ UNE PERTE GÉANTE FAIT LE P/E (30/09/2026) : Stellantis, 1,1 % du FTSE MIB,
+    # perdait 1,7 fois sa capitalisation (rendement −172 %) et effaçait à elle
+    # seule 31 % des bénéfices de l'indice — P/E 24,6 au lieu de 16,2 hors pertes.
+    # Le P/E agrégé reste la mesure (celle de S&P), mais on publie à côté celui des
+    # sociétés bénéficiaires (convention de Bloomberg), la part des bénéfices
+    # effacée par les pertes et le plus gros perdant.
+    gains = [(r, r["v"]["earningsYield"]) for r in rows if estnb(r["v"].get("earningsYield")) and r["v"]["earningsYield"] > 0]
+    g_ey = sum(r["w"] * e for r, e in gains)
+    g_w = sum(r["w"] for r, _ in gains)
+    p_ey = sum(r["w"] * r["v"]["earningsYield"] for r in rows
+               if estnb(r["v"].get("earningsYield")) and r["v"]["earningsYield"] < 0)
+    perdant = min((r for r in rows if estnb(r["v"].get("earningsYield"))),
+                  key=lambda r: r["w"] * r["v"]["earningsYield"], default=None)
     return {
         "pe": rd(pe, 1),
         "pe_couv": rd(100 * wey / tot, 0),
@@ -1086,6 +1099,10 @@ def valorisation(rows):
         "rdt_rachat": rd(bb / wbb, 2) if wbb else None,
         "rdt_actionnaire": rd(dy + (bb / wbb if wbb else 0.0), 2),
         "poids_en_perte": rd(100 * pertes / tot, 1),
+        "pe_hors_pertes": rd(100.0 / (g_ey / g_w), 1) if g_w and g_ey > 0 else None,
+        "pertes_part_benef": rd(-100 * p_ey / g_ey, 1) if g_ey > 0 and p_ey < 0 else 0.0,
+        "plus_gros_perdant": ([perdant["nom"], rd(100 * perdant["w"], 2), rd(perdant["v"]["earningsYield"], 1)]
+                              if perdant and perdant["v"]["earningsYield"] < 0 else None),
     }
 
 
@@ -1696,7 +1713,8 @@ def composition_exacte(ix, lignes):
                         "nom": x.get("nom"), "poids_officiel": x["poids"], "isin": x.get("isin")})
     return membres, {"source": "Avoirs du fonds %s, qui réplique physiquement l'indice"
                                % FONDS_EXACTS.get(ix["code"], "répliquant"),
-                     "url": url, "date": date_, "poids": "exacts (fonds répliquant, au %s)" % date_,
+                     "url": url, "date": date_, "poids": "exacts (fonds répliquant, au %s)"
+                     % ("/".join(reversed(str(date_)[:10].split("-"))) if re.match(r"^\d{4}-\d{2}-\d{2}", str(date_)) else date_),
                      "exact": True}
 
 
