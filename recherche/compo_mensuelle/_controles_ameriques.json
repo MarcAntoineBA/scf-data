@@ -1,0 +1,275 @@
+{
+ "tsx": {
+  "premier_mois": "2006-11",
+  "premiere_date": "2006-11-30",
+  "derniere_date": "2026-08-31",
+  "nb_mois": 230,
+  "mois_absents": [
+   "2007-08",
+   "2007-10",
+   "2017-01",
+   "2017-02",
+   "2017-03",
+   "2017-04",
+   "2017-05",
+   "2017-06"
+  ],
+  "membres_min": 203,
+  "membres_max": 279,
+  "nb_mois_hors_fourchette": 41,
+  "hors_fourchette": {
+   "2006-11": 274,
+   "2006-12": 277,
+   "2007-01": 274,
+   "2007-02": 272,
+   "2007-03": 279,
+   "2007-04": 278,
+   "2007-05": 278,
+   "2007-06": 275,
+   "2007-07": 270,
+   "2007-09": 269,
+   "2007-11": 264,
+   "2009-01": 215,
+   "2009-02": 215,
+   "2009-03": 209,
+   "2009-04": 209,
+   "2009-05": 209,
+   "2009-06": 209,
+   "2009-07": 208,
+   "2009-08": 206,
+   "2009-09": 204,
+   "2009-10": 203,
+   "2009-11": 203,
+   "2009-12": 211,
+   "2010-01": 210,
+   "2010-02": 210,
+   "2021-02": 219,
+   "2024-11": 219,
+   "2025-03": 218,
+   "2025-04": 218,
+   "2025-05": 217,
+   "2025-06": 213,
+   "2025-07": 212,
+   "2025-08": 211,
+   "2025-09": 213,
+   "2025-10": 213,
+   "2025-11": 211,
+   "2025-12": 218,
+   "2026-01": 218,
+   "2026-02": 217,
+   "2026-07": 219,
+   "2026-08": 217
+  },
+  "ecart_max_somme_100": 1.2999999995599865e-05,
+  "isin_manquants": 123,
+  "isin_en_double": 0,
+  "recoupements": [
+   {
+    "source": "S&P DJI, effet 19/12/2022 : + AOI, PET, SVI ; - CF, CJR.B, NFI",
+    "nov_dec_2022": {
+     "entrees": [
+      "AOI",
+      "BAM",
+      "BN",
+      "PET",
+      "SVI"
+     ],
+     "sorties": [
+      "BAM.A",
+      "CF",
+      "CJR.B",
+      "NFI",
+      "TRQ"
+     ]
+    }
+   },
+   {
+    "source": "S&P DJI, effet 19/06/2023 : - CTS, RBA, WEED",
+    "mai_juin_2023": {
+     "entrees": [
+      "2260615D"
+     ],
+     "sorties": [
+      "BLU",
+      "CTS",
+      "RBA",
+      "WEED"
+     ]
+    }
+   },
+   {
+    "source": "S&P DJI, effet 23/12/2024 : + ARE, EFX, NGEX, TVK",
+    "nov_dec_2024": {
+     "entrees": [
+      "ARE",
+      "EFX",
+      "NGEX",
+      "TVK"
+     ],
+     "sorties": []
+    }
+   }
+  ]
+ },
+ "ipc": {
+  "premier_mois": "2009-11",
+  "premiere_date": "2009-11-30",
+  "derniere_date": "2026-08-31",
+  "nb_mois": 192,
+  "mois_absents": [
+   "2010-05",
+   "2010-06",
+   "2010-07",
+   "2010-08",
+   "2017-01",
+   "2017-02",
+   "2017-03",
+   "2017-04",
+   "2017-05",
+   "2017-06"
+  ],
+  "membres_min": 33,
+  "membres_max": 39,
+  "nb_mois_hors_fourchette": 0,
+  "hors_fourchette": {},
+  "ecart_max_somme_100": 5.999999999062311e-06,
+  "isin_manquants": 0,
+  "isin_en_double": 0,
+  "recoupements": [
+   {
+    "source": "BMV Acciones Oficiales sept. 2015 (35 séries)",
+    "2015-08_identique": true
+   },
+   {
+    "source": "BMV previo sept. 2016 : entra BOLSA A ; salen ICA*, LACOMER UBC, SITES B-1",
+    "jul_aug_2016": {
+     "entrees": [
+      "BOLSAA"
+     ],
+     "sorties": [
+      "ICHB",
+      "LACOMERUBC",
+      "SIMECB",
+      "SITESB.1"
+     ]
+    },
+    "aug_sep_2016": {
+     "entrees": [],
+     "sorties": [
+      "ICA"
+     ]
+    }
+   },
+   {
+    "source": "S&P DJI 04/09/2026 (effet 21/09/2026)",
+    "2026-08": {
+     "ALPEKA_present": false,
+     "TLEVISACPO_present": true
+    }
+   }
+  ]
+ },
+ "ibov": {
+  "premier_mois": "2008-11",
+  "premiere_date": "2008-11-28",
+  "derniere_date": "2026-08-31",
+  "nb_mois": 208,
+  "mois_absents": [
+   "2017-01",
+   "2017-02",
+   "2017-03",
+   "2017-04",
+   "2017-05",
+   "2017-06"
+  ],
+  "membres_min": 58,
+  "membres_max": 93,
+  "nb_mois_hors_fourchette": 27,
+  "hors_fourchette": {
+   "2016-04": 59,
+   "2016-05": 59,
+   "2016-06": 59,
+   "2016-07": 59,
+   "2016-08": 59,
+   "2016-09": 58,
+   "2016-10": 58,
+   "2016-11": 58,
+   "2016-12": 59,
+   "2017-07": 59,
+   "2017-08": 58,
+   "2017-09": 59,
+   "2017-10": 59,
+   "2017-11": 59,
+   "2021-09": 91,
+   "2021-10": 92,
+   "2021-11": 92,
+   "2021-12": 93,
+   "2022-01": 92,
+   "2022-02": 91,
+   "2022-03": 91,
+   "2022-04": 92,
+   "2022-05": 92,
+   "2022-06": 92,
+   "2022-09": 92,
+   "2022-10": 92,
+   "2022-11": 92
+  },
+  "ecart_max_somme_100": 7.999999994012796e-06,
+  "isin_manquants": 0,
+  "isin_en_double": 0,
+  "recoupements": [
+   {
+    "source": "CVM, fonds CAIXA BRASIL INDEXA IBOVESPA, 30/06/2026",
+    "titres_differents": [],
+    "ecart_max_pts": 0.0064
+   },
+   {
+    "source": "CVM (3 fonds indiciels) + B3 prévia 17/08/2015 : + EQTL3, RADL3 ; - DTEX3, ELET6, GFSA3, POMO4",
+    "aug_sep_2015": {
+     "entrees": [
+      "EQTL3",
+      "RADL3"
+     ],
+     "sorties": [
+      "DTEX3",
+      "ELET6",
+      "GFSA3",
+      "POMO4"
+     ]
+    }
+   },
+   {
+    "source": "presse : entrée de RENT3 en janv. 2012",
+    "dec_2011_jan_2012": {
+     "entrees": [
+      "DASA3",
+      "RENT3"
+     ],
+     "sorties": []
+    }
+   }
+  ]
+ },
+ "sp500": {
+  "premier_mois": "2000-09",
+  "premiere_date": "2000-09-30",
+  "derniere_date": "2026-06-30",
+  "nb_mois": 89,
+  "mois_absents": null,
+  "membres_min": 499,
+  "membres_max": 507,
+  "nb_mois_hors_fourchette": 0,
+  "hors_fourchette": {},
+  "ecart_max_somme_100": 2.4999999993724487e-05,
+  "isin_manquants": 30593,
+  "isin_en_double": 0,
+  "dates_a_verifier_absentes": [
+   "2004-12-31",
+   "2005-12-31",
+   "2006-06-30",
+   "2013-09-30",
+   "2014-06-30",
+   "2018-06-30"
+  ]
+ }
+}

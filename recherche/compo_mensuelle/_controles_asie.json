@@ -1,0 +1,177 @@
+{
+ "nikkei225": {
+  "premier": "2006-01",
+  "dernier": "2026-09",
+  "mois": 249,
+  "mois_absents": [],
+  "exacts_flag": false,
+  "mois_avec_poids": 19,
+  "poids_de": "2020-07",
+  "effectifs": {
+   "223": 3,
+   "224": 7,
+   "225": 239
+  },
+  "sommes_poids": [
+   100.0,
+   100.0
+  ],
+  "isin_non_nuls": 0,
+  "controles": [
+   "Effectifs : 225 sur 239 mois ; 223-224 sur 10 fins de mois de fusion (ex. mars 2010 : 223 titres, confirmé par Wikipédia JA « 2010年3月29日から4月2日までは223銘柄 »).",
+   "18 fichiers officiels de poids archivés (2020-07 à 2026-08) : même ensemble de 225 codes que la reconstruction, 18 sur 18.",
+   "Recoupements datés : Nidec → Ibiden 11/11/2025, Furukawa → CyberAgent 01/10/2018, Kumagai Gumi et Toagosei → Pacific Metals et Hitachi CM 01/10/2008 (Wikipédia JA, factsheet 2019)."
+  ],
+  "trous": "aucun mois absent ; poids seulement pour 19 mois (archives officielles + calcul exact de 2026-09). Les poids des autres mois demandent les cours et les facteurs ou valeurs nominales historiques, non disponibles en source libre."
+ },
+ "hsi": {
+  "premier": "2006-01",
+  "dernier": "2026-09",
+  "mois": 249,
+  "mois_absents": [],
+  "exacts_flag": false,
+  "mois_avec_poids": 107,
+  "poids_de": "2017-11",
+  "effectifs": {
+   "33": 8,
+   "34": 3,
+   "36": 3,
+   "38": 3,
+   "39": 3,
+   "40": 3,
+   "42": 17,
+   "43": 16,
+   "45": 9,
+   "46": 6,
+   "48": 6,
+   "49": 9,
+   "50": 89,
+   "51": 4,
+   "52": 3,
+   "55": 3,
+   "58": 3,
+   "60": 3,
+   "64": 3,
+   "66": 3,
+   "69": 3,
+   "73": 3,
+   "76": 6,
+   "80": 6,
+   "82": 12,
+   "83": 6,
+   "85": 3,
+   "88": 5,
+   "89": 1,
+   "90": 3,
+   "93": 3,
+   "95": 1
+  },
+  "sommes_poids": [
+   100.0,
+   100.0
+  ],
+  "isin_non_nuls": 95,
+  "controles": [
+   "Effectif mensuel égal, sur les 249 mois, à la colonne officielle « nombre de membres après changement » du fichier HSI (33 en 2006 → 50 en 2012 → 95 en 09/2026).",
+   "ETF 3115 (107 mois) : même ensemble de membres que la reconstruction, à deux lignes près (0011 Hang Seng Bank encore détenu fin 01/2026 après sa sortie du 15/01, 9658 en 12/2022). 13 lignes sans code rapprochées par le nom (NWD, Budweiser, WuXi Bio en 2020-2021).",
+   "Raccord 2008 : reconstruction à rebours = dernière liste du fichier pré-2008 (43 titres).",
+   "Recoupements datés avec Wikipédia ZH : 08/06/2009, 10/09/2018, 05/06/2023."
+  ],
+  "trous": "aucun mois absent ; poids depuis 2017-11 (avant : 3115 inexistant, Tracker 2800 sans historique)."
+ },
+ "csi300": {
+  "premier": "2006-01",
+  "dernier": "2026-09",
+  "mois": 249,
+  "mois_absents": [],
+  "exacts_flag": false,
+  "mois_avec_poids": 167,
+  "poids_de": "2012-05",
+  "effectifs": {
+   "300": 249
+  },
+  "sommes_poids": [
+   94.04,
+   100.0
+  ],
+  "isin_non_nuls": 0,
+  "controles": [
+   "300 membres sur les 249 mois.",
+   "BaoStock au 30/09/2026 = liste officielle 000300cons.xls (300 sur 300).",
+   "ETF 2846 = BaoStock à l'identique chaque fois que la photo BaoStock est fraîche (vérifié 2021-03, 2021-04, 2021-05, 2021-07, 2021-09, 2023-03, 2023-04, 2024-06, 2026-09).",
+   "Photo BaoStock périmée de 2021-06 à 2023-02 (jusqu'à 211 jours) : 19 mois pris dans l'ETF (300 lignes).",
+   "Recoupements avec les annonces officielles CSI : 03/07/2006 (30 changements), 10/11/2006 (ICBC), janvier 2011 (26 changements)."
+  ],
+  "trous": "aucun mois absent ; poids de 2012-05 à 2026-09 sauf 2017-01 à 2017-06 (absents chez BlackRock). Poids partiels de 2016-12 à 2021-02 : membres non détenus (suspensions) et lignes d'accès sans code, jusqu'à 29 membres et 6 % non identifiés (somme des poids connus 94,0-100). 27 mois où l'ETF détient une ligne hors composition (suspensions, 001979 en 12/2015), listés dans 'lignes_etf_hors_composition'."
+ },
+ "nifty50": {
+  "premier": "2008-01",
+  "dernier": "2026-09",
+  "mois": 224,
+  "mois_absents": [
+   "2018-05"
+  ],
+  "exacts_flag": true,
+  "mois_avec_poids": 224,
+  "poids_de": "2008-01",
+  "effectifs": {
+   "50": 200,
+   "51": 24
+  },
+  "sommes_poids": [
+   100.0,
+   100.0
+  ],
+  "isin_non_nuls": 50,
+  "controles": [
+   "50 lignes (51 sur 24 mois : scissions et lignes DUMMY réelles), sommes 100.",
+   "Août 2011 : poids officiels faux (somme 2 836 %) → recalculés depuis la capitalisation flottante du fichier.",
+   "Recoupements avec Wikipédia EN : 10/10/2011 RELCAPITAL→COALINDIA, 27/04/2012 RCOM, RPOWER→ASIANPAINT, BANKBARODA, 30/09/2022 SHREECEM→ADANIENT, 28/03/2024 UPL→SHRIRAMFIN."
+  ],
+  "trous": "2006-01 à 2007-12 non couverts (pas de fichier mensuel NSE avant 01/2008) ; 2018-05 absent (fichier NSE introuvable)."
+ },
+ "asx200": {
+  "premier": "2015-12",
+  "dernier": "2026-09",
+  "mois": 130,
+  "mois_absents": [],
+  "exacts_flag": true,
+  "mois_avec_poids": 124,
+  "poids_de": "2015-12",
+  "effectifs": {
+   "200": 82,
+   "201": 24,
+   "202": 21,
+   "203": 3
+  },
+  "sommes_poids": [
+   100.0,
+   100.0
+  ],
+  "isin_non_nuls": 0,
+  "controles": [
+   "200 à 203 lignes par mois : l'excédent vient d'entrées en cours et de lignes de droits ou de placement fusionnées avec la société mère.",
+   "Composition identique à asx200list.com (tiers, 200 sur 200) aux dates 2016-03, 2016-10, 2016-11, 2016-12, 2017-07 et 2019-03.",
+   "Avant 2015-12, IOZ suivait le MSCI Australia 200 : 17 à 26 titres d'écart avec le S&P/ASX 200 → mois exclus."
+  ],
+  "trous": "2006-01 à 2015-11 non couverts (pas de source gratuite exacte vérifiable ; asx200list.com a des photos irrégulières 2012-2015, non retenues). 2017-01 à 2017-06 : composition asx200list.com, poids null (BlackRock sans données ; les poids du site sont en capitalisation totale, écart jusqu'à 1,1 pt)."
+ },
+ "kospi": {
+  "produit": false,
+  "raison": "Faisable mais pas proprement vérifiable. Les listes KIND (cotées, radiations datées depuis 1980, cotations datées depuis 2006) permettent de reconstruire les sociétés cotées au KOSPI à chaque date. En revanche, les règles d'inclusion (REIT, fonds d'infrastructure et de navires, date d'entrée des nouvelles cotations) ne se vérifient contre aucune composition officielle historique : data.krx.co.kr exige un compte, et l'ETF KODEX échantillonne (717 titres sur ~830). Pas de poids historiques exacts gratuits.",
+  "donnees_disponibles": [
+   "recherche/asie/kospi_kind_corplist.html",
+   "recherche/asie/kospi_kind_delisted_2006_2026.xls",
+   "recherche/asie/kospi_kind_listings_2006_2026.xls"
+  ]
+ },
+ "taiex": {
+  "produit": false,
+  "raison": "La liste quotidienne de la TWSE (MI_INDEX) donne tout ce qui cote un jour donné. Filtrée (codes à 4 chiffres, hors certificats de dépôt 91xx), elle retrouve au 30/09/2026 1 070 des 1 071 membres, mais avec 13 faux positifs. La cause : les titres en règlement intégral, suspendus, du tableau innovation (-創) et les nouvelles cotations en attente ne sont pas identifiables historiquement. TAIFEX ne publie que les poids du jour. Composition approximative à ~1 % près, donc non produite.",
+  "donnees_disponibles": [
+   "recherche/asie/taiex_twse_delisted.csv",
+   "recherche/asie/taiex_twse_newlisting.json",
+   "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=AAAAMMJJ&type=ALLBUT0999&response=json"
+  ]
+ }
+}
