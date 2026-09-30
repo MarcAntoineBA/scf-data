@@ -1,21 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-09-30T00:04:53Z",
+  "ts": "2026-09-30T08:03:42Z",
   "total": 31,
   "ok": 30,
-  "secs": 3774.8,
-  "changed": 41,
-  "versionnes": 33,
-  "pieces_jointes": 8,
+  "secs": 4361.9,
+  "changed": 46,
+  "versionnes": 35,
+  "pieces_jointes": 11,
   "absents": 398,
   "muets": [],
   "failed": [
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-29 08:12', donnees du 2026-09-10 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=1 kept=0 fail=15 (tentes=16)) : macrotrends : 2 x HTTP 403 et AUCUNE reponse 200 sur ce passage (blocage anti-robot ?)"
    }
   ]
  },
- "updated": "2026-09-30T00:04:53Z"
+ "updated": "2026-09-30T08:03:42Z"
 }
