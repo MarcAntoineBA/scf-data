@@ -3276,6 +3276,37 @@
         "tv_others_cache.json"
       ],
       "witness": "tv_others_cache.json"
+    },
+    {
+      "id": "indices.fiches",
+      "script": "fetch_indices_fiches.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "indices_fiches.js",
+        "indices_fiches.json",
+        "indice_sp500.json",
+        "indice_csi300.json",
+        "indice_nifty50.json",
+        "indice_nikkei225.json",
+        "indice_dax40.json",
+        "indice_cac40.json",
+        "indice_ftse100.json",
+        "indice_kospi.json",
+        "indice_ibov.json",
+        "indice_tsx.json",
+        "indice_asx200.json",
+        "indice_taiex.json",
+        "indice_hsi.json",
+        "indice_ftsemib.json",
+        "indice_ibex35.json",
+        "indice_smi.json",
+        "indice_ipc.json"
+      ],
+      "witness": "indices_fiches.json"
     }
   ]
 }
