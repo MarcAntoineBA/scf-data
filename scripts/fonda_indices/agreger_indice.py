@@ -154,6 +154,30 @@ def rendements_tv(u, sym, mois, chg, memo, tvd):
     return out
 
 
+def actif_net_tv(sym, mois, chg, memo, r):
+    """Actif net / capitalisation avec les actions de TradingView (bénéfice / BPA,
+    dans l'UNITÉ de la cotation lue) et le cours de cette cotation.
+    ⚠ 01/10/2026 : les états d'Alibaba, Baidu, New Oriental comptent leurs actions en
+    ADR (1 ADR = 8 actions de Hong Kong pour Alibaba) ; multipliées par le cours de
+    Hong Kong, elles divisaient la capitalisation par 8 — P/B d'Alibaba lu à 0,2, du
+    Hang Seng à 0,7 au lieu de 1,2. Les fonds propres (montant) viennent des états,
+    convertis dans la devise de cotation au taux du mois."""
+    if not r.get("_sh") or not r.get("_P") or sym not in memo:
+        return None
+    c, ex, dev = memo[sym]
+    if not ex:
+        return None
+    y = int(mois[:4])
+    cands = [e for e in ex if "%d-06-01" % y <= e["fin"] <= "%d-05-31" % (y + 1) and e.get("eq") is not None]
+    if not cands:
+        return None
+    x = cands[-1]
+    t = chg.taux(x.get("devise") or dev, r["_dev"], mois)
+    if not t:
+        return None
+    return x["eq"] * t / (r["_sh"] * r["_P"])
+
+
 def annee(u, membres, niveau, mois, chg, memo, sym_de, repli=None, tv=None, ff=None, paf=None):
     """membres : [{"poids": %|None, ...}] ; sym_de(m) → symbole Yahoo ou None.
     tv : {symbole: données TradingView} — route PRINCIPALE quand elle est donnée
@@ -174,8 +198,10 @@ def annee(u, membres, niveau, mois, chg, memo, sym_de, repli=None, tv=None, ff=N
         if s and tv is not None:
             r = rendements_tv(u, s, mois, chg, memo, tv.get(s))
             re = rendements(u, s, mois, chg, memo)
-            if r and re and re.get("eq") is not None:
-                r["eq"] = re["eq"]
+            if r:
+                r["eq"] = actif_net_tv(s, mois, chg, memo, r)
+                if r["eq"] is None and re and re.get("eq") is not None:
+                    r["eq"] = re["eq"]
             if not r:
                 r = re
         elif s:

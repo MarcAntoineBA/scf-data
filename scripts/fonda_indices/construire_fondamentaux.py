@@ -37,10 +37,11 @@ AUJ = os.path.join(ICI, "..", "idx", "out")
 TICKERS = {"sp500": "^GSPC", "csi300": "000300.SS", "nifty50": "^NSEI", "nikkei225": "^N225", "dax40": "^GDAXI",
            "cac40": "^FCHI", "ftse100": "^FTSE", "kospi": "^KS11", "ibov": "^BVSP", "tsx": "^GSPTSE",
            "asx200": "^AXJO", "taiex": "^TWII", "hsi": "^HSI", "ftsemib": "FTSEMIB.MI", "ibex35": "^IBEX",
-           "smi": "^SSMI", "ipc": "^MXX"}
+           "smi": "^SSMI", "ipc": "^MXX", "mscichina": "MCHI"}
 PLACE = {"sp500": "us", "csi300": None, "nifty50": "nse", "nikkei225": "tyo", "dax40": "etr", "cac40": "epa",
          "ftse100": "lon", "kospi": "krx", "ibov": "bvmf", "tsx": "tsx", "asx200": "asx", "taiex": "tpe",
-         "hsi": "hkg", "ftsemib": "bit", "ibex35": "bme", "smi": "swx", "ipc": "bmv"}
+         "hsi": "hkg", "ftsemib": "bit", "ibex35": "bme", "smi": "swx", "ipc": "bmv",
+         "mscichina": None}   # plusieurs places : chaque membre porte la sienne
 # Indices de RENDEMENT (dividendes réinvestis) : le niveau publié n'est pas un prix,
 # le bénéfice « par part » s'y lit quand même (niveau × rendement), mais il grossit
 # des dividendes réinvestis — dit dans la note de la fiche.
@@ -57,7 +58,8 @@ PAS_DE_SUCCESSEUR = {"LINDE AG", "Linde AG", "Linde"}
 YAHOO_RENOMME = {"ROG.SW": "RO.SW", "TATAMOTORS.NS": "TMPV.NS"}
 BOURSE_TV = {"sp500": "NYSE", "cac40": "EURONEXT", "dax40": "XETR", "ftse100": "LSE", "ftsemib": "MIL",
              "ibex35": "BME", "smi": "SIX", "nikkei225": "TSE", "hsi": "HKEX", "csi300": "SSE", "nifty50": "NSE",
-             "asx200": "ASX", "tsx": "TSX", "ipc": "BMV", "ibov": "BMFBOVESPA", "kospi": "KRX", "taiex": "TWSE"}
+             "asx200": "ASX", "tsx": "TSX", "ipc": "BMV", "ibov": "BMFBOVESPA", "kospi": "KRX", "taiex": "TWSE",
+             "mscichina": "HKEX"}
 ALIAS = {"Nokia": "NOKIA.HE", "LafargeHolcim": "HOLN.SW", "Thomson": "VANTI.PA", "Mittal Steel": "MT.AS",
          "EUROAPI": "EAPI.PA", "Infosys Technologies Ltd.": "INFY.NS", "WOODSIDE PETROLEUM LTD": "WDS.AX",
          "FIAT SPA": "STLAM.MI", "FIAT CHRYSLER AUTOMOBILES NV": "STLAM.MI", "OHL": "OHLA.MC"}

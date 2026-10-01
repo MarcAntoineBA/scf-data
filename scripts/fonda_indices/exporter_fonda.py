@@ -23,10 +23,10 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 NOMS = {"sp500": "S&P 500", "csi300": "CSI 300", "nifty50": "Nifty 50", "nikkei225": "Nikkei 225",
         "dax40": "DAX 40", "cac40": "CAC 40", "ftse100": "FTSE 100", "kospi": "KOSPI", "ibov": "Bovespa",
         "tsx": "TSX Composite", "asx200": "ASX 200", "taiex": "TAIEX", "hsi": "Hang Seng", "ftsemib": "FTSE MIB",
-        "ibex35": "IBEX 35", "smi": "SMI", "ipc": "IPC Mexico"}
+        "ibex35": "IBEX 35", "smi": "SMI", "ipc": "IPC Mexico", "mscichina": "MSCI China"}
 DEVISE = {"sp500": "USD", "csi300": "CNY", "nifty50": "INR", "nikkei225": "JPY", "dax40": "EUR", "cac40": "EUR",
           "ftse100": "GBP", "kospi": "KRW", "ibov": "BRL", "tsx": "CAD", "asx200": "AUD", "taiex": "TWD",
-          "hsi": "HKD", "ftsemib": "EUR", "ibex35": "EUR", "smi": "CHF", "ipc": "MXN"}
+          "hsi": "HKD", "ftsemib": "EUR", "ibex35": "EUR", "smi": "CHF", "ipc": "MXN", "mscichina": "USD"}
 # Contrôle S&P 500 : bénéfice par action « publié » (GAAP) et dividende, sur douze
 # mois à fin décembre — série S&P Dow Jones Indices reprise par R. Shiller (Yale,
 # ie_data.xls, colonnes E et D) ; 2023 : S&P DJI.

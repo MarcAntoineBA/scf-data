@@ -25,6 +25,7 @@ SOURCES = {
     "hsi": "Avoirs mensuels de l'iShares Core Hang Seng Index ETF",
     "csi300": "Avoirs mensuels de l'iShares Core CSI 300 ETF (2846)",
     "smi": "Avoirs mensuels des fonds iShares répliquant le SMI",
+    "mscichina": "Avoirs mensuels de l'iShares MSCI China ETF (MCHI)",
 }
 SEUIL = 97.0
 
