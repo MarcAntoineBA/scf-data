@@ -92,6 +92,10 @@ jobs:
           # CORS : l'appel ne peut PAS venir du navigateur, et la clé n'a donc rien à
           # faire dans le HTML publié. Elle ne vit qu'ici.
           LORIS_API_KEY: ${{ secrets.LORIS_API_KEY }}
+          # Historique quotidien des OAT (Banque de France, Webstat) : clé gratuite,
+          # liée au compte de l'auteur. Sans elle, le collecteur obligataire garde la
+          # série du passage précédent et n'ajoute que le dernier relevé public.
+          WEBSTAT_API_KEY: ${{ secrets.WEBSTAT_API_KEY }}
         run: |
           PASSAGES=5
           ESPACEMENT=600

@@ -38,7 +38,7 @@ from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
 OUT_DIR = os.environ.get("SCF_OBLIG_OUT") or CACHE_DIR
-GRAVURE = "assets/fonda/obligations-tete.webp?v=1"
+GRAVURE = "assets/fonda/obligataire-tete.webp?v=1"
 
 
 def lire_json(nom):

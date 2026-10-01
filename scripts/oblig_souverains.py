@@ -23,6 +23,7 @@ Canada, Reserve Bank of Australia, Banque nationale suisse, BCE.
   Belgique (1993 → avec trois mois de retard) et du mensuel de la BCE.
 """
 import csv
+import os
 import io
 import json
 import re
@@ -163,10 +164,62 @@ def _nbb(pays):
     return _trier(_NBB.get(pays.upper(), []))
 
 
+def _cle_webstat():
+    k = os.environ.get("WEBSTAT_API_KEY")
+    if k:
+        return k.strip()
+    f = os.path.expanduser("~/.webstat_key")
+    return open(f).read().strip() if os.path.isfile(f) else None
+
+
+def _webstat_tec(mats):
+    """Historique QUOTIDIEN des TEC 1 à 30 ans (Banque de France, depuis 2004),
+    en un export. Exige la clé gratuite Webstat (en-tête « Apikey »)."""
+    cle = _cle_webstat()
+    if not cle:
+        return None
+    cles = ['FM.D.FR.EUR.FR2.BB.FRMOYTEC%d.HSTA' % m for m in mats]
+    u = ("https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/json?" +
+         urllib.parse.urlencode({"where": "series_key in (" + ",".join('"%s"' % k for k in cles) + ")",
+                                 "select": "series_key,time_period,obs_value"}))
+    d = get_json(u, accept="application/json", timeout=300, entetes={"Authorization": "Apikey " + cle})
+    if not isinstance(d, list) or not d:
+        return None
+    out = {}
+    for o in d:
+        m = re.search(r"FRMOYTEC(\d+)\.", o.get("series_key") or "")
+        v = o.get("obs_value")
+        if m and isinstance(v, (int, float)):
+            out.setdefault(int(m.group(1)), []).append((o["time_period"][:10], float(v)))
+    return {m: _trier(p) for m, p in out.items()}
+
+
+def _decoder(serie):
+    """Série compacte d'un fichier précédent ({d0, dj, v} ou {d, v}) → [(date, v)]."""
+    if not serie:
+        return []
+    if "d0" in serie:
+        o, out = date.fromisoformat(serie["d0"]).toordinal(), []
+        for dj, v in zip(serie.get("dj", []), serie.get("v", [])):
+            o += dj
+            out.append((date.fromordinal(o).isoformat(), v))
+        return out
+    return list(zip(serie.get("d", []), serie.get("v", [])))
+
+
 def src_fr(precedent):
-    """TEC 1 à 30 ans : les deux dernières valeurs du catalogue Webstat (sans clé),
-    ajoutées à la série accumulée des passages précédents."""
+    """TEC 1 à 30 ans de la Banque de France.
+    AVEC la clé Webstat : tout l'historique quotidien depuis 2004, en un export.
+    SANS clé : les deux dernières valeurs du catalogue public, ajoutées à la série
+    du passage précédent — jamais reconstruite à partir de rien, sans quoi un
+    passage sans clé effacerait vingt ans d'histoire."""
     mats = (1, 2, 3, 5, 7, 10, 15, 20, 25, 30)
+    precedent = precedent or {}
+    wb = None
+    try:
+        wb = _webstat_tec(mats)
+    except Exception as e:  # noqa: BLE001
+        log("[warn] Webstat : " + str(e)[:120])
     ids = " or ".join('dataset_id="fm-d-fr-eur-fr2-bb-frmoytec%d-hsta"' % m for m in mats)
     j = get_json("https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets?" +
                  urllib.parse.urlencode({"limit": 50, "where": ids}), accept="application/json")
@@ -180,25 +233,35 @@ def src_fr(precedent):
         d_der = (c.get("series_last_time_period_date") or "")[:10]
         if vals and vals[-1] is not None and d_der:
             nouveaux[int(m.group(1))] = {"der": (d_der, vals[-1]), "avant": vals[-2] if len(vals) > 1 else None}
+    acc_prec = precedent.get("accumule") or {}
     s = {}
     for m in mats:
-        acc = [tuple(p) for p in ((precedent or {}).get(str(m)) or [])]
+        base = []
+        if wb and wb.get(m):
+            base = list(wb[m])
+        else:
+            base = _decoder((((precedent.get("maturites") or {}).get(str(m))) or {}).get("serie"))
+            base += [tuple(p) for p in (acc_prec.get(str(m)) or [])]
         n = nouveaux.get(m)
         if n:
-            acc.append(n["der"])
-        s[m] = _trier(acc)
-    # Histoire du 10 ans : quotidien belge (1993 → ~3 mois de retard), puis la série accumulée.
+            base.append(n["der"])
+        s[m] = _trier(base)
+    # Avant 2004 (le 10 ans) : le quotidien de la Banque nationale de Belgique, depuis 1993.
     hist = _nbb("FR")
-    if hist:
-        dernier = s[10][0][0] if s.get(10) else "9999"
-        s[10] = _trier([p for p in hist if p[0] < dernier] + s.get(10, []))
-    avant = {m: n["avant"] for m, n in nouveaux.items() if n.get("avant") is not None}
+    if hist and s.get(10):
+        premier = s[10][0][0]
+        s[10] = _trier([p for p in hist if p[0] < premier] + s[10])
+    avec_cle = bool(wb)
     return {"series": {m: p for m, p in s.items() if p}, "famille": "taux à échéance constante (TEC), interpolés entre deux OAT",
             "source": "Banque de France (TEC)", "source_url": "https://webstat.banque-france.fr/",
-            "accumule": {str(m): [list(x) for x in p if x[0] >= "2026-09-01"] for m, p in s.items() if p},
-            "avant_dernier": avant,
+            # les 120 derniers jours de chaque échéance : de quoi reprendre sans clé
+            "accumule": {str(m): [list(x) for x in p if x[0] >= il_y_a(p[-1][0], 120)] for m, p in s.items() if p},
+            "avant_dernier": {m: n["avant"] for m, n in nouveaux.items() if n.get("avant") is not None},
             "long": {10: fred("IRLTLT01FRM156N")}, "long_source": "OCDE via FRED, mensuel depuis 1960",
-            "note": "Historique quotidien du 10 ans : Banque nationale de Belgique (publié avec environ trois mois de retard), puis relevés quotidiens de la Banque de France."}
+            "webstat": avec_cle,
+            "note": ("Historique quotidien : Banque de France (TEC) depuis 2004 ; avant, le 10 ans de référence relevé par la Banque nationale de Belgique (depuis 1993)."
+                     if avec_cle else
+                     "Historique quotidien du 10 ans : Banque nationale de Belgique (publié avec environ trois mois de retard), puis relevés quotidiens de la Banque de France.")}
 
 
 def src_mensuel_ue(code, nbb=False):
@@ -465,7 +528,7 @@ def construire(journal, precedent=None):
             elif c == "de":
                 r = src_de()
             elif c == "fr":
-                r = src_fr((precedent.get("fr") or {}).get("accumule"))
+                r = src_fr(precedent.get("fr"))
             elif c == "es":
                 r = src_es()
             elif c == "gb":
