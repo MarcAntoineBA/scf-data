@@ -3309,6 +3309,41 @@
       "witness": "indices_fiches.json"
     },
     {
+      "id": "obligations.fiches",
+      "script": "fetch_obligations.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "obligations.js",
+        "obligations.json",
+        "oblig_credit.json",
+        "oblig_vue.json",
+        "oblig_us.json",
+        "oblig_de.json",
+        "oblig_fr.json",
+        "oblig_it.json",
+        "oblig_es.json",
+        "oblig_gb.json",
+        "oblig_jp.json",
+        "oblig_ca.json",
+        "oblig_au.json",
+        "oblig_ch.json",
+        "oblig_nl.json",
+        "oblig_be.json",
+        "oblig_at.json",
+        "oblig_ie.json",
+        "oblig_pt.json",
+        "oblig_gr.json",
+        "oblig_cn.json",
+        "oblig_in.json",
+        "oblig_ez.json"
+      ],
+      "witness": "obligations.json"
+    },
+    {
       "id": "georevenus",
       "script": "fetch_geo_revenus.py",
       "args": [
