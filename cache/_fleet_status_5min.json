@@ -1,7 +1,7 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-10-01T03:18:59Z",
+  "ts": "2026-10-01T03:23:59Z",
   "total": 6,
   "ok": 5,
   "secs": 82.5,
@@ -9,7 +9,9 @@
   "versionnes": 6,
   "pieces_jointes": 0,
   "absents": 340,
-  "muets": [],
+  "muets": [
+   "macrocal (2.0 h)"
+  ],
   "failed": [
    {
     "job": "hlflow",
@@ -17,5 +19,5 @@
    }
   ]
  },
- "updated": "2026-10-01T03:18:59Z"
+ "updated": "2026-10-01T03:23:59Z"
 }
