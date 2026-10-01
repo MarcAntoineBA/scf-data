@@ -1,12 +1,9 @@
 {
- "en_panne": true,
- "depuis": 1790835119.743723,
+ "en_panne": false,
+ "depuis": null,
  "derniere_alerte": 1790835119.743723,
- "motifs": [
-  "macro_calendar_cache.json : 6.5 h (seuil 6 h) — calendrier macro",
-  "prediction_markets_cache.json : 7.6 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »"
- ],
- "verifie_le": "2026-10-01 06:12 UTC",
+ "motifs": [],
+ "verifie_le": "2026-10-01 13:34 UTC",
  "rattrapages": {
   "collect-1h.yml": 1790793167.3467572,
   "collect-6h.yml": 1790835119.743723
