@@ -376,8 +376,60 @@ def asx200(source: str = "stw"):
     return _verifie("asx200", (date, _normalise(lignes), URL["etf_ioz"]), 190, 215)
 
 
+
+# ---------------------------------------------------------------- MSCI China
+# iShares MSCI China ETF (MCHI, réplication physique) : l'API produit de
+# blackrock.com (même famille que les fonds européens, variante américaine
+# « blk-one01 »), avec ISIN et place de chaque ligne, avoirs passés par asOfDate
+# (depuis 2011). L'ancienne adresse « 1467271812596.ajax » rend une page HTML.
+MCHI_API = ("https://www.blackrock.com/varnish-api/blk-one01-product-data/"
+            "product-data/api/v2/get-product-data")
+_PLACE_MCHI = {"Shanghai Stock Exchange": "sha", "Shenzhen Stock Exchange": "she",
+               "Hong Kong Exchanges And Clearing Ltd": "hkg", "NASDAQ": "", "NYSE": "",
+               "New York Stock Exchange Inc.": "", "Nasdaq": ""}
+
+
+def mscichina(date=None):
+    """(date_iso, lignes, url) : les ACTIONS du fonds MCHI, poids ramenés à 100.
+    code_place = chemin du screener (« hkg/0700 », « sha/600519 », « BABA »)."""
+    p = {"appType": "PRODUCT_PAGE", "appSubType": "ISHARES", "targetSite": "us-ishares",
+         "locale": "en_US", "portfolioId": "239619", "component": "holdings", "userType": "individual"}
+    d = str(date).replace("-", "") if date else None
+    if d:
+        p["asOfDate"] = d
+    r = _get(MCHI_API, params=p)
+    dp = r.json()["componentsByNameMap"]["holdings"]["containersByNameMap"]["all"]["dataPointsByNameMap"]
+    asof = str(dp["asOfDate"]["value"])
+    w = dp["holdingPercent"]["value"] or []
+    if d and (asof != d or not w):
+        raise RuntimeError("MCHI : pas d'avoirs au %s" % date)
+    col = lambda k: (dp.get(k) or {}).get("value") or [None] * len(w)
+    out = {}
+    for poids, nom, tic, isin, bourse, cl in zip(w, col("issueName"), col("ticker"), col("isin"),
+                                                  col("exchange"), col("assetClass")):
+        if cl != "Equity" or not isinstance(poids, (int, float)) or poids <= 0:
+            continue
+        pre = _PLACE_MCHI.get(bourse)
+        t = str(tic or "").strip()
+        if pre is None or not t:
+            continue                       # « NO MARKET (unlisted) », lignes sans place
+        if pre == "hkg":
+            t = t.zfill(4)
+        code = (pre + "/" + t) if pre else t.replace("/", ".")
+        if code in out:
+            out[code]["poids"] += float(poids)
+        else:
+            out[code] = {"code_place": code, "isin": isin or None, "nom": (nom or "").strip(),
+                         "poids": float(poids), "place": pre or "us"}
+    if len(out) < 100:
+        raise RuntimeError("MCHI : %d lignes seulement" % len(out))
+    date_iso = "%s-%s-%s" % (asof[:4], asof[4:6], asof[6:8])
+    return date_iso, _normalise(list(out.values())), r.url
+
+
+
 FONCTIONS = {"nikkei225": nikkei225, "kospi": kospi, "taiex": taiex, "hsi": hsi,
-             "csi300": csi300, "nifty50": nifty50, "asx200": asx200}
+             "csi300": csi300, "nifty50": nifty50, "asx200": asx200, "mscichina": mscichina}
 
 
 def tous() -> dict:
@@ -410,4 +462,4 @@ if __name__ == "__main__":
 
 # Table lue par fetch_indices_fiches.py (code d'indice → lecteur sans argument).
 LECTEURS = {"nikkei225": nikkei225, "kospi": kospi, "taiex": taiex, "hsi": hsi,
-            "csi300": csi300, "nifty50": nifty50, "asx200": asx200}
+            "csi300": csi300, "nifty50": nifty50, "asx200": asx200, "mscichina": mscichina}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-fetch_indices_fiches.py — la composition et le fondamental des dix-sept indices
+fetch_indices_fiches.py — la composition et le fondamental des dix-huit indices
 de l'onglet « Indices » (Analyse fondamentale).
 
 CE QUE ÇA PRODUIT
@@ -113,6 +113,18 @@ INDICES = [
          devise="USD"),
     dict(code="csi300", nom="CSI 300", ticker="000300.SS", pays="CN", source="wiki",
          page="CSI 300 Index", attendus=(280, 310), devise="CNY"),
+    # MSCI China (01/10/2026) : la Chine ENTIÈRE, toutes places de cotation (Shanghai,
+    # Shenzhen, Hong Kong, New York) — Tencent, Alibaba, Xiaomi, PDD, que le CSI 300
+    # (actions A seulement) ne peut pas contenir. Composition et poids exacts : avoirs
+    # du fonds MCHI. Niveau : le cours de ce fonds (les niveaux MSCI ne sont pas
+    # publiés librement), d'où `niveau_source`.
+    dict(code="mscichina", nom="MSCI China", ticker="MCHI", pays="CN", source="exact",
+         places=["HK", "US"], devise="USD",
+         niveau_source=("Niveau mesuré par le cours du fonds iShares MSCI China (MCHI), qui réplique "
+                        "l'indice : les niveaux de l'indice MSCI ne sont pas publiés librement. Le fonds "
+                        "retranche ses frais (0,59 % par an) et distribue ses dividendes. Il cote en dollars, "
+                        "ses membres en yuans, en dollars de Hong Kong et en dollars : la décomposition titre "
+                        "par titre lit chaque membre dans sa devise, et l'écart avec le fonds contient le change.")),
     dict(code="nifty50", nom="Nifty 50", ticker="^NSEI", pays="IN", source="wiki",
          page="NIFTY 50", attendus=(48, 52), devise="INR"),
     dict(code="nikkei225", nom="Nikkei 225", ticker="^N225", pays="JP", source="nikkei",
@@ -1658,6 +1670,7 @@ LECTEURS_EXACTS, FONDS_EXACTS = {}, {
     "nikkei225": "Nikkei Inc. (facteurs d'ajustement officiels × cours)", "kospi": "liste KIND, capitalisation des actions ordinaires",
     "taiex": "TAIFEX (poids officiels)", "hsi": "Tracker Fund of Hong Kong (2800)",
     "csi300": "iShares Core CSI 300 (2846)", "nifty50": "NSE Indices (poids officiels)", "asx200": "SPDR S&P/ASX 200 (STW)",
+    "mscichina": "iShares MSCI China ETF (MCHI)",
 }
 for _mod in ("poids_exacts_europe", "poids_exacts_asie", "poids_exacts_ameriques"):
     try:
@@ -1695,6 +1708,16 @@ def composition_exacte(ix, lignes):
         Shanghai/Shenzhen selon le premier chiffre ; M&M → nse/M_M)."""
         code = str(code or "").strip()
         if not code:
+            return None
+        # Un lecteur qui donne déjà le CHEMIN complet (MSCI China : « hkg/0700 »,
+        # « sha/600519 », « BABA » — plusieurs places dans un même indice).
+        if code in lignes:
+            return code
+        if "/" in code:
+            p_, c_ = code.split("/", 1)
+            for v in (c_, c_.lstrip("0").zfill(4), c_.replace(".", "-")):
+                if "%s/%s" % (p_, v) in lignes:
+                    return "%s/%s" % (p_, v)
             return None
         pre = maison
         if ix["code"] == "csi300":
@@ -2031,6 +2054,7 @@ def traiter(ix, places, fx, precedent, memo_cours, marche):
     synth = {
         "code": ix["code"], "nom": ix["nom"], "ticker": ix["ticker"], "devise": ix["devise"],
         "rentabilite_phrase": RENTABILITE.get(ix["code"]),
+        "niveau_source": ix.get("niveau_source"),
         "egal_officiel": ({"ticker": EGAL_OFFICIEL[ix["code"]][0], "nom": EGAL_OFFICIEL[ix["code"]][1]}
                           if egal else None),
         "type": "rentabilité" if ix["code"] in RENTABILITE else "prix",
@@ -2122,7 +2146,10 @@ def main():
     choix = [ix for ix in INDICES if not seuls or ix["code"] in seuls[0].split(",")]
     fx = taux_usd()
     log("[info] %d devises" % len(fx))
-    pays = sorted({ix["pays"] for ix in choix} | {p for ix in choix for p in PLACES_EN_PLUS.get(ix["pays"], [])})
+    # Places supplémentaires : celles de l'indice s'il en déclare (MSCI China : Hong
+    # Kong et New York), sinon celles de son pays.
+    en_plus = lambda ix: ix.get("places") or PLACES_EN_PLUS.get(ix["pays"], [])
+    pays = sorted({ix["pays"] for ix in choix} | {p for ix in choix for p in en_plus(ix)})
     places = {}
     for p in pays:
         places[p] = screener(p)
@@ -2139,7 +2166,7 @@ def main():
         res = None
         if places.get(ix["pays"]):
             try:
-                res = traiter(ix, [places[ix["pays"]]] + [places.get(p) for p in PLACES_EN_PLUS.get(ix["pays"], [])],
+                res = traiter(ix, [places[ix["pays"]]] + [places.get(p) for p in en_plus(ix)],
                               fx, precedent, memo_cours, marche)
             except Exception as e:
                 import traceback
