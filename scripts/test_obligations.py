@@ -19,7 +19,14 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
       rendement > écart (le taux d'État implicite est positif) ;
   [7] aucune variation « sur 1 mois » ne repose sur un point trop ancien
       (contrôlé en relisant la série : le point de référence existe à ±7 j) ;
-  [8] les notations ont toutes une source et une date de vérification.
+  [8] les notations ont toutes une source et une date de vérification ;
+  [9] la dette « au dernier chiffre publié » : plausible (5 à 300 % du PIB),
+      datée, pas plus vieille que 300 jours (un trimestre publié avec ~4 mois
+      de retard, plus une publication sautée), à moins de 25 points du FMI
+      (au-delà : une erreur d'unité ou de définition) ;
+  [10] la dette totale (BRI) : l'empilement retombe sur le total à 0,2 pt
+      près, l'État est à moins de 15 points de la dette fraîche, la
+      productivité marginale reste un nombre fini et raisonnable.
 
 Usage :  test_obligations.py [dossier]          (défaut : $SCF_OBLIG_OUT ou le cache)
          test_obligations.py --mutants [dossier] (chaque garde doit rougir sur
@@ -142,6 +149,57 @@ def controles(S, det, credit_det, aujourd_hui):
         for a, x in (N.get("agences") or {}).items():
             if not x.get("url"):
                 E.append("[8] %s %s : notation sans source" % (c, a))
+    # [9] dette fraîche
+    for c, s in codes_s.items():
+        if c == "ez":
+            continue
+        f = s.get("dette_fraiche")
+        if not f:
+            E.append("[9] %s : pas de dette au dernier chiffre publié" % c)
+            continue
+        v, per = f.get("valeur"), str(f.get("periode") or "")
+        if not isinstance(v, (int, float)) or not (5 < v < 300):
+            E.append("[9] %s : dette fraîche invraisemblable %r" % (c, v))
+        fin = None
+        try:
+            if len(per) == 7 and per[4] == "-" and per[5] in "TQ":
+                a, t = int(per[:4]), int(per[6])
+                fin = date(a + (t == 4), (3 * t) % 12 + 1, 1)
+            elif len(per) == 7:
+                a, m = int(per[:4]), int(per[5:7])
+                fin = date(a + (m == 12), m % 12 + 1, 1)
+            else:
+                fin = date.fromisoformat(per[:10])
+        except ValueError:
+            pass
+        if not fin:
+            E.append("[9] %s : période illisible %r" % (c, per))
+        elif (aujourd_hui - fin).days > 300:
+            E.append("[9] %s : dette fraîche de %s, %d jours" % (c, per, (aujourd_hui - fin).days))
+        fmi = s.get("dette_pib")
+        if isinstance(v, (int, float)) and isinstance(fmi, (int, float)) and abs(v - fmi) > 25:
+            E.append("[9] %s : dette fraîche %.1f %% contre %.1f %% au FMI" % (c, v, fmi))
+    # [10] dette totale
+    for c, d0 in det.items():
+        T = (d0.get("pays") or {}).get("dette_totale")
+        if not T:
+            continue
+        n = len(T.get("t") or [])
+        for k in ("pib4", "dette_c", "dette_g", "pct_g", "pct_h", "pct_n", "pct_c"):
+            if len(T.get(k) or []) != n:
+                E.append("[10] %s : %s n'a pas %d points" % (c, k, n))
+        for i in range(n):
+            g, h, nf, tot = (T.get(k, [None] * n)[i] for k in ("pct_g", "pct_h", "pct_n", "pct_c"))
+            if None not in (g, h, nf, tot) and abs(g + h + nf - tot) > 0.2:
+                E.append("[10] %s %s : %s + %s + %s ≠ %s" % (c, T["t"][i], g, h, nf, tot))
+                break
+        f = (codes_s.get(c) or {}).get("dette_fraiche") or {}
+        g = (T.get("pct_g") or [None])[-1]
+        if g is not None and isinstance(f.get("valeur"), (int, float)) and abs(g - f["valeur"]) > 15:
+            E.append("[10] %s : État %.1f %% (BRI) contre %.1f %% (dette fraîche)" % (c, g, f["valeur"]))
+        for k, v in T.items():
+            if k.startswith("pm_") and any(x is not None and not (-20 < x < 20) for x in v):
+                E.append("[10] %s : %s hors bornes" % (c, k))
     return E
 
 
@@ -191,6 +249,12 @@ def mutants(S, det, cr, auj):
     d7["us"]["maturites"]["10"]["var"]["1m"] = 12.0
     cas.append(("[7] variation sans point", S, d7))
     d8 = copy.deepcopy(det); d8["fr"]["pays"]["notation"]["agences"]["sp"]["url"] = ""; cas.append(("[8] note sans source", S, d8))
+    m9 = copy.deepcopy(S)
+    for s in m9["souverains"]:
+        if s["code"] == "fr":
+            s["dette_fraiche"]["periode"] = "2024-T4"
+    cas.append(("[9] dette fraîche périmée", m9, det))
+    d10 = copy.deepcopy(det); d10["fr"]["pays"]["dette_totale"]["pct_g"][-1] += 40; cas.append(("[10] empilement faux", S, d10))
     for nom, s, d in cas:
         e = controles(s, d, cr, auj)
         vu = any(x.startswith(nom[:3]) for x in e)

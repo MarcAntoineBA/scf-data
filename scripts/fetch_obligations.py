@@ -34,6 +34,7 @@ import oblig_marche  # noqa: E402
 import oblig_souverains  # noqa: E402
 import oblig_credit  # noqa: E402
 import oblig_pays  # noqa: E402
+import oblig_frais  # noqa: E402
 from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -161,8 +162,63 @@ def main():
         journal.append("fondamentaux : " + str(e)[:160])
     log("[info] fondamentaux : %.0f s" % (time.time() - t0))
 
+    # ── 3 bis. les données fraîches : dernier point publié, projections, dette
+    #    totale, détenteurs dans le temps (toutes automatiques) ──
+    prec_fraiche = {x["code"]: x.get("dette_fraiche") for x in (prec_synth.get("souverains") or []) if x.get("dette_fraiche")}
+    fraiche, proj, editions, totale, histo = {}, {}, {}, {}, {}
+    for nom, fn in (("dette fraîche", lambda: oblig_frais.dette_fraiche(journal, prec_fraiche)),
+                    ("projections", lambda: oblig_frais.projections(journal)),
+                    ("dette totale", lambda: oblig_frais.dette_totale(journal)),
+                    ("détenteurs", lambda: oblig_frais.detenteurs(journal))):
+        try:
+            r = fn()
+            if nom == "dette fraîche":
+                fraiche = r
+            elif nom == "projections":
+                proj, editions = r
+            elif nom == "dette totale":
+                totale = r
+            else:
+                histo = r
+        except Exception as e:  # noqa: BLE001
+            journal.append("%s : %s" % (nom, str(e)[:140]))
+    for c, x in pays.items():
+        if c.startswith("_") or not isinstance(x, dict):
+            continue
+        if c in fraiche:
+            x["dette_fraiche"] = fraiche[c]
+        pj = dict(proj.get(c) or {})
+        if (x.get("fmi") or {}).get("dette_pib"):
+            pj["fmi"] = {"serie": x["fmi"]["dette_pib"], "definition": "dette brute des administrations (FMI)"}
+        if pj:
+            x["projections"] = pj
+            x["projections_editions"] = dict(editions, fmi=x.get("fmi_edition"))
+        if c in totale:
+            x["dette_totale"] = totale[c]
+        if c in histo:
+            h = histo[c]
+            D = x.get("detenteurs") or {}
+            # L'historique long remplace les séries courtes ; la photo du dernier
+            # point reste celle de la source la plus détaillée quand elle existe.
+            D["series"] = h["series"]
+            D["source_histo"] = h["source"]
+            D["frequence"] = h["frequence"]
+            if h.get("base"):
+                D["base_histo"] = h["base"]
+            if not D.get("parts"):
+                der = max(max(v) for v in h["series"].values() if v)
+                D["parts"] = {k: v.get(der) for k, v in h["series"].items() if v.get(der) is not None}
+                D["periode"] = der
+                D["source"] = h["source"]
+            x["detenteurs"] = D
+    log("[info] données fraîches : %.0f s" % (time.time() - t0))
+
     # ── 4. le crédit ──
     credit, det_credit, longues, emis = [], {}, {}, {}
+    try:
+        oblig_credit.DEFAUTS.update(oblig_frais.defauts_auto(journal, prec_synth.get("defauts") or oblig_credit.DEFAUTS))
+    except Exception as e:  # noqa: BLE001
+        journal.append("défauts : " + str(e)[:120])
     try:
         credit, det_credit, longues, emis = oblig_credit.construire(journal)
     except Exception as e:  # noqa: BLE001
@@ -182,6 +238,8 @@ def main():
         if f.get("notation"):
             s["notation"] = {k: f["notation"][k] for k in ("composite", "cran", "lecture", "negatives", "positives")}
         s["dette_pib"] = R.get("dette_pib")
+        if f.get("dette_fraiche"):
+            s["dette_fraiche"] = f["dette_fraiche"]
         s["solde_pib"] = R.get("solde_pib")
         s["interets_recettes"] = R.get("interets_bruts_recettes") or R.get("interets_recettes")
         s["croissance_nominale"] = R.get("croissance_nominale")
@@ -255,7 +313,8 @@ def main():
     synth = {"genere_le": maintenant, "gravure": GRAVURE, "marche": marche, "souverains": souv, "fiches": fiches,
              "credit": credit, "emissions": {k: v for k, v in emis.items()}, "sources": sources,
              "taux_directeurs": {c: (pays.get(c) or {}).get("banque_centrale") for c in ("us", "ez", "gb", "jp", "ch", "ca", "au", "cn", "in")},
-             "defauts": oblig_credit.DEFAUTS, "journal": journal[:40], "duree_s": round(time.time() - t0)}
+             "defauts": oblig_credit.DEFAUTS, "notations_changements": pays.get("_changements_notes") or [],
+             "projections_editions": editions, "journal": journal[:40], "duree_s": round(time.time() - t0)}
     synth["taux_directeurs"]["ez"] = (pays.get("ez") or {}).get("banque_centrale") or (pays.get("de") or {}).get("banque_centrale")
     tailles["obligations.json"] = ecrire("obligations.json", nettoyer(compacter_arbre(synth)), js_global="__OBLIGATIONS__")
     log("[info] écrit : " + ", ".join("%s %.0f Ko" % (k, v / 1024) for k, v in sorted(tailles.items())))

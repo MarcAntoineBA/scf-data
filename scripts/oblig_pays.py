@@ -122,11 +122,31 @@ def lecture(c):
     return "spéculative"
 
 
-def notations():
+def _persp_table(persp):
+    t = (persp or "").lower()
+    for k, v in PERSP.items():
+        if t.startswith(k):
+            return v
+    return None
+
+
+def notations(journal=None, changes=None):
     out = defaultdict(dict)
     for p, ag, note, persp, der, url, typ in NOTATIONS:
-        out[p][ag] = {"note": note, "perspective": PERSP.get((persp or "").lower(), (persp or "").lower() or None),
-                      "action": der, "url": url, "type": typ, "cran": cran(note, ag)}
+        out[p][ag] = {"note": note, "perspective": _persp_table(persp), "action": der, "url": url, "type": typ}
+    # Mise à jour AUTOMATIQUE (ESMA, puis Wikipédia en détecteur daté) : la table
+    # vérifiée à la main n'est qu'un point de départ, jamais une valeur figée.
+    try:
+        from oblig_frais import notations_auto
+        out, ch = notations_auto(journal if journal is not None else [], out)
+        if changes is not None:
+            changes.extend(ch)
+    except Exception as e:  # noqa: BLE001
+        if journal is not None:
+            journal.append("notations automatiques : " + str(e)[:100])
+    for p in out:
+        for ag in out[p]:
+            out[p][ag]["cran"] = cran(out[p][ag]["note"], ag)
     res = {}
     for p, a in out.items():
         crans = sorted(x["cran"] for x in a.values() if x["cran"] is not None)
@@ -134,7 +154,8 @@ def notations():
         res[p] = {"agences": a, "composite": ECHELLE_SP[med] if med is not None else None, "cran": med,
                   "lecture": lecture(med), "verifie_le": VERIFIE_LE,
                   "negatives": sum(1 for x in a.values() if x["perspective"] == "négative"),
-                  "positives": sum(1 for x in a.values() if x["perspective"] == "positive")}
+                  "positives": sum(1 for x in a.values() if x["perspective"] == "positive"),
+                  "dernier_changement": max((ag2.get("action") or "")[:10] for ag2 in a.values())}
     return res
 
 
@@ -452,7 +473,8 @@ def construire(journal):
     us = etats_unis(journal)
     jp = japon(journal)
     td = taux_directeurs(journal)
-    nt = notations()
+    changements_notes = []
+    nt = notations(journal, changements_notes)
     an = date.today().year
     out = {}
     for c in ISO3:
@@ -508,4 +530,5 @@ def construire(journal):
             x["notation"] = nt[c]
         out[c] = x
     out["ez"] = {"banque_centrale": td.get("ez")}
+    out["_changements_notes"] = changements_notes
     return out
