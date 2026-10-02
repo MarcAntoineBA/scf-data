@@ -1,12 +1,12 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-02T15:02:14Z",
+  "ts": "2026-10-02T23:57:16Z",
   "total": 33,
-  "ok": 31,
-  "secs": 3855.0,
-  "changed": 78,
-  "versionnes": 68,
+  "ok": 32,
+  "secs": 3191.4,
+  "changed": 85,
+  "versionnes": 75,
   "pieces_jointes": 10,
   "absents": 179,
   "muets": [],
@@ -14,12 +14,8 @@
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "obligations.fiches",
-    "why": "KeyError: 'd'"
    }
   ]
  },
- "updated": "2026-10-02T15:02:14Z"
+ "updated": "2026-10-02T23:57:16Z"
 }
