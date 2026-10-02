@@ -639,7 +639,7 @@ def _persp_esma(txt):
     return None
 
 
-def notes_esma(noms, journal):
+def notes_esma(noms, journal, rangs_multiples=False):
     """Pour chaque agence : la note retenue, sa date, sa perspective, son histoire.
     Règle : la note d'ÉMETTEUR (ISR) si elle n'a pas plus d'un an de retard sur
     les notes de ses titres (INT) ; sinon la note la plus fréquente parmi ses
@@ -652,7 +652,7 @@ def notes_esma(noms, journal):
     for objet in ("ISR", "INT"):
         q = {"q": "type_s:parent AND ratedObjectCode:%s AND issuerName:(%s)" % (objet, " OR ".join('"%s"' % n.replace('"', '') for n in noms)),
              "rows": 600, "wt": "json", "sort": "racValidityDatetime desc",
-             "fl": "craName,issuerName,ratingValueLabel,racValidityDatetimeStr,lastActionTypeLabel,ratingStatusLabel,timeHorizonType,ratedObjectCode"}
+             "fl": "craName,issuerName,ratingValueLabel,racValidityDatetimeStr,lastActionTypeLabel,ratingStatusLabel,timeHorizonType,ratedObjectCode,raiIssuerRatingTypeCode"}
         d = get_json("https://registers.esma.europa.eu/solr/esma_registers_radar/select?" + urllib.parse.urlencode(q),
                      accept="application/json", timeout=90)
         if d is None:
@@ -665,6 +665,11 @@ def notes_esma(noms, journal):
     for x in docs:
         ag = _agence(x.get("craName"))
         if not ag or x.get("timeHorizonType") != "L" or x.get("issuerName") not in noms:
+            continue
+        # ⚠ Une banque a plusieurs notes « d'émetteur » : chez S&P, la note de crédit
+        #   (ICR : A+ pour BNP) et la note de contrepartie en cas de résolution (RC : AA−).
+        #   Seule l'ICR dit le risque de ses obligations.
+        if ag == "sp" and x.get("ratedObjectCode") == "ISR" and (x.get("raiIssuerRatingTypeCode") or "ICR") != "ICR":
             continue
         note = (x.get("ratingValueLabel") or "").strip()
         if note not in AGENCES[ag][1]:
@@ -698,14 +703,34 @@ def notes_esma(noms, journal):
         #   Moody's (Baa2, la dette « non préférée ») n'est pas celle de la banque (A1) —
         #   les mêler faisait écrire « relevée de Baa2 à A1 », un relèvement qui n'a
         #   jamais eu lieu. Sinon : les seules notes d'émetteur.
+        # ⚠ Une date ne compte que pour une action GROUPÉE (au moins 3 titres, 60 %
+        #   d'accord) : chez BNP, une seule obligation subordonnée émise le 15/09
+        #   faisait croire à une note « Baa1 ». Jamais pour les banques, dont les
+        #   dettes de rangs différents ont des notes différentes.
         par_d = defaultdict(Counter)
         for d0, n, _, _ in it:
             par_d[d0][n] += 1
-        hist_src = [(d0, c.most_common(1)[0][0]) for d0, c in sorted(par_d.items())] if mode_int == note else []
-        hist_src += [(d0, n) for d0, n, _, _ in isr]
-        hist_src.sort()
+        pts = {}
+        if mode_int == note and not rangs_multiples:
+            for d0, c in sorted(par_d.items()):
+                tot = sum(c.values())
+                n0, k0 = c.most_common(1)[0]
+                if tot >= 3 and k0 >= 0.6 * tot:
+                    pts[d0] = n0
+        for d0, n, _, _ in isr:
+            pts[d0] = n                     # la note d'émetteur l'emporte à date égale
+        hist_src = sorted(pts.items())
         if not hist_src or hist_src[-1][1] != note:
-            hist_src.append((d_note, note))
+            hist_src.append((max(d_note, hist_src[-1][0]) if hist_src else d_note, note))
+        # Le dernier relèvement / abaissement : seulement une action d'ÉMETTEUR étiquetée
+        # comme telle par l'agence (jamais déduite des notes de ses titres).
+        chg = None
+        for d0, n, _, act in isr:
+            if (act or "").lower() in ("upgrade", "downgrade") and n == note:
+                prec_n = [x for x in isr if x[0] < d0]
+                de = prec_n[-1][1] if prec_n else None
+                chg = {"date": d0, "sens": "abaissée" if act.lower() == "downgrade" else "relevée", "a": n,
+                       "de": de if de != n else None}
         derniere = max(x for x in (isr[-1][0] if isr else None, d_int) if x)
         if (auj - date.fromisoformat(derniere)).days > 730:
             continue
@@ -722,7 +747,7 @@ def notes_esma(noms, journal):
                 k += 1
         cr = AGENCES[ag][1].index(note)
         out[ag] = {"note": note, "cran": cr, "date": d_note, "derniere_action": derniere, "source": src,
-                   "perspective": persp, "histoire": hist[-20:]}
+                   "perspective": persp, "histoire": hist[-20:], "changement": chg}
     if not out:
         return None
     crans = sorted(x["cran"] for x in out.values())
@@ -988,7 +1013,7 @@ def construire_emetteur(em, lignes, reg, courbes, fx, prec, journal, cik_map):
     # notes et comptes
     notes = None
     try:
-        notes = notes_esma(em["esma"], journal) if em["esma"] else None
+        notes = notes_esma(em["esma"], journal, em["famille"] == "banques") if em["esma"] else None
     except Exception as e:  # noqa: BLE001
         journal.append("notes %s : %s" % (em["code"], str(e)[:80]))
     if notes is None and (prec or {}).get("notes"):
