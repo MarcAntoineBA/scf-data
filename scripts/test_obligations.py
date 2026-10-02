@@ -27,6 +27,12 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
   [10] la dette totale (BRI) : l'empilement retombe sur le total à 0,2 pt
       près, l'État est à moins de 15 points de la dette fraîche, la
       productivité marginale reste un nombre fini et raisonnable.
+  [11] la tech dans la bande « entreprises » (SEC, oblig_tech.py) : au moins 25
+      sociétés au dernier trimestre, le cloud et l'IA ⊂ la tech ⊂ les
+      entreprises américaines de la BRI (entre 1 et 30 % d'entre elles), dernier
+      trimestre de moins de 230 jours, aucune marche d'un trimestre à l'autre
+      (+45 % / −25 % : une société entrée ou sortie d'un coup), audit SEC
+      tenu (≤ 15 écarts au total publié par les sociétés).
 
 Usage :  test_obligations.py [dossier]          (défaut : $SCF_OBLIG_OUT ou le cache)
          test_obligations.py --mutants [dossier] (chaque garde doit rougir sur
@@ -200,6 +206,48 @@ def controles(S, det, credit_det, aujourd_hui):
         for k, v in T.items():
             if k.startswith("pm_") and any(x is not None and not (-20 < x < 20) for x in v):
                 E.append("[10] %s : %s hors bornes" % (c, k))
+    # [11] la tech
+    M = S.get("marche") or {}
+    TK, EU = M.get("tech"), M.get("etats_unis")
+    if not TK or not (TK.get("serie") or {}).get("t"):
+        E.append("[11] pas de série tech")
+    else:
+        sr = TK["serie"]
+        n = len(sr["t"])
+        if any(len(sr.get(k) or []) != n for k in ("tech", "ia", "n")):
+            E.append("[11] séries tech de longueurs différentes")
+        elif sr["n"][-1] < 25:
+            E.append("[11] tech : %d sociétés seulement au dernier trimestre" % sr["n"][-1])
+        else:
+            for i in range(n):
+                if not (0 <= sr["ia"][i] <= sr["tech"][i]):
+                    E.append("[11] %s : cloud et IA %s hors de la tech %s" % (sr["t"][i], sr["ia"][i], sr["tech"][i]))
+                    break
+            for i in range(1, n):
+                a, b = sr["tech"][i - 1], sr["tech"][i]
+                if a > 100 and not (0.75 * a <= b <= 1.45 * a):
+                    E.append("[11] %s : marche %s → %s Md$" % (sr["t"][i], a, b))
+                    break
+            y, q = sr["t"][-1].split("-Q")
+            fin = date(int(y), 3 * int(q), [31, 30, 30, 31][int(q) - 1])
+            if (aujourd_hui - fin).days > 230:
+                E.append("[11] tech : dernier trimestre %s, %d jours" % (sr["t"][-1], (aujourd_hui - fin).days))
+            if EU and EU.get("t"):
+                for t, v in zip(sr["t"], sr["tech"]):
+                    if t in EU["t"]:
+                        nfc = EU["entreprises"][EU["t"].index(t)]
+                        if not nfc or not (0.01 * nfc <= v <= 0.30 * nfc):
+                            E.append("[11] %s : tech %s Md$ pour %s Md$ d'entreprises américaines" % (t, v, nfc))
+                            break
+            else:
+                E.append("[11] pas de série États-Unis (BRI)")
+        if ((TK.get("audit") or {}).get("ecarts") or 0) > 15:
+            E.append("[11] audit SEC : %s écarts" % TK["audit"]["ecarts"])
+    if EU and EU.get("t"):
+        for i, t in enumerate(EU["t"]):
+            if EU["etats"][i] + EU["financieres"][i] + EU["entreprises"][i] > 1.01 * EU["total"][i]:
+                E.append("[11] États-Unis %s : secteurs > total" % t)
+                break
     return E
 
 
@@ -255,6 +303,10 @@ def mutants(S, det, cr, auj):
             s["dette_fraiche"]["periode"] = "2024-T4"
     cas.append(("[9] dette fraîche périmée", m9, det))
     d10 = copy.deepcopy(det); d10["fr"]["pays"]["dette_totale"]["pct_g"][-1] += 40; cas.append(("[10] empilement faux", S, d10))
+    m11 = copy.deepcopy(S); m11["marche"]["tech"]["serie"]["tech"][-1] *= 1.8; cas.append(("[11] marche tech", m11, det))
+    m11b = copy.deepcopy(S); m11b["marche"]["tech"]["serie"]["t"][-1] = "2025-Q1"; cas.append(("[11] tech périmée", m11b, det))
+    m11c = copy.deepcopy(S); m11c["marche"]["etats_unis"]["entreprises"] = [x * 0.02 for x in m11c["marche"]["etats_unis"]["entreprises"]]
+    cas.append(("[11] tech > entreprises", m11c, det))
     for nom, s, d in cas:
         e = controles(s, d, cr, auj)
         vu = any(x.startswith(nom[:3]) for x in e)

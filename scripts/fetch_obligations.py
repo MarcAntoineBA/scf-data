@@ -35,6 +35,7 @@ import oblig_souverains  # noqa: E402
 import oblig_credit  # noqa: E402
 import oblig_pays  # noqa: E402
 import oblig_frais  # noqa: E402
+import oblig_tech  # noqa: E402
 from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -144,6 +145,16 @@ def main():
         marche = dict(prec_synth["marche"], reprise_du=(prec_synth.get("genere_le") or "")[:10])
         journal.append("marché : repris du passage précédent")
     log("[info] marché : %.0f s" % (time.time() - t0))
+    # ── 1 bis. la dette des groupes tech (SEC), posée DANS la bande « entreprises » ──
+    if marche:
+        prec_tech = (prec_synth.get("marche") or {}).get("tech")
+        try:
+            marche["tech"] = oblig_tech.construire(journal, prec_tech)
+        except Exception as e:  # noqa: BLE001
+            journal.append("tech : " + str(e)[:160])
+            if prec_tech:
+                marche["tech"] = dict(prec_tech, reprise_du=(prec_tech.get("genere_le") or "")[:10])
+        log("[info] tech : %.0f s" % (time.time() - t0))
 
     # ── 2. les taux d'État ──
     precedent = {}
@@ -298,6 +309,8 @@ def main():
     sources = [
         {"nom": "BIS", "quoi": "encours des titres de dette par pays et par émetteur (Debt securities statistics)",
          "url": "https://data.bis.org/topics/DSS", "date": (marche or {}).get("periode")},
+        {"nom": "SEC (EDGAR)", "quoi": "dette des groupes tech américains, reconstituée société par société depuis leurs comptes déposés (10-K, 10-Q)",
+         "url": oblig_tech.SOURCE_URL, "date": ((marche or {}).get("tech") or {}).get("periode")},
         {"nom": "Trésor américain, FRED", "quoi": "taux des Treasuries, TIPS et points morts d'inflation", "url": "https://home.treasury.gov/"},
         {"nom": "Bundesbank", "quoi": "courbe des Bund ; rendements des obligations d'entreprises allemandes", "url": "https://www.bundesbank.de/"},
         {"nom": "Banque de France", "quoi": "taux à échéance constante (TEC) des OAT", "url": "https://webstat.banque-france.fr/"},

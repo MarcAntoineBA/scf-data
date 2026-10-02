@@ -228,12 +228,26 @@ def construire(journal):
     for r in lignes:
         r["part"] = round(100 * r["total"] / tot, 2)
 
+    # Les États-Unis seuls, aux mêmes trimestres que le monde : c'est le pays où se
+    # loge la dette des groupes tech (oblig_tech.py), qui se lit donc aussi face à
+    # l'encours américain — 38 % du marché mondial à lui seul.
+    eu = {"t": [], "total": [], "etats": [], "financieres": [], "entreprises": []}
+    if serie.get(("US", "S1")):
+        for t in monde["t"]:
+            if t not in serie[("US", "S1")]:
+                continue
+            eu["t"].append(t)
+            eu["total"].append(round(serie[("US", "S1")][t], 1))
+            for s, cle in (("S13", "etats"), ("S12", "financieres"), ("S11", "entreprises")):
+                eu[cle].append(round(serie.get(("US", s), {}).get(t, 0), 1))
+
     out = {
         "source": "BIS — Debt securities statistics (WS_NA_SEC_DSS)",
         "source_url": "https://data.bis.org/topics/DSS",
         "periode": t_der,
         "monde": monde,
         "panel": pn,
+        "etats_unis": eu if eu["t"] else None,
         "pays": lignes,
         "pib": {"annee": t_q4[:4], "source": pib.get("_source"),
                 "monde_md_usd": round(pib["_monde"], 0) if pib.get("_monde") else None,
