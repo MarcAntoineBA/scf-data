@@ -36,6 +36,7 @@ import oblig_credit  # noqa: E402
 import oblig_pays  # noqa: E402
 import oblig_frais  # noqa: E402
 import oblig_tech  # noqa: E402
+import oblig_notes  # noqa: E402
 from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -172,6 +173,14 @@ def main():
     except Exception as e:  # noqa: BLE001
         journal.append("fondamentaux : " + str(e)[:160])
     log("[info] fondamentaux : %.0f s" % (time.time() - t0))
+
+    # ── 3 ter. le marché contre les agences : écart avec l'Allemagne et note, zone euro ──
+    notes_ecarts = None
+    try:
+        notes_ecarts = oblig_notes.construire(journal, pays.get("_notations") or {}, prec_synth.get("notes_ecarts"))
+    except Exception as e:  # noqa: BLE001
+        journal.append("notes et écarts : " + str(e)[:140])
+        notes_ecarts = prec_synth.get("notes_ecarts")
 
     # ── 3 bis. les données fraîches : dernier point publié, projections, dette
     #    totale, détenteurs dans le temps (toutes automatiques) ──
@@ -321,6 +330,10 @@ def main():
          "url": "https://data.bis.org/topics/DSS", "date": (marche or {}).get("periode")},
         {"nom": "SEC (EDGAR)", "quoi": "dette des groupes tech américains, reconstituée société par société depuis leurs comptes déposés (10-K, 10-Q)",
          "url": oblig_tech.SOURCE_URL, "date": ((marche or {}).get("tech") or {}).get("periode")},
+        {"nom": "TradingView", "quoi": "rendement des obligations d'État de référence à 10 ans de la zone euro (le marché contre les agences)",
+         "url": oblig_notes.SOURCE_TV, "date": ((notes_ecarts or {}).get("quotidien") or {}).get("date")},
+        {"nom": "ESMA", "quoi": "registre réglementaire des notations (notes des États de la zone euro)",
+         "url": "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar"},
         {"nom": "Trésor américain, FRED", "quoi": "taux des Treasuries, TIPS et points morts d'inflation", "url": "https://home.treasury.gov/"},
         {"nom": "Bundesbank", "quoi": "courbe des Bund ; rendements des obligations d'entreprises allemandes", "url": "https://www.bundesbank.de/"},
         {"nom": "Banque de France", "quoi": "taux à échéance constante (TEC) des OAT", "url": "https://webstat.banque-france.fr/"},
@@ -340,6 +353,7 @@ def main():
              "credit": credit, "emetteurs_index": em_index, "emissions": {k: v for k, v in emis.items()}, "sources": sources,
              "taux_directeurs": {c: (pays.get(c) or {}).get("banque_centrale") for c in ("us", "ez", "gb", "jp", "ch", "ca", "au", "cn", "in")},
              "defauts": oblig_credit.DEFAUTS, "notations_changements": pays.get("_changements_notes") or [],
+             "notes_ecarts": notes_ecarts,
              "projections_editions": editions, "journal": journal[:40], "duree_s": round(time.time() - t0)}
     synth["taux_directeurs"]["ez"] = (pays.get("ez") or {}).get("banque_centrale") or (pays.get("de") or {}).get("banque_centrale")
     tailles["obligations.json"] = ecrire("obligations.json", nettoyer(compacter_arbre(synth)), js_global="__OBLIGATIONS__")

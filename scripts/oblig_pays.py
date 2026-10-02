@@ -94,7 +94,43 @@ NOTATIONS = [
     ("gb", "fitch", "AA-", "Stable", "non verifiee", "https://www.mof.go.jp/english/policy/jgbs/publication/debt_management_report/2026/esaimu2026.pdf", "dmo"),
     ("ch", "sp", "AAA", "Stable", "non verifiee", "https://en.wikipedia.org/wiki/List_of_countries_by_credit_rating", "wikipedia"),
     ("ch", "moodys", "Aaa", "Stable", "non verifiee", "https://en.wikipedia.org/wiki/List_of_countries_by_credit_rating", "wikipedia"),
-    ("ch", "fitch", "AAA", "Stable", "non verifiee", "https://en.wikipedia.org/wiki/List_of_countries_by_credit_rating", "wikipedia"),]
+    ("ch", "fitch", "AAA", "Stable", "non verifiee", "https://en.wikipedia.org/wiki/List_of_countries_by_credit_rating", "wikipedia"),
+    # 02/10/2026 — les 11 autres pays de la zone euro, pour « le marché contre les agences »
+    # (oblig_notes.py) : relevés au registre réglementaire de l'ESMA, tenus à jour par
+    # notations_auto. Estonie : S&P a RETIRÉ sa note (ESMA, 31/12/2024) → pas de ligne.
+    ("fi", "moodys", "Aa1", "Stable", "2024-12-13 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("fi", "sp", "AA+", "Negative", "2026-04-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("fi", "fitch", "AA", "Stable", "2026-07-17 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("sk", "moodys", "A3", "Stable", "2024-12-13 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("sk", "sp", "A", "Stable", "2026-04-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("sk", "fitch", "A-", "Stable", "2026-05-08 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lt", "moodys", "A2", "Stable", "2026-04-17 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lt", "sp", "A", "Stable", "2026-05-29 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lt", "fitch", "A+", "Stable", "2026-04-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("si", "moodys", "A2", "Stable", "2026-02-27 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("si", "sp", "AA", "Stable", "2026-03-27 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("si", "fitch", "A+", "Stable", "2026-09-11 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lv", "moodys", "A3", "Stable", "2026-01-16 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lv", "sp", "A", "Stable", "2026-05-29 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lv", "fitch", "A-", "Stable", "2026-04-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("ee", "moodys", "A1", "Stable", "2026-02-13 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("ee", "fitch", "A+", "Stable", "2026-06-05 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lu", "moodys", "Aaa", "Stable", "2025-02-07 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lu", "sp", "AAA", "Stable", "2026-07-31 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("lu", "fitch", "AAA", "Stable", "2026-04-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("mt", "moodys", "A2", "Stable", "2024-11-22 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("mt", "sp", "A-", "Stable", "2025-12-05 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("mt", "fitch", "A+", "Stable", "2026-08-21 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("cy", "moodys", "A3", "Stable", "2024-11-22 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("cy", "sp", "A", "Positive", "2026-09-18 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("cy", "fitch", "A-", "Positive", "2026-05-08 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("hr", "moodys", "A3", "Stable", "2024-11-08 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("hr", "sp", "A", "Stable", "2026-03-13 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("hr", "fitch", "A-", "Stable", "2026-07-31 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("bg", "moodys", "Baa1", "Stable", "2025-01-24 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("bg", "sp", "BBB+", "Positive", "2026-05-15 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+    ("bg", "fitch", "BBB+", "Positive", "2026-09-25 (ESMA)", "https://registers.esma.europa.eu/publication/searchRegister?core=esma_registers_radar", "ESMA"),
+]
 ECHELLE_SP = ["AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+", "BBB", "BBB-", "BB+", "BB", "BB-", "B+", "B", "B-",
               "CCC+", "CCC", "CCC-", "CC", "C", "D"]
 ECHELLE_MOODYS = ["Aaa", "Aa1", "Aa2", "Aa3", "A1", "A2", "A3", "Baa1", "Baa2", "Baa3", "Ba1", "Ba2", "Ba3", "B1", "B2", "B3",
@@ -531,4 +567,5 @@ def construire(journal):
         out[c] = x
     out["ez"] = {"banque_centrale": td.get("ez")}
     out["_changements_notes"] = changements_notes
+    out["_notations"] = nt          # tous les pays notés, zone euro entière comprise (oblig_notes)
     return out

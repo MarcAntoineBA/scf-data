@@ -33,6 +33,11 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
       trimestre de moins de 230 jours, aucune marche d'un trimestre à l'autre
       (+45 % / −25 % : une société entrée ou sortie d'un coup), audit SEC
       tenu (≤ 15 écarts au total publié par les sociétés).
+  [12] le marché contre les agences (oblig_notes.py) : au moins 10 pays cotés
+      du jour dont la France, l'Allemagne à 0 pb (elle est la référence), des
+      écarts entre −100 et +800 pb, une cotation de moins de 4 jours ; au moins
+      15 pays dans la vue mensuelle, mois de moins de 120 jours ; chaque pays
+      montré a une note Moody's prise dans l'échelle ; aucune série figée.
 
 Usage :  test_obligations.py [dossier]          (défaut : $SCF_OBLIG_OUT ou le cache)
          test_obligations.py --mutants [dossier] (chaque garde doit rougir sur
@@ -243,6 +248,40 @@ def controles(S, det, credit_det, aujourd_hui):
                 E.append("[11] pas de série États-Unis (BRI)")
         if ((TK.get("audit") or {}).get("ecarts") or 0) > 15:
             E.append("[11] audit SEC : %s écarts" % TK["audit"]["ecarts"])
+    # [12] le marché contre les agences
+    NE = S.get("notes_ecarts")
+    ECH_M = ["Aaa", "Aa1", "Aa2", "Aa3", "A1", "A2", "A3", "Baa1", "Baa2", "Baa3", "Ba1", "Ba2", "Ba3", "B1", "B2", "B3", "Caa1", "Caa2", "Caa3", "Ca", "C"]
+    if not NE:
+        E.append("[12] pas de bloc notes_ecarts")
+    else:
+        Q, Mo = NE.get("quotidien") or {}, NE.get("mensuel") or {}
+        qp, mp = Q.get("pays") or {}, Mo.get("pays") or {}
+        if len(qp) < 10 or "fr" not in qp:
+            E.append("[12] cotations du jour : %d pays" % len(qp))
+        if (qp.get("de") or {}).get("ecart_pb") not in (0, 0.0):
+            E.append("[12] l'Allemagne n'est pas à 0 pb")
+        for c, x in list(qp.items()) + list(mp.items()):
+            if not (-100 <= (x.get("ecart_pb") if isinstance(x.get("ecart_pb"), (int, float)) else 9999) <= 800):
+                E.append("[12] %s : écart %r hors bornes" % (c, x.get("ecart_pb")))
+                break
+        try:
+            if (aujourd_hui - date.fromisoformat(Q.get("date", "2000-01-01"))).days > 4:
+                E.append("[12] cotations du %s" % Q.get("date"))
+        except ValueError:
+            E.append("[12] date de cotation illisible")
+        if len(mp) < 15:
+            E.append("[12] vue mensuelle : %d pays" % len(mp))
+        try:
+            y, m = (Mo.get("mois") or "2000-01").split("-")
+            if (aujourd_hui - date(int(y), int(m), 15)).days > 120:
+                E.append("[12] vue mensuelle de %s" % Mo.get("mois"))
+        except ValueError:
+            E.append("[12] mois illisible")
+        for c in set(qp) | set(mp):
+            n = ((NE.get("notes") or {}).get(c) or {}).get("moodys") or {}
+            if n.get("note") not in ECH_M:
+                E.append("[12] %s : note Moody's %r" % (c, n.get("note")))
+                break
     if EU and EU.get("t"):
         for i, t in enumerate(EU["t"]):
             if EU["etats"][i] + EU["financieres"][i] + EU["entreprises"][i] > 1.01 * EU["total"][i]:
@@ -307,6 +346,9 @@ def mutants(S, det, cr, auj):
     m11b = copy.deepcopy(S); m11b["marche"]["tech"]["serie"]["t"][-1] = "2025-Q1"; cas.append(("[11] tech périmée", m11b, det))
     m11c = copy.deepcopy(S); m11c["marche"]["etats_unis"]["entreprises"] = [x * 0.02 for x in m11c["marche"]["etats_unis"]["entreprises"]]
     cas.append(("[11] tech > entreprises", m11c, det))
+    m12 = copy.deepcopy(S); m12["notes_ecarts"]["quotidien"]["pays"]["it"]["ecart_pb"] = 2500; cas.append(("[12] écart invraisemblable", m12, det))
+    m12b = copy.deepcopy(S); m12b["notes_ecarts"]["notes"]["fr"]["moodys"]["note"] = "AA-"; cas.append(("[12] note hors échelle", m12b, det))
+    m12c = copy.deepcopy(S); m12c["notes_ecarts"]["quotidien"]["date"] = "2026-01-02"; cas.append(("[12] cotation périmée", m12c, det))
     for nom, s, d in cas:
         e = controles(s, d, cr, auj)
         vu = any(x.startswith(nom[:3]) for x in e)
