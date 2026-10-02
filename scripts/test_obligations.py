@@ -119,8 +119,8 @@ def controles(S, det, credit_det, aujourd_hui):
                 E.append("[4] %s-%s : écart %s pb, recalculé %s pb" % (c, m, x["ecart_ref_pb"], attendu))
     # [5] fiches
     for f in S.get("fiches", []):
-        if f.get("genre") == "credit":
-            continue
+        if f.get("genre") in ("credit", "emetteur"):
+            continue                # les entreprises ont leur garde : test_oblig_emetteurs.py
         p, m = f["pays"], str(f["maturite"])
         if p not in det or m not in (det[p].get("maturites") or {}):
             E.append("[5] fiche %s sans maturité dans le détail" % f["code"])

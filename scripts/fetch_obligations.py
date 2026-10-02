@@ -306,6 +306,16 @@ def main():
                        "date": x.get("date"), "oas_pb": x.get("oas_pb") or x.get("ecart_pb"),
                        "var_1m_pb": (x.get("rdt_var") or {}).get("1m"), "var_1a_pb": (x.get("rdt_var") or {}).get("1a")})
 
+    # les entreprises une par une (fetch_oblig_emetteurs.py, une fois par jour) : une
+    # entrée par fiche, que lisent la recherche de la page et le compte des fiches
+    em_index = []
+    for x in (lire_json("oblig_emetteurs.json") or {}).get("emetteurs") or []:
+        if not x.get("code"):
+            continue
+        em_index.append({"code": "em-" + x["code"], "nom": x.get("nom"), "famille": x.get("famille"), "sym": x.get("sym")})
+        fiches.append({"code": "em-" + x["code"], "genre": "emetteur", "nom": x.get("nom"), "taux": x.get("rdt"), "date": x.get("date"),
+                       "oas_pb": x.get("ecart"), "var_1m_pb": (x.get("var_rdt_pb") or {}).get("1m"), "var_1a_pb": (x.get("var_rdt_pb") or {}).get("1a")})
+
     sources = [
         {"nom": "BIS", "quoi": "encours des titres de dette par pays et par émetteur (Debt securities statistics)",
          "url": "https://data.bis.org/topics/DSS", "date": (marche or {}).get("periode")},
@@ -323,8 +333,11 @@ def main():
         {"nom": "Yahoo Finance", "quoi": "cours des ETF obligataires, dividendes réinvestis", "url": None},
         {"nom": "Agences de notation", "quoi": "notes S&P, Moody's, Fitch, relevées à la main et vérifiées ligne par ligne le %s" % oblig_pays.VERIFIE_LE, "url": None},
     ]
+    if em_index:
+        sources.append({"nom": "SPDR, onvista, ESMA, SEC", "quoi": "les %d entreprises une par une : prix et cours de chaque obligation, émissions, notes, comptes" % len(em_index),
+                        "url": None})
     synth = {"genere_le": maintenant, "gravure": GRAVURE, "marche": marche, "souverains": souv, "fiches": fiches,
-             "credit": credit, "emissions": {k: v for k, v in emis.items()}, "sources": sources,
+             "credit": credit, "emetteurs_index": em_index, "emissions": {k: v for k, v in emis.items()}, "sources": sources,
              "taux_directeurs": {c: (pays.get(c) or {}).get("banque_centrale") for c in ("us", "ez", "gb", "jp", "ch", "ca", "au", "cn", "in")},
              "defauts": oblig_credit.DEFAUTS, "notations_changements": pays.get("_changements_notes") or [],
              "projections_editions": editions, "journal": journal[:40], "duree_s": round(time.time() - t0)}
