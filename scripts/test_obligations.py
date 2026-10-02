@@ -44,6 +44,9 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
       écarts entre −100 et +800 pb, une cotation de moins de 4 jours ; au moins
       15 pays dans la vue mensuelle, mois de moins de 120 jours ; chaque pays
       montré a une note Moody's prise dans l'échelle ; aucune série figée.
+  [15] le CODE relit une fiche reprise du passage précédent : une série compacte
+      ({"d0","dj","v"}) se relit comme une fraîche (sinon, une seule source vide
+      faisait tomber toute la tâche : KeyError 'd', 02/10/2026).
 
 Usage :  test_obligations.py [dossier]          (défaut : $SCF_OBLIG_OUT ou le cache)
          test_obligations.py --mutants [dossier] (chaque garde doit rougir sur
@@ -404,10 +407,25 @@ def mutants(S, det, cr, auj):
     return ok
 
 
+def code_reprise():
+    """[15] fetch_obligations.points() lit les deux formes d'une série."""
+    E = []
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import fetch_obligations as F
+        fr = {"d": ["2026-01-%02d" % i for i in range(1, 21)], "v": [float(i) for i in range(20)]}
+        if F.points(F.compacte(fr)) != list(zip(fr["d"], fr["v"])):
+            E.append("[15] une série compacte ne se relit pas comme la fraîche")
+    except Exception as e:  # noqa: BLE001
+        E.append("[15] relecture d'une série compacte : %s" % e)
+    return E
+
+
 def main():
     E, S, det, cr = charger()
     auj = date.today()
     E += controles(S, det, cr, auj)
+    E += code_reprise()
     print("Garde obligations (%s) : %d fiche(s), %d pays, %d segment(s)" % (DOSSIER, len(S.get("fiches", [])), len(S.get("souverains", [])), len(S.get("credit", []))))
     for e in E:
         print("  ✗ " + e)

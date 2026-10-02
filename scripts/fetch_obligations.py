@@ -112,14 +112,29 @@ def nettoyer(x):
     return x
 
 
+def points(col):
+    """Les points [(date, valeur)] d'une série, sous ses DEUX formes : {"d", "v"} (fraîche) ou
+    {"d0", "dj", "v"} (compacte, celle des fichiers écrits). ⚠ Une fiche REPRISE du passage
+    précédent (source vide) est compacte : la lire par col["d"] faisait tomber toute la tâche
+    (KeyError: 'd', passage de 13:19 UTC le 02/10/2026)."""
+    col = col or {}
+    if col.get("d") is not None:
+        return list(zip(col.get("d") or [], col.get("v") or []))
+    if col.get("d0") and col.get("dj") is not None:
+        o, out = date.fromisoformat(col["d0"][:10]).toordinal(), []
+        for dj, v in zip(col["dj"], col.get("v") or []):
+            o += dj
+            out.append((date.fromordinal(o).isoformat(), v))
+        return out
+    return []
+
+
 def serie_vue(det, cle="10"):
     """Le 10 ans d'un pays pour la vue d'ensemble : hebdomadaire depuis 1990,
     raccordé au mensuel long quand le quotidien commence tard."""
     m = (det.get("maturites") or {}).get(cle) or {}
-    s = m.get("serie") or {}
-    pts = list(zip(s.get("d", []), s.get("v", [])))
-    lg = det.get("long10") or {}
-    lpts = list(zip(lg.get("d", []), lg.get("v", [])))
+    pts = points(m.get("serie"))
+    lpts = points(det.get("long10"))
     if lpts and (not pts or pts[0][0] > "1991-01-01"):
         premier = pts[0][0] if pts else "9999"
         pts = [p for p in lpts if p[0] < premier] + pts
@@ -318,7 +333,7 @@ def main():
             vue["courbes"][c] = d["courbe"]
         e = (d.get("ecarts") or {}).get("10")
         if e and c not in ("us", "cn", "in", "jp", "gb", "ca", "au", "ch"):
-            pts = list(zip(e["d"], e["v"]))
+            pts = points(e)
             m = oblig_souverains.moyennes_mensuelles(pts) if not d.get("mensuel") else pts
             vue["ecarts_bund"][c] = {"d": [x[0] for x in m], "v": [round(x[1], 1) for x in m], "mensuel": True}
     if det_souv.get("ez", {}).get("courbe_aaa"):
