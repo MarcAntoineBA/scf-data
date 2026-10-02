@@ -33,6 +33,12 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
       trimestre de moins de 230 jours, aucune marche d'un trimestre à l'autre
       (+45 % / −25 % : une société entrée ou sortie d'un coup), audit SEC
       tenu (≤ 15 écarts au total publié par les sociétés).
+  [13] les financières américaines (Z.1, oblig_detail_us) : les sous-secteurs ne
+      dépassent pas le total, et le reste « autres » ne dépasse pas 10 % ;
+  [14] les entreprises américaines par secteur (SEC) : la dette ventilée (secteurs
+      et tech) ne dépasse JAMAIS la dette totale des entreprises américaines (BRI) ;
+      aucun secteur ne saute de plus de 40 % d'un trimestre à l'autre (une
+      couture de prédécesseur ratée) ;
   [12] le marché contre les agences (oblig_notes.py) : au moins 10 pays cotés
       du jour dont la France, l'Allemagne à 0 pb (elle est la référence), des
       écarts entre −100 et +800 pb, une cotation de moins de 4 jours ; au moins
@@ -287,6 +293,39 @@ def controles(S, det, credit_det, aujourd_hui):
             if EU["etats"][i] + EU["financieres"][i] + EU["entreprises"][i] > 1.01 * EU["total"][i]:
                 E.append("[11] États-Unis %s : secteurs > total" % t)
                 break
+    # [13] les financières américaines
+    FU = (M.get("fin_us") or {}).get("serie") or {}
+    if not FU.get("t"):
+        E.append("[13] pas de bloc fin_us")
+    else:
+        for i, t in enumerate(FU["t"]):
+            parts = FU["agences"][i] + FU["titrisation"][i] + FU["banques"][i] + FU["credit"][i]
+            if parts > 1.02 * FU["total"][i]:
+                E.append("[13] %s : sous-secteurs %.0f > total %.0f" % (t, parts, FU["total"][i]))
+                break
+            if FU["autres"][i] > 0.10 * FU["total"][i]:
+                E.append("[13] %s : « autres » = %.0f %% des financières" % (t, 100 * FU["autres"][i] / FU["total"][i]))
+                break
+    # [14] les entreprises américaines par secteur
+    SU = (M.get("secteurs_us") or {}).get("serie") or {}
+    TKS = ((M.get("tech") or {}).get("serie")) or {}
+    if not SU.get("t"):
+        E.append("[14] pas de bloc secteurs_us")
+    elif EU and EU.get("t"):
+        cles = [x["code"] for x in (M.get("secteurs_us") or {}).get("secteurs") or []]
+        for i, t in enumerate(SU["t"]):
+            if t not in EU["t"]:
+                continue
+            ent = EU["entreprises"][EU["t"].index(t)]
+            tech = TKS["tech"][TKS["t"].index(t)] if TKS.get("t") and t in TKS["t"] else 0
+            ventile = sum(SU[k][i] for k in cles) + tech
+            if ventile > ent:
+                E.append("[14] %s : dette ventilée %.0f > dette des entreprises américaines %.0f" % (t, ventile, ent))
+                break
+        for k in cles:
+            v = SU.get(k) or []
+            if any(v[i - 1] > 50 and abs(v[i] / v[i - 1] - 1) > 0.40 for i in range(1, len(v))):
+                E.append("[14] secteur %s : saut de plus de 40 %% d'un trimestre à l'autre" % k)
     return E
 
 
@@ -349,6 +388,14 @@ def mutants(S, det, cr, auj):
     m12 = copy.deepcopy(S); m12["notes_ecarts"]["quotidien"]["pays"]["it"]["ecart_pb"] = 2500; cas.append(("[12] écart invraisemblable", m12, det))
     m12b = copy.deepcopy(S); m12b["notes_ecarts"]["notes"]["fr"]["moodys"]["note"] = "AA-"; cas.append(("[12] note hors échelle", m12b, det))
     m12c = copy.deepcopy(S); m12c["notes_ecarts"]["quotidien"]["date"] = "2026-01-02"; cas.append(("[12] cotation périmée", m12c, det))
+    m13 = copy.deepcopy(S)
+    if (m13["marche"].get("fin_us") or {}).get("serie"):
+        m13["marche"]["fin_us"]["serie"]["agences"][-1] *= 1.6
+        cas.append(("[13] sous-secteur gonflé", m13, det))
+    m14 = copy.deepcopy(S)
+    if (m14["marche"].get("secteurs_us") or {}).get("serie"):
+        m14["marche"]["secteurs_us"]["serie"]["utilities"][-1] += 9000
+        cas.append(("[14] dette ventilée > total", m14, det))
     for nom, s, d in cas:
         e = controles(s, d, cr, auj)
         vu = any(x.startswith(nom[:3]) for x in e)

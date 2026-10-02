@@ -36,6 +36,7 @@ import oblig_credit  # noqa: E402
 import oblig_pays  # noqa: E402
 import oblig_frais  # noqa: E402
 import oblig_tech  # noqa: E402
+import oblig_detail_us  # noqa: E402
 import oblig_notes  # noqa: E402
 from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
@@ -156,6 +157,26 @@ def main():
             if prec_tech:
                 marche["tech"] = dict(prec_tech, reprise_du=(prec_tech.get("genere_le") or "")[:10])
         log("[info] tech : %.0f s" % (time.time() - t0))
+        # ── 1 ter. le détail américain : financières par sous-secteur (Fed, Z.1) et
+        #    entreprises par secteur (SEC) — vues « détail » du graphe des emprunteurs ──
+        prec_m = prec_synth.get("marche") or {}
+        try:
+            marche["secteurs_us"] = oblig_detail_us.secteurs(journal, prec_m.get("secteurs_us"))
+        except Exception as e:  # noqa: BLE001
+            journal.append("secteurs : " + str(e)[:160])
+            if prec_m.get("secteurs_us"):
+                marche["secteurs_us"] = dict(prec_m["secteurs_us"], reprise_du=(prec_m["secteurs_us"].get("genere_le") or "")[:10])
+        try:
+            fu = oblig_detail_us.financieres(journal)
+            if fu:
+                marche["fin_us"] = fu
+            elif prec_m.get("fin_us"):
+                marche["fin_us"] = dict(prec_m["fin_us"], reprise_du=(prec_synth.get("genere_le") or "")[:10])
+        except Exception as e:  # noqa: BLE001
+            journal.append("financières Z.1 : " + str(e)[:160])
+            if prec_m.get("fin_us"):
+                marche["fin_us"] = dict(prec_m["fin_us"], reprise_du=(prec_synth.get("genere_le") or "")[:10])
+        log("[info] détail américain : %.0f s" % (time.time() - t0))
 
     # ── 2. les taux d'État ──
     precedent = {}
