@@ -1,18 +1,22 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-10-02T11:59:13Z",
-  "total": 41,
+  "ts": "2026-10-03T11:43:51Z",
+  "total": 42,
   "ok": 36,
-  "secs": 4429.1,
-  "changed": 2709,
-  "versionnes": 2700,
+  "secs": 5727.3,
+  "changed": 3392,
+  "versionnes": 3383,
   "pieces_jointes": 9,
-  "absents": 183,
+  "absents": 110,
   "muets": [
-   "gtrends.serpapi (145.1 h)"
+   "gtrends.serpapi (168.9 h)"
   ],
   "failed": [
+   {
+    "job": "atlasbudget",
+    "why": "dépassement du plafond (70 min)"
+   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -31,9 +35,9 @@
    },
    {
     "job": "secteursmondiaux",
-    "why": "[refus] fragments de marche vieux de 859 h (seuil 48 h) dans ~/work/scf-data/scf-data/scripts : on ne publie pas un agregat perime sous une date du jour. Fichier precedent conserve."
+    "why": "[refus] fragments de marche vieux de 882 h (seuil 48 h) dans ~/work/scf-data/scf-data/scripts : on ne publie pas un agregat perime sous une date du jour. Fichier precedent conserve."
    }
   ]
  },
- "updated": "2026-10-02T11:59:13Z"
+ "updated": "2026-10-03T11:43:51Z"
 }
