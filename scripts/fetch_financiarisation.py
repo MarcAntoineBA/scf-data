@@ -39,6 +39,17 @@ COUNTRIES = [
 ]
 
 
+def frn(x, dec=0):
+    """Nombre au format français (virgule décimale, espace insécable)."""
+    t = f"{abs(x):,.{dec}f}".replace(",", "\u00a0").replace(".", ",")
+    return ("\u2212" + t) if x < 0 else t
+
+
+def frp(x, dec=0):
+    """Pourcentage au format français : 42,5 % (espace insécable avant %)."""
+    return frn(x, dec) + "\u00a0%"
+
+
 def fred_url(sid):
     return f"https://fred.stlouisfed.org/series/{sid}"
 
@@ -162,16 +173,16 @@ def main():
         panelsA.append(panel(
             "capital_travail", "duo", "Acte I · qui capte la valeur créée ?",
             "Le capital écrase le travail",
-            f"En 1970, les salaires captaient {l0:.0f}% du revenu national ; "
-            f"aujourd'hui {l1:.0f}%. La part des profits des entreprises est, elle, "
-            f"montée de {p0:.0f}% à {p1:.0f}%. La valeur créée glisse du travailleur "
+            f"En 1970, les salaires captaient {frp(l0, 0)} du revenu national ; "
+            f"aujourd'hui {frp(l1, 0)}. La part des profits des entreprises est, elle, "
+            f"montée de {frp(p0, 0)} à {frp(p1, 0)}. La valeur créée glisse du travailleur "
             f"vers l'actionnaire — moteur premier de la financiarisation.",
             "%", "pct1",
             [serie("Part des salaires", lab["dates"], lab["values"], BLUE, "pct1"),
              serie("Part des profits", pro["dates"], pro["values"], RED, "pct1")],
             [{"id": "W270RE1A156NBEA", "url": fred_url("W270RE1A156NBEA")},
              {"id": "W273RE1A156NBEA", "url": fred_url("W273RE1A156NBEA")}],
-            f"Salaires {l1:.0f}% · Profits {p1:.0f}% du revenu national"))
+            f"Salaires {frp(l1, 0)} · Profits {frp(p1, 0)} du revenu national"))
 
     # ── A2 — Distribuer plutôt qu'investir ────────────────────────────────
     div = fetch_fred("DIVIDEND", start="1947-01-01")       # $ Md
@@ -184,16 +195,16 @@ def main():
         panelsA.append(panel(
             "actionnaire_reel", "duo", "Acte II · l'entreprise sert qui ?",
             "Distribuer plutôt qu'investir",
-            f"Les dividendes versés aux actionnaires ont bondi de {d0:.1f}% à "
-            f"{d1:.1f}% du PIB, tandis que l'investissement productif stagne "
-            f"(~{i1:.0f}%). Et encore : les rachats d'actions, d'ampleur comparable, "
+            f"Les dividendes versés aux actionnaires ont bondi de {frp(d0, 1)} à "
+            f"{frp(d1, 1)} du PIB, tandis que l'investissement productif stagne "
+            f"(~{frp(i1, 0)}). Et encore : les rachats d'actions, d'ampleur comparable, "
             f"ne sont pas comptés ici. L'entreprise redistribue au lieu de bâtir.",
             "%", "pct1",
             [serie("Dividendes nets", dd, dv, RED, "pct1"),
              serie("Investissement productif", idd, iv, GREEN, "pct1")],
             [{"id": "DIVIDEND", "url": fred_url("DIVIDEND")},
              {"id": "NCBGCFQ027S", "url": fred_url("NCBGCFQ027S")}],
-            f"Dividendes {d1:.1f}% · Investissement {i1:.1f}% du PIB"))
+            f"Dividendes {frp(d1, 1)} · Investissement {frp(i1, 1)} du PIB"))
 
     # ── A3 — Bourse vs Économie (Buffett) ─────────────────────────────────
     eq = fetch_fred("NCBEILQ027S", start="1947-01-01")
@@ -205,13 +216,13 @@ def main():
         panelsA.append(panel(
             "buffett", "mono", "Acte III · la bourse suit-elle l'économie ?",
             "Le marché décroche du réel",
-            f"La capitalisation boursière vaut {b1:.0f}% du PIB, contre ~{b0:.0f}% "
+            f"La capitalisation boursière vaut {frp(b1, 0)} du PIB, contre ~{frp(b0, 0)} "
             f"au début des années 1970. La bourse ne reflète plus l'économie : elle "
             f"la surplombe — et toute richesse, désormais, se mesure en actifs.",
             "%", "pct0",
             [serie("Capitalisation / PIB", bd, bv, GOLD, "pct0")],
             [{"id": "NCBEILQ027S ÷ GDP", "url": fred_url("NCBEILQ027S")}],
-            f"{b1:.0f}% du PIB", pctile_val=pctile(bv, b1)))
+            f"{frp(b1, 0)} du PIB", pctile_val=pctile(bv, b1)))
 
     # ── A4 — Poids direct de la finance ───────────────────────────────────
     fin = fetch_fred("VAPGDPFI", start="2000-01-01")
@@ -220,13 +231,13 @@ def main():
         panelsA.append(panel(
             "finance_pib", "mono", "Acte IV · le poids du secteur financier",
             "La finance, secteur à part",
-            f"La finance et l'assurance pèsent {f1:.1f}% du PIB américain — un "
+            f"La finance et l'assurance pèsent {frp(f1, 1)} du PIB américain — un "
             f"secteur qui capte une part croissante de l'activité sans rien produire "
             f"de tangible (série disponible depuis 2005).",
             "%", "pct1",
             [serie("Finance & assurance / PIB", fin["dates"], fin["values"], PURPLE, "pct1")],
             [{"id": "VAPGDPFI", "url": fred_url("VAPGDPFI")}],
-            f"{f1:.1f}% du PIB", note="Donnée trimestrielle BEA, depuis 2005."))
+            f"{frp(f1, 1)} du PIB", note="Donnée trimestrielle BEA, depuis 2005."))
 
     # ── B1 — Allocation actions des ménages ───────────────────────────────
     ea = fetch_fred("BOGZ1FL153064486Q", start="1945-01-01")
@@ -235,13 +246,13 @@ def main():
         panelsB.append(panel(
             "allocation_actions", "mono", "Le ménage devient actionnaire",
             "Tout-actions, comme jamais",
-            f"{e1:.0f}% du patrimoine financier des ménages américains est investi "
-            f"en actions, contre ~{e0:.0f}% dans les années 1980 : un record absolu. "
+            f"{frp(e1, 0)} du patrimoine financier des ménages américains est investi "
+            f"en actions, contre ~{frp(e0, 0)} dans les années 1980 : un record absolu. "
             f"Le sort financier des Américains est arrimé à la bourse.",
             "%", "pct1",
             [serie("Actions / actifs financiers", ea["dates"], ea["values"], GOLD, "pct1")],
             [{"id": "BOGZ1FL153064486Q", "url": fred_url("BOGZ1FL153064486Q")}],
-            f"{e1:.0f}% du patrimoine financier", pctile_val=pctile(ea["values"], e1)))
+            f"{frp(e1, 0)} du patrimoine financier", pctile_val=pctile(ea["values"], e1)))
 
     # ── B2 — Patrimoine vs Revenu ─────────────────────────────────────────
     nw = fetch_fred("HNONWPDPI", start="1946-01-01")
@@ -250,13 +261,13 @@ def main():
         panelsB.append(panel(
             "patrimoine_revenu", "mono", "La richesse se déconnecte du salaire",
             "Le patrimoine gonfle plus vite que les revenus",
-            f"Le patrimoine net des ménages vaut {n1:.0f}% de leur revenu annuel, "
-            f"contre ~{n0:.0f}% dans les années 1980. La richesse enfle au rythme "
+            f"Le patrimoine net des ménages vaut {frp(n1, 0)} de leur revenu annuel, "
+            f"contre ~{frp(n0, 0)} dans les années 1980. La richesse enfle au rythme "
             f"des prix d'actifs, plus à celui du travail — jusqu'à la correction.",
             "%", "pct0",
             [serie("Patrimoine net / revenu", nw["dates"], nw["values"], BLUE, "pct0")],
             [{"id": "HNONWPDPI", "url": fred_url("HNONWPDPI")}],
-            f"{n1:.0f}% du revenu disponible", pctile_val=pctile(nw["values"], n1)))
+            f"{frp(n1, 0)} du revenu disponible", pctile_val=pctile(nw["values"], n1)))
 
     # ── B3 — Financier vs Tangible ────────────────────────────────────────
     fa = fetch_fred("TFAABSHNO", start="1945-01-01")
@@ -267,13 +278,13 @@ def main():
         panelsB.append(panel(
             "financier_tangible", "mono", "Le bilan des ménages se financiarise",
             "Plus de papier que de tangible",
-            f"{a1:.0f}% du patrimoine des ménages est désormais financier (titres, "
+            f"{frp(a1, 0)} du patrimoine des ménages est désormais financier (titres, "
             f"fonds, retraite) plutôt que tangible (logement, biens durables). Leur "
             f"bilan est financiarisé — donc directement exposé aux marchés.",
             "%", "pct1",
             [serie("Actifs financiers / patrimoine", fad, fav, GREEN, "pct1")],
             [{"id": "TFAABSHNO ÷ TABSHNO", "url": fred_url("TFAABSHNO")}],
-            f"{a1:.0f}% du patrimoine", pctile_val=pctile(fav, a1)))
+            f"{frp(a1, 0)} du patrimoine", pctile_val=pctile(fav, a1)))
 
     # ══ ANCRE — La montée du crédit privé (FAIT mesuré, sans seuil normatif) ══
     # Volontairement DESCRIPTIF : pas de « seuil de nocivité » BIS/FMI ici — la thèse du
@@ -288,13 +299,13 @@ def main():
         pk = max(cred["values"])
         pky = cred["dates"][cred["values"].index(pk)][:4]
         mult = c1 / c0 if c0 else 0
-        multfr = f"{mult:.1f}".replace(".", ",")   # séparateur décimal français
+        multfr = f"{frn(mult, 1)}".replace(".", ",")   # séparateur décimal français
         anchor = panel(
             "credit_prive", "mono", "Le fait de départ · crédit privé américain",
             f"Le crédit privé pèse {multfr} fois plus lourd qu'en {y0}",
-            f"Le crédit au secteur privé non financier représentait <b>{c0:.0f}% du "
-            f"PIB</b> en {y0}. Il a culminé à <b>{pk:.0f}%</b> en {pky}, et s'établit "
-            f"aujourd'hui à <b>{c1:.0f}%</b> — soit <b>×{multfr}</b> le niveau de "
+            f"Le crédit au secteur privé non financier représentait <b>{frp(c0, 0)} du "
+            f"PIB</b> en {y0}. Il a culminé à <b>{frp(pk, 0)}</b> en {pky}, et s'établit "
+            f"aujourd'hui à <b>{frp(c1, 0)}</b> — soit <b>×{multfr}</b> le niveau de "
             f"{y0}. Honnêteté du chiffre : il <i>recule</i> depuis {pky}, le secteur "
             f"privé s'étant partiellement désendetté au profit de l'État. Ce n'est donc "
             f"pas le niveau qui fait la thèse. <b>La question du chapitre est ailleurs : "
@@ -302,7 +313,7 @@ def main():
             "%", "pct0",
             [serie("Crédit privé / PIB (US)", cred["dates"], cred["values"], GOLD, "pct0")],
             [{"id": "QUSPAM770A", "url": fred_url("QUSPAM770A")}],
-            f"{c1:.0f}% du PIB", pctile_val=pctile(cred["values"], c1))
+            f"{frp(c1, 0)} du PIB", pctile_val=pctile(cred["values"], c1))
 
     # ══ PARTIE C — L'inversion : l'économie sous perfusion ══════════════════
     panelsC = []
@@ -311,19 +322,20 @@ def main():
     if wal and gmap:
         wd, wv = ratio_carry(wal, gdp, 0.001)   # M$ → Md$, / PIB Md$
         w0 = val_at(wd, wv, 2007); w1 = wv[-1]; wpk = max(wv)
+        wpky = wd[wv.index(wpk)][:4]
         panelsC.append(panel(
             "fed_put", "mono", "Acte V · qui sauve les marchés ?",
             "Le put de la Fed",
             f"À chaque krach (2008, 2020), la Réserve Fédérale inonde le système de "
-            f"liquidités : son bilan est passé de ~6% du PIB avant 2008 à un pic de "
-            f"{wpk:.0f}% en 2021. La banque centrale ne pilote plus seulement "
+            f"liquidités : son bilan est passé de ~{frp(w0, 0)} du PIB avant 2008 à un pic de "
+            f"{frp(wpk, 0)} en {wpky}. La banque centrale ne pilote plus seulement "
             f"l'inflation — elle soutient les prix d'actifs, car l'économie ne "
             f"supporte plus leur chute. L'économie dépend de la finance, et non "
             f"l'inverse.",
             "%", "pct0",
             [serie("Bilan de la Fed / PIB", wd, wv, PURPLE, "pct0")],
             [{"id": "WALCL ÷ GDP", "url": fred_url("WALCL")}],
-            f"{w1:.0f}% du PIB", note="Bilan Fed disponible depuis 2002."))
+            f"{frp(w1, 0)} du PIB", note="Bilan Fed disponible depuis 2002."))
 
     # C2 — La croissance à crédit
     tot = fetch_fred("TCMDO", start="1950-01-01")
@@ -333,15 +345,16 @@ def main():
         panelsC.append(panel(
             "debt_growth", "mono", "Acte VI · sur quoi repose la croissance ?",
             "La croissance carbure au crédit",
-            f"La dette totale (ménages, entreprises, État) est passée de ~{t0:.0f}% "
-            f"du PIB en 1980 à <b>{t1:.0f}%</b> aujourd'hui. Il faut toujours plus "
-            f"de dette pour produire un dollar de PIB : la productivité de la dette "
-            f"s'effondre. La croissance américaine n'est plus organique, elle est "
-            f"financée.",
+            f"La dette totale (ménages, entreprises, État) est passée de ~{frp(t0, 0)} "
+            f"du PIB en 1980 à <b>{frp(t1, 0)}</b> aujourd'hui (pic {frp(max(tv), 0)} en "
+            f"{td[tv.index(max(tv))][:4]}). Depuis la crise de 2008, le ratio plafonne — "
+            f"l'État a pris le relais du privé — mais à un niveau {frn(t1 / t0, 1)} fois "
+            f"celui de 1980 : chaque dollar de PIB est adossé à {frn(t1 / 100, 1)} dollars "
+            f"de dette.",
             "%", "pct0",
             [serie("Dette totale / PIB", td, tv, RED, "pct0")],
             [{"id": "TCMDO ÷ GDP", "url": fred_url("TCMDO")}],
-            f"{t1:.0f}% du PIB", pctile_val=pctile(tv, t1)))
+            f"{frp(t1, 0)} du PIB", pctile_val=pctile(tv, t1)))
 
     # C3 — La vélocité s'effondre
     m2v = fetch_fred("M2V", start="1959-01-01")
@@ -351,13 +364,13 @@ def main():
             "velocity", "mono", "Acte VII · l'argent circule-t-il encore ?",
             "L'argent dort, les actifs montent",
             f"La vélocité de la monnaie — le nombre de fois qu'un dollar change de "
-            f"mains dans l'économie réelle — s'est effondrée de {v0:.2f} à {v1:.2f} "
-            f"(creux {vmin:.2f} en 2020). On crée toujours plus de monnaie, mais "
+            f"mains dans l'économie réelle — s'est effondrée de {frn(v0, 2)} à {frn(v1, 2)} "
+            f"(creux {frn(vmin, 2)} en {m2v['dates'][m2v['values'].index(vmin)][:4]}). On crée toujours plus de monnaie, mais "
             f"elle nourrit les marchés d'actifs plutôt que l'activité productive.",
             "pts", "num2",
             [serie("Vélocité de M2", m2v["dates"], m2v["values"], BLUE, "num2")],
             [{"id": "M2V", "url": fred_url("M2V")}],
-            f"{v1:.2f}"))
+            f"{frn(v1, 2)}"))
 
     # C4 — Le réel décroche
     sp = fetch_fred("SPASTT01USM661N", start="1964-01-01")
@@ -370,8 +383,8 @@ def main():
         panelsC.append(panel(
             "decoupling", "duo", "Acte VIII · deux économies, deux destins",
             "La bourse s'envole, le salaire stagne",
-            f"Depuis 1971 (base 100), la bourse a été multipliée par ~{sv[-1] / 100:.0f} "
-            f"quand le salaire horaire réel n'a progressé que de {rv[-1] - 100:.0f}%. "
+            f"Depuis 1971 (base 100), la bourse a été multipliée par ~{frn(sv[-1] / 100, 0)} "
+            f"quand le salaire horaire réel n'a progressé que de {frp(rv[-1] - 100, 0)}. "
             f"Wall Street et Main Street ne vivent plus dans la même économie : "
             f"l'une capitalise, l'autre subit.",
             "idx", "idx",
@@ -489,6 +502,30 @@ def main():
     if not panelsA and not panelsB:
         sys.stderr.write("[fin] AUCUN panneau — cache non écrit\n")
         sys.exit(1)
+
+    # ── REPLI : un panneau dont la source FRED a échoué reprend sa DERNIÈRE
+    # version réellement collectée (cache précédent), marquée stale — jamais
+    # un graphe qui disparaît, jamais une constante réinjectée en silence.
+    try:
+        prev = json.loads(CACHE_FILE.read_text())
+    except (OSError, ValueError):
+        prev = {}
+    now_iso = payload["updated"]
+    for part in ("partA", "partB", "partC"):
+        cur = payload[part]["panels"]
+        keys = {p_["key"] for p_ in cur}
+        for p_ in cur:
+            p_.setdefault("fetched_at", now_iso)
+        for old in ((prev.get(part) or {}).get("panels") or []):
+            if old.get("key") not in keys:
+                cur.append(dict(old, stale=True))
+                sys.stderr.write(f"[fin] REPLI panneau {old.get('key')} (collecte {old.get('fetched_at', prev.get('updated'))})\n")
+        if payload[part].get("intl") is None and (prev.get(part) or {}).get("intl"):
+            payload[part]["intl"] = dict(prev[part]["intl"], stale=True)
+    if payload["anchor"] is None and prev.get("anchor"):
+        payload["anchor"] = dict(prev["anchor"], stale=True)
+    elif payload["anchor"] is not None:
+        payload["anchor"].setdefault("fetched_at", now_iso)
 
     CACHE_FILE.write_text(json.dumps(payload, separators=(",", ":")))
     CACHE_JS.write_text("window.__FINANCIARISATION__=" +

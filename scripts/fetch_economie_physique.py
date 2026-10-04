@@ -280,7 +280,7 @@ def build_fret():
         "us_index": us,
         "source_url": "https://ec.europa.eu/eurostat/databrowser/view/road_go_ta_tott",
         "source_label": "Eurostat · road_go_ta_tott (tonnes chargées) · FRED TRUCKD11 (US, indice)",
-        "updated": src,
+        "maj_source": src,   # date de mise à jour du jeu Eurostat (≠ date de collecte)
     }
 
 
@@ -344,7 +344,7 @@ def build_surf():
         "us_reconstructed": us,
         "source_url": "https://ec.europa.eu/eurostat/databrowser/view/sts_cobp_a",
         "source_label": "Eurostat · sts_cobp_a (m² de permis) · US reconstruit (Census PERMIT × surface moyenne)",
-        "updated": upd,
+        "maj_source": upd,
     }
 
 
@@ -429,7 +429,7 @@ def build_ip():
         "sectors": {"geo": "EU27", "items": sectors},
         "source_url": "https://ec.europa.eu/eurostat/databrowser/view/sts_inpr_m",
         "source_label": "Eurostat · sts_inpr_m (indice volume, désais.) · FRED IPMAN (US)",
-        "updated": upd,
+        "maj_source": upd,
     }
 
 
@@ -440,7 +440,7 @@ def wb_series(indicator, since=2000):
     # EUU = code World Bank de l'UE-27 (inclus pour le PIB agrégé du découplage)
     codes = ";".join(COUNTRIES[c]["wb"] for c in COUNTRIES)
     url = (f"https://api.worldbank.org/v2/country/{codes}/indicator/{indicator}"
-           f"?format=json&date={since}:2024&per_page=20000")
+           f"?format=json&date={since}:{datetime.now(timezone.utc).year}&per_page=20000")
     txt = http_text(url, accept="application/json")
     arr = json.loads(txt)
     if not isinstance(arr, list) or len(arr) < 2 or not arr[1]:
@@ -464,22 +464,66 @@ def wb_series(indicator, since=2000):
     return by
 
 
+def us_manuf_extension(hist_us):
+    """La Banque mondiale s'arrête en 2021 pour les États-Unis (le BEA ne remonte
+    plus la série à l'ONU). On PROLONGE la série WB avec l'évolution publiée par
+    le BEA (FRED VAMA, valeur ajoutée manufacturière, Md$ courants, trimestriel
+    SAAR → moyenne des 4 trimestres, années PLEINES seulement), chaînée sur la
+    dernière année WB : v(y) = WB(y0) × BEA(y) / BEA(y0). Le niveau reste celui de
+    la WB (pas de rupture de série), seule la pente vient du BEA."""
+    if not fetch_fred or not hist_us or not hist_us.get("years"):
+        return None
+    o = fetch_fred("VAMA", start="2000-01-01")
+    if not o:
+        mark("FRED:VAMA(BEA)", False)
+        return None
+    by_y = {}
+    for dt, v in zip(o["dates"], o["values"]):
+        by_y.setdefault(int(dt[:4]), []).append(v)
+    bea = {y: sum(vs) / len(vs) for y, vs in by_y.items() if len(vs) == 4}
+    y0 = hist_us["years"][-1]
+    if y0 not in bea:
+        mark("FRED:VAMA(BEA)", False)
+        return None
+    w0 = hist_us["values"][-1]
+    add_y, add_v = [], []
+    for y in sorted(bea):
+        if y > y0:
+            add_y.append(y)
+            add_v.append(round(w0 * bea[y] / bea[y0], 1))
+    mark("FRED:VAMA(BEA)", True)
+    if not add_y:
+        return None
+    return {"years": add_y, "values": add_v, "from": add_y[0], "chained_on": y0,
+            "source_label": "BEA (FRED VAMA), chaîné sur la Banque mondiale " + str(y0),
+            "source_url": "https://fred.stlouisfed.org/series/VAMA"}
+
+
 def build_manuf_va():
     try:
         by = wb_series("NV.IND.MANF.CD")
         history = {}
         ranking = []
+        extension = {}
         for canon, ym in by.items():
             if canon == "EU27":
                 continue  # agrégat exclu du classement-pays « atelier du monde »
             ys, vs = yv({y: v / 1e9 for y, v in ym.items()}, since=2000)  # Md USD
             if ys:
                 history[canon] = {"years": ys, "values": [round(v, 1) for v in vs]}
-                ranking.append({"code": canon, "name": COUNTRIES[canon]["name"],
-                                "value": round(vs[-1], 1), "year": ys[-1]})
+        ext = us_manuf_extension(history.get("US"))
+        if ext:
+            history["US"]["years"] += ext["years"]
+            history["US"]["values"] += ext["values"]
+            extension["US"] = {k: ext[k] for k in ("from", "chained_on", "source_label", "source_url")}
+        for canon, s in history.items():
+            ranking.append({"code": canon, "name": COUNTRIES[canon]["name"],
+                            "value": s["values"][-1], "year": s["years"][-1],
+                            "prolonge": canon in extension})
         ranking.sort(key=lambda x: -x["value"])
         mark("WorldBank:NV.IND.MANF.CD", bool(ranking))
         return {"unit": "Md USD courants", "ranking": ranking, "history": history,
+                "extension": extension,
                 "source_url": "https://data.worldbank.org/indicator/NV.IND.MANF.CD",
                 "source_label": "World Bank WDI · NV.IND.MANF.CD (valeur ajoutée manufacturière)"}
     except Exception as e:
@@ -594,13 +638,67 @@ def build_electricity():
 
 
 # ──────────────────────────────────────────────────────────────────────────
+def previous_cache():
+    try:
+        return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+# Blocs à reprendre du cache PRÉCÉDENT quand la source échoue (règle : repli =
+# la dernière valeur réellement collectée, jamais un trou ni une constante).
+# INCIDENT 23/09/2026 : Eurostat road_go_ta_tott a échoué une fois ; le cache a
+# été écrit SANS fret → graphe « fret » réduit aux États-Unis et barres de
+# variation vides. Chaque bloc vide est désormais repris du passage précédent.
+MERGE_PATHS = [
+    ("fret", "series"), ("fret", "series_tkm"), ("fret", "us_index"),
+    ("surf", "series"), ("surf", "us_reconstructed"),
+    ("ip", "total"), ("ip", "sectors"),
+    ("manuf_va", "ranking"), ("manuf_va", "history"),
+    ("gdp", "history"),
+    ("electricity", "ranking"), ("electricity", "history"), ("electricity", "mix"),
+    ("electricity", "clean_share"),
+]
+
+
+def _vide(v):
+    if v is None:
+        return True
+    if isinstance(v, dict) and "items" in v:
+        return not v["items"]
+    return not v
+
+
+def merge_previous(payload, prev):
+    repris = []
+    if not prev:
+        return repris
+    for blk, key in MERGE_PATHS:
+        cur = payload.get(blk, {}).get(key)
+        old = (prev.get(blk) or {}).get(key)
+        if _vide(cur) and not _vide(old):
+            payload[blk][key] = old
+            repris.append(f"{blk}.{key}")
+    # La prolongation US (BEA) va avec l'historique repris
+    if "manuf_va.history" in repris and (prev.get("manuf_va") or {}).get("extension"):
+        payload["manuf_va"]["extension"] = prev["manuf_va"]["extension"]
+    return repris
+
+
 def main():
     now = datetime.now(timezone.utc).replace(microsecond=0)
+    prev = previous_cache()
     payload = {
         "meta": {
+            # generated_at = instant de la collecte. Clé lue EN PRIORITÉ par
+            # synchro_caches_vers_depot.py (avant "updated") : sans elle, la
+            # synchro comparait la date de mise à jour du jeu Eurostat (premier
+            # "updated" du fichier) et jugeait chaque nouvelle collecte « plus
+            # ancienne » que la copie du 23/09 → cache local FIGÉ du 23/09 au 04/10.
+            "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "updated_at": now.isoformat(),
             "updated_at_unix": int(now.timestamp()),
-            "doc_version": "1.0",
+            "doc_version": "1.1",
             "sources_ok": ok, "sources_failed": failed,
         },
         "countries": {c: {"name": COUNTRIES[c]["name"], "iso3": COUNTRIES[c]["iso3"],
@@ -629,6 +727,19 @@ def main():
             "(bases nationales différentes) → lecture en base 100 / momentum uniquement.",
         ],
     }
+
+    # garde-fou : rien de neuf du tout → on ne réécrit pas (le cache précédent
+    # reste, avec sa vraie date)
+    if not ok:
+        sys.stderr.write("[ECO_PHYSIQUE] aucune source n'a répondu — cache NON écrit\n")
+        sys.exit(1)
+
+    # Horodatage du dernier succès PAR SOURCE (fusion avec le passage précédent)
+    last_ok = dict(((prev or {}).get("meta") or {}).get("sources_last_ok") or {})
+    for name in ok:
+        last_ok[name] = payload["meta"]["generated_at"]
+    payload["meta"]["sources_last_ok"] = last_ok
+    payload["meta"]["blocs_repris_du_cache"] = merge_previous(payload, prev)
 
     # garde-fou : au moins les 2 indicateurs Jancovici doivent être présents
     if not payload["fret"]["series"] and not payload["surf"]["series"]:

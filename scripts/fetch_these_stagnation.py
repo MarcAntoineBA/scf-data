@@ -12,6 +12,13 @@ Sources auditables :
   8. Eurostat · gov_10dd_edpt1 — charge d'intérêt (D41PAY) + déficit (B9) live
   9. Banque de France — défaillances d'entreprises (cumul 12 mois, curated)
  10. Insee + Cour des comptes + AFT hardcoded (charge dette projetée, retraites)
+ Audit 04/10/2026 (sources fraîches, sans clé, repli = passage précédent) :
+ 11. TradingView · TVC:FR10Y / TVC:DE10Y — taux 10 ans AU JOUR + écart du jour
+ 12. Insee BDM · dette de Maastricht TRIMESTRIELLE (Md€, % PIB, dont ASSO)
+ 13. Insee BDM · naissances / décès annuels + 12 mois glissants mensuels
+ 14. VigiEau (API publique) · part du territoire sous restriction d'eau
+ 15. OCDE SDMX · recettes fiscales % PIB × satisfaction des services publics
+ 16. FRED · LRHU24TTDEM156S (chômage 15-24 ans Allemagne) ; Eurostat GD (DE)
 
 Sortie : these_stagnation_cache.json + .js
 Lancé par scf.these_stagnation.refresh.
@@ -77,15 +84,19 @@ ACOSS_DEFICIT = [
 # Programme de financement AFT (Md€)
 AFT_FINANCING = [
     (2019, 200), (2020, 260), (2021, 260), (2022, 260),
-    (2023, 270), (2024, 285), (2025, 295), (2026, 305),
+    (2023, 270), (2024, 285), (2025, 300), (2026, 310),
 ]
 
 # Élections / fragmentation politique
+# (audit 04/10/2026) La censure du gouvernement Barnier date du 4 décembre 2024,
+# pas de 2025 ; « 3 blocs ~180 sièges chacun » était faux (≈ 190 / 165 / 140).
 FR_POLITICAL_TIMELINE = [
-    (2017, "Macron 1 — majorité absolue 308 sièges"),
-    (2022, "Macron 2 — majorité relative 245 sièges"),
-    (2024, "Dissolution + élections — 3 blocs ~180 sièges chacun"),
-    (2025, "Censure Barnier + Bayrou minoritaire + Lecornu"),
+    (2017, "Macron 1 — majorité absolue (308 sièges pour LREM seule)"),
+    (2022, "Macron 2 — majorité relative (245 sièges, 289 requis)"),
+    (2024, "Dissolution (juin) : trois blocs de 140 à 190 sièges ; "
+           "censure du gouvernement Barnier (décembre)"),
+    (2025, "Chute du gouvernement Bayrou (vote de confiance, septembre) ; "
+           "Lecornu Premier ministre"),
 ]
 
 # Taux moyen apparent de la dette française
@@ -528,11 +539,430 @@ def _cube_to_series(cube, key):
     return {"x": xs, "y": [s[x] for x in xs]}
 
 
+# ════════════════════════════════════════════════════════════════
+# AUDIT 04/10/2026 — sources fraîches, sans clé
+# ════════════════════════════════════════════════════════════════
+# Règle de repli : une source qui tombe reprend le bloc du passage PRÉCÉDENT
+# (dernière valeur réellement collectée, marquée "reprise": true, son horodatage
+# "maj" conservé) — jamais une constante périmée réinjectée en silence.
+
+def _now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def load_previous():
+    try:
+        return json.loads(OUT_JSON.read_text())
+    except Exception:
+        return {}
+
+
+def _reprise(prev, key):
+    """Bloc du passage précédent, marqué comme repris (ou None)."""
+    b = (prev or {}).get(key)
+    if isinstance(b, dict) and b:
+        b = dict(b)
+        b["reprise"] = True
+        return b
+    return None
+
+
+# ── Taux à 10 ans au JOUR (TradingView, même source que oblig_notes.py) ──
+# L'historique long reste la moyenne MENSUELLE OCDE (FRED IRLTLT01…M156N) ;
+# le quotidien la prolonge. Même définition : rendement de l'obligation d'État
+# de référence à 10 ans (vérifié : moyenne du mois du quotidien − OCDE ≤ 3 pb
+# de mai à août 2026). L'écart France − Allemagne est calculé DANS la même
+# source, jour par jour, jamais entre deux sources.
+TV_WS = "wss://data.tradingview.com/socket.io/websocket?from=chart%2F"
+TV_SOURCE_URL = "https://www.tradingview.com/symbols/TVC-FR10Y/"
+
+
+def fetch_tv_daily(symbol, n_bars=900, timeout=25):
+    """Barres quotidiennes (clôture) d'un symbole TradingView → [(date, close)]."""
+    try:
+        import websocket  # websocket-client (requirements du cloud)
+    except ImportError:
+        sys.stderr.write("[TradingView] websocket-client absent\n")
+        return None
+    import random
+    import string
+    try:
+        ws = websocket.create_connection(
+            TV_WS, origin="https://www.tradingview.com",
+            header=["User-Agent: " + UA_BROWSER], timeout=timeout)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[TradingView {symbol}] connexion : {e}\n")
+        return None
+
+    def send(m, p):
+        s = json.dumps({"m": m, "p": p}, separators=(",", ":"))
+        ws.send("~m~%d~m~%s" % (len(s), s))
+
+    buf = ""
+    try:
+        cs = "cs_" + "".join(random.choice(string.ascii_lowercase) for _ in range(12))
+        send("set_auth_token", ["unauthorized_user_token"])
+        send("chart_create_session", [cs, ""])
+        send("resolve_symbol", [cs, "sds_sym_1",
+                                "=" + json.dumps({"symbol": symbol, "adjustment": "splits"})])
+        send("create_series", [cs, "sds_1", "s1", "sds_sym_1", "1D", n_bars, ""])
+        t0 = time.time()
+        while time.time() - t0 < 2 * timeout:
+            r = ws.recv()
+            for hb in re.findall(r"~m~\d+~m~(~h~\d+)", r):
+                ws.send("~m~%d~m~%s" % (len(hb), hb))
+            buf += r
+            if "series_completed" in r or "symbol_error" in r or "critical_error" in r:
+                break
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[TradingView {symbol}] lecture : {e}\n")
+    finally:
+        try:
+            ws.close()
+        except Exception:  # noqa: BLE001
+            pass
+    m = re.search(r'"s":\[(.*?)\],"ns"', buf)
+    if not m:
+        return None
+    try:
+        bars = json.loads("[" + m.group(1) + "]")
+    except ValueError:
+        return None
+    out = {}
+    for b in bars:
+        v = b.get("v") or []
+        if len(v) < 5 or not isinstance(v[4], (int, float)):
+            continue
+        d = datetime.fromtimestamp(v[0], timezone.utc).date()
+        if d.weekday() >= 5 or not (-2 < v[4] < 20):
+            continue
+        out[d.isoformat()] = round(float(v[4]), 4)
+    rows = sorted(out.items())
+    if len(rows) < 150:
+        return None
+    last = datetime.fromisoformat(rows[-1][0]).date()
+    if (datetime.now(timezone.utc).date() - last).days > 10:
+        sys.stderr.write(f"[TradingView {symbol}] dernière barre trop vieille : {last}\n")
+        return None
+    return rows
+
+
+def _merge_daily(prev_block, rows, keep_days=1100):
+    """Fusionne avec le passage précédent (le nouveau l'emporte), fenêtre glissante."""
+    d = {}
+    if isinstance(prev_block, dict):
+        d.update(zip(prev_block.get("dates") or [], prev_block.get("values") or []))
+    d.update(rows)
+    cut = (datetime.now(timezone.utc).date().toordinal() - keep_days)
+    items = sorted((k, v) for k, v in d.items()
+                   if datetime.fromisoformat(k).date().toordinal() >= cut)
+    return {"dates": [k for k, _ in items], "values": [v for _, v in items]}
+
+
+def build_daily_yields(prev, fr_m, de_m, ok, failed):
+    """→ (fr_10y_daily, de_10y_daily, oat_bund_spread_daily) ou reprises."""
+    res = {}
+    for code, sym in (("fr", "TVC:FR10Y"), ("de", "TVC:DE10Y")):
+        key = code + "_10y_daily"
+        rows = fetch_tv_daily(sym)
+        if rows:
+            ok.append("TradingView:" + sym)
+            b = _merge_daily(prev.get(key), rows)
+            b.update({"source": "TradingView · " + sym + " (clôture du jour)",
+                      "source_url": "https://www.tradingview.com/symbols/" + sym.replace(":", "-") + "/",
+                      "maj": _now_iso()})
+            res[key] = b
+        else:
+            failed.append("TradingView:" + sym)
+            res[key] = _reprise(prev, key)
+    fr, de = res.get("fr_10y_daily"), res.get("de_10y_daily")
+    spread = None
+    if fr and de:
+        dm = dict(zip(de["dates"], de["values"]))
+        ds, vs = [], []
+        for dt, fv in zip(fr["dates"], fr["values"]):
+            dv = dm.get(dt)
+            if dv is None:
+                continue
+            ds.append(dt)
+            vs.append(round((fv - dv) * 100, 1))
+        if ds:
+            spread = {"dates": ds, "values": vs,
+                      "source": "TradingView · TVC:FR10Y − TVC:DE10Y, même jour",
+                      "source_url": TV_SOURCE_URL,
+                      "maj": fr.get("maj"),
+                      "reprise": bool(fr.get("reprise") or de.get("reprise"))}
+    # Contrôle de jonction : moyenne du mois du quotidien vs moyenne mensuelle OCDE.
+    if fr and fr_m and fr_m.get("dates"):
+        by = {}
+        for dt, v in zip(fr["dates"], fr["values"]):
+            by.setdefault(dt[:7], []).append(v)
+        om = {d[:7]: v for d, v in zip(fr_m["dates"], fr_m["values"])}
+        ecarts = [(m, round(100 * (sum(v) / len(v) - om[m]), 1))
+                  for m, v in sorted(by.items()) if m in om and len(v) >= 15]
+        if ecarts:
+            fr["jonction"] = {"mois": [m for m, _ in ecarts][-12:],
+                              "ecart_pb": [e for _, e in ecarts][-12:],
+                              "ecart_max_pb": max(abs(e) for _, e in ecarts[-12:])}
+    return fr, de, spread
+
+
+# ── Insee BDM (SDMX, sans clé) ─────────────────────────────────
+INSEE_BDM = "https://bdm.insee.fr/series/sdmx/data/SERIES_BDM/"
+
+
+def fetch_insee(idbanks):
+    """{idbank: {"obs": [(période, valeur)], "maj": LAST_UPDATE, "statut": {période: P|A}}}."""
+    import math
+    try:
+        txt = http_get_text(INSEE_BDM + "+".join(idbanks), timeout=60,
+                            max_retries=3, accept="application/xml")
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[Insee {idbanks}] {e}\n")
+        return None
+    out = {}
+    for s in re.finditer(r"<Series ([^>]*)>(.*?)</Series>", txt, re.S):
+        a = dict(re.findall(r'(\w+)="([^"]*)"', s.group(1)))
+        obs, st = [], {}
+        for o in re.findall(r"<Obs ([^>]*?)/>", s.group(2)):
+            od = dict(re.findall(r'(\w+)="([^"]*)"', o))
+            try:
+                v = float(od["OBS_VALUE"])
+            except (KeyError, ValueError):
+                continue
+            if math.isnan(v):
+                continue
+            obs.append((od["TIME_PERIOD"], v))
+            st[od["TIME_PERIOD"]] = od.get("OBS_STATUS", "A")
+        obs.sort()
+        if a.get("IDBANK") and obs:
+            out[a["IDBANK"]] = {"obs": obs, "maj": a.get("LAST_UPDATE"), "statut": st}
+    return out or None
+
+
+def build_debt_q(prev, ok, failed):
+    """Dette de Maastricht TRIMESTRIELLE (Insee, base 2020) : Md€, % PIB, dont ASSO."""
+    ids = {"bn": "010777616", "pct": "010777608", "asso": "010777625"}
+    d = fetch_insee(list(ids.values()))
+    if not d or ids["bn"] not in d:
+        failed.append("Insee:dette-trimestrielle")
+        return _reprise(prev, "fr_debt_q")
+    ok.append("Insee:dette-trimestrielle")
+    bn = d[ids["bn"]]["obs"]
+    pct = dict(d.get(ids["pct"], {}).get("obs", []))
+    asso = dict(d.get(ids["asso"], {}).get("obs", []))
+    return {
+        "x": [p for p, _ in bn],
+        "bn_eur": [v for _, v in bn],
+        "pct_gdp": [pct.get(p) for p, _ in bn],
+        "asso_bn_eur": [asso.get(p) for p, _ in bn],
+        "insee_maj": d[ids["bn"]]["maj"],
+        "maj": _now_iso(),
+        "source": "Insee · dette trimestrielle de Maastricht des APU (base 2020)",
+        "source_url": "https://www.insee.fr/fr/statistiques/serie/010777616",
+    }
+
+
+def build_demo(prev, ok, failed):
+    """Naissances / décès : séries annuelles Insee + 12 mois glissants mensuels."""
+    ids = {"nais_a": "001641590", "dec_a": "001641592",
+           "nais_m": "001641601", "dec_m": "001641603"}
+    d = fetch_insee(list(ids.values()))
+    if not d or ids["nais_a"] not in d or ids["dec_a"] not in d:
+        failed.append("Insee:naissances-deces")
+        return _reprise(prev, "fr_demo_live")
+    ok.append("Insee:naissances-deces")
+    na, da = dict(d[ids["nais_a"]]["obs"]), dict(d[ids["dec_a"]]["obs"])
+    years = sorted(set(na) & set(da))
+    prov = [y for y in years
+            if d[ids["nais_a"]]["statut"].get(y) == "P" or d[ids["dec_a"]]["statut"].get(y) == "P"]
+    out = {
+        "years": [int(y) for y in years],
+        "naissances": [int(na[y]) for y in years],
+        "deces": [int(da[y]) for y in years],
+        "provisoire": [int(y) for y in prov],
+        "insee_maj": d[ids["nais_a"]]["maj"],
+        "maj": _now_iso(),
+        "source": "Insee · bilan démographique (France, Mayotte incluse depuis 2014)",
+        "source_url": "https://www.insee.fr/fr/statistiques/serie/001641590",
+    }
+    # 12 mois glissants : seulement si les 12 derniers mois existent pour les deux.
+    nm = dict(d.get(ids["nais_m"], {}).get("obs", []))
+    dm = dict(d.get(ids["dec_m"], {}).get("obs", []))
+    commun = sorted(set(nm) & set(dm))
+    if commun:
+        fin = commun[-1]
+        y, mo = int(fin[:4]), int(fin[5:7])
+        mois = []
+        for i in range(12):
+            mm, yy = mo - i, y
+            while mm <= 0:
+                mm += 12
+                yy -= 1
+            mois.append(f"{yy:04d}-{mm:02d}")
+        # Un glissement qui finit en décembre = l'année civile déjà publiée.
+        if all(m in nm and m in dm for m in mois) and fin[5:7] != "12" \
+                and int(fin[:4]) > out["years"][-1]:
+            out["glissant"] = {"fin": fin,
+                               "naissances": int(sum(nm[m] for m in mois)),
+                               "deces": int(sum(dm[m] for m in mois)),
+                               "insee_maj": d.get(ids["dec_m"], {}).get("maj"),
+                               "source_url": "https://www.insee.fr/fr/statistiques/serie/001641601"}
+    return out
+
+
+# ── Sécheresse : part du territoire sous restriction (VigiEau, API publique) ──
+# Remplace l'ancien décompte de « communes sous restriction » (constantes non
+# sourçables, 2024 = 11 200 alors que 2024 fut une année humide : pic VigiEau
+# à 13 % du territoire). Mesure : eaux superficielles (ESU), niveaux alerte +
+# alerte renforcée + crise (la « vigilance » n'impose aucune restriction).
+VIGIEAU_AREA = "https://api.vigieau.gouv.fr/api/data/area?dateDebut={d0}&dateFin={d1}"
+
+
+def build_drought(prev, ok, failed):
+    d1 = datetime.now(timezone.utc).date().isoformat()
+    url = VIGIEAU_AREA.format(d0="2013-01-01", d1=d1)
+    try:
+        rows = json.loads(http_get_text(url, timeout=90, max_retries=3,
+                                        accept="application/json"))
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[VigiEau] {e}\n")
+        rows = None
+    if not rows or not isinstance(rows, list):
+        failed.append("VigiEau:area")
+        return _reprise(prev, "fr_drought_area")
+
+    def niv(x):
+        v = x.get("ESU") or {}
+        try:
+            return sum(float(v.get(k) or 0) for k in ("alerte", "alerte_renforcee", "crise"))
+        except (TypeError, ValueError):
+            return None
+
+    par = {}
+    for x in rows:
+        dt, v = x.get("date"), niv(x)
+        if not dt or v is None:
+            continue
+        par.setdefault(dt[:4], []).append((dt, v))
+    years, peak, pdate, cover = [], [], [], []
+    for y in sorted(par):
+        xs = par[y]
+        dt, v = max(xs, key=lambda t: t[1])
+        ete = sum(1 for d, _ in xs if f"{y}-06-01" <= d <= f"{y}-09-30")
+        years.append(int(y))
+        peak.append(round(v, 1))
+        pdate.append(dt)
+        cover.append(ete)
+    if not years:
+        failed.append("VigiEau:area")
+        return _reprise(prev, "fr_drought_area")
+    ok.append("VigiEau:area")
+    last = max(rows, key=lambda x: x.get("date") or "")
+    return {
+        "years": years, "peak_pct": peak, "peak_date": pdate,
+        "jours_ete": cover,               # jours publiés entre le 1er juin et le 30 sept. (122 = complet)
+        "last_date": last.get("date"), "last_pct": round(niv(last) or 0, 1),
+        "mesure": "part du territoire (eaux superficielles) en alerte, alerte renforcée ou crise",
+        "maj": _now_iso(),
+        "source": "VigiEau · ministère de la Transition écologique",
+        "source_url": "https://vigieau.gouv.fr/",
+        "api": "https://api.vigieau.gouv.fr/api/data/area",
+    }
+
+
+# ── Prélèvements obligatoires (OCDE Revenue Statistics) × satisfaction (OCDE,
+#    enquête sur la confiance) : remplace des constantes non sourçables
+#    (« 45,6 % », « 32 % de satisfaits » : l'OCDE donne 43,5 % en 2024 et
+#    une satisfaction française de 47 à 61 % selon le service). ──
+OECD_SDMX = "https://sdmx.oecd.org/public/rest/data/"
+PO_PAYS = {"FRA": "France", "DNK": "Danemark", "BEL": "Belgique", "ITA": "Italie",
+           "DEU": "Allemagne", "NLD": "Pays-Bas", "GBR": "Royaume-Uni",
+           "ESP": "Espagne", "CHE": "Suisse", "SWE": "Suède", "FIN": "Finlande",
+           "USA": "États-Unis"}
+SAT_MES = {"TRUST_S_AS": "démarches administratives", "CS_ES": "système éducatif",
+           "CS_HC": "système de santé"}
+
+
+def _oecd_csv(path):
+    txt = http_get_text(OECD_SDMX + path, timeout=90, max_retries=3,
+                        accept="application/vnd.sdmx.data+csv; charset=utf-8")
+    return list(csv.DictReader(io.StringIO(txt.lstrip("﻿"))))
+
+
+def build_prelevements(prev, ok, failed):
+    y0 = datetime.now(timezone.utc).year - 6
+    try:
+        tax = _oecd_csv("OECD.CTP.TPS,DSD_REV_COMP_OECD@DF_RSOECD,/"
+                        + "+".join(PO_PAYS) + ".TAX_REV.S13._T._T.PT_B1GQ.A"
+                        + f"?startPeriod={y0}&dimensionAtObservation=AllDimensions")
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[OCDE recettes] {e}\n")
+        tax = None
+    sat, edition = None, None
+    for ed in range(datetime.now(timezone.utc).year + 1, 2024, -1):
+        try:
+            rows = _oecd_csv(f"OECD.GOV.GIP,DSD_GOV_INT@DF_GOV_SPS_{ed},/all"
+                             "?dimensionAtObservation=AllDimensions")
+        except Exception:  # noqa: BLE001
+            continue
+        rows = [r for r in rows if r.get("MEASURE") in SAT_MES and r.get("REF_AREA") in PO_PAYS]
+        if rows:
+            sat, edition = rows, ed
+            break
+    if not tax or not sat:
+        failed.append("OCDE:prelevements-satisfaction")
+        return _reprise(prev, "prelevements_live")
+    ok.append("OCDE:prelevements-satisfaction")
+    t_last = {}
+    for r in tax:
+        try:
+            v = float(r["OBS_VALUE"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        c, y = r["REF_AREA"], r["TIME_PERIOD"]
+        if c not in t_last or y > t_last[c][0]:
+            t_last[c] = (y, v)
+    s_last = {}
+    for r in sat:
+        try:
+            v = float(r["OBS_VALUE"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        k = (r["REF_AREA"], r["MEASURE"])
+        if k not in s_last or r["TIME_PERIOD"] > s_last[k][0]:
+            s_last[k] = (r["TIME_PERIOD"], v)
+    pays = []
+    for c, nom in PO_PAYS.items():
+        if c not in t_last:
+            continue
+        detail = {m: round(s_last[(c, m)][1], 1) for m in SAT_MES if (c, m) in s_last}
+        pays.append({"code": c, "pays": nom, "annee_po": int(t_last[c][0]),
+                     "po_pct_pib": round(t_last[c][1], 1),
+                     "satisfaction": (round(sum(detail.values()) / len(detail), 1)
+                                      if len(detail) == len(SAT_MES) else None),
+                     "detail": detail})
+    annees_sat = sorted({v[0] for v in s_last.values()})
+    return {
+        "pays": pays, "mesures": SAT_MES,
+        "annee_satisfaction": annees_sat[-1] if annees_sat else None,
+        "edition_satisfaction": edition,
+        "maj": _now_iso(),
+        "source": "OCDE · Revenue Statistics (recettes fiscales totales, % du PIB) ; "
+                  "OCDE · Government at a Glance (enquête sur la confiance)",
+        "source_url": "https://data-explorer.oecd.org/",
+    }
+
+
 def build_payload():
     ok, failed = [], []
+    prev = load_previous()
 
     fr_10y = fetch_fred_csv("IRLTLT01FRM156N", start="2000-01-01")
     if fr_10y: ok.append("FRED:IRLTLT01FRM156N")
+    elif _reprise(prev, "fr_10y"):
+        failed.append("FRED:IRLTLT01FRM156N")
+        fr_10y = _reprise(prev, "fr_10y")
     else:
         failed.append("FRED:IRLTLT01FRM156N")
         fr_10y = {"dates":  [d for d, v in FR_10Y_FALLBACK],
@@ -542,10 +972,23 @@ def build_payload():
 
     fr_gdp = fetch_fred_csv("CLVMNACSCAB1GQFR", start="2000-01-01")
     if fr_gdp: ok.append("FRED:CLVMNACSCAB1GQFR")
-    else: failed.append("FRED:CLVMNACSCAB1GQFR")
+    else:
+        failed.append("FRED:CLVMNACSCAB1GQFR")
+        fr_gdp = _reprise(prev, "fr_gdp")
+
+    # Chômage des 15-24 ans en Allemagne : la comparaison du texte (« X % contre
+    # Y % en Allemagne ») se calcule au lieu d'être écrite en dur.
+    de_youth = fetch_fred_csv("LRHU24TTDEM156S", start="2000-01-01")
+    if de_youth: ok.append("FRED:LRHU24TTDEM156S")
+    else:
+        failed.append("FRED:LRHU24TTDEM156S")
+        de_youth = _reprise(prev, "de_youth_unemployment")
 
     fr_unemp = fetch_fred_csv("LRHUTTTTFRM156S", start="2000-01-01")
     if fr_unemp: ok.append("FRED:LRHUTTTTFRM156S")
+    elif _reprise(prev, "fr_unemployment"):
+        failed.append("FRED:LRHUTTTTFRM156S")
+        fr_unemp = _reprise(prev, "fr_unemployment")
     else:
         failed.append("FRED:LRHUTTTTFRM156S")
         fr_unemp = {"dates":  [d for d, v in FR_UNEMP_FALLBACK],
@@ -558,6 +1001,9 @@ def build_payload():
     # totale 15-24 (~6 %), pas le taux de chômage des actifs — caption fausse.
     fr_youth = fetch_fred_csv("LRHU24TTFRM156S", start="2000-01-01")
     if fr_youth: ok.append("FRED:LRHU24TTFRM156S")
+    elif _reprise(prev, "fr_youth_unemployment"):
+        failed.append("FRED:LRHU24TTFRM156S")
+        fr_youth = _reprise(prev, "fr_youth_unemployment")
     else:
         failed.append("FRED:LRHU24TTFRM156S")
         fr_youth = {"dates":  [d for d, v in FR_YOUTH_FALLBACK],
@@ -568,6 +1014,9 @@ def build_payload():
     # ── BCE · taux directeurs (live FRED) ──────────────────────────
     ecb_depo = fetch_fred_csv("ECBDFR", start="2000-01-01")
     if ecb_depo: ok.append("FRED:ECBDFR")
+    elif _reprise(prev, "ecb_deposit"):
+        failed.append("FRED:ECBDFR")
+        ecb_depo = _reprise(prev, "ecb_deposit")
     else:
         failed.append("FRED:ECBDFR")
         ecb_depo = {"dates": [d for d, v in ECB_DEPO_FALLBACK],
@@ -576,6 +1025,9 @@ def build_payload():
 
     ecb_refi = fetch_fred_csv("ECBMRRFR", start="2000-01-01")
     if ecb_refi: ok.append("FRED:ECBMRRFR")
+    elif _reprise(prev, "ecb_refi"):
+        failed.append("FRED:ECBMRRFR")
+        ecb_refi = _reprise(prev, "ecb_refi")
     else:
         failed.append("FRED:ECBMRRFR")
         ecb_refi = {"dates": [d for d, v in ECB_REFI_FALLBACK],
@@ -585,6 +1037,9 @@ def build_payload():
     # ── Bund 10Y + spread OAT-Bund (dérivé FR − DE, en points de base) ──
     de_10y = fetch_fred_csv("IRLTLT01DEM156N", start="2000-01-01")
     if de_10y: ok.append("FRED:IRLTLT01DEM156N")
+    elif _reprise(prev, "de_10y"):
+        failed.append("FRED:IRLTLT01DEM156N")
+        de_10y = _reprise(prev, "de_10y")
     else:
         failed.append("FRED:IRLTLT01DEM156N")
         de_10y = {"dates": [d for d, v in DE_10Y_FALLBACK],
@@ -611,7 +1066,7 @@ def build_payload():
     if eu_deficit: ok.append("Eurostat:B9")
     else: failed.append("Eurostat:B9")
 
-    fr_interest_live = None
+    fr_interest_live = _reprise(prev, "fr_interest_live")
     if eu_interest:
         fr_interest_live = {
             "years": eu_interest["years"],
@@ -619,7 +1074,7 @@ def build_payload():
             "pct_gdp": (eu_interest_pct["values"] if eu_interest_pct else None),
             "source_url": eu_interest["source_url"],
         }
-    fr_deficit_gdp = None
+    fr_deficit_gdp = _reprise(prev, "fr_deficit_gdp")
     if eu_deficit:
         fr_deficit_gdp = {"years": eu_deficit["years"], "values": eu_deficit["values"],
                           "source_url": eu_deficit["source_url"]}
@@ -630,7 +1085,17 @@ def build_payload():
     if eu_debt: ok.append("Eurostat:GD")
     else: failed.append("Eurostat:GD")
 
-    fr_debt_live = None
+    # Allemagne (% PIB) : « loin devant l'Allemagne (X %) » se calcule.
+    de_debt_pct = fetch_eurostat_series("GD", "PC_GDP", geo="DE")
+    if de_debt_pct:
+        ok.append("Eurostat:GD-DE")
+        de_debt_pct = {"years": de_debt_pct["years"], "values": de_debt_pct["values"],
+                       "source_url": de_debt_pct["source_url"]}
+    else:
+        failed.append("Eurostat:GD-DE")
+        de_debt_pct = _reprise(prev, "de_debt_pct")
+
+    fr_debt_live = _reprise(prev, "fr_debt_live")
     if eu_debt:
         fr_debt_live = {
             "years": eu_debt["years"],
@@ -642,7 +1107,7 @@ def build_payload():
     # ── Solde primaire LIVE = capacité de financement B9 + intérêts D41PAY ──
     # (le solde primaire neutralise la charge d'intérêt : B9 est déjà net
     #  d'intérêts, on les rajoute pour isoler l'effort budgétaire hors dette.)
-    fr_primary_live = None
+    fr_primary_live = _reprise(prev, "fr_primary_balance_live")
     if eu_deficit and eu_interest_pct:
         int_by_year = dict(zip(eu_interest_pct["years"], eu_interest_pct["values"]))
         yrs, vals = [], []
@@ -657,7 +1122,7 @@ def build_payload():
                                "source_url": eu_deficit["source_url"]}
 
     # ── Taux apparent LIVE = intérêts payés (t) / dette brute (t−1) ────
-    fr_avg_rate_live = None
+    fr_avg_rate_live = _reprise(prev, "fr_avg_rate_live")
     if eu_interest and eu_debt:
         debt_by_year = dict(zip(eu_debt["years"], eu_debt["values"]))
         yrs, vals = [], []
@@ -674,14 +1139,18 @@ def build_payload():
     # ══ TISSU PRODUCTIF ═══════════════════════════════════════════
     # ── Défaillances d'entreprises LIVE (Banque de France Stat Info) ──
     defaillances_live = fetch_bdf_defaillances()
-    if defaillances_live: ok.append("BdF:StatInfo-defaillances")
-    else: failed.append("BdF:StatInfo-defaillances")
+    if defaillances_live:
+        ok.append("BdF:StatInfo-defaillances")
+        defaillances_live["maj"] = _now_iso()
+    else:
+        failed.append("BdF:StatInfo-defaillances")
+        defaillances_live = _reprise(prev, "fr_defaillances_live")
 
     # ── Part de la VA manufacturière dans la VA totale (Eurostat annuel) ──
     GEO_COMP = ["FR", "DE", "IT", "EU27_2020"]
     va_cube = fetch_eurostat_cube("nama_10_a10", ["geo"], geo=GEO_COMP,
                                   nace_r2="C", na_item="B1G", unit="PC_TOT")
-    fr_va_manuf_share = None
+    fr_va_manuf_share = _reprise(prev, "fr_va_manuf_share")
     if va_cube:
         ok.append("Eurostat:nama_10_a10")
         fr_va_manuf_share = {
@@ -696,7 +1165,7 @@ def build_payload():
     GEO_PROD = ["FR", "DE", "IT", "ES"]
     prod_cube = fetch_eurostat_cube("sts_inpr_m", ["geo"], geo=GEO_PROD,
                                     nace_r2="C", s_adj="SCA", unit="I21")
-    fr_prod_indus = None
+    fr_prod_indus = _reprise(prev, "fr_prod_indus")
     if prod_cube:
         ok.append("Eurostat:sts_inpr_m")
         fr_prod_indus = {
@@ -710,7 +1179,7 @@ def build_payload():
     # ── Emploi manufacturier France, milliers de personnes (trimestriel) ──
     emp_cube = fetch_eurostat_cube("lfsq_egan2", ["geo"], geo="FR", nace_r2="C",
                                    sex="T", age="Y15-74", unit="THS_PER")
-    fr_emploi_manuf = None
+    fr_emploi_manuf = _reprise(prev, "fr_emploi_manuf")
     if emp_cube:
         ok.append("Eurostat:lfsq_egan2")
         s = _cube_to_series(emp_cube, ("FR",))
@@ -719,6 +1188,21 @@ def build_payload():
                 "https://ec.europa.eu/eurostat/databrowser/view/lfsq_egan2"))
     else:
         failed.append("Eurostat:lfsq_egan2")
+
+    # ── Dépenses publiques totales, % du PIB (Eurostat gov_10a_main, TE) ──
+    # « 57 % du PIB, contre 50 % en Allemagne » : se calcule (audit 04/10/2026).
+    dep_cube = fetch_eurostat_cube("gov_10a_main", ["geo"], geo=["FR", "DE", "EU27_2020"],
+                                   na_item="TE", sector="S13", unit="PC_GDP")
+    public_spending = _reprise(prev, "public_spending")
+    if dep_cube:
+        ok.append("Eurostat:gov_10a_main")
+        public_spending = {
+            "series": {g: _cube_to_series(dep_cube, (g,)) for g in ("FR", "DE", "EU27_2020")},
+            "source_url": "https://ec.europa.eu/eurostat/databrowser/view/gov_10a_main",
+            "maj": _now_iso(),
+        }
+    else:
+        failed.append("Eurostat:gov_10a_main")
 
     # ── Balance commerciale par grand produit SITC (Md€, monde) ────
     SITC = {
@@ -731,7 +1215,7 @@ def build_payload():
     }
     trade_cube = fetch_eurostat_cube("ext_lt_intertrd", ["sitc06"], geo="FR",
                                      indic_et="MIO_BAL_VAL", partner="WORLD")
-    fr_trade_sitc = None
+    fr_trade_sitc = _reprise(prev, "fr_trade_sitc")
     if trade_cube:
         ok.append("Eurostat:ext_lt_intertrd")
         series = {}
@@ -746,11 +1230,26 @@ def build_payload():
     else:
         failed.append("Eurostat:ext_lt_intertrd")
 
+    # ══ AUDIT 04/10/2026 · sources fraîches ═══════════════════════
+    fr_10y_daily, de_10y_daily, spread_daily = build_daily_yields(
+        prev, fr_10y, de_10y, ok, failed)
+    fr_debt_q = build_debt_q(prev, ok, failed)
+    fr_demo_live = build_demo(prev, ok, failed)
+    fr_drought_area = build_drought(prev, ok, failed)
+    prelevements_live = build_prelevements(prev, ok, failed)
+
+    # Horodatage du dernier SUCCÈS par source (repris du passage précédent
+    # pour les sources tombées cette fois-ci).
+    sources_maj = dict(((prev.get("meta") or {}).get("sources_maj") or {}))
+    for name in ok:
+        sources_maj[name] = _now_iso()
+
     meta = {
+        "sources_maj": sources_maj,
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "updated_at_unix": int(time.time()),
         "sources_ok": ok, "sources_failed": failed,
-        "doc_version": "1.0",
+        "doc_version": "1.1",
     }
     payload = {
         "meta": meta,
@@ -758,6 +1257,7 @@ def build_payload():
         "fr_gdp": fr_gdp,
         "fr_unemployment": fr_unemp,
         "fr_youth_unemployment": fr_youth,
+        "de_youth_unemployment": de_youth,
         "fr_debt_bn": [{"year": y, "bn_eur": v} for y, v in FR_DEBT_BN_EUR],
         "fr_interest_charge": [{"year": y, "bn_eur": v} for y, v in FR_INTEREST_CHARGE_BN],
         "fr_primary_balance": [{"year": y, "pct_gdp": v} for y, v in FR_PRIMARY_BALANCE],
@@ -785,6 +1285,16 @@ def build_payload():
         "fr_avg_rate_live": fr_avg_rate_live,
         "fr_hors_bilan": [{"label": l, "bn_eur": v, "kind": k}
                           for l, v, k in FR_HORS_BILAN],
+        # ── Audit 04/10/2026 : quotidien, trimestriel, API publiques ──
+        "fr_10y_daily": fr_10y_daily,
+        "de_10y_daily": de_10y_daily,
+        "oat_bund_spread_daily": spread_daily,
+        "fr_debt_q": fr_debt_q,
+        "de_debt_pct": de_debt_pct,
+        "fr_demo_live": fr_demo_live,
+        "fr_drought_area": fr_drought_area,
+        "prelevements_live": prelevements_live,
+        "public_spending": public_spending,
         # ── Enrichissement mai 2026 ──
         "fr_solde_naturel": [{"year": y, "naissances_k": n, "deces_k": d}
                               for y, n, d in FR_SOLDE_NATUREL],

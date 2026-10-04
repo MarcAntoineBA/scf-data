@@ -6,6 +6,15 @@ Sources auditables (aucune clé API requise) :
   * US Treasury Fiscal Data — debt to the penny (daily, prod)
   * Yahoo Finance v8 — DGS-like fallback pour rates (overlap diagnostic)
   * Insee BDM SDMX — dette publique France trimestrielle (Maastricht)
+  * FMI DataMapper — dette publique WEO (réalisé + projections) ET édition du WEO
+    (« April 2026 ») : la frontière réalisé/estimation/projection en découle
+  * BRI WS_TC — crédit total (productivité marginale de la dette)
+  * Eurostat gov_10a_main — France : intérêts versés, solde, recettes (annuel)
+  * Trésor US TIC — Treasuries détenus par l'étranger ; Banque mondiale — crédit privé
+
+RÈGLE DE REPLI (04/10/2026) : une source qui tombe garde la DERNIÈRE valeur
+réellement collectée (relue dans le cache précédent, listée dans
+meta.stale_blocks) ; meta.last_success date le dernier succès de chaque source.
 
 Écrit two outputs:
   ~/Library/Caches/site_crypto_finance/these_dette_cache.json
@@ -21,6 +30,7 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -67,6 +77,9 @@ FRED_INTEREST = {
     "A091RC1Q027SBEA": ("US Interest payments level", "level_bn"),
     # Federal receipts, total (qtl, $bn SAAR) — for context
     "FGRECPT": ("US Federal current tax receipts", "level_bn"),
+    # Défense nationale, dépenses + investissement (trimestriel, Md$ SAAR, NIPA) :
+    # même base comptable que les intérêts — sert à la comparaison du texte.
+    "FDEFX": ("US National defense consumption expenditures and gross investment", "level_bn"),
 }
 
 # Croissance nominale pour le différentiel r-g (boule de neige)
@@ -207,12 +220,52 @@ def fetch_us_treasury_debt():
         return None
 
 
-def fetch_imf_weo_debt_gdp(country_iso3_list):
+MOIS_EN = {"January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
+           "July": 7, "August": 8, "September": 9, "October": 10, "November": 11,
+           "December": 12}
+MOIS_FR = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+           "août", "septembre", "octobre", "novembre", "décembre"]
+
+
+def fetch_imf_weo_edition():
+    """Édition du WEO servie par le DataMapper : « World Economic Outlook (April 2026) ».
+
+    Sert à placer la frontière réalisé / estimation / projection SANS année codée
+    en dur (l'ancienne constante CUTOFF = 2024 aurait survécu à l'édition
+    d'octobre). Règle FMI : l'édition d'avril Y publie Y−1 en ESTIMATION (comptes
+    pas encore définitifs pour une partie des pays) ; celle d'octobre Y intègre
+    Y−1 comme réalisé. L'année Y et les suivantes sont toujours des projections."""
+    try:
+        d = json.loads(http_get_text(
+            "https://www.imf.org/external/datamapper/api/v1/indicators",
+            timeout=25, accept="application/json"))
+        meta = (d.get("indicators") or {}).get("GGXWDG_NGDP") or {}
+    except Exception as e:                                      # noqa: BLE001
+        sys.stderr.write(f"[IMF WEO edition] {e}\n")
+        return None
+    src = meta.get("source", "")
+    m = re.search(r"\((\w+)\s+(\d{4})\)", src)
+    if not m or m.group(1) not in MOIS_EN:
+        return None
+    month, year = MOIS_EN[m.group(1)], int(m.group(2))
+    last_actual = year - 2 if month <= 6 else year - 1
+    return {
+        "source_label": src,
+        "edition": f"{MOIS_FR[month]} {year}",
+        "edition_year": year,
+        "edition_month": month,
+        "last_modified": meta.get("last-modified"),
+        "last_actual_year": last_actual,
+        "estimate_years": list(range(last_actual + 1, year)),
+        "first_projection_year": year,
+    }
+
+
+def fetch_imf_weo_debt_gdp(country_iso3_list, cutoff=None):
     """IMF DataMapper API — General Government Gross Debt as % of GDP (GGXWDG_NGDP).
-    Données annuelles 1980-2031 incluant projections IMF.
-    Retourne dict {ISO3: {years: [...], values: [...], cutoff_observed_year: 2024}}.
-    Le cutoff_observed indique l'année à partir de laquelle les valeurs sont
-    des projections IMF (octobre/avril du WEO en cours)."""
+    Données annuelles 1980 → horizon WEO, projections FMI comprises.
+    Retourne dict {ISO3: {years: [...], values: [...], cutoff_observed_year}}.
+    cutoff_observed_year = dernière année RÉALISÉE (déduite de l'édition)."""
     url = (
         "https://www.imf.org/external/datamapper/api/v1/GGXWDG_NGDP/"
         + "/".join(country_iso3_list)
@@ -225,9 +278,9 @@ def fetch_imf_weo_debt_gdp(country_iso3_list):
         return None
     out = {}
     vals_dict = d.get("values", {}).get("GGXWDG_NGDP", {})
-    # Cutoff approximatif des données observées : WEO de mai 2026 a données
-    # observées jusqu'en 2024, projections à partir de 2025.
-    CUTOFF = 2024
+    # Repli si l'édition n'a pu être lue : année courante − 2 (règle d'avril,
+    # la plus prudente : on ne présente jamais une estimation comme réalisée).
+    CUTOFF = cutoff if cutoff else datetime.now(timezone.utc).year - 2
     # On filtre pour ne garder que les pays demandés (IMF retourne tout sinon)
     requested = set(country_iso3_list)
     for iso, year_dict in vals_dict.items():
@@ -463,7 +516,23 @@ def fetch_mpd():
         kpi["cn_total_first"] = cv[0]
         kpi["cn_total_first_date"] = cn["total"]["dates"][0]
 
+    # Encours en % du PIB au dernier trimestre (même source) : sert au texte
+    # (« la BRI compte 108 % de dette publique française au prix de marché »,
+    # comparaison avec la Banque mondiale) — jamais de chiffre recopié à la main.
+    pct_gdp = {}
+    for iso in BIS_COUNTRIES:
+        e = {}
+        for b, key in BIS_BORROWERS.items():
+            s = (raw.get((b, "770")) or {}).get(iso)
+            if s:
+                q = max(s, key=_bis_q_index)
+                e[key] = round(s[q], 1)
+                e["date"] = _bis_q_to_iso(q)
+        if e:
+            pct_gdp[iso] = e
+
     return {
+        "pct_gdp": pct_gdp,
         "meta": {
             "window_quarters": BIS_WINDOW_Q,
             "window_years": BIS_WINDOW_Q // 4,
@@ -484,6 +553,87 @@ def fetch_mpd():
     }, ok, failed
 
 
+def fetch_eurostat_fr_public_finance():
+    """Eurostat gov_10a_main (annuel, administrations publiques S13, France) :
+    intérêts versés (D41PAY), solde (B9), recettes (TR) — en M€ et en % du PIB.
+    Alimente le texte (charge d'intérêts française, taux apparent, solde
+    primaire) au lieu de chiffres recopiés d'un rapport."""
+    base = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/"
+            "gov_10a_main?format=JSON&geo=FR&sector=S13&sinceTimePeriod=2000")
+    out = {}
+    for item, unit, key in [("D41PAY", "MIO_EUR", "interest_meur"),
+                            ("D41PAY", "PC_GDP", "interest_pct_gdp"),
+                            ("B9", "PC_GDP", "balance_pct_gdp"),
+                            ("B9", "MIO_EUR", "balance_meur"),
+                            ("TR", "MIO_EUR", "revenue_meur")]:
+        try:
+            d = json.loads(http_get_text(f"{base}&na_item={item}&unit={unit}",
+                                         timeout=30, accept="application/json"))
+        except Exception as e:                                  # noqa: BLE001
+            sys.stderr.write(f"[EUROSTAT gov_10a_main {item}/{unit}] {e}\n")
+            return None
+        idx = d.get("dimension", {}).get("time", {}).get("category", {}).get("index", {})
+        vals = d.get("value", {})
+        out[key] = {t: vals.get(str(i)) for t, i in idx.items() if vals.get(str(i)) is not None}
+    years = sorted(set(out["interest_meur"]) & set(out["balance_pct_gdp"]))
+    if not years:
+        return None
+    res = {"years": [int(y) for y in years]}
+    for k in out:
+        res[k] = [out[k].get(y) for y in years]
+    # Solde primaire = solde total + intérêts (en % du PIB)
+    res["primary_balance_pct_gdp"] = [
+        round(b + i, 1) if b is not None and i is not None else None
+        for b, i in zip(res["balance_pct_gdp"], res["interest_pct_gdp"])]
+    res["source"] = "Eurostat · gov_10a_main (France, administrations publiques)"
+    res["source_url"] = "https://ec.europa.eu/eurostat/databrowser/view/gov_10a_main/default/table?lang=fr"
+    res["updated"] = d.get("updated")
+    return res
+
+
+def fetch_tic_foreign_total():
+    """Trésor US · TIC : total des Treasuries détenus par l'étranger (dernier mois)."""
+    url = ("https://ticdata.treasury.gov/resource-center/data-chart-center/tic/"
+           "Documents/slt_table5.txt")
+    try:
+        txt = http_get_text(url, timeout=40)
+    except Exception as e:                                      # noqa: BLE001
+        sys.stderr.write(f"[TIC] {e}\n")
+        return None
+    header = None
+    for ln in txt.splitlines():
+        cells = ln.split("\t")
+        if cells and cells[0].strip() == "Country":
+            header = [c.strip() for c in cells[1:]]
+        elif header and cells and cells[0].strip() == "Grand Total":
+            try:
+                return {"month": header[0], "bn_usd": float(cells[1]),
+                        "source_url": url}
+            except (ValueError, IndexError):
+                return None
+    return None
+
+
+def fetch_wb_private_credit():
+    """Banque mondiale FS.AST.PRVT.GD.ZS (crédit au secteur privé, % PIB) — la
+    série qu'utilise l'Atlas ; sert à expliquer l'écart Atlas / BRI au lecteur."""
+    url = ("https://api.worldbank.org/v2/country/USA;FRA/indicator/FS.AST.PRVT.GD.ZS"
+           "?format=json&mrnev=1&per_page=10")
+    try:
+        d = json.loads(http_get_text(url, timeout=30, accept="application/json"))
+    except Exception as e:                                      # noqa: BLE001
+        sys.stderr.write(f"[WB credit] {e}\n")
+        return None
+    out = {}
+    for r in (d[1] if len(d) > 1 and d[1] else []):
+        if r.get("value") is not None:
+            out[r["countryiso3code"]] = {"pct": round(r["value"], 1), "year": int(r["date"])}
+    if not out:
+        return None
+    out["source_url"] = "https://data.worldbank.org/indicator/FS.AST.PRVT.GD.ZS"
+    return out
+
+
 def latest_point(series, default=None):
     """Helper: dernier point non-nul d'une série {dates, values}."""
     if not series or not series.get("values"):
@@ -498,9 +648,35 @@ def latest_pair(series, default=None):
     return series["dates"][-1], series["values"][-1]
 
 
+def load_prev():
+    """Cache du passage précédent : sert de repli source par source."""
+    try:
+        return json.loads(OUT_JSON.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def build_payload():
     failed = []
     ok = []
+    prev = load_prev()
+    prev_meta = prev.get("meta") or {}
+    last_success = dict(prev_meta.get("last_success") or {})
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    stale = []
+
+    def success(label):
+        ok.append(label)
+        last_success[label] = now_iso
+
+    def prev_get(*path):
+        """Valeur du cache précédent (repli = dernière valeur réellement collectée)."""
+        cur = prev
+        for k in path:
+            if not isinstance(cur, dict) or k not in cur:
+                return None
+            cur = cur[k]
+        return cur
 
     # ─── 1. Debt/GDP series (multi-pays) ──
     debt_gdp_series = {}
@@ -509,6 +685,9 @@ def build_payload():
         s = fetch_fred_csv(fred_id)
         if s is None:
             failed.append(f"FRED:{fred_id}")
+            if prev_get("debt_gdp", iso):
+                debt_gdp_series[iso] = prev_get("debt_gdp", iso)
+                stale.append(f"debt_gdp.{iso}")
             continue
         debt_gdp_series[iso] = {
             "label": label,
@@ -518,7 +697,7 @@ def build_payload():
             "freq": "Q" if fred_id == "GFDEGDQ188S" else "A",
             **s,
         }
-        ok.append(f"FRED:{fred_id}")
+        success(f"FRED:{fred_id}")
 
     # 1b) Eurostat pour FR/DE/IT/ES/EA20 — trimestriel et beaucoup plus frais
     eurostat_debt_levels = {}
@@ -534,9 +713,12 @@ def build_payload():
                 "dates":  s_pct["dates"],
                 "values": s_pct["values"],
             }
-            ok.append(f"EUROSTAT:{geo}/PC_GDP")
+            success(f"EUROSTAT:{geo}/PC_GDP")
         else:
             failed.append(f"EUROSTAT:{geo}/PC_GDP")
+            if prev_get("debt_gdp", geo):
+                debt_gdp_series[geo] = prev_get("debt_gdp", geo)
+                stale.append(f"debt_gdp.{geo}")
 
         s_lvl = fetch_eurostat_debt(geo, "MIO_EUR")
         if s_lvl is not None:
@@ -552,75 +734,113 @@ def build_payload():
                 "latest_date":  s_lvl.get("latest_date"),
                 "latest_value": s_lvl.get("latest_value"),
             }
-            ok.append(f"EUROSTAT:{geo}/MIO_EUR")
+            success(f"EUROSTAT:{geo}/MIO_EUR")
         else:
             failed.append(f"EUROSTAT:{geo}/MIO_EUR")
+            if prev_get("debt_levels_eur", geo):
+                eurostat_debt_levels[geo] = prev_get("debt_levels_eur", geo)
+                stale.append(f"debt_levels_eur.{geo}")
 
-    # ─── 2. Yields (rates) — daily/monthly ──
-    yields_series = {}
-    for fred_id, (label, _u) in FRED_RATES.items():
-        s = fetch_fred_csv(fred_id)
-        if s is None:
-            failed.append(f"FRED:{fred_id}")
-            continue
-        yields_series[fred_id] = {
-            "label": label,
-            "fred_id": fred_id,
-            "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
-            **s,
-        }
-        ok.append(f"FRED:{fred_id}")
+    # ─── 2-4. Taux, charge d'intérêts, croissance (FRED) ──
+    def fred_group(catalog, block):
+        out = {}
+        for fred_id, (label, _u) in catalog.items():
+            s = fetch_fred_csv(fred_id)
+            if s is None:
+                failed.append(f"FRED:{fred_id}")
+                if prev_get(block, fred_id):
+                    out[fred_id] = prev_get(block, fred_id)
+                    stale.append(f"{block}.{fred_id}")
+                continue
+            out[fred_id] = {
+                "label": label,
+                "fred_id": fred_id,
+                "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
+                **s,
+            }
+            success(f"FRED:{fred_id}")
+        return out
 
-    # ─── 3. Charge d'intérêts US ──
-    interest_series = {}
-    for fred_id, (label, _u) in FRED_INTEREST.items():
-        s = fetch_fred_csv(fred_id)
-        if s is None:
-            failed.append(f"FRED:{fred_id}")
-            continue
-        interest_series[fred_id] = {
-            "label": label,
-            "fred_id": fred_id,
-            "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
-            **s,
-        }
-        ok.append(f"FRED:{fred_id}")
+    yields_series = fred_group(FRED_RATES, "yields")
+    interest_series = fred_group(FRED_INTEREST, "interest")
+    growth_series = fred_group(FRED_GROWTH, "growth")
 
-    # ─── 4. Croissance nominale (pour r-g) ──
-    growth_series = {}
-    for fred_id, (label, _u) in FRED_GROWTH.items():
-        s = fetch_fred_csv(fred_id)
-        if s is None:
-            failed.append(f"FRED:{fred_id}")
-            continue
-        growth_series[fred_id] = {
-            "label": label,
-            "fred_id": fred_id,
-            "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
-            **s,
-        }
-        ok.append(f"FRED:{fred_id}")
-
-    # ─── 4d. IMF WEO General Government Gross Debt (annuel 1980-2031, projections incl.)
-    imf_iso = ["JPN", "USA", "GBR", "FRA", "DEU", "ITA", "ESP"]
-    imf_weo = fetch_imf_weo_debt_gdp(imf_iso)
-    if imf_weo:
-        for iso in imf_iso:
-            if iso in imf_weo:
-                ok.append(f"IMF:WEO:{iso}")
-            else:
-                failed.append(f"IMF:WEO:{iso}")
+    # Dette fédérale détenue par le public (hors fonds publics) — % du PIB
+    held = fetch_fred_csv("FYGFGDQ188S")
+    if held:
+        success("FRED:FYGFGDQ188S")
     else:
-        for iso in imf_iso:
+        failed.append("FRED:FYGFGDQ188S")
+
+    # ─── 4d. IMF WEO General Government Gross Debt (annuel, projections incl.)
+    weo_meta = fetch_imf_weo_edition()
+    if weo_meta:
+        success("IMF:WEO:edition")
+    else:
+        failed.append("IMF:WEO:edition")
+        weo_meta = prev_get("imf_weo_meta")
+        if weo_meta:
+            stale.append("imf_weo_meta")
+    imf_iso = ["JPN", "USA", "GBR", "FRA", "DEU", "ITA", "ESP"]
+    imf_weo = fetch_imf_weo_debt_gdp(
+        imf_iso, cutoff=(weo_meta or {}).get("last_actual_year")) or {}
+    prev_weo = prev_get("imf_weo_debt_gdp") or {}
+    for iso in imf_iso:
+        if iso in imf_weo:
+            success(f"IMF:WEO:{iso}")
+        else:
             failed.append(f"IMF:WEO:{iso}")
-        imf_weo = {}
+            if iso in prev_weo:
+                imf_weo[iso] = prev_weo[iso]
+                stale.append(f"imf_weo_debt_gdp.{iso}")
 
     # ─── 5. US Treasury debt to the penny ──
     treasury = fetch_us_treasury_debt()
     if treasury:
-        ok.append("TREASURY:debt_to_penny")
+        success("TREASURY:debt_to_penny")
     else:
         failed.append("TREASURY:debt_to_penny")
+        treasury = prev_get("treasury_total_debt")
+        if treasury:
+            stale.append("treasury_total_debt")
+
+    # ─── 6. France : finances publiques annuelles (Eurostat) ──
+    fr_pf = fetch_eurostat_fr_public_finance()
+    if fr_pf:
+        success("EUROSTAT:gov_10a_main/FR")
+        # Taux apparent = intérêts de l'année ÷ encours moyen (fin t−1, fin t)
+        lv = (eurostat_debt_levels.get("FR") or {})
+        q4 = {d[:4]: v for d, v in zip(lv.get("dates", []), lv.get("values", []))
+              if d.endswith("-12-31")}
+        rates = []
+        for y, i in zip(fr_pf["years"], fr_pf["interest_meur"]):
+            a, b = q4.get(str(y - 1)), q4.get(str(y))
+            rates.append(round(100 * i / ((a + b) / 2), 2) if (a and b and i) else None)
+        fr_pf["apparent_rate_pct"] = rates
+    else:
+        failed.append("EUROSTAT:gov_10a_main/FR")
+        fr_pf = prev_get("fr_public_finance")
+        if fr_pf:
+            stale.append("fr_public_finance")
+
+    # ─── 6 bis. Détention étrangère de la dette US (TIC) ──
+    tic = fetch_tic_foreign_total()
+    if tic:
+        success("TREASURY:TIC")
+    else:
+        failed.append("TREASURY:TIC")
+        tic = prev_get("tic_foreign")
+        if tic:
+            stale.append("tic_foreign")
+
+    wb_credit = fetch_wb_private_credit()
+    if wb_credit:
+        success("WB:FS.AST.PRVT.GD.ZS")
+    else:
+        failed.append("WB:FS.AST.PRVT.GD.ZS")
+        wb_credit = prev_get("wb_private_credit")
+        if wb_credit:
+            stale.append("wb_private_credit")
 
     # ─── 7. KPI synthétiques (dérivés des séries au-dessus) ──
     kpi = {}
@@ -635,33 +855,23 @@ def build_payload():
     if "FR" in eurostat_debt_levels:
         lvl = eurostat_debt_levels["FR"]
         if lvl.get("latest_value"):
-            # M€ → Md€
             kpi["fr_debt_total_bn_eur"] = round(lvl["latest_value"] / 1000)
             kpi["fr_debt_date"]         = lvl["latest_date"]
 
-    # Eurozone aggregate Debt/GDP
-    if "EA20" in debt_gdp_series:
-        d, v = latest_pair(debt_gdp_series["EA20"], (None, None))
-        kpi["ea_debt_gdp_pct"]  = round(v, 1) if v else None
-        kpi["ea_debt_gdp_date"] = d
-
-    # IT Debt/GDP (Italie = cas extrême UE)
-    if "IT" in debt_gdp_series:
-        d, v = latest_pair(debt_gdp_series["IT"], (None, None))
-        kpi["it_debt_gdp_pct"]  = round(v, 1) if v else None
-        kpi["it_debt_gdp_date"] = d
-
-    # DE Debt/GDP (Allemagne = contre-exemple "vertueux")
-    if "DE" in debt_gdp_series:
-        d, v = latest_pair(debt_gdp_series["DE"], (None, None))
-        kpi["de_debt_gdp_pct"]  = round(v, 1) if v else None
-        kpi["de_debt_gdp_date"] = d
+    for iso, key in (("EA20", "ea"), ("IT", "it"), ("DE", "de"), ("ES", "es")):
+        if iso in debt_gdp_series:
+            d, v = latest_pair(debt_gdp_series[iso], (None, None))
+            kpi[f"{key}_debt_gdp_pct"]  = round(v, 1) if v else None
+            kpi[f"{key}_debt_gdp_date"] = d
 
     # US Debt/GDP
     if "US" in debt_gdp_series:
         d, v = latest_pair(debt_gdp_series["US"], (None, None))
         kpi["us_debt_gdp_pct"]  = round(v, 1) if v else None
         kpi["us_debt_gdp_date"] = d
+    if held and held.get("values"):
+        kpi["us_debt_held_public_gdp_pct"] = round(held["values"][-1], 1)
+        kpi["us_debt_held_public_gdp_date"] = held["dates"][-1]
 
     # US debt total ($)
     if treasury:
@@ -684,17 +894,36 @@ def build_payload():
         kpi["us_interest_date"]        = d
 
     # Charge d'intérêts US : part dans les recettes fédérales (interest / receipts)
+    # même trimestre des deux côtés (l'ancien calcul prenait le dernier point de
+    # chaque série, qui pouvaient ne pas coïncider).
     if ip and "FGRECPT" in interest_series:
-        recs = interest_series["FGRECPT"]
-        if recs.get("values") and ip.get("values"):
-            kpi["us_interest_pct_receipts"] = round(
-                100 * ip["values"][-1] / recs["values"][-1], 1
-            )
+        rm = dict(zip(interest_series["FGRECPT"]["dates"], interest_series["FGRECPT"]["values"]))
+        pairs = [(dt, v) for dt, v in zip(ip["dates"], ip["values"]) if rm.get(dt)]
+        if pairs:
+            dt, v = pairs[-1]
+            kpi["us_interest_pct_receipts"] = round(100 * v / rm[dt], 1)
+            kpi["us_interest_pct_receipts_date"] = dt
+
+    # Défense nationale (NIPA, même base comptable que les intérêts)
+    df = interest_series.get("FDEFX")
+    if df:
+        d, v = latest_pair(df, (None, None))
+        kpi["us_defense_bn_usd_saar"] = round(v) if v else None
+        kpi["us_defense_date"] = d
+
+    # Part de la dette fédérale détenue à l'étranger (TIC ÷ dette du mois)
+    if tic and treasury:
+        m = {d[:7]: v for d, v in zip(treasury["dates"], treasury["values"])}
+        tot = m.get(tic["month"])
+        if tot:
+            kpi["us_foreign_held_pct"] = round(100 * tic["bn_usd"] * 1e9 / tot, 1)
+            kpi["us_foreign_held_month"] = tic["month"]
 
     # JP Debt/GDP
     if "JP" in debt_gdp_series:
         d, v = latest_pair(debt_gdp_series["JP"], (None, None))
         kpi["jp_debt_gdp_pct"] = round(v, 1) if v else None
+        kpi["jp_debt_gdp_date"] = d
 
     # US 10Y rate
     if "DGS10" in yields_series:
@@ -712,19 +941,16 @@ def build_payload():
     # Bloc optionnel : s'il tombe, la section du chapitre se met en dégradation
     # propre (message explicite côté page) et le reste du chapitre est intact.
     mpd_block, mpd_ok, mpd_failed = fetch_mpd()
-    ok.extend(mpd_ok)
+    for lab in mpd_ok:
+        success(lab)
     failed.extend(mpd_failed)
-    if mpd_block is None and OUT_JSON.exists():
+    if mpd_block is None and prev_get("mpd"):
         # Garde par source : la BRI est parfois indisponible plusieurs heures.
         # On recopie le bloc du run précédent plutôt que d'effacer la section —
         # les autres sources du chapitre, elles, ont bien répondu.
-        try:
-            prev = json.loads(OUT_JSON.read_text()).get("mpd")
-            if prev:
-                mpd_block = prev
-                sys.stderr.write("[BIS] indisponible — bloc mpd recopié du cache précédent\n")
-        except (ValueError, OSError) as e:
-            sys.stderr.write(f"[BIS] cache précédent illisible : {e}\n")
+        mpd_block = prev_get("mpd")
+        stale.append("mpd")
+        sys.stderr.write("[BIS] indisponible — bloc mpd recopié du cache précédent\n")
     if mpd_block:
         n_c = len(mpd_block["series"])
         print(f"[BIS] mpd : {n_c} économies · "
@@ -733,23 +959,29 @@ def build_payload():
 
     # ─── 8. Assembly ──
     meta = {
-        "updated_at":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at":      now_iso,
         "updated_at_unix": int(time.time()),
         "sources_ok":      ok,
         "sources_failed":  failed,
+        "stale_blocks":    stale,
+        "last_success":    last_success,
         "start_date":      START_DATE,
-        "doc_version":     "1.0",
+        "doc_version":     "2.0",
     }
     payload = {
         "meta": meta,
         "kpi":  kpi,
         "debt_gdp":  debt_gdp_series,
+        "imf_weo_meta": weo_meta,
         "imf_weo_debt_gdp": imf_weo,
         "debt_levels_eur": eurostat_debt_levels,
         "yields":    yields_series,
         "interest":  interest_series,
         "growth":    growth_series,
         "treasury_total_debt": treasury,
+        "fr_public_finance": fr_pf,
+        "tic_foreign": tic,
+        "wb_private_credit": wb_credit,
         "mpd":       mpd_block,
     }
     return payload, len(ok), len(failed)

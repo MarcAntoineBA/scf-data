@@ -1,37 +1,42 @@
 #!/usr/bin/env python3
-"""Cache antifragile pour le chapitre Thèse · La bulle IA.
+"""Cache du chapitre Thèse · 02 — La bulle IA.
 
-Données récupérées (toutes auditables) :
+Version 2.0 (audit du 04/10/2026).
 
-  1. Mag7 CapEx annuel (NVDA, MSFT, GOOG, AMZN, META, AAPL, TSLA)
-     → yfinance cashflow statement (-CapitalExpenditure) sur 5 ans
-  2. Nvidia revenue breakdown trimestriel (datacenter vs gaming vs other)
-     → yfinance get_earnings_dates ne donne pas le breakdown, on hardcode
-       à partir des earnings reports officiels NVDA
-  3. Mag7 market caps + P/E forward courants
-     → yfinance fast_info + info
-  4. Foreign holdings of US Treasuries — top 5 pays (China, Japan, UK, …)
-     → US Treasury TIC public data (CSV)
-  5. Cass Freight Index (proxy économie réelle)
-     → Cass Information Systems ne publie pas d'API mais FRED en distribue
-       une variante : DPTRANSP (FRED) — index de production transport
-  6. S&P 500 vs S&P 500 Equal Weight (pour le narratif "concentration")
-     → Yahoo Finance ^GSPC vs ^SPXEW (avec fallback RSP ETF si pas dispo)
-  7. Projections IEA data centers electricity (hardcoded, source IEA 2024)
-  8. Coûts d'entraînement modèles IA (hardcoded, sources publiques)
-  9. Prix robots humanoïdes (hardcoded, sources officielles fabricants)
+En direct (gratuit, sans clé) :
+  1. SEC EDGAR companyfacts (XBRL) : investissements (« achats d'immobilisations »
+     du tableau de flux de trésorerie) et chiffre d'affaires, TRIMESTRE PAR
+     TRIMESTRE, des Sept Magnifiques + Oracle. Les 10-Q donnent des cumuls depuis
+     le début de l'exercice : les trimestres sont reconstitués par différence et
+     rangés en trimestres CIVILS (milieu de la période). Remplace yfinance, qui
+     était limité en débit et servait en silence des constantes de mai 2026.
+     User-Agent : variable SCF_CONTACT_UA (secret du dépôt cloud), sinon nom neutre.
+  2. Epoch AI (CSV public notable_ai_models.csv) : coût de calcul de
+     l'entraînement des grands modèles, estimation homogène en dollars 2023.
+  3. Yahoo Finance v8 (^GSPC, RSP) : S&P 500 pondéré vs équipondéré.
+  4. FRED (API officielle) : fret ferroviaire intermodal, consommation de biens,
+     défauts immobilier commercial, crédit aux entreprises, production industrielle.
 
-Sortie : un seul cache JSON+JS lu côté navigateur par These_BulleIA.html.
-Lancé par scf.these_bulleia.refresh (4×/jour).
+Recopié d'éditions publiées (URL et date dans REGISTRES) : électricité des data
+centers (AIE), engagements et trajectoire financière d'OpenAI, prix des robots
+humanoïdes, scores de référence des modèles de langage.
+
+Repli : une source qui tombe garde la DERNIÈRE valeur réellement collectée (relue
+dans le cache précédent) avec la date de son dernier succès ; plus aucune
+constante de secours réinjectée en silence.
+
+Sortie : these_bulleia_cache.json + .js (window.__THESE_BULLEIA__).
+Lancé par scf.these_bulleia.refresh.
 """
 import csv
 import io
 import json
 import math
+import os
 import shutil
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -39,107 +44,31 @@ from urllib.request import Request, urlopen
 CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 OUT_JSON = CACHE_DIR / "these_bulleia_cache.json"
-OUT_JS   = CACHE_DIR / "these_bulleia_cache.js"
+OUT_JS = CACHE_DIR / "these_bulleia_cache.js"
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) SiteCryptoFinance-TheseBulleIA/1.0"
-
-MAG7 = ["NVDA", "MSFT", "GOOGL", "AMZN", "META", "AAPL", "TSLA"]
-
-# ─── Datasets hardcodés (sources publiques fiables, peu volatiles) ──
-
-# IEA — Electricity consumption by data centers (TWh/an).
-# Source : IEA Electricity 2024 Report (2024-01-24) + projection ENERGY 2024.
-# Includes AI + Crypto. Référence finale: 2030 forecast.
-IEA_DATACENTER_ELECTRICITY_TWH = [
-    # (year, twh)
-    (2018, 240), (2019, 250), (2020, 260), (2021, 290),
-    (2022, 340), (2023, 410), (2024, 480),
-    # Projections IEA Electricity 2024 (médian scenario)
-    (2025, 580), (2026, 700), (2027, 820), (2028, 940), (2029, 1000), (2030, 1050),
-]
-
-# Coût d'entraînement modèles IA (millions $, sources publiques)
-AI_MODEL_TRAINING_COSTS = [
-    # (label, cost_million_usd, year, source)
-    ("DeepSeek V3",   5.6,    2024, "DeepSeek paper officiel · décembre 2024"),
-    ("DeepSeek R1",   5.0,    2025, "DeepSeek paper · janvier 2025"),
-    ("Qwen 2.5",     12.0,    2024, "Alibaba release notes"),
-    ("Llama 3.1 405B", 90.0,  2024, "Meta paper, FAIR"),
-    ("Claude 3.5 Sonnet", 100.0, 2024, "Anthropic estimé (non communiqué)"),
-    ("GPT-4",       100.0,    2023, "OpenAI / Epoch AI estimation"),
-    ("GPT-4o",      150.0,    2024, "OpenAI / Epoch AI estimation"),
-    ("Gemini Ultra", 200.0,   2024, "Google / Epoch AI estimation"),
-]
-
-# Prix robots humanoïdes (USD, prix de lancement annoncé)
-HUMANOID_ROBOT_PRICES = [
-    # (label, country, price_usd, year, source)
-    ("Unitree G1",         "CN",  16000,   2024, "Unitree Robotics · annonce officielle"),
-    ("Unitree H1",         "CN",  90000,   2023, "Unitree Robotics"),
-    ("Xiaomi CyberOne",    "CN",  120000,  2022, "Xiaomi · estimé"),
-    ("Fourier Intelligence GR-1", "CN", 150000, 2023, "Fourier · catalogue"),
-    ("1X NEO",             "NO",  20000,   2025, "1X Technologies · pré-commande"),
-    ("Tesla Optimus Gen 2","US",  30000,   2025, "Tesla / Elon Musk annonce 2024"),
-    ("Boston Dynamics Atlas", "US", 250000, 2024, "Boston Dynamics · prototype non commercial"),
-    ("Figure 02",          "US",  150000,  2024, "Figure AI · estimé"),
-    ("Apptronik Apollo",   "US",  100000,  2024, "Apptronik · estimé"),
-]
-
-# CapEx Mag7 historique (Md$/an, sources : 10-K SEC filings).
-# Données stables (annuelles), utilisées comme fallback si yfinance rate-limite.
-# Source : https://www.sec.gov/edgar/searchedgar/companysearch
-CAPEX_MAG7_FALLBACK = {
-    "MSFT":  [(2020, 17.6), (2021, 20.6), (2022, 23.9), (2023, 28.1), (2024, 44.5), (2025, 80.0)],
-    "GOOGL": [(2020, 22.3), (2021, 24.6), (2022, 31.5), (2023, 32.3), (2024, 52.5), (2025, 75.0)],
-    "META":  [(2020, 15.7), (2021, 19.2), (2022, 31.4), (2023, 27.3), (2024, 37.0), (2025, 60.0)],
-    "AMZN":  [(2020, 40.1), (2021, 55.4), (2022, 58.3), (2023, 48.1), (2024, 63.0), (2025, 110.0)],
-    "AAPL":  [(2020,  7.6), (2021, 11.1), (2022, 10.7), (2023, 11.0), (2024,  9.4), (2025, 10.0)],
-    "NVDA":  [(2020,  1.1), (2021,  1.0), (2022,  1.8), (2023,  1.1), (2024,  2.0), (2025,  2.5)],
-    "TSLA":  [(2020,  3.2), (2021,  6.5), (2022,  7.2), (2023,  8.9), (2024, 11.2), (2025, 14.0)],
-}
-
-# Snapshot Mag7 fallback (proche valeurs mai 2026, sources : Yahoo Finance live).
-# Ces valeurs ne sont utilisées QUE si yfinance rate-limite ; sinon les données live
-# remplacent celles-ci à chaque refresh launchd. Valeurs mises à jour 2026-05-17.
-SNAPSHOT_MAG7_FALLBACK = {
-    "NVDA":  {"mcap_b": 5450.0, "pe_trailing": 46.0, "pe_forward": 20.0, "revenue_b": 130.0, "name": "Nvidia"},
-    "MSFT":  {"mcap_b": 3700.0, "pe_trailing": 32.0, "pe_forward": 26.0, "revenue_b": 250.0, "name": "Microsoft"},
-    "AAPL":  {"mcap_b": 3800.0, "pe_trailing": 30.0, "pe_forward": 26.0, "revenue_b": 390.0, "name": "Apple"},
-    "GOOGL": {"mcap_b": 2700.0, "pe_trailing": 24.0, "pe_forward": 20.0, "revenue_b": 320.0, "name": "Alphabet"},
-    "AMZN":  {"mcap_b": 2400.0, "pe_trailing": 42.0, "pe_forward": 30.0, "revenue_b": 620.0, "name": "Amazon"},
-    "META":  {"mcap_b": 1700.0, "pe_trailing": 24.0, "pe_forward": 20.0, "revenue_b": 160.0, "name": "Meta"},
-    "TSLA":  {"mcap_b": 1300.0, "pe_trailing": 120.0, "pe_forward": 80.0, "revenue_b": 100.0, "name": "Tesla"},
-}
-
-# Benchmarks LLM 2024-2025 (sources : papers officiels + Stanford AI Index)
-LLM_BENCHMARKS = [
-    # (model, mmlu, humaneval, math, country, training_cost_usd_M)
-    ("DeepSeek-V3",       88.5,  82.6,  90.2,  "CN",   5.6),
-    ("DeepSeek-R1",       90.8,  88.7,  97.3,  "CN",   5.0),
-    ("Qwen 2.5 72B",      86.1,  85.3,  83.1,  "CN",  12.0),
-    ("Llama 3.1 405B",    88.6,  89.0,  73.8,  "US",  90.0),
-    ("Claude 3.5 Sonnet", 88.7,  92.0,  78.3,  "US", 100.0),
-    ("GPT-4o",            88.7,  90.2,  76.6,  "US", 150.0),
-    ("Gemini 1.5 Pro",    85.9,  84.1,  91.1,  "US", 200.0),
-]
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) SiteCryptoFinance-TheseBulleIA/2.0"
+SEC_UA = os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")
+DOC_VERSION = "2.0"
 
 
-def http_get_text(url, timeout=20, max_retries=5, accept="text/csv,*/*"):
-    req = Request(url, headers={"User-Agent": UA, "Accept": accept})
+def http_get_text(url, timeout=30, max_retries=4, accept="text/csv,*/*", headers=None):
+    h = {"User-Agent": UA, "Accept": accept}
+    h.update(headers or {})
     last_err = None
     for attempt in range(max_retries):
         try:
-            with urlopen(req, timeout=timeout) as resp:
+            with urlopen(Request(url, headers=h), timeout=timeout) as resp:
                 charset = resp.headers.get_content_charset() or "utf-8"
                 return resp.read().decode(charset, errors="ignore")
         except HTTPError as e:
-            if 500 <= e.code < 600 and attempt < max_retries - 1:
-                time.sleep(5 * (2 ** attempt)); continue
+            last_err = e
+            if (500 <= e.code < 600 or e.code == 429) and attempt < max_retries - 1:
+                time.sleep(5 * (2 ** attempt))
+                continue
             raise
         except (URLError, ConnectionResetError, TimeoutError, OSError) as e:
             last_err = e
             time.sleep(5 * (2 ** attempt))
-            continue
     raise last_err if last_err else RuntimeError("retries exhausted")
 
 
@@ -148,319 +77,521 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _fred_helpers import fetch_fred as fetch_fred_csv  # noqa: E402
 
 
-def fetch_yahoo_daily(symbol, period1=1262304000, label=None):
-    """Yahoo Finance v8 daily closes (period1 = 2010-01-01 par défaut)."""
-    try:
-        sym_enc = symbol.replace("=", "%3D").replace("^", "%5E")
-        period2 = int(time.time())
-        url = (
-            f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_enc}"
-            f"?period1={period1}&period2={period2}&interval=1d"
-        )
-        txt = http_get_text(url, timeout=25, accept="application/json")
-        d = json.loads(txt)
-        r = d.get("chart", {}).get("result", [{}])[0]
-        ts = r.get("timestamp", []) or []
-        close = r.get("indicators", {}).get("quote", [{}])[0].get("close", []) or []
-        if not ts: return None
-        dates, values = [], []
-        for t, c in zip(ts, close):
-            if c is None: continue
-            dates.append(datetime.fromtimestamp(t).strftime("%Y-%m-%d"))
-            values.append(round(float(c), 4))
-        return {"dates": dates, "values": values, "symbol": symbol, "label": label or symbol}
-    except Exception as e:
-        sys.stderr.write(f"[YAHOO {symbol}] {e}\n"); return None
+# ════════════════════════════════════════════════════════════════════════════
+# 1. SEC — investissements et chiffre d'affaires trimestriels
+# ════════════════════════════════════════════════════════════════════════════
+
+SEC_CIK = {"MSFT": "0000789019", "GOOGL": "0001652044", "AMZN": "0001018724",
+           "META": "0001326801", "NVDA": "0001045810", "AAPL": "0000320193",
+           "TSLA": "0001318605", "ORCL": "0001341439"}
+SEC_NOMS = {"MSFT": "Microsoft", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta",
+            "NVDA": "Nvidia", "AAPL": "Apple", "TSLA": "Tesla", "ORCL": "Oracle"}
+HYPERSCALERS = ["MSFT", "GOOGL", "AMZN", "META"]
+MAG7 = ["NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META", "TSLA"]
+# Même ligne du tableau de flux, étiquetée sous l'un ou l'autre concept selon les années
+CONCEPTS_CAPEX = ["PaymentsToAcquirePropertyPlantAndEquipment",
+                  "PaymentsToAcquireProductiveAssets"]
+CONCEPTS_CA = ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
+               "SalesRevenueNet"]
+PREMIERE_ANNEE = 2018
 
 
-def fetch_mag7_capex_via_yfinance():
-    """Récupère le CapEx annuel des Mag7 via yfinance.
+def _d(s):
+    return datetime.strptime(s, "%Y-%m-%d").date()
 
-    yfinance expose `Ticker.cashflow` (DataFrame) dont la ligne
-    'Capital Expenditure' contient des valeurs négatives. On les négativise
-    pour avoir des montants positifs en USD."""
-    py_bin = "/opt/anaconda3/bin/python3"
-    if not Path(py_bin).exists():
-        py_bin = "python3"
-    import subprocess
-    script = '''
-import yfinance as yf, json, sys
-out = {}
-tickers = ["NVDA", "MSFT", "GOOGL", "AMZN", "META", "AAPL", "TSLA"]
-for tk in tickers:
-    try:
-        t = yf.Ticker(tk)
-        cf = t.cashflow
-        if cf is None or cf.empty:
+
+def sec_trimestres(facts):
+    """{(début, fin): valeur} des trimestres, à partir des faits XBRL (10-K/10-Q).
+    Trimestre publié tel quel (80-100 jours) en priorité ; sinon différence de deux
+    cumuls qui partagent le même début d'exercice (T2 = S1 − T1, T4 = an − 9 mois)."""
+    fx = {}
+    for f in facts:
+        if f.get("form") not in ("10-K", "10-Q", "10-K/A", "10-Q/A"):
             continue
-        # On cherche la ligne CapEx (peut s'appeler différemment selon yfinance)
-        candidates = ["Capital Expenditure", "Capital Expenditures",
-                      "CapitalExpenditure", "Capital Expenditure Reported"]
-        row = None
-        for c in candidates:
-            if c in cf.index:
-                row = cf.loc[c]; break
-        if row is None:
-            for idx in cf.index:
-                if "capital" in idx.lower() and "expenditure" in idx.lower():
-                    row = cf.loc[idx]; break
-        if row is None:
+        if not f.get("start") or not f.get("end") or f.get("val") is None:
             continue
-        years_capex = []
-        for date, val in row.items():
-            try:
-                y = date.year if hasattr(date, "year") else int(str(date)[:4])
-                v = float(val)
-                # CapEx est négatif dans cashflow statement → on prend abs
-                years_capex.append([y, round(abs(v) / 1e9, 2)])
-            except Exception:
-                continue
-        years_capex.sort(key=lambda x: x[0])
-        out[tk] = years_capex
-    except Exception as e:
-        sys.stderr.write(f"{tk}: {e}\\n")
-        continue
-print(json.dumps(out))
-'''
-    try:
-        result = subprocess.run(
-            [py_bin, "-c", script],
-            capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode != 0:
-            sys.stderr.write(f"[CAPEX yfinance] stderr: {result.stderr[:500]}\n")
-            return None
-        # Le JSON est sur la dernière ligne de stdout
-        line = [l for l in result.stdout.splitlines() if l.strip().startswith("{")]
-        if not line:
-            return None
-        return json.loads(line[-1])
-    except Exception as e:
-        sys.stderr.write(f"[CAPEX] {e}\n")
-        return None
+        k = (f["start"], f["end"])
+        if k not in fx or f.get("filed", "") > fx[k][1]:  # le dépôt le plus récent l'emporte
+            fx[k] = (float(f["val"]), f.get("filed", ""))
+    q = {}
+    for (s, e), (v, _) in fx.items():
+        if 80 <= (_d(e) - _d(s)).days <= 100:
+            q[(s, e)] = v
+    par_debut = {}
+    for (s, e), (v, _) in fx.items():
+        if 80 <= (_d(e) - _d(s)).days <= 380:
+            par_debut.setdefault(s, []).append((e, v))
+    for s, lst in par_debut.items():
+        lst.sort()
+        for (e0, v0), (e1, v1) in zip(lst, lst[1:]):
+            if 80 <= (_d(e1) - _d(e0)).days <= 100:
+                debut = date.fromordinal(_d(e0).toordinal() + 1).isoformat()
+                q.setdefault((debut, e1), v1 - v0)
+    return q
 
 
-def fetch_mag7_snapshot():
-    """Snapshot live des Mag7 : market cap, prix, P/E."""
-    py_bin = "/opt/anaconda3/bin/python3"
-    if not Path(py_bin).exists():
-        py_bin = "python3"
-    import subprocess
-    script = '''
-import yfinance as yf, json, sys
-out = {}
-for tk in ["NVDA","MSFT","GOOGL","AMZN","META","AAPL","TSLA"]:
-    try:
-        t = yf.Ticker(tk)
-        fi = t.fast_info
-        info = t.info
-        mcap = fi.get("marketCap", 0) or info.get("marketCap", 0)
-        price = fi.get("lastPrice", 0) or 0
-        tpe = info.get("trailingPE", 0) or 0
-        fpe = info.get("forwardPE", 0) or 0
-        rev = info.get("totalRevenue", 0) or 0
-        emp = info.get("fullTimeEmployees", 0) or 0
-        out[tk] = {
-            "mcap_b": round(mcap / 1e9, 1) if mcap else 0,
-            "price": round(price, 2) if price else 0,
-            "pe_trailing": round(tpe, 1) if tpe else 0,
-            "pe_forward":  round(fpe, 1) if fpe else 0,
-            "revenue_b":   round(rev / 1e9, 1) if rev else 0,
-            "employees":   emp,
-            "name": info.get("longName", tk),
-        }
-    except Exception as e:
-        sys.stderr.write(f"{tk}: {e}\\n")
-print(json.dumps(out))
-'''
-    try:
-        result = subprocess.run(
-            [py_bin, "-c", script],
-            capture_output=True, text=True, timeout=180,
-        )
-        line = [l for l in result.stdout.splitlines() if l.strip().startswith("{")]
-        if not line:
-            return None
-        return json.loads(line[-1])
-    except Exception as e:
-        sys.stderr.write(f"[SNAPSHOT] {e}\n")
-        return None
+def trimestre_civil(s, e):
+    mid = date.fromordinal((_d(s).toordinal() + _d(e).toordinal()) // 2)
+    return f"{mid.year}T{(mid.month - 1) // 3 + 1}"
 
 
-def fetch_freight_index():
-    """Indice de production transport — IPN3361T3S = Industrial Production:
-    Motor vehicle bodies, ou plus simple : RAILFRTINTERMODAL = volume fret
-    rail intermodal mensuel (NSA, FRED)."""
-    return fetch_fred_csv("RAILFRTINTERMODAL", start="2015-01-01")
+def _par_trimestre_civil(q):
+    out = {}
+    for (s, e), v in q.items():
+        cq = trimestre_civil(s, e)
+        if int(cq[:4]) < PREMIERE_ANNEE:
+            continue
+        if cq not in out or e > out[cq]["fin"]:
+            out[cq] = {"fin": e, "md": round(v / 1e9, 3)}
+    return dict(sorted(out.items()))
 
 
-def fetch_pce_goods():
-    """Real Personal Consumption Expenditures · Goods (FRED DGDSRX1).
-    Le proxy le plus direct de "les consommateurs n'achètent plus de biens"."""
-    return fetch_fred_csv("DGDSRX1", start="2015-01-01")
+def _trimestre_suivant(cq):
+    a, t = int(cq[:4]), int(cq[-1])
+    return f"{a + 1}T1" if t == 4 else f"{a}T{t + 1}"
 
 
-def fetch_cre_delinquency():
-    """Commercial Real Estate Delinquency Rate (FRED DRCRELEXFACBS) — taux
-    de défaut sur prêts CRE des banques commerciales US, trimestriel."""
-    return fetch_fred_csv("DRCRELEXFACBS", start="2010-01-01")
+def _derniers_4(qs, fin):
+    """Les 4 trimestres consécutifs se terminant au trimestre civil `fin`."""
+    a, t = int(fin[:4]), int(fin[-1])
+    ks = []
+    for _ in range(4):
+        ks.append(f"{a}T{t}")
+        t -= 1
+        if t == 0:
+            a, t = a - 1, 4
+    if all(k in qs for k in ks):
+        return sum(qs[k]["md"] for k in ks)
+    return None
 
 
-def fetch_nfib_optimism():
-    """NFIB Small Business Optimism Index (FRED BUSLOANS proxy ou via API NFIB)
-    NFIB n'est pas sur FRED. On utilise les Bank loans to small business
-    comme proxy de la santé PME : BUSLOANS = Commercial & Industrial Loans."""
-    return fetch_fred_csv("BUSLOANS", start="2015-01-01")
+FIN_TRIM_FR = {1: "fin mars", 2: "fin juin", 3: "fin septembre", 4: "fin décembre"}
 
 
-def fetch_indpro_long():
-    """Industrial Production: Total Index (INDPRO) — données mensuelles
-    depuis 1919, base 2017 = 100. Mesure officielle de la production
-    industrielle US (manufacturing + mining + utilities). Le plus large
-    et le plus long historique disponible pour 'économie privée réelle'."""
-    return fetch_fred_csv("INDPRO", start="1919-01-01")
+def fetch_sec():
+    capex, ca = {}, {}
+    for tk, cik in SEC_CIK.items():
+        req = Request(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
+                      headers={"User-Agent": SEC_UA, "Accept": "application/json"})
+        with urlopen(req, timeout=90) as r:
+            g = json.load(r).get("facts", {}).get("us-gaap", {})
+        time.sleep(0.3)  # la SEC demande ≤ 10 requêtes/s
+        f_cap, f_ca = [], []
+        for c in CONCEPTS_CAPEX:
+            f_cap += g.get(c, {}).get("units", {}).get("USD", [])
+        for c in CONCEPTS_CA:
+            f_ca += g.get(c, {}).get("units", {}).get("USD", [])
+        capex[tk] = _par_trimestre_civil(sec_trimestres(f_cap))
+        ca[tk] = _par_trimestre_civil(sec_trimestres(f_ca))
+    if any(len(capex[tk]) < 20 for tk in HYPERSCALERS):
+        raise RuntimeError("SEC : historique d'investissements incomplet")
+    # Dernier trimestre civil publié par LES QUATRE géants du cloud
+    fin = min(list(capex[tk])[-1] for tk in HYPERSCALERS)
+    annees = []
+    for a in range(PREMIERE_ANNEE, int(fin[:4]) + 1):
+        ligne, complet = {"annee": a}, True
+        for tk in HYPERSCALERS:
+            v = _derniers_4(capex[tk], f"{a}T4")
+            if v is None:
+                complet = False
+                break
+            ligne[tk] = round(v, 1)
+        if complet:  # jamais d'année partielle présentée comme une année pleine
+            ligne["total"] = round(sum(ligne[tk] for tk in HYPERSCALERS), 1)
+            annees.append(ligne)
+    glissant = {"fin": fin, "libelle": f"12 mois à {FIN_TRIM_FR[int(fin[-1])]} {fin[:4]}"}
+    for tk in HYPERSCALERS:
+        glissant[tk] = round(_derniers_4(capex[tk], fin), 1)
+    glissant["total"] = round(sum(glissant[tk] for tk in HYPERSCALERS), 1)
+    # Une ligne par société pour le tableau : 12 derniers mois publiés par CHACUNE
+    societes = {}
+    for tk in MAG7 + ["ORCL"]:
+        if not capex[tk] or not ca[tk]:
+            continue
+        f_tk = min(list(capex[tk])[-1], list(ca[tk])[-1])
+        c12, r12 = _derniers_4(capex[tk], f_tk), _derniers_4(ca[tk], f_tk)
+        if c12 is None or r12 is None:
+            continue
+        societes[tk] = {"nom": SEC_NOMS[tk], "fin": f_tk,
+                        "fin_date": capex[tk][f_tk]["fin"],
+                        "capex_12m": round(c12, 1), "ca_12m": round(r12, 1),
+                        "part_reinvestie": round(c12 / r12 * 100, 1) if r12 else None}
+    return {
+        "hyperscalers": {"annees": annees, "glissant": glissant, "ordre": HYPERSCALERS,
+                         "noms": {tk: SEC_NOMS[tk] for tk in HYPERSCALERS}},
+        "societes": societes,
+        "trimestres_capex": capex,
+        "definition": ("Investissements = « achats d'immobilisations corporelles » du tableau de "
+                       "flux de trésorerie (cash décaissé, hors contrats de location-financement), "
+                       "reconstitués trimestre par trimestre depuis les 10-Q et 10-K, rangés en "
+                       "trimestres civils."),
+        "source_url": "https://www.sec.gov/edgar/search/",
+        "api": "https://data.sec.gov/api/xbrl/companyfacts/",
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. Epoch AI — coût d'entraînement des grands modèles
+# ════════════════════════════════════════════════════════════════════════════
+
+EPOCH_CSV = "https://epoch.ai/data/notable_ai_models.csv"
+EPOCH_COL = "Training compute cost (2023 USD)"
+# Comparaisons « à performances voisines » citées dans le texte
+EPOCH_PAIRES = [("DeepSeek-V3", "Llama 3.1-405B"), ("DeepSeek-V3", "GPT-4 (Mar 2023)")]
+
+
+def fetch_epoch():
+    txt = http_get_text(EPOCH_CSV, timeout=90)
+    rows = list(csv.DictReader(io.StringIO(txt)))
+    out = []
+    for r in rows:
+        try:
+            c = float(r.get(EPOCH_COL) or "nan")
+        except ValueError:
+            continue
+        if not math.isfinite(c) or c <= 0:
+            continue
+        d = (r.get("Publication date") or "")[:10]
+        if d < "2023-01-01":
+            continue
+        pays = r.get("Country (of organization)") or ""
+        out.append({
+            "modele": r.get("Model", "").strip(),
+            "organisation": (r.get("Organization") or "").split(",")[0].strip(),
+            "date": d,
+            "pays": "Chine" if "China" in pays else ("États-Unis" if "United States" in pays else pays.split(",")[0]),
+            "cout_musd": round(c / 1e6, 2),
+            "confiance": r.get("Confidence") or "",
+        })
+    out.sort(key=lambda x: x["date"])
+    if len(out) < 5:
+        raise RuntimeError("Epoch : trop peu de modèles chiffrés")
+    return {"modeles": out, "colonne": EPOCH_COL,
+            "definition": ("Estimation par Epoch AI du coût du calcul de l'entraînement final "
+                           "(matériel amorti + énergie), en dollars 2023 : même méthode pour "
+                           "tous les modèles, donc comparable."),
+            "source_url": "https://epoch.ai/data/ai-models", "csv": EPOCH_CSV}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 3-4. Marchés et économie réelle
+# ════════════════════════════════════════════════════════════════════════════
+
+def fetch_yahoo_daily(symbol, period1=1577836800, label=None):
+    sym_enc = symbol.replace("=", "%3D").replace("^", "%5E")
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_enc}"
+           f"?period1={period1}&period2={int(time.time())}&interval=1d")
+    d = json.loads(http_get_text(url, timeout=25, accept="application/json"))
+    r = d.get("chart", {}).get("result", [{}])[0]
+    ts = r.get("timestamp", []) or []
+    close = r.get("indicators", {}).get("quote", [{}])[0].get("close", []) or []
+    dates, values = [], []
+    for t, c in zip(ts, close):
+        if c is None:
+            continue
+        dates.append(datetime.fromtimestamp(t).strftime("%Y-%m-%d"))
+        values.append(round(float(c), 4))
+    if len(dates) < 100:
+        raise RuntimeError(f"Yahoo {symbol}: {len(dates)} points")
+    return {"dates": dates, "values": values, "symbol": symbol, "label": label or symbol}
 
 
 def fetch_sp500_vs_eqw():
-    """S&P 500 (^GSPC) vs S&P 500 Equal Weight (RSP ETF, qui suit ^SPXEW)."""
-    return {
-        "GSPC": fetch_yahoo_daily("^GSPC", period1=1577836800, label="S&P 500 (mcap-weighted)"),
-        "RSP":  fetch_yahoo_daily("RSP",  period1=1577836800, label="S&P 500 Equal Weight (RSP)"),
-    }
+    return {"GSPC": fetch_yahoo_daily("^GSPC", label="S&P 500 pondéré par la capitalisation"),
+            "RSP": fetch_yahoo_daily("RSP", label="S&P 500 équipondéré (ETF RSP)")}
 
 
-def build_payload():
-    failed, ok = [], []
+def _fred(sid, start):
+    def f():
+        return fetch_fred_csv(sid, start=start)
+    return f
 
-    # 1. CapEx Mag7 annuel
-    capex = fetch_mag7_capex_via_yfinance()
-    if capex: ok.append("YF:capex")
-    else: failed.append("YF:capex")
 
-    # 2. Snapshot Mag7
-    snap = fetch_mag7_snapshot()
-    if snap: ok.append("YF:snapshot")
-    else: failed.append("YF:snapshot")
+# ════════════════════════════════════════════════════════════════════════════
+# 5. AIE — électricité des data centers (observatoire « Energy and AI »)
+# ════════════════════════════════════════════════════════════════════════════
+# Série annuelle 2005 → dernière estimation, publiée sans compte dans le script
+# public de l'observatoire (pas de bouton de téléchargement) : somme des quatre
+# postes serveurs + autres équipements informatiques + refroidissement + autres
+# infrastructures, en TWh. Les projections (2030, 2035) viennent du rapport et
+# sont recopiées dans AIE_PROJECTIONS.
+AIE_OBS_JS = "https://iea.blob.core.windows.net/scripts/ai-observatory/ai-observatory.js"
+AIE_POSTES = ("Servers", "Other IT equipment", "Cooling", "Other infrastructure")
+AIE_PROJECTIONS = {
+    "edition": "AIE, « Key Questions on Energy and AI », 16 avril 2026",
+    "url": "https://www.iea.org/reports/key-questions-on-energy-and-ai",
+    "scenario": "scénario de référence",
+    "points": [[2030, 945], [2035, 1193]],
+    "note": ("Le texte du rapport arrondit 2030 à ~950 TWh ; l'annexe donne 945. "
+             "Autres scénarios 2030 : 833 (« Headwinds ») à 1 008 TWh (« Lift-Off »)."),
+}
 
-    # 3. (Champ china_treasury retiré : l'ID FRED MHHNGNCNM052N était faux dans
-    #    le code d'origine, le champ n'était utilisé par aucun graphique du body.)
-    china_treas = None
 
-    # 4. Freight index (rail intermodal)
-    freight = fetch_freight_index()
-    if freight: ok.append("FRED:RAILFRTINTERMODAL")
-    else: failed.append("FRED:RAILFRTINTERMODAL")
+def fetch_aie():
+    import re
+    txt = http_get_text(AIE_OBS_JS, timeout=90, accept="application/javascript,*/*")
+    objs = re.findall(r'\{\s*year:\s*"?(\d{4})(e?)"?,\s*type:\s*"([^"]+)",\s*value:\s*([-\d.eE]+)\s*\}', txt)
+    tot, estim = {}, set()
+    for an, e, typ, val in objs:
+        if typ in AIE_POSTES:
+            tot.setdefault(int(an), {})[typ] = float(val)
+            if e:
+                estim.add(int(an))
+    annees = sorted(a for a, d in tot.items() if len(d) == len(AIE_POSTES))
+    if len(annees) < 10:
+        raise RuntimeError(f"AIE : {len(annees)} années complètes")
+    obs = [[a, round(sum(tot[a].values()), 1)] for a in annees if a not in estim]
+    est = [[a, round(sum(tot[a].values()), 1)] for a in annees if a in estim]
+    if not (300 < obs[-1][1] < 3000):
+        raise RuntimeError(f"AIE : valeur hors bornes {obs[-1]}")
+    return {"observe": [p for p in obs if p[0] >= 2015], "estimation": est,
+            "projection": AIE_PROJECTIONS["points"], "edition": AIE_PROJECTIONS["edition"],
+            "edition_url": AIE_PROJECTIONS["url"], "scenario": AIE_PROJECTIONS["scenario"],
+            "note": AIE_PROJECTIONS["note"],
+            "source_url": "https://www.iea.org/data-and-statistics/data-tools/energy-and-ai-observatory",
+            "api": AIE_OBS_JS}
 
-    # 4b. Real PCE Goods (consommateurs en biens physiques)
-    pce_goods = fetch_pce_goods()
-    if pce_goods: ok.append("FRED:DGDSRX1")
-    else: failed.append("FRED:DGDSRX1")
 
-    # 4c. CRE Delinquency Rate (faillites immobilier commercial)
-    cre = fetch_cre_delinquency()
-    if cre: ok.append("FRED:DRCRELEXFACBS")
-    else: failed.append("FRED:DRCRELEXFACBS")
+# ════════════════════════════════════════════════════════════════════════════
+# REGISTRES recopiés de sources publiées (vérifiés le 04/10/2026)
+# ════════════════════════════════════════════════════════════════════════════
 
-    # 4d. Bank loans to commercial & industrial (proxy PME)
-    busloans = fetch_nfib_optimism()
-    if busloans: ok.append("FRED:BUSLOANS")
-    else: failed.append("FRED:BUSLOANS")
+OPENAI_ENGAGEMENTS = {
+    "etat_au": "2026-10-04",
+    "contrats": [
+        {"partenaire": "Oracle (Stargate)", "objet": "capacité de calcul sur 5 ans", "md": 300,
+         "date_fr": "septembre 2025", "statut": "officiel",
+         "detail": "« exceeds $300 billion between the two companies over the next five years »",
+         "url": "https://openai.com/index/five-new-stargate-sites/"},
+        {"partenaire": "Microsoft (Azure)", "objet": "services cloud supplémentaires", "md": 250,
+         "date_fr": "octobre 2025", "statut": "officiel",
+         "url": "https://blogs.microsoft.com/blog/2025/10/28/the-next-chapter-of-the-microsoft-openai-partnership/"},
+        {"partenaire": "Amazon (AWS)", "objet": "cloud et puces Trainium, 38 + 100 Md$", "md": 138,
+         "date_fr": "novembre 2025 et février 2026", "statut": "officiel",
+         "url": "https://openai.com/index/amazon-partnership/"},
+        {"partenaire": "CoreWeave", "objet": "cloud spécialisé IA (11,9 + 4 + 6,5 Md$)", "md": 22.4,
+         "date_fr": "mars à septembre 2025", "statut": "officiel",
+         "url": "https://www.coreweave.com/news/coreweave-expands-agreement-with-openai-by-up-to-6-5b"},
+        {"partenaire": "Cerebras", "objet": "750 MW de calcul d'inférence", "md": 20,
+         "date_fr": "avril 2026", "statut": "officiel",
+         "detail": "« more than $20 billion » (prospectus d'introduction en bourse de Cerebras)",
+         "url": "https://www.sec.gov/Archives/edgar/data/2021728/000162828026025762/cerebras-sx1april2026.htm"},
+    ],
+    "sans_montant": [
+        {"partenaire": "AMD", "objet": "6 GW de puces, bons de souscription jusqu'à 160 M d'actions",
+         "detail": "« tens of billions of dollars in revenue for AMD »",
+         "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312525230895/d28189dex991.htm"},
+        {"partenaire": "Broadcom", "objet": "10 GW de puces sur mesure", "detail": "montant non publié",
+         "url": "https://openai.com/index/openai-and-broadcom-announce-strategic-collaboration/"},
+        {"partenaire": "Nvidia", "objet": "lettre d'intention de 10 GW et « jusqu'à 100 Md$ » jamais signée ; "
+         "remplacée par 30 Md$ investis dans OpenAI (février 2026) et une garantie de baux jusqu'à 105 Md$ "
+         "pour le campus PORTS-Pike (août 2026)",
+         "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000069/nvda-20260817.htm"},
+    ],
+    "total_annonce": {"md": 1400, "gw": 30, "date_fr": "novembre 2025",
+                      "qui": "Sam Altman", "detail": "engagements sur 8 ans",
+                      "url": "https://techcrunch.com/2025/11/06/sam-altman-says-openai-has-20b-arr-and-about-1-4-trillion-in-data-center-commitments/"},
+}
 
-    # 4e. Industrial Production Index (économie privée réelle, depuis 1919)
-    indpro = fetch_indpro_long()
-    if indpro: ok.append("FRED:INDPRO")
-    else: failed.append("FRED:INDPRO")
+OPENAI_FINANCES = {
+    "titre": None,  # calculé côté page
+    "unite": "Md$ de trésorerie (négatif = argent brûlé)",
+    "points": [
+        {"annee": 2025, "md": -8, "type": "réalisé"},
+        {"annee": 2026, "md": -25, "type": "projeté"},
+        {"annee": 2027, "md": -57, "type": "projeté"},
+        {"annee": 2028, "md": -85, "type": "projeté"},
+        {"annee": 2029, "md": -51, "type": "projeté"},
+        {"annee": 2030, "md": 39, "type": "projeté"},
+    ],
+    "source": "The Information, février 2026 (repris par The Decoder) ; 2025 : comptes audités ayant fuité, recoupés par le FT",
+    "url": "https://the-decoder.com/openai-adds-111-billion-to-its-cash-burn-forecast-as-ai-costs-spiral-beyond-projections/",
+    "derniere_estimation": {"md": 278, "periode": "2026-2030", "date_fr": "septembre 2026",
+                            "source": "Financial Times",
+                            "url": "https://www.thestar.com.my/tech/tech-news/2026/09/19/openai-forecasts-cash-burn-near-280-billion-by-2030-ft-reports"},
+    "depense_calcul_2030": {"md": 665, "source": "The Information, février 2026"},
+    "comptes_2025": {"revenus": 13.07, "perte_exploitation": 20.9, "perte_nette": 38.5,
+                     "dont_reevaluations": 41.6,
+                     "url": "https://finance.yahoo.com/markets/stocks/articles/openai-2025-financials-leaked-38-121508294.html"},
+    "valorisation": {"md": 852, "date_fr": "31 mars 2026", "url": "https://openai.com/index/accelerating-the-next-phase-ai/"},
+}
 
-    # 5. S&P 500 mcap vs equal-weight
-    sp500 = fetch_sp500_vs_eqw()
-    if sp500.get("GSPC"): ok.append("YAHOO:^GSPC")
-    else: failed.append("YAHOO:^GSPC")
-    if sp500.get("RSP"): ok.append("YAHOO:RSP")
-    else: failed.append("YAHOO:RSP")
+REVENUS_IA = {
+    "depenses_entreprises": {
+        "libelle": "Dépenses des entreprises en IA générative (Menlo Ventures)",
+        "points": [[2023, 1.7], [2024, 11.5], [2025, 37]],
+        "url": "https://menlovc.com/perspective/2025-the-state-of-generative-ai-in-the-enterprise/",
+        "note": "Rapport 2025 de Menlo Ventures, qui révise ses estimations 2023 et 2024.",
+    },
+    "lignes": [
+        {"quoi": "Dépenses des entreprises en IA générative", "valeur": "37 Md$", "periode": "2025",
+         "source": "Menlo Ventures", "url": "https://menlovc.com/perspective/2025-the-state-of-generative-ai-in-the-enterprise/"},
+        {"quoi": "Chiffre d'affaires d'OpenAI", "valeur": "3,7 Md$ puis 13,1 Md$", "periode": "2024 puis 2025",
+         "source": "comptes ayant fuité, recoupés par le FT", "url": "https://www.cnbc.com/2026/03/31/openai-funding-round-ipo.html"},
+        {"quoi": "Rythme annualisé d'OpenAI", "valeur": "≈ 70 Md$", "periode": "fin septembre 2026",
+         "source": "Axios (presse)", "url": "https://www.axios.com/2026/09/29/scoop-openais-annual-recurring-revenue-nears-70b"},
+        {"quoi": "Rythme annualisé d'Anthropic", "valeur": "> 47 Md$ (officiel) ; > 100 Md$ (presse)", "periode": "mai 2026 ; mi-septembre 2026",
+         "source": "Anthropic ; New York Times", "url": "https://www.anthropic.com/news/series-h"},
+        {"quoi": "Dépenses mondiales en IA générative, matériel compris", "valeur": "644 Md$ (80 % de matériel)", "periode": "2025 (prévision)",
+         "source": "Gartner", "url": "https://www.gartner.com/en/newsroom/press-releases/2025-03-31-gartner-forecasts-worldwide-genai-spending-to-reach-644-billion-in-2025"},
+    ],
+}
 
-    # Fallback : si yfinance a rate-limité, on utilise les valeurs SEC 10-K
-    if not capex or len(capex) < 5:
-        capex = {tk: [list(p) for p in vals] for tk, vals in CAPEX_MAG7_FALLBACK.items()}
-        ok.append("hardcoded:CAPEX_MAG7_FALLBACK")
-    if not snap or len(snap) < 5:
-        snap = SNAPSHOT_MAG7_FALLBACK
-        ok.append("hardcoded:SNAPSHOT_MAG7_FALLBACK")
+HUMANOIDES = [
+    # (modèle, pays, prix $ ou None, année, statut, source, url, pays_fr)
+    ("Unitree R1 Air", "CN", 4900, 2026, "prix public", "Unitree", "https://www.unitree.com/R1", "Chine"),
+    ("Unitree R1", "CN", 5900, 2025, "prix public", "Unitree", "https://www.unitree.com/R1", "Chine"),
+    ("Unitree G1", "CN", 13500, 2026, "prix public", "Unitree", "https://www.unitree.com/g1", "Chine"),
+    ("1X NEO", "US", 20000, 2025, "prix public", "1X Technologies", "https://www.1x.tech/order", "États-Unis / Norvège"),
+    ("Unitree H2", "CN", 29900, 2025, "prix public", "Unitree", "https://www.unitree.com/H2", "Chine"),
+    ("Unitree H1", "CN", None, 2023, "prix indicatif (90 000 $), « nous contacter »", "Unitree", "https://www.unitree.com/h1", "Chine"),
+    ("AgiBot Lingxi X2", "CN", None, 2026, "prix public en yuans : 155 000 ¥", "AgiBot", "https://store.agibot.com.cn/", "Chine"),
+    ("Tesla Optimus", "US", None, 2026, "pas en vente ; objectif « 20 000 à 30 000 $ à long terme » (E. Musk)", "Tesla", "https://www.tesla.com/optimus", "États-Unis"),
+    ("Figure 03", "US", None, 2025, "pas de prix public", "Figure AI", "https://www.figure.ai/", "États-Unis"),
+    ("Boston Dynamics Atlas", "US", None, 2025, "pas de prix public (« Contact Sales »)", "Boston Dynamics", "https://bostondynamics.com/atlas/", "États-Unis"),
+    ("Apptronik Apollo", "US", None, 2025, "pas de prix public", "Apptronik", "https://apptronik.com/", "États-Unis"),
+    ("UBTech Walker S2", "CN", None, 2025, "pas de prix public (contrats industriels)", "UBTech", "https://www.ubtrobot.com/", "Chine"),
+]
 
-    # 6. Datasets hardcodés
-    iea = [{"year": y, "twh": t} for y, t in IEA_DATACENTER_ELECTRICITY_TWH]
-    training_costs = [
-        {"label": r[0], "cost_million_usd": r[1], "year": r[2], "source": r[3]}
-        for r in AI_MODEL_TRAINING_COSTS
-    ]
-    robots = [
-        {"label": r[0], "country": r[1], "price_usd": r[2], "year": r[3], "source": r[4]}
-        for r in HUMANOID_ROBOT_PRICES
-    ]
-    llm_benchmarks = [
-        {"model": r[0], "mmlu": r[1], "humaneval": r[2], "math": r[3],
-         "country": r[4], "training_cost_usd_M": r[5]}
-        for r in LLM_BENCHMARKS
-    ]
+# Scores publiés par les laboratoires (génération 2024 - début 2025). None = non publié
+# ou incertain. Coût : Epoch AI quand il existe (jointure sur EPOCH_NOMS).
+LLM_BENCHMARKS = [
+    ("DeepSeek-V3", 88.5, 82.6, 90.2, "CN"),
+    ("DeepSeek-R1", 90.8, None, 97.3, "CN"),
+    ("Qwen 2.5 72B", 86.1, None, 83.1, "CN"),
+    ("Llama 3.1 405B", 88.6, 89.0, 73.8, "US"),
+    ("Claude 3.5 Sonnet", 88.7, 92.0, 78.3, "US"),
+    ("GPT-4o", 88.7, 90.2, 76.6, "US"),
+    ("Gemini 1.5 Pro", 85.9, 84.1, None, "US"),
+]
+EPOCH_NOMS = {"DeepSeek-V3": "DeepSeek-V3", "DeepSeek-R1": "DeepSeek-R1",
+              "Llama 3.1 405B": "Llama 3.1-405B", "Claude 3.5 Sonnet": "Claude 3.5 Sonnet"}
 
-    meta = {
-        "updated_at":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "updated_at_unix": int(time.time()),
-        "sources_ok":      ok,
-        "sources_failed":  failed,
-        "doc_version":     "1.0",
-    }
-    payload = {
-        "meta": meta,
-        "capex_mag7":         capex,
-        "snapshot_mag7":      snap,
-        "china_treasury":     china_treas,
-        "freight_index":      freight,
-        "sp500_vs_eqw":       sp500,
-        "pce_goods":          pce_goods,
-        "cre_delinquency":    cre,
-        "busloans":           busloans,
-        "indpro":             indpro,
-        "iea_datacenters":    iea,
-        "ai_training_costs":  training_costs,
-        "humanoid_robots":    robots,
-        "llm_benchmarks":     llm_benchmarks,
-    }
-    return payload, len(ok), len(failed)
+REGISTRES = {
+    "openai_engagements": OPENAI_ENGAGEMENTS,
+    "openai_finances": OPENAI_FINANCES,
+    "revenus_ia": REVENUS_IA,
+    "humanoid_robots": [
+        {"label": m, "country": c, "price_usd": p, "year": a, "statut_prix": st,
+         "source": so, "url": u, "pays_fr": pf}
+        for m, c, p, a, st, so, u, pf in HUMANOIDES],
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ASSEMBLAGE
+# ════════════════════════════════════════════════════════════════════════════
+
+LIVE = [
+    ("sec", fetch_sec),
+    ("epoch", fetch_epoch),
+    ("aie_datacenters", fetch_aie),
+    ("sp500_vs_eqw", fetch_sp500_vs_eqw),
+    ("freight_index", _fred("RAILFRTINTERMODAL", "2015-01-01")),
+    ("pce_goods", _fred("DGDSRX1", "2015-01-01")),
+    ("cre_delinquency", _fred("DRCRELEXFACBS", "2010-01-01")),
+    ("busloans", _fred("BUSLOANS", "2015-01-01")),
+    ("indpro", _fred("INDPRO", "1919-01-01")),
+]
+
+
+def charger_precedent():
+    try:
+        return json.loads(OUT_JSON.read_text())
+    except Exception:
+        return {}
+
+
+def formes_historiques(payload):
+    """Clés lues par d'autres consommateurs (DESK) : on garde leur forme, avec des
+    valeurs désormais réelles."""
+    sec = payload.get("sec") or {}
+    tq = sec.get("trimestres_capex") or {}
+    cap = {}
+    for tk in MAG7:
+        qs = tq.get(tk) or {}
+        ans = []
+        for a in range(PREMIERE_ANNEE, date.today().year + 1):
+            v = _derniers_4(qs, f"{a}T4") if qs else None
+            if v is not None:
+                ans.append([a, round(v, 1)])
+        if ans:
+            cap[tk] = ans
+    payload["capex_mag7"] = cap or None
+    soc = sec.get("societes") or {}
+    payload["snapshot_mag7"] = {tk: {"name": s["nom"], "revenue_b": s["ca_12m"],
+                                     "capex_b": s["capex_12m"], "periode": s["fin"]}
+                                for tk, s in soc.items() if tk in MAG7} or None
+    aie = payload.get("aie_datacenters") or {}
+    if aie.get("observe"):
+        payload["iea_datacenters"] = (
+            [{"year": a, "twh": v, "type": "observé"} for a, v in aie["observe"]]
+            + [{"year": a, "twh": v, "type": "estimation"} for a, v in aie.get("estimation", [])]
+            + [{"year": a, "twh": v, "type": "projection"} for a, v in aie.get("projection", [])])
+    ep = (payload.get("epoch") or {}).get("modeles") or []
+    par_nom = {m["modele"]: m for m in ep}
+    payload["llm_benchmarks"] = [
+        {"model": m, "mmlu": a, "humaneval": b, "math": c, "country": pays,
+         "cout_epoch_musd": (par_nom.get(EPOCH_NOMS.get(m, "")) or {}).get("cout_musd")}
+        for m, a, b, c, pays in LLM_BENCHMARKS]
+    payload["ai_training_costs"] = [
+        {"label": m["modele"], "cost_million_usd": m["cout_musd"],
+         "year": int(m["date"][:4]), "source": "Epoch AI (estimation, dollars 2023)"}
+        for m in ep] or None
 
 
 def scrub_non_finis(o):
-    """Remplace toute valeur non finie par None, recursivement.
-
-    yfinance rend NaN pour un exercice absent (le 1er de la serie CapEx, une
-    seance non cloturee...). json.dumps ecrit alors un `NaN` nu : illisible pour
-    json.loads / JSON.parse, et surtout contagieux cote navigateur, ou un
-    Math.max sur la serie renvoie NaN et fait planter tout le script de
-    graphiques. None devient `null` : un trou que Chart.js sait dessiner.
-    """
     if isinstance(o, dict):
-        return dict((k, scrub_non_finis(v)) for k, v in o.items())
+        return {k: scrub_non_finis(v) for k, v in o.items()}
     if isinstance(o, (list, tuple)):
         return [scrub_non_finis(v) for v in o]
-    if isinstance(o, float) and o != o:
-        return None
     if isinstance(o, float) and not math.isfinite(o):
         return None
     return o
 
 
+def build_payload():
+    prev = charger_precedent()
+    prev_src = ((prev.get("meta") or {}).get("sources") or {})
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    payload, sources, ok, failed = {}, {}, [], []
+    for cle, fn in LIVE:
+        err = None
+        try:
+            val = fn()
+        except Exception as e:  # noqa: BLE001
+            val, err = None, f"{type(e).__name__}: {e}"
+            sys.stderr.write(f"[{cle}] {err}\n")
+        if val:
+            payload[cle] = val
+            sources[cle] = {"ok": True, "dernier_succes": now}
+            ok.append(cle)
+        else:
+            payload[cle] = prev.get(cle)
+            old = prev_src.get(cle) or {}
+            sources[cle] = {"ok": False, "dernier_succes": old.get("dernier_succes"),
+                            "erreur": (err or "aucune donnée")[:300]}
+            failed.append(cle)
+    formes_historiques(payload)
+    for k, v in REGISTRES.items():
+        payload[k] = v
+    payload["meta"] = {"updated_at": now, "updated_at_unix": int(time.time()),
+                       "sources_ok": ok, "sources_failed": failed, "sources": sources,
+                       "doc_version": DOC_VERSION}
+    return payload, len(ok), len(failed)
+
+
 def write_outputs(payload):
     payload = scrub_non_finis(payload)
-    # allow_nan=False : si une valeur non finie echappait au nettoyage, on echoue
-    # ici plutot que de publier un cache que seul le navigateur declarera casse.
-    OUT_JSON.write_text(json.dumps(payload, separators=(",", ":"),
-                                   ensure_ascii=False, allow_nan=False))
-    js = (
-        f"/* these_bulleia_cache.js — generated {payload['meta']['updated_at']} */\n"
-        f"window.__THESE_BULLEIA__ = "
-        f"{json.dumps(payload, separators=(',', ':'), ensure_ascii=False, allow_nan=False)};\n"
-    )
-    OUT_JS.write_text(js)
-    # Symlinks dans le repo public
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    tmp = OUT_JSON.with_suffix(".json.tmp")
+    tmp.write_text(body)
+    os.replace(tmp, OUT_JSON)
+    js = (f"/* these_bulleia_cache.js — generated {payload['meta']['updated_at']} */\n"
+          f"window.__THESE_BULLEIA__ = {body};\n")
+    tmpj = OUT_JS.with_suffix(".js.tmp")
+    tmpj.write_text(js)
+    os.replace(tmpj, OUT_JS)
     site_dir = Path.home() / "Desktop" / "Site_Crypto_Finance"
     if site_dir.exists():
         for name in ("these_bulleia_cache.json", "these_bulleia_cache.js"):
@@ -471,7 +602,7 @@ def write_outputs(payload):
                     link.unlink()
                 link.symlink_to(target)
             except OSError as e:
-                sys.stderr.write(f"[SYMLINK {name}] {e}, falling back to copy\n")
+                sys.stderr.write(f"[SYMLINK {name}] {e}, copie à la place\n")
                 shutil.copy2(target, link)
 
 
@@ -479,19 +610,15 @@ def main():
     t0 = time.time()
     try:
         payload, n_ok, n_fail = build_payload()
-    except Exception as e:
-        sys.stderr.write(f"[FATAL] {e}\n"); sys.exit(2)
-
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[FATAL] {e}\n")
+        sys.exit(2)
     if n_ok < 3 and OUT_JSON.exists():
-        sys.stderr.write(f"[GUARD] {n_ok} OK / {n_fail} fail — keeping previous cache\n")
+        sys.stderr.write(f"[GARDE] {n_ok} OK / {n_fail} en échec — cache précédent conservé\n")
         sys.exit(1)
-
     write_outputs(payload)
-    dt = time.time() - t0
-    sys.stdout.write(
-        f"[these_bulleia] OK · {n_ok} sources OK, {n_fail} failed · {dt:.1f}s · "
-        f"cache → {OUT_JSON}\n"
-    )
+    sys.stdout.write(f"[these_bulleia] OK · {n_ok} sources en direct, {n_fail} en repli · "
+                     f"{time.time() - t0:.1f}s · cache → {OUT_JSON}\n")
 
 
 if __name__ == "__main__":

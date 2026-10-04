@@ -24,8 +24,8 @@ Colonne vertébrale (toutes validées sur l'API FRED, 2026-06-30) :
 Cache : ~/Library/Caches/site_crypto_finance/finance_americaine_cache.{json,js}
         window.__FINANCE_AMERICAINE__ = {...}
 """
-import os
 import json
+import os
 import sys
 import time
 import gzip
@@ -48,6 +48,21 @@ SEC_UA = os.environ.get("SCF_CONTACT_UA", "CapitalAntifragile research")
 # ── Palette (rendu sur charbon) ───────────────────────────────────────────
 BLUE, PURPLE, GREEN, RED = "#5eaff6", "#a78bfa", "#26a69a", "#ef5350"
 GOLD, GOLDL, BRONZE, TEAL = "#fbbf24", "#F5C54B", "#b08d57", "#4dd0c4"
+
+
+def frn(x, dec=0, sign=False):
+    """Nombre au format français : 1 234,5 (espace insécable, virgule)."""
+    if x is None:
+        return "—"
+    t = f"{abs(x):,.{dec}f}".replace(",", "\u00a0").replace(".", ",")
+    if x < 0:
+        return "\u2212" + t
+    return ("+" + t) if sign and x > 0 else t
+
+
+def frp(x, dec=0, sign=False):
+    """Pourcentage français : 5,3 % (espace insécable avant %)."""
+    return frn(x, dec, sign) + "\u00a0%"
 
 
 def fred_url(sid):
@@ -212,6 +227,27 @@ def _annual_days(a, b):
     return (date(yb, mb, db) - date(ya, ma, da)).days
 
 
+_FACTS = {}
+
+
+def _companyfacts_units(cik, concept):
+    """Repli : certaines sociétés (ex. Visa) renvoient un companyconcept VIDE alors
+    que companyfacts contient bien le concept. On lit alors companyfacts (mis en
+    cache par CIK pour la durée du passage)."""
+    if cik not in _FACTS:
+        raw_path = RAW / f"CIK{cik}_companyfacts.json"
+        body = _sec_get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
+        if body and '"facts"' in body:
+            raw_path.write_text(body)
+        elif raw_path.exists():
+            body = raw_path.read_text()
+        try:
+            _FACTS[cik] = json.loads(body) if body else {}
+        except Exception:
+            _FACTS[cik] = {}
+    return (((_FACTS[cik].get("facts") or {}).get("us-gaap") or {}).get(concept) or {}).get("units") or {}
+
+
 def _concept_annual(cik, concept):
     """Retourne {annee:int -> (val, end, filed)} pour les périodes ANNUELLES
     (durée ~1 an) rapportées dans des 10-K. Clé = année de FIN de période — un
@@ -231,8 +267,11 @@ def _concept_annual(cik, concept):
         d = json.loads(body)
     except Exception:
         return {}
+    units = d.get("units") or {}
+    if not any(units.values()):
+        units = _companyfacts_units(cik, concept)
     out = {}
-    for unit, facts in (d.get("units") or {}).items():
+    for unit, facts in units.items():
         if not unit.startswith("USD"):
             continue
         for f in facts:
@@ -496,11 +535,10 @@ def main():
     # ════════ §3 — Net Equity Supply en niveau ($bn) ════════
     financement.append(panel(
         "ipo", "Émission nette d'actions des entreprises américaines (Md$, taux annualisé)",
-        (f"Dernier point&nbsp;: <b>{nes_bn_sm['values'][-1]:,.0f} Md$</b>. "
+        (f"Dernier point (moyenne 4 trimestres)&nbsp;: <b>{frn(nes_bn_sm['values'][-1], 0, True)} Md$</b>. "
          f"Au-dessus de zéro, les entreprises lèvent du capital sur le marché&nbsp;; "
          f"en dessous, elles en retirent (rachats nets &gt; émissions). "
-         f"Le basculement durable sous zéro date de ~{first_neg_year}.")
-        .replace(",", " "),
+         f"La moyenne sur 10 ans est passée durablement sous zéro vers {first_neg_year}."),
         "bn",
         [serie("Émission nette d'actions", nes_bn_sm["dates"], nes_bn_sm["values"], GOLD, "bn")],
         [src("NCBCEBQ027S", computed="÷ 1000 → Md$ (taux annualisé)",
@@ -510,8 +548,8 @@ def main():
     # ════════ §6 — Net Equity Supply en % du PIB (graphe SIGNATURE) ════════
     financement.append(panel(
         "nes", "Émission nette d'actions, en % du PIB — la bourse finance-t-elle, ou retire-t-elle&nbsp;?",
-        (f"Moyenne des 10 dernières années&nbsp;: <b>{nes_avg10:+.2f}% du PIB</b>. "
-         f"Depuis ~{first_neg_year}, le marché actions est, net, un canal de "
+        (f"Moyenne des 10 dernières années&nbsp;: <b>{frp(nes_avg10, 2, True)} du PIB</b>. "
+         f"Depuis {first_neg_year} (moyenne sur 10 ans), le marché actions est, net, un canal de "
          f"<b>sortie</b> de capital (zone rouge), pas d'entrée. La fonction "
          f"« la bourse finance l'économie » s'est inversée.")
         if nes_avg10 is not None else "",
@@ -547,11 +585,10 @@ def main():
             "bascule",
             "Ce qui sort vers les actionnaires vs ce qui est investi (% du PIB)",
             (f"Les versements aux actionnaires (dividendes + rachats nets) sont "
-             f"passés de ~{p0:.1f}% à <b>{p1:.1f}% du PIB</b> depuis 1980, tandis "
+             f"passés de {frp(p0, 1)} du PIB en 1980 à <b>{frp(p1, 1)}</b> aujourd'hui, tandis "
              f"que l'investissement productif des entreprises reste autour de "
-             f"{i1:.0f}%. L'investissement n'a pas disparu — mais la part rendue au "
-             f"capital a, elle, fortement progressé, et sur le marché actions le flux "
-             f"net s'est inversé (voir le chapitre suivant)."),
+             f"{frp(i1, 0)}. L'investissement n'a pas disparu — mais la part rendue au "
+             f"capital a, elle, fortement progressé."),
             "pct1",
             [serie("Dividendes + rachats nets", pay_d, pay_v, RED, "pct1"),
              serie("Investissement productif", inv_d, inv_v, GREEN, "pct1")],
@@ -563,11 +600,15 @@ def main():
         financement.append(panel(
             "buybacks",
             "Rachats d'actions nets vs dividendes versés (Md$, taux annualisé)",
-            (f"Les rachats nets (mesure flux-de-fonds, tout le secteur) atteignent "
-             f"<b>{netrep_recent:,.0f} Md$</b> en rythme annuel (moyenne 4 trim.), à comparer "
-             f"aux {div['values'][-1]:,.0f} Md$ de dividendes. Au niveau du seul "
-             f"S&amp;P 500, les rachats <i>bruts</i> dépassent 900&nbsp;Md$/an "
-             f"(source S&amp;P Dow Jones Indices).").replace(",", " "),
+            ((f"Les rachats nets (mesure flux-de-fonds, tout le secteur) atteignent "
+              f"<b>{frn(netrep_recent)} Md$</b> en rythme annuel (moyenne 4 trim.), à comparer "
+              f"aux {frn(div['values'][-1])} Md$ de dividendes. ")
+             if netrep_recent >= 0 else
+             (f"Sur les quatre derniers trimestres, les émissions d'actions ont <b>dépassé</b> "
+              f"les rachats ({frn(-netrep_recent)} Md$ d'émission nette en rythme annuel), "
+              f"face à {frn(div['values'][-1])} Md$ de dividendes. "))
+            + ("Au niveau du seul S&amp;P 500, les rachats <i>bruts</i> dépassent 900&nbsp;Md$/an "
+               "(source S&amp;P Dow Jones Indices)."),
             "bn",
             [serie("Rachats d'actions nets", netrep_sm["dates"], netrep_sm["values"], GOLD, "bn"),
              serie("Dividendes nets", div["dates"], div["values"], PURPLE, "bn")],
@@ -672,7 +713,7 @@ def main():
         s9_src = [src("BCNSDODNS", computed="× 0,001 ÷ PIB"),
                   src("NCBCEBQ027S", computed="rachats nets ÷ PIB")]
         if baa:
-            series9.append(serie("Taux Baa (corp., axe droit)", baa["dates"], baa["values"],
+            series9.append(serie("Taux Baa (obligations d'entreprises)", baa["dates"], baa["values"],
                                  BLUE, "pct1", axis="y2"))
             s9_src.append(src("BAA", start="1919", title="Moody's Seasoned Baa Corporate Bond Yield"))
             add_meta("Rendement obligataire Baa (Moody's)", "FRED",
@@ -686,7 +727,7 @@ def main():
              "tel rachat est « financé par la dette », seulement que les deux "
              "progressent ensemble dans un argent peu cher."),
             "pct0", series9, s9_src, kind="dual",
-            note="Axe gauche : % du PIB. Axe droit : rendement Baa (%)."))
+            note="Trois panneaux, un même axe du temps : dette et rachats en % du PIB, taux Baa en %."))
 
     # ════════ §11 — Impact sur les marchés : part des profits rendue ════════
     if profits and div:
@@ -698,9 +739,9 @@ def main():
         marche.append(panel(
             "marche_impact",
             "Part des profits rendue aux actionnaires (dividendes + rachats nets, % des profits)",
-            (f"Sur 10 ans, les entreprises rendent en moyenne <b>{np_avg10:.0f}%</b> "
+            (f"Sur 10 ans, les entreprises rendent en moyenne <b>{frp(np_avg10)}</b> "
              f"de leurs profits aux actionnaires (dividendes + rachats nets) — "
-             f"dernier point {np1:.0f}%. Cette demande structurelle d'actions "
+             f"dernier point {frp(np1)}. Cette demande structurelle d'actions "
              f"(le rachat réduit le flottant et soutient le BPA) est un soutien "
              f"mécanique des cours. La « part de la hausse imputable aux rachats » "
              f"reste, elle, une <i>estimation</i> et non une donnée mesurée."),
@@ -740,6 +781,7 @@ def main():
     kpi = {
         "nes_pct_gdp": nes_last_pct,
         "nes_avg10": nes_avg10,
+        "nes_first_neg_year": first_neg_year,
         "netrep_bn": round(netrep_recent, 0),
         "payout_pct_profits": (np_avg10 if (profits and div) else None),
         "top10_buybacks_bn": (round(sum(r["value_bn"] for r in topbuyers["rows"][:10]), 0)
@@ -753,17 +795,17 @@ def main():
     questions = [
         {"q": "La bourse finance-t-elle encore, net, les entreprises&nbsp;?",
          "answer": yn(nes_avg10 is not None and nes_avg10 < 0, "NON (net)", "OUI"),
-         "basis": (f"Émission nette d'actions = {nes_avg10:+.2f}% du PIB en moyenne "
-                   f"sur 10 ans (négatif depuis ~{first_neg_year}).") if nes_avg10 is not None else "",
+         "basis": (f"Émission nette d'actions = {frp(nes_avg10, 2, True)} du PIB en moyenne "
+                   f"sur 10 ans (moyenne négative depuis {first_neg_year}).") if nes_avg10 is not None else "",
          "anchor": "#fa-sec-nes"},
         {"q": "La bourse accueille-t-elle plus d'entreprises&nbsp;?",
          "answer": "EN BAISSE",
-         "basis": "~4 300 sociétés cotées aux États-Unis aujourd'hui contre ~8 100 en 1996 "
-                  "(World Bank ; Doidge-Karolyi-Stulz, « The U.S. Listing Gap », 2017).",
+         "basis": "Environ deux fois moins de sociétés cotées qu'en 1996 (Banque mondiale ; "
+                  "Doidge-Karolyi-Stulz, « The U.S. Listing Gap », 2017) — série live à l'acte II.",
          "anchor": "#fa-sec-financement"},
         {"q": "Les profits servent-ils d'abord à investir&nbsp;?",
          "answer": "PARTIELLEMENT",
-         "basis": (f"Rachats + dividendes ≈ {kpi['payout_pct_profits']:.0f}% des profits."
+         "basis": (f"Rachats + dividendes ≈ {frp(kpi['payout_pct_profits'])} des profits (moyenne 10 ans)."
                    if kpi["payout_pct_profits"] is not None else ""),
          "anchor": "#fa-sec-usages"},
         {"q": "L'investissement disparaît-il&nbsp;?",
@@ -773,7 +815,7 @@ def main():
         {"q": "Le phénomène est-il concentré&nbsp;?",
          "answer": yn(topbuyers and topbuyers["top10_share"] and topbuyers["top10_share"] > 0.5,
                       "TRÈS", "DIFFUS"),
-         "basis": (f"Le top-10 = {topbuyers['top10_share'] * 100:.0f}% des rachats du panel suivi."
+         "basis": (f"Le top-10 = {frp(topbuyers['top10_share'] * 100)} des rachats du panel suivi."
                    if topbuyers and topbuyers["top10_share"] else ""),
          "anchor": "#fa-sec-concentration"},
     ]

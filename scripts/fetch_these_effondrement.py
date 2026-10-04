@@ -1,500 +1,576 @@
 #!/usr/bin/env python3
-"""Cache antifragile pour le chapitre Thèse · L'effondrement comportemental.
+"""Cache du chapitre Thèse · 08 — L'effondrement comportemental.
 
-Le chapitre s'appuie sur 8 indicateurs implacables :
-  §1 — Santé mentale (antidépresseurs FR, suicides jeunes)
-  §2 — Récession sexuelle/démographique (% jeunes sans rapport sex., ISF)
-  §3 — Effondrement cognitif (PISA, effet Flynn inversé)
-  §4 — Confiance institutionnelle (Edelman, Cevipof)
-  §5 — Drogues/opioïdes (CDC OD, OFDT FR)
-  §6 — Capital social (amis proches, asso, culte)
-  §7 — Civisme (abstention FR, violences élus)
-  §8 — Recherche désespérée de sens (GTrends "why live", "doomer")
+Version 2.0 (audit du 04/10/2026). La version précédente était entièrement codée
+en dur, et une partie de ses séries n'existait dans AUCUNE source (indices Google
+Trends « reconstitués », boîtes d'antidépresseurs, nombre médian d'amis, adhésions
+aux clubs, QI…). Règle désormais : une série est soit collectée en direct auprès
+de sa source officielle, soit recopiée d'une édition publiée avec son URL et son
+millésime. Ce qui n'a pas pu être vérifié n'est plus publié (vide > chiffre
+plausible).
 
-Sources live :
-  - FRED · GROSDOMESPRCAPUS (revenu réel US, contextuel)
-  - CDC NCHS · drug overdose deaths (CSV public via FRED proxy : DRUGTOT)
+Séries en direct (gratuites, sans clé) :
+  - CDC / NCHS VSRR (data.cdc.gov xkb8-kh2a) : décès par overdose aux États-Unis,
+    cumul sur 12 mois glissants, mensuel, provisoire (valeur « predicted » du CDC,
+    corrigée des retards de déclaration) + opioïdes de synthèse (T40.4).
+  - CDC / NCHS (data.cdc.gov 44rk-q6r2) : décès définitifs annuels 1999-2018.
+  - Insee BDM (SDMX) : âge moyen des mères à l'accouchement (001686826,
+    métropole depuis 1901), indicateur conjoncturel de fécondité (001686832
+    France, 001686825 métropole).
+  - Eurostat demo_find AGEMOTH1 : âge moyen à la naissance du premier enfant
+    (France, depuis 2013 : la série antérieure relève d'une autre méthode).
+  - OCDE SDMX HEALTH_PHMC@DF_PHMC_CONSUM : consommation d'antidépresseurs (N06A),
+    doses quotidiennes définies pour 1 000 habitants par jour.
+  - Banque mondiale SP.DYN.TFRT.IN : fécondité par pays.
+  - Google Trends France : lu dans le cache SerpAPI du site
+    (~/Library/Caches/site_crypto_finance/gtrends_cache_FR.json) quand il existe ;
+    sinon la dernière valeur collectée est conservée.
 
-Sources hardcodées (officielles, auditables) :
-  - Santé Publique France (antidépresseurs)
-  - INSERM CépiDC (suicides FR)
-  - CDC WONDER (suicides US, OD US)
-  - IFOP / Pew / GSS (récession sexuelle)
-  - OCDE PISA 2000-2022 (cognition)
-  - Edelman Trust Barometer 2010-2025
-  - Cevipof / Insee (abstention FR)
-  - Survey Center on American Life (amis proches)
-  - Pew Research (pratique religieuse)
-  - GTrends (déjà fetché ailleurs, on hardcode des snapshots révélateurs)
+Séries recopiées d'éditions publiées (URL et millésime dans le cache) :
+  PISA (OCDE), Cevipof (baromètre de la confiance politique), abstention à la
+  présidentielle (ministère de l'Intérieur) et les registres REGISTRES ci-dessous.
 
-Sortie : these_effondrement_cache.json + .js
-Lancé par scf.these_effondrement.refresh (4×/jour).
+Repli : si une source tombe, on garde la DERNIÈRE valeur réellement collectée
+(relue dans le cache précédent) avec la date de son dernier succès ; jamais une
+constante réinjectée en silence.
+
+Sortie : these_effondrement_cache.json + .js (window.__THESE_EFFONDREMENT__).
+Lancé par scf.these_effondrement.refresh.
 """
 import csv
 import io
 import json
+import os
+import re
 import shutil
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 CACHE_DIR = Path.home() / "Library" / "Caches" / "site_crypto_finance"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 OUT_JSON = CACHE_DIR / "these_effondrement_cache.json"
-OUT_JS   = CACHE_DIR / "these_effondrement_cache.js"
+OUT_JS = CACHE_DIR / "these_effondrement_cache.js"
+GTRENDS_FR = CACHE_DIR / "gtrends_cache_FR.json"
 
-UA = "Mozilla/5.0 SiteCryptoFinance-TheseEffondrement/1.0"
-
-# ════════════════════════════════════════════════════════════════
-# §1 — SANTÉ MENTALE
-# ════════════════════════════════════════════════════════════════
-
-# Antidépresseurs France — consommation annuelle (millions de boîtes vendues)
-# Source : Santé Publique France · ANSM rapports 2010-2024
-FR_ANTIDEPRESSEURS_MN = [
-    (2002, 22.8), (2004, 27.4), (2006, 31.5), (2008, 34.8), (2010, 36.7),
-    (2012, 39.1), (2014, 42.6), (2016, 45.3), (2018, 47.9), (2020, 51.2),
-    (2021, 55.4), (2022, 58.1), (2023, 61.7), (2024, 64.5),
-]
-
-# % adolescents 17 ans ayant pensé au suicide (12 derniers mois)
-# Source : ESPAD France + INSERM 2022
-FR_TEEN_SUICIDAL_THOUGHTS = [
-    # (year, pct_filles, pct_garcons)
-    (2010, 9.5,  4.8),
-    (2014, 11.2, 5.9),
-    (2018, 13.8, 7.1),
-    (2022, 18.2, 9.4),
-]
-
-# Taux de suicide jeunes 15-24 ans (pour 100 000)
-# Source : CDC WONDER (US) + INSERM CépiDC (FR)
-SUICIDE_YOUTH_RATE = [
-    # (year, US_rate, FR_rate)
-    (2000, 10.4, 9.6),
-    (2005,  9.8, 7.4),
-    (2010,  10.2, 6.0),
-    (2015, 12.5, 5.8),
-    (2017, 14.5, 5.8),
-    (2019, 13.9, 5.8),
-    (2021, 15.2, 6.1),
-    (2023, 14.2, 6.4),
-]
-
-# Prévalence dépression majeure (% adultes, USA)
-# Source : NHANES + CDC NIMH
-US_DEPRESSION_PCT = [
-    (2005,  5.4), (2009,  6.6), (2013,  7.4), (2017,  9.2),
-    (2019, 10.4), (2021, 12.5), (2023, 13.8),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §2 — RÉCESSION SEXUELLE / DÉMOGRAPHIQUE
-# ════════════════════════════════════════════════════════════════
-
-# % jeunes 18-24 ans sans rapport sexuel l'année précédente
-# Source : GSS (USA) + IFOP (France 2023)
-US_SEXLESS_YOUTH = [
-    # (year, pct_men_18_24, pct_women_18_24)
-    (2000,  9.0,  8.0),
-    (2008, 14.0, 11.0),
-    (2012, 19.0, 11.0),
-    (2018, 28.0, 18.0),
-    (2022, 32.0, 23.0),
-    (2024, 35.0, 26.0),
-]
-
-# % jeunes 18-29 ans n'ayant jamais eu de relation sentimentale durable
-# Source : Pew Research 2024 · IFOP
-US_NO_RELATIONSHIP_PCT = [
-    (2010, 28), (2015, 36), (2020, 45), (2024, 52),
-]
-
-# Indice synthétique de fécondité 2024 par pays
-# Source : World Bank SP.DYN.TFRT.IN + UN WPP 2024
-FERTILITY_RATES_2024 = [
-    ("Corée du Sud",  0.72),
-    ("Hong Kong",     0.77),
-    ("Singapour",     0.94),
-    ("Italie",        1.18),
-    ("Japon",         1.20),
-    ("Chine",         1.16),
-    ("Espagne",       1.19),
-    ("Allemagne",     1.36),
-    ("USA",           1.62),
-    ("France",        1.62),
-    ("UK",            1.49),
-    ("Seuil renouvellement", 2.10),
-]
-
-# Âge moyen 1er enfant France
-# Source : Insee · Bilan démographique 2024
-FR_FIRST_CHILD_AGE = [
-    (1980, 26.5), (1990, 27.7), (2000, 28.5), (2010, 29.7),
-    (2015, 30.5), (2020, 31.0), (2024, 31.2),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §3 — EFFONDREMENT COGNITIF
-# ════════════════════════════════════════════════════════════════
-
-# Scores PISA Lecture par pays (15 ans, OCDE)
-# Source : https://www.oecd.org/pisa/
-PISA_READING_SCORES = [
-    # (country, 2000, 2009, 2018, 2022)
-    ("France",     505, 496, 493, 474),
-    ("Allemagne",  484, 497, 498, 480),
-    ("Italie",     487, 486, 476, 482),
-    ("USA",        504, 500, 505, 504),
-    ("UK",         523, 494, 504, 494),
-    ("Corée S.",   525, 539, 514, 515),
-    ("Japon",      522, 520, 504, 516),
-    ("Finlande",   546, 536, 520, 490),
-    ("Moy. OCDE",  494, 493, 487, 476),
-]
-
-# Effet Flynn inversé : QI moyen population générale
-# Source : Bratsberg & Rogeberg 2018 (Norvège) + Dutton & Lynn (France) + études comparées
-FLYNN_REVERSAL = [
-    # (country, year, mean_iq)
-    ("Norvège",      1970,  99.1),
-    ("Norvège",      1990, 102.3),
-    ("Norvège",      2000, 102.0),
-    ("Norvège",      2009,  99.5),
-    ("Norvège",      2019,  97.8),
-    ("France",       1999, 100.0),
-    ("France",       2009,  96.1),
-    ("France",       2019,  94.2),
-    ("Pays-Bas",     1975,  99.8),
-    ("Pays-Bas",     2005, 100.4),
-    ("Pays-Bas",     2018,  98.6),
-    ("Royaume-Uni",  1980,  99.0),
-    ("Royaume-Uni",  2008, 101.0),
-    ("Royaume-Uni",  2018,  97.8),
-]
-
-# Temps moyen passé sur écrans (heures/jour) par groupe d'âge
-# Source : Pew 2024 + Ofcom UK + Médiamétrie FR
-SCREEN_TIME_HOURS = [
-    # (age_group, hours_2014, hours_2024)
-    ("13-17 ans",  4.8, 7.5),
-    ("18-29 ans",  3.5, 5.8),
-    ("30-49 ans",  3.0, 4.6),
-    ("50-64 ans",  2.5, 3.9),
-    ("65+ ans",    2.2, 3.1),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §4 — CONFIANCE INSTITUTIONNELLE
-# ════════════════════════════════════════════════════════════════
-
-# Edelman Trust Barometer — confiance dans 4 institutions
-# Source : https://www.edelman.com/trust-barometer
-EDELMAN_TRUST_FR = [
-    # (year, gov, business, media, NGO)
-    (2012, 35, 51, 44, 54),
-    (2015, 33, 50, 38, 52),
-    (2018, 30, 48, 35, 51),
-    (2020, 35, 55, 38, 53),
-    (2022, 35, 51, 38, 52),
-    (2024, 32, 49, 34, 50),
-    (2025, 30, 47, 32, 48),
-]
-
-# Cevipof — confiance hommes politiques (% « plutôt confiance »)
-# Source : Sciences Po Cevipof · Baromètre confiance politique
-CEVIPOF_TRUST_FR = [
-    # (year, gov, parliament, parties, journalists, justice)
-    (2009, 32, 36, 19, 24, 47),
-    (2013, 26, 33, 13, 22, 47),
-    (2016, 21, 27, 10, 25, 45),
-    (2019, 27, 33,  9, 24, 45),
-    (2021, 36, 39, 14, 31, 50),
-    (2023, 26, 33, 10, 28, 46),
-    (2024, 23, 30,  9, 26, 44),
-    (2025, 21, 27,  8, 25, 41),
-]
-
-# Abstention présidentielle France
-# Source : Insee · ministère Intérieur
-FR_ABSTENTION_PRES = [
-    # (year, t1_pct, t2_pct)
-    (1981, 18.9, 14.1),
-    (1988, 18.6, 15.9),
-    (1995, 21.6, 20.3),
-    (2002, 28.4, 20.3),
-    (2007, 16.2, 16.0),
-    (2012, 20.5, 19.6),
-    (2017, 22.2, 25.4),
-    (2022, 26.3, 28.0),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §5 — DROGUES ET OPIOÏDES
-# ════════════════════════════════════════════════════════════════
-
-# Décès par overdose US (toutes drogues, milliers)
-# Source : CDC NVSS Mortality Multiple Cause
-US_OVERDOSE_DEATHS = [
-    (2000,  17.4), (2005,  29.8), (2010,  38.3), (2014,  47.1),
-    (2016,  64.0), (2018,  67.4), (2019,  70.6), (2020,  91.8),
-    (2021, 106.7), (2022, 109.7), (2023, 107.5), (2024, 105.0),
-]
-
-# Saisies de cocaïne en France (tonnes)
-# Source : OFDT · Observatoire français des drogues et des tendances addictives
-FR_COCAINE_SEIZURES_T = [
-    (2010,  5.0), (2014,  6.5), (2017, 17.3), (2019, 13.0),
-    (2021, 27.7), (2023, 47.3), (2024, 53.5),
-]
-
-# % jeunes 17 ans expérimentation cocaïne au moins une fois
-# Source : ESPAD / OFDT
-FR_TEEN_COCAINE_EXP = [
-    (2003,  2.2), (2008,  3.3), (2014,  3.2), (2017,  4.4),
-    (2022,  5.7),
-]
-
-# Drogues mortelles — répartition US 2024 (top causes)
-# Source : CDC WONDER 2024
-US_OD_BREAKDOWN_2024 = [
-    ("Fentanyl & synthétiques",  74300),
-    ("Méthamphétamine",          21700),
-    ("Cocaïne",                  18900),
-    ("Héroïne",                   7800),
-    ("Médicaments prescrits",    10600),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §6 — CAPITAL SOCIAL
-# ════════════════════════════════════════════════════════════════
-
-# Nombre médian d'amis proches (USA)
-# Source : Survey Center on American Life (AEI) 2021 + Gallup
-US_CLOSE_FRIENDS_MEDIAN = [
-    # (year, men_median, women_median)
-    (1990, 6, 5),
-    (2000, 5, 4),
-    (2010, 4, 4),
-    (2015, 4, 3),
-    (2021, 3, 3),
-    (2024, 2, 3),
-]
-
-# % adultes US sans aucun ami proche
-# Source : Survey Center on American Life 2021
-US_NO_CLOSE_FRIENDS = [
-    (1990,  3),
-    (2000,  4),
-    (2015,  6),
-    (2021, 12),
-    (2024, 15),
-]
-
-# Fréquentation religieuse hebdomadaire (% adultes)
-# Source : Gallup (US) + INSEE/IFOP (FR)
-RELIGIOUS_ATTENDANCE = [
-    # (year, US, FR)
-    (1960, 46, 35),
-    (1980, 42, 17),
-    (2000, 32, 12),
-    (2010, 26,  8),
-    (2020, 22,  6),
-    (2024, 18,  4),
-]
-
-# % adultes US membres d'une association/club
-# Source : Putnam · Bowling Alone + General Social Survey
-US_CLUB_MEMBERSHIP = [
-    (1975, 75),
-    (1985, 65),
-    (1995, 55),
-    (2005, 45),
-    (2015, 32),
-    (2024, 25),
-]
-
-# Temps quotidien en interaction sociale (minutes, BLS ATUS USA)
-# Source : Bureau of Labor Statistics · American Time Use Survey
-US_SOCIAL_TIME_MIN = [
-    (2003, 38), (2008, 36), (2012, 34), (2016, 30),
-    (2019, 28), (2022, 21), (2024, 19),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §7 — CIVISME / VIOLENCE POLITIQUE
-# ════════════════════════════════════════════════════════════════
-
-# Violences contre élus France (incidents reportés)
-# Source : Ministère Intérieur / AMF Association des Maires
-FR_VIOLENCE_ELUS = [
-    (2014,   428),
-    (2017,   589),
-    (2019,   795),
-    (2020, 1276),
-    (2021, 1638),
-    (2022, 1908),
-    (2023, 2265),
-    (2024, 2480),
-]
-
-# Démissions de maires France
-# Source : AMF · Vie publique
-FR_MAYOR_RESIGNATIONS = [
-    (2015,   600),
-    (2018,   860),
-    (2020, 1010),
-    (2022, 1200),
-    (2024, 1390),
-]
-
-# ════════════════════════════════════════════════════════════════
-# §8 — RECHERCHE DE SENS · GTrends snapshots
-# ════════════════════════════════════════════════════════════════
-
-# Snapshots d'évolution Google Trends (FR, normalisé 0-100)
-# Sources : Google Trends · captures manuelles 2010-2025
-GTRENDS_DESPAIR = [
-    # (year, "why live", "meaning of life", "doomer", "burn out")
-    (2010,  8, 22,  0, 12),
-    (2012, 10, 25,  0, 18),
-    (2014, 14, 32,  2, 28),
-    (2016, 22, 42,  8, 38),
-    (2018, 30, 54, 18, 52),
-    (2020, 48, 68, 35, 70),
-    (2022, 65, 82, 58, 88),
-    (2024, 78, 92, 72, 96),
-    (2025, 88,100, 84,100),
-]
-
-# Top requêtes despair-related FR (2024-2025)
-GTRENDS_TOP_TERMS = [
-    # (keyword_fr, index_2024, growth_5y_pct)
-    ("« sens de la vie »",      92,  +180),
-    ("« burn out »",            96,  +145),
-    ("« pourquoi vivre »",      82,  +295),
-    ("« anxiété »",             88,  +210),
-    ("« solitude »",            76,  +165),
-    ("« épuisement »",          72,  +135),
-    ("« doomer »",              84,  +740),
-    ("« charge mentale »",      82,  +380),
-    ("« crise existentielle »", 68,  +220),
-]
+UA = "Mozilla/5.0 SiteCryptoFinance-TheseEffondrement/2.0"
+DOC_VERSION = "2.0"
 
 
-def http_get_text(url, timeout=25, max_retries=4, accept="application/json,*/*"):
-    req = Request(url, headers={"User-Agent": UA, "Accept": accept})
-    last_err = None
+def http_get(url, timeout=40, max_retries=4, accept="application/json,*/*", headers=None):
+    h = {"User-Agent": UA, "Accept": accept}
+    h.update(headers or {})
+    last = None
     for attempt in range(max_retries):
         try:
-            with urlopen(req, timeout=timeout) as resp:
-                charset = resp.headers.get_content_charset() or "utf-8"
-                return resp.read().decode(charset, errors="ignore")
+            with urlopen(Request(url, headers=h), timeout=timeout) as r:
+                cs = r.headers.get_content_charset() or "utf-8"
+                return r.read().decode(cs, errors="replace")
         except HTTPError as e:
-            if 500 <= e.code < 600 and attempt < max_retries - 1:
-                time.sleep(5 * (2 ** attempt)); continue
+            last = e
+            if 500 <= e.code < 600 or e.code == 429:
+                time.sleep(4 * (2 ** attempt))
+                continue
             raise
         except (URLError, ConnectionResetError, TimeoutError, OSError) as e:
-            last_err = e
-            time.sleep(5 * (2 ** attempt))
-    raise last_err if last_err else RuntimeError("retries exhausted")
+            last = e
+            time.sleep(4 * (2 ** attempt))
+    raise last if last else RuntimeError("échec réseau")
 
 
-# FRED via API officielle (la version CSV graph est cassée depuis ~mai 2026)
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _fred_helpers import fetch_fred as fetch_fred_csv  # noqa: E402
+# ════════════════════════════════════════════════════════════════════════════
+# SOURCES EN DIRECT
+# ════════════════════════════════════════════════════════════════════════════
+
+MOIS = {"January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
+        "July": 7, "August": 8, "September": 9, "October": 10, "November": 11,
+        "December": 12}
+CDC_VSRR = "https://data.cdc.gov/resource/xkb8-kh2a.json"
+CDC_FINAL = "https://data.cdc.gov/resource/44rk-q6r2.json"
+
+
+def _socrata(base, where, order=None, limit=5000):
+    q = {"$where": where, "$limit": str(limit)}
+    if order:
+        q["$order"] = order
+    return json.loads(http_get(base + "?" + urlencode(q)))
+
+
+def fetch_overdoses_us():
+    """Décès par overdose (toutes drogues) et opioïdes de synthèse, cumul 12 mois."""
+    out = {}
+    for cle, indic in (("total", "Number of Drug Overdose Deaths"),
+                       ("opioides_synthese", "Synthetic opioids, excl. methadone (T40.4)")):
+        rows = _socrata(CDC_VSRR, f"state='US' AND indicator='{indic}'")
+        pts = []
+        for r in rows:
+            v = r.get("predicted_value") or r.get("data_value")
+            if not v or r.get("month") not in MOIS:
+                continue
+            pts.append((f"{int(r['year']):04d}-{MOIS[r['month']]:02d}", round(float(v))))
+        pts.sort()
+        if len(pts) < 24:
+            raise RuntimeError(f"VSRR {indic}: {len(pts)} points")
+        out[cle] = {"dates": [p[0] for p in pts], "valeurs": [p[1] for p in pts]}
+    final = _socrata(CDC_FINAL, "state='United States' AND sex='Both Sexes' AND "
+                                "age='All Ages' AND race='All Races-All Origins'", order="year")
+    ann = sorted((int(r["year"]), int(float(r["deaths"]))) for r in final if r.get("deaths"))
+    if len(ann) < 10:
+        raise RuntimeError("CDC final annuel incomplet")
+    out["annuel_definitif"] = {"annees": [a for a, _ in ann], "valeurs": [v for _, v in ann]}
+    out["definition"] = ("Décès par overdose (toutes drogues) survenus aux États-Unis sur les "
+                         "12 mois qui se terminent au mois indiqué. Provisoire : estimation du "
+                         "CDC corrigée des retards de déclaration (« predicted value »). "
+                         "Avant 2015 : chiffres définitifs annuels.")
+    out["source_url"] = "https://www.cdc.gov/nchs/nvss/vsrr/drug-overdose-data.htm"
+    out["api"] = CDC_VSRR
+    out["dernier_mois"] = out["total"]["dates"][-1]
+    return out
+
+
+INSEE_SDMX = "https://bdm.insee.fr/series/sdmx/data/SERIES_BDM/"
+
+
+def _insee(idbank):
+    x = http_get(INSEE_SDMX + idbank, accept="application/xml,*/*")
+    obs = re.findall(r'TIME_PERIOD="(\d{4})" OBS_VALUE="([-\d.]+)"', x)
+    titre = re.search(r'TITLE_FR="([^"]+)"', x)
+    pts = sorted((int(a), float(v)) for a, v in obs)
+    if len(pts) < 10:
+        raise RuntimeError(f"Insee {idbank}: {len(pts)} points")
+    return {"annees": [a for a, _ in pts], "valeurs": [v for _, v in pts],
+            "titre": titre.group(1) if titre else idbank, "idbank": idbank,
+            "source_url": f"https://www.insee.fr/fr/statistiques/serie/{idbank}"}
+
+
+def fetch_natalite_fr():
+    age = _insee("001686826")
+    icf_metro = _insee("001686825")
+    icf_fr = _insee("001686832")
+    # l'Insee publie l'ICF en enfants pour 100 femmes : on le ramène par femme
+    for s in (icf_metro, icf_fr):
+        s["valeurs"] = [round(v / 100, 2) for v in s["valeurs"]]
+    # Eurostat : âge au premier enfant (France). Avant 2013 = autre méthode,
+    # non raccordable : on ne garde que 2013+.
+    eu = json.loads(http_get("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/"
+                             "data/demo_find?format=JSON&lang=FR&geo=FR&indic_de=AGEMOTH1"))
+    idx = eu["dimension"]["time"]["category"]["index"]
+    inv = {v: k for k, v in idx.items()}
+    pe = sorted((int(inv[int(k)]), v) for k, v in eu["value"].items() if int(inv[int(k)]) >= 2013)
+    return {
+        "age_maternite": age,
+        "icf_metropole": icf_metro,
+        "icf_france": icf_fr,
+        "age_premier_enfant": {"annees": [a for a, _ in pe], "valeurs": [v for _, v in pe],
+                               "source_url": "https://ec.europa.eu/eurostat/databrowser/view/demo_find/default/table",
+                               "note": "Eurostat, âge révolu ; série raccordable depuis 2013"},
+    }
+
+
+OCDE_PHMC = ("https://sdmx.oecd.org/public/rest/data/OECD.ELS.HD,HEALTH_PHMC@DF_PHMC_CONSUM,1.1/"
+             "FRA+DEU+ITA+ESP.PH_CON.DDD_10P3HB._Z.N06A?startPeriod=2000")
+
+
+def fetch_antidepresseurs():
+    txt = http_get(OCDE_PHMC, accept="application/vnd.sdmx.data+csv; charset=utf-8")
+    series = {}
+    for r in csv.DictReader(io.StringIO(txt)):
+        if r.get("PHARMACEUTICAL") != "N06A" or not r.get("OBS_VALUE"):
+            continue
+        series.setdefault(r["REF_AREA"], []).append(
+            (int(r["TIME_PERIOD"]), float(r["OBS_VALUE"]), r.get("OBS_STATUS") or ""))
+    if "FRA" not in series or len(series["FRA"]) < 10:
+        raise RuntimeError("OCDE N06A France absente")
+    out = {}
+    for pays, pts in series.items():
+        pts.sort()
+        out[pays] = {"annees": [a for a, _, _ in pts], "valeurs": [v for _, v, _ in pts],
+                     "provisoire": [s == "P" for _, _, s in pts]}
+    return {"pays": out,
+            "unite": "doses quotidiennes définies (DDJ) pour 1 000 habitants par jour",
+            "lecture": "66 DDJ pour 1 000 habitants ≈ 6,6 % de la population traitée chaque jour",
+            "source_url": "https://data-explorer.oecd.org/vis?df[ds]=dsDisseminateFinalDMZ&df[id]=HEALTH_PHMC%40DF_PHMC_CONSUM&df[ag]=OECD.ELS.HD",
+            "api": OCDE_PHMC}
+
+
+WB_PAYS = {"KOR": "Corée du Sud", "HKG": "Hong Kong", "SGP": "Singapour", "CHN": "Chine",
+           "ESP": "Espagne", "JPN": "Japon", "ITA": "Italie", "DEU": "Allemagne",
+           "GBR": "Royaume-Uni", "FRA": "France", "USA": "États-Unis"}
+
+
+def fetch_fecondite_pays():
+    url = ("https://api.worldbank.org/v2/country/" + ";".join(WB_PAYS) +
+           "/indicator/SP.DYN.TFRT.IN?format=json&per_page=500&date=2015:2030")
+    d = json.loads(http_get(url))
+    der = {}
+    for x in d[1] or []:
+        if x.get("value") is None:
+            continue
+        iso = x["countryiso3code"]
+        a = int(x["date"])
+        if iso not in der or a > der[iso][0]:
+            der[iso] = (a, round(float(x["value"]), 2))
+    if len(der) < 8:
+        raise RuntimeError("Banque mondiale : trop peu de pays")
+    rows = [{"iso": k, "pays": WB_PAYS[k], "annee": a, "isf": v} for k, (a, v) in der.items()]
+    rows.sort(key=lambda r: r["isf"])
+    return {"pays": rows, "seuil_renouvellement": 2.1,
+            "source_url": "https://data.worldbank.org/indicator/SP.DYN.TFRT.IN",
+            "maj_source": d[0].get("lastupdated")}
+
+
+def fetch_suicide_jeunes_fr():
+    """Eurostat hlth_cd_acdr2 (données CépiDc-Inserm) : taux brut de suicide des
+    15-24 ans pour 100 000, France, depuis 2011. Rupture de série en 2018
+    (nouveau certificat de décès, intégration de l'institut médico-légal de Paris)."""
+    d = json.loads(http_get("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/"
+                            "hlth_cd_acdr2?geo=FR&icd10=X60-X84_Y870&age=Y15-24&sex=T&format=JSON&lang=FR"))
+    idx = d["dimension"]["time"]["category"]["index"]
+    inv = {v: k for k, v in idx.items()}
+    pts = sorted((int(inv[int(k)]), round(float(v), 2)) for k, v in d["value"].items())
+    if len(pts) < 5:
+        raise RuntimeError("Eurostat suicide 15-24 : trop peu de points")
+    return {"annees": [a for a, _ in pts], "valeurs": [v for _, v in pts],
+            "rupture": 2018, "source_url": "https://ec.europa.eu/eurostat/databrowser/view/hlth_cd_acdr2/default/table",
+            "note": "Taux brut pour 100 000 jeunes de 15 à 24 ans (Eurostat, d'après le CépiDc-Inserm). "
+                    "Rupture de série en 2018 : une partie du rebond est un effet de méthode."}
+
+
+GTRENDS_TERMES = ["pourquoi vivre", "sens de la vie"]
+
+
+def fetch_gtrends_fr():
+    """Moyennes annuelles des requêtes du cache Google Trends (SerpAPI) du site.
+    Les indices y sont normalisés PAR LOT de 5 requêtes : seule l'évolution d'une
+    même requête dans le temps a un sens (on la ramène à base 100 = 2010)."""
+    if not GTRENDS_FR.exists():
+        return None
+    rows = json.loads(GTRENDS_FR.read_text())
+    meta_p = CACHE_DIR / "gtrends_cache_FR_meta.json"
+    meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+    out = {}
+    for t in GTRENDS_TERMES:
+        par_an = {}
+        for r in rows:
+            if r.get("keyword") == t and r.get("hits") is not None:
+                par_an.setdefault(int(r["date"][:4]), []).append(float(r["hits"]))
+        if not par_an:
+            continue
+        # année complète seulement (12 mois)
+        ann = sorted((a, sum(v) / len(v)) for a, v in par_an.items() if len(v) == 12)
+        base = dict(ann).get(2010)
+        if not base:
+            continue
+        out[t] = {"annees": [a for a, _ in ann],
+                  "base100": [round(v / base * 100) for _, v in ann],
+                  "brut": [round(v, 2) for _, v in ann]}
+    if not out:
+        return None
+    return {"termes": out, "pays": "France",
+            "dernier_mois": meta.get("date_max"), "collecte": meta.get("updated_at"),
+            "note": ("Indices Google Trends normalisés par lot de requêtes : on compare chaque "
+                     "requête à elle-même (base 100 = moyenne 2010). Années complètes seulement."),
+            "source_url": "https://trends.google.com/trends/explore?geo=FR"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SÉRIES RECOPIÉES D'ÉDITIONS PUBLIÉES (vérifiées le 04/10/2026)
+# ════════════════════════════════════════════════════════════════════════════
+
+# PISA — score moyen en compréhension de l'écrit (lecture), élèves de 15 ans.
+# Dernière édition publiée : PISA 2025 (résultats du 8 septembre 2026, OCDE,
+# « PISA 2025 Results (Volume I) », tableau I.1). 2000-2022 : éditions précédentes.
+# Moyenne OCDE : les 23 pays présents à toutes les vagues depuis 2000
+# (tableau I.B1.2a.37 de PISA 2025), seule moyenne comparable dans le temps.
+PISA = {
+    "edition": "PISA 2025",
+    "publiee_le": "2026-09-08",
+    "source_url": "https://www.oecd.org/en/publications/pisa-2025-results-volume-i_7e2f1a4c-en.html",
+    "source_page": "https://www.oecd.org/en/about/programmes/pisa.html",
+    "annees": [2000, 2009, 2018, 2022, 2025],
+    "pays": [
+        {"pays": "France", "scores": [505, 496, 493, 474, 456]},
+        {"pays": "Allemagne", "scores": [484, 497, 498, 480, 465]},
+        {"pays": "Italie", "scores": [487, 486, 476, 482, 474]},
+        {"pays": "États-Unis", "scores": [504, 500, 505, 504, 490],
+         "note": "2025 : normes d'échantillonnage PISA non toutes respectées"},
+        {"pays": "Royaume-Uni", "scores": [523, 494, 504, 494, 494]},
+        {"pays": "Corée du Sud", "scores": [525, 539, 514, 515, 501]},
+        {"pays": "Japon", "scores": [522, 520, 504, 516, 503]},
+        {"pays": "Finlande", "scores": [546, 536, 520, 490, 474]},
+    ],
+    "moyenne_ocde23": {"libelle": "Moyenne OCDE (23 pays présents depuis 2000)",
+                       "scores": [500, 499, 493, 482, 466]},
+    "moyenne_ocde_2025": 461,
+    "maths_ocde": {"2018": 489, "2022": 472, "2025": 463},
+}
+
+# Cevipof — Baromètre de la confiance politique, % « très » + « plutôt » confiance.
+# Vagues annuelles seulement (les vagues intermédiaires 6bis, 11b, 13b sont des
+# panels ré-interrogés, non comparables). Dates = terrain de l'enquête.
+CEVIPOF = {
+    "source_url": "https://www.sciencespo.fr/cevipof/fr/content/les-resultats-par-vague.html",
+    "derniere_vague": "Vague 17 (terrain du 23 janvier au 3 février 2026)",
+    "derniere_vague_url": ("https://www.sciencespo.fr/cevipof/sites/sciencespo.fr.cevipof/files/"
+                           "Barometre_confiance_CEVIPOFVague17_fev2026_vd1.pdf"),
+    "question": ("« Avez-vous très confiance, plutôt confiance, plutôt pas confiance ou pas "
+                 "confiance du tout dans… » — part de « très » + « plutôt » confiance"),
+    "vagues": [
+        # (vague, date de terrain, gouvernement, Assemblée nationale, justice, médias, partis)
+        ("V1", "2009-12", 32, 38, None, 24, 14),
+        ("V4", "2012-12", 26, 28, 45, 23, 12),
+        ("V5", "2013-12", 25, 36, 44, 23, 11),
+        ("V6", "2014-12", 23, 39, 48, 25, 9),
+        ("V7", "2015-12", 29, 41, 44, 24, 12),
+        ("V8", "2016-12", 28, 42, 44, 24, 11),
+        ("V9", "2017-12", 30, 29, 44, 24, 9),
+        ("V10", "2018-12", 22, 23, 44, 23, 9),
+        ("V11", "2020-01", 27, 31, 46, 28, 13),
+        ("V12", "2021-01", 35, 38, 48, 28, 16),
+        ("V13", "2022-01", 35, 38, 46, 29, 21),
+        ("V14", "2023-02", 26, 28, 44, 28, 16),
+        ("V15", "2024-01", 28, 29, 45, 28, 20),
+        ("V16", "2025-02", 23, 24, 44, 31, 16),
+        ("V17", "2026-01", 17, 20, 45, 29, 15),
+    ],
+}
+
+# Abstention à l'élection présidentielle (France entière, % des inscrits).
+# Source : ministère de l'Intérieur, résultats officiels.
+ABSTENTION = {
+    "source_url": "https://www.archives-resultats-elections.interieur.gouv.fr/",
+    "lignes": [(1981, 18.9, 14.1), (1988, 18.6, 15.9), (1995, 21.6, 20.3),
+               (2002, 28.4, 20.3), (2007, 16.2, 16.0), (2012, 20.5, 19.6),
+               (2017, 22.2, 25.4), (2022, 26.3, 28.0)],
+}
+
+# Registres complémentaires, vérifiés le 04/10/2026 sur la source primaire.
+# Chaque registre porte sa source et son URL ; la page affiche le millésime.
+REGISTRES = {
+    "antidep_boites": {
+        "titre": "Boîtes d'antidépresseurs remboursées en France",
+        "source": "Assurance Maladie, Medic'AM (tous régimes, pharmacie de ville)",
+        "url": "https://www.assurance-maladie.ameli.fr/etudes-et-donnees/medicaments-type-prescripteur-medicam",
+        "points": [{"libelle": str(a), "valeur": v} for a, v in [
+            (2012, 61.0), (2014, 60.8), (2016, 62.5), (2018, 64.4), (2019, 65.6), (2020, 67.5),
+            (2021, 71.4), (2022, 74.7), (2023, 78.4), (2024, 84.2), (2025, 87.5)]],
+        "unite": "millions de boîtes", "note": "Classe N06A, somme des boîtes remboursées par année.",
+    },
+    "pensees_suicidaires_17ans": {
+        "titre": "Jeunes de 17 ans ayant pensé au suicide dans l'année",
+        "source": "OFDT, enquête ESCAPAD (Observatoire national du suicide, 2025)",
+        "url": "https://drees.solidarites-sante.gouv.fr/sites/default/files/2025-02/Fiche%202%20-%20Pens%C3%A9es%20suicidaires%20et%20tentatives%20de%20suicide%20parmi%20les%20adolescents%20fran%C3%A7ais%20de%2017%20ans.pdf",
+        "series": [
+            {"nom": "Filles", "points": [[2011, 13.7], [2014, 13.3], [2017, 14.8], [2022, 24.0]]},
+            {"nom": "Garçons", "points": [[2011, 7.8], [2014, 7.5], [2017, 8.2], [2022, 12.3]]},
+        ],
+        "unite": "% des jeunes de 17 ans", "note": "« Au cours des douze derniers mois, avez-vous pensé à vous suicider ? » (France métropolitaine).",
+    },
+    "suicide_jeunes_us": {
+        "titre": "Taux de suicide des 15-24 ans aux États-Unis",
+        "source": "CDC / NCHS (WONDER et Data Briefs 464, 541, 572)",
+        "url": "https://www.cdc.gov/nchs/products/databriefs/db572.htm",
+        "points": [[2000, 10.2], [2010, 10.5], [2017, 14.5], [2019, 13.9], [2020, 14.2],
+                   [2021, 15.2], [2022, 13.7], [2023, 13.5], [2024, 13.2]],
+        "note": "Pour 100 000 jeunes de 15 à 24 ans. 2021-2024 : taux deux sexes recalculés à partir des décès et des taux par sexe publiés.",
+    },
+    "depression_us": {
+        "source": "CDC / NCHS, NHANES (Data Briefs 7 et 527)",
+        "url": "https://www.cdc.gov/nchs/products/databriefs/db527.htm",
+        "points": [["2005-2006", 5.4], ["2013-2014", 8.2], ["2017-2020", 8.3], ["2021-2023", 13.1]],
+        "note": "Part des 12 ans et plus présentant une dépression (questionnaire PHQ-9, score ≥ 10). Mode de questionnaire modifié en 2021.",
+    },
+    "abstinence_jeunes_us": {
+        "titre": "Jeunes Américains de 18 à 24 ans sans rapport sexuel dans l'année",
+        "source": "General Social Survey (Ueda et al., JAMA Network Open, 2020)",
+        "url": "https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2767066",
+        "series": [
+            {"nom": "Hommes 18-24 ans", "points": [["2000-2002", 18.9], ["2016-2018", 30.9]]},
+            {"nom": "Femmes 18-24 ans", "points": [["2000-2002", 15.1], ["2016-2018", 19.1]]},
+        ],
+        "unite": "%", "note": "Part des 18-24 ans déclarant n'avoir eu aucun rapport sexuel au cours des 12 derniers mois.",
+    },
+    "amitie_us": {
+        "titre": "Amitié aux États-Unis",
+        "points": [
+            {"annee": 1990, "libelle": "1990", "aucun": 3, "dix_plus": 33},
+            {"annee": 2021, "libelle": "2021", "aucun": 12, "dix_plus": 13},
+            {"annee": 2025, "libelle": "2025", "aucun": 16, "dix_plus": 15},
+        ],
+        "source": "Survey Center on American Life (AEI)",
+        "url": "https://www.americansurveycenter.org/research/the-state-of-american-friendship-change-challenges-and-loss/",
+        "url_2025": "https://www.americansurveycenter.org/wp-content/uploads/2025/07/American-Social-Life-Survey-Topline-Questionnaire-2.pdf",
+        "note": ("Part des adultes américains déclarant n'avoir aucun ami proche, ou dix ou plus. 1990 : sondage Gallup, "
+                 "cité par l'AEI (l'article de Gallup donnait 1 % sans ami proche) ; 2021 : State of American Friendship ; "
+                 "2025 : American Social Life Survey (6 061 personnes). Hommes : 3 % sans ami proche en 1990, 15 % en 2021."),
+    },
+    "religion_us": {
+        "titre": "Pratique religieuse chaque semaine",
+        "source": "Gallup (États-Unis) · IFOP (France)",
+        "url": "https://news.gallup.com/poll/1690/religion.aspx",
+        "series": [
+            {"nom": "États-Unis : office chaque semaine ou presque", "points": [[1992, 44], [2000, 46], [2024, 31], [2025, 31]]},
+            {"nom": "France : messe chaque dimanche", "points": [[1961, 35], [2012, 6], [2025, 5]]},
+        ],
+        "unite": "% des adultes",
+        "note": "Mesures différentes selon le pays ; France : IFOP pour l'Observatoire français du catholicisme (2025).",
+    },
+    "cocaine_saisies_fr": {
+        "titre": "Saisies de cocaïne en France",
+        "source": "OFDT d'après l'OFAST ; 2025 : chiffre provisoire du ministère de l'Intérieur",
+        "url": "https://www.ofdt.fr/sites/ofdt/files/2026-02/note-offre-stupefiants-2024.pdf",
+        "points": [{"libelle": str(a), "valeur": v} for a, v in [
+            (2010, 4.1), (2012, 5.6), (2014, 6.8), (2016, 8.5), (2017, 17.5), (2018, 16.4), (2019, 15.8),
+            (2020, 13.1), (2021, 26.5), (2022, 27.7), (2023, 23.2), (2024, 53.5), (2025, 84.3)]],
+        "unite": "tonnes", "note": "Toutes administrations (douane, gendarmerie, police), outre-mer compris. 2025 provisoire.",
+    },
+    "atteintes_elus": {
+        "titre": None,
+        "unite": "faits recensés par an", "unite_courte": "faits",
+        "points": [
+            {"annee": 2019, "nombre": 421, "serie": "ancienne"},
+            {"annee": 2020, "nombre": 1276, "serie": "ancienne"},
+            {"annee": 2021, "nombre": 1720, "serie": "ancienne"},
+            {"annee": 2022, "nombre": 2430, "serie": "CALAÉ"},
+            {"annee": 2023, "nombre": 2759, "serie": "CALAÉ"},
+            {"annee": 2024, "nombre": 2501, "serie": "CALAÉ"},
+            {"annee": 2025, "nombre": 2478, "serie": "CALAÉ"},
+        ],
+        "definition": ("Atteintes aux élus (menaces et outrages pour les deux tiers, violences, dégradations) "
+                       "recensées par le ministère de l'Intérieur. 2019-2021 : plaintes et signalements (ancienne série, "
+                       "qui comptait 2 265 faits en 2022) ; depuis 2022 : procédures recensées par le Centre d'analyse "
+                       "et de lutte contre les atteintes aux élus (CALAÉ), tous élus confondus."),
+        "millesime": "Dernière année publiée : 2025 (rapport du CALAÉ, juillet 2026)",
+        "source": "Ministère de l'Intérieur, CALAÉ",
+        "url": "https://www.interieur.gouv.fr/sites/minint/files/medias/documents/2026-07/CALAE_rapport_annuel_2025.pdf",
+    },
+    "demissions_maires": {
+        "titre": "Démissions volontaires de maires",
+        "source": "Cevipof, Martial Foucault (juin 2025), d'après le Répertoire national des élus",
+        "url": "https://www.sciencespo.fr/cevipof/files/Note1_demissions_maires_CEVIPOF_MF_19062025.pdf",
+        "points": [{"libelle": str(a), "valeur": v} for a, v in [
+            (2015, 152), (2016, 243), (2017, 293), (2018, 316), (2019, 180),
+            (2021, 362), (2022, 536), (2023, 613), (2024, 500)]],
+        "unite": "démissions par an",
+        "note": "Années complètes seulement (2020 et 2025 partielles). 2 189 démissions entre juillet 2020 et mars 2025.",
+    },
+    "edelman_fr": {
+        "edition": "Edelman Trust Barometer 2026", "url": "https://www.edelman.com/trust/trust-barometer",
+        "france": {"gouvernement": 30, "medias": 40, "ong": 48, "entreprises": 52},
+        "moyenne_28_pays": {"gouvernement": 53, "medias": 54, "ong": 58, "entreprises": 64},
+        "note": "La France a la confiance dans le gouvernement la plus basse des 28 pays étudiés.",
+    },
+    "tissu_social_us": {
+        "lignes": [
+            {"indicateur": "Adultes sans aucun ami proche", "avant": "3 % (1990)", "apres": "16 % (2025)",
+             "source": "Gallup, AEI", "url": "https://www.americansurveycenter.org/wp-content/uploads/2025/07/American-Social-Life-Survey-Topline-Questionnaire-2.pdf"},
+            {"indicateur": "Adultes avec dix amis proches ou plus", "avant": "33 % (1990)", "apres": "15 % (2025)",
+             "source": "Gallup, AEI", "url": "https://www.americansurveycenter.org/research/the-state-of-american-friendship-change-challenges-and-loss/"},
+            {"indicateur": "Office religieux chaque semaine ou presque", "avant": "46 % (2000)", "apres": "31 % (2025)",
+             "source": "Gallup", "url": "https://news.gallup.com/poll/1690/religion.aspx"},
+            {"indicateur": "Temps quotidien consacré à la vie sociale (15 ans et plus)", "avant": "47 min (2003)", "apres": "35 min (2025)",
+             "source": "BLS, American Time Use Survey", "url": "https://www.bls.gov/news.release/atus.t01.htm"},
+            {"indicateur": "Temps quotidien passé avec des amis", "avant": "60 min (2003)", "apres": "20 min (2020)",
+             "source": "Kannan et Veazie, 2023 (ATUS)", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9811250/"},
+        ],
+    },
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ASSEMBLAGE
+# ════════════════════════════════════════════════════════════════════════════
+
+LIVE = [
+    ("overdoses_us", fetch_overdoses_us),
+    ("natalite_fr", fetch_natalite_fr),
+    ("antidepresseurs_ocde", fetch_antidepresseurs),
+    ("fecondite_pays", fetch_fecondite_pays),
+    ("gtrends_fr", fetch_gtrends_fr),
+    ("suicide_jeunes_fr", fetch_suicide_jeunes_fr),
+]
+
+
+def charger_precedent():
+    try:
+        return json.loads(OUT_JSON.read_text())
+    except Exception:
+        return {}
 
 
 def build_payload():
-    ok, failed = [], []
+    prev = charger_precedent()
+    prev_src = ((prev.get("meta") or {}).get("sources") or {})
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    payload, sources, ok, failed = {}, {}, [], []
+    for cle, fn in LIVE:
+        err = None
+        try:
+            val = fn()
+        except Exception as e:  # noqa: BLE001 — une source qui tombe ne doit pas tout casser
+            val, err = None, f"{type(e).__name__}: {e}"
+            sys.stderr.write(f"[{cle}] {err}\n")
+        if val:
+            payload[cle] = val
+            sources[cle] = {"ok": True, "dernier_succes": now}
+            ok.append(cle)
+        else:
+            payload[cle] = prev.get(cle)  # repli : dernière valeur réellement collectée
+            old = prev_src.get(cle) or {}
+            sources[cle] = {"ok": False, "dernier_succes": old.get("dernier_succes"),
+                            "erreur": (err or "aucune donnée")[:300]}
+            failed.append(cle)
 
-    # (Champ live US drug overdose retiré : l'ID FRED PNUDR n'existait pas — c'était
-    # un placeholder dans le code d'origine. Le champ drug_od n'était pas exposé
-    # dans le payload et n'est pas affiché. Les données OD US sont fournies en
-    # hardcoded via US_OD_BREAKDOWN_2024 dans le champ us_od_breakdown.)
+    payload["pisa_lecture"] = PISA
+    # forme historique conservée pour les lecteurs existants (DESK)
+    payload["pisa_reading"] = [{"country": p["pays"], "y2000": p["scores"][0],
+                                "y2009": p["scores"][1], "y2018": p["scores"][2],
+                                "y2022": p["scores"][3], "y2025": p["scores"][4]}
+                               for p in PISA["pays"]]
+    payload["cevipof_confiance"] = {
+        k: v for k, v in CEVIPOF.items() if k != "vagues"}
+    payload["cevipof_confiance"]["vagues"] = [
+        {"vague": v, "terrain": t, "gouvernement": g, "assemblee": a, "justice": j,
+         "medias": m, "partis": p} for v, t, g, a, j, m, p in CEVIPOF["vagues"]]
+    payload["fr_abstention"] = [{"year": y, "t1": t1, "t2": t2}
+                                for y, t1, t2 in ABSTENTION["lignes"]]
+    payload["fr_abstention_source"] = ABSTENTION["source_url"]
+    for k, v in REGISTRES.items():
+        payload[k] = v
 
-    meta = {
-        "updated_at":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    payload["meta"] = {
+        "updated_at": now,
         "updated_at_unix": int(time.time()),
-        "sources_ok":      ok,
-        "sources_failed":  failed,
-        "doc_version":     "1.0",
-    }
-    payload = {
-        "meta": meta,
-        # §1
-        "fr_antidepresseurs": [{"year": y, "mn_boites": v} for y, v in FR_ANTIDEPRESSEURS_MN],
-        "fr_teen_suicidal":   [{"year": y, "filles": f, "garcons": g}
-                                for y, f, g in FR_TEEN_SUICIDAL_THOUGHTS],
-        "suicide_youth":      [{"year": y, "US": us, "FR": fr}
-                                for y, us, fr in SUICIDE_YOUTH_RATE],
-        "us_depression":      [{"year": y, "pct": v} for y, v in US_DEPRESSION_PCT],
-        # §2
-        "us_sexless_youth":   [{"year": y, "men": m, "women": w}
-                                for y, m, w in US_SEXLESS_YOUTH],
-        "us_no_relationship": [{"year": y, "pct": v} for y, v in US_NO_RELATIONSHIP_PCT],
-        "fertility_2024":     [{"country": c, "rate": r} for c, r in FERTILITY_RATES_2024],
-        "fr_first_child":     [{"year": y, "age": v} for y, v in FR_FIRST_CHILD_AGE],
-        # §3
-        "pisa_reading":       [{"country": c, "y2000": y0, "y2009": y1,
-                                "y2018": y2, "y2022": y3}
-                                for c, y0, y1, y2, y3 in PISA_READING_SCORES],
-        "flynn_reversal":     [{"country": c, "year": y, "iq": v}
-                                for c, y, v in FLYNN_REVERSAL],
-        "screen_time":        [{"age": a, "h_2014": h14, "h_2024": h24}
-                                for a, h14, h24 in SCREEN_TIME_HOURS],
-        # §4
-        "edelman_trust":      [{"year": y, "gov": g, "biz": b, "media": m, "ngo": n}
-                                for y, g, b, m, n in EDELMAN_TRUST_FR],
-        "cevipof_trust":      [{"year": y, "gov": g, "parl": p, "parties": pa,
-                                "media": me, "justice": ju}
-                                for y, g, p, pa, me, ju in CEVIPOF_TRUST_FR],
-        "fr_abstention":      [{"year": y, "t1": t1, "t2": t2}
-                                for y, t1, t2 in FR_ABSTENTION_PRES],
-        # §5
-        "us_overdose_deaths": [{"year": y, "deaths_k": v} for y, v in US_OVERDOSE_DEATHS],
-        "fr_cocaine_seizures":[{"year": y, "tonnes": v} for y, v in FR_COCAINE_SEIZURES_T],
-        "fr_teen_cocaine":    [{"year": y, "pct": v} for y, v in FR_TEEN_COCAINE_EXP],
-        "us_od_breakdown":    [{"cause": c, "deaths": d} for c, d in US_OD_BREAKDOWN_2024],
-        # §6
-        "us_close_friends":   [{"year": y, "men": m, "women": w}
-                                for y, m, w in US_CLOSE_FRIENDS_MEDIAN],
-        "us_no_friends":      [{"year": y, "pct": v} for y, v in US_NO_CLOSE_FRIENDS],
-        "religious_attendance":[{"year": y, "US": us, "FR": fr}
-                                for y, us, fr in RELIGIOUS_ATTENDANCE],
-        "us_club_membership": [{"year": y, "pct": v} for y, v in US_CLUB_MEMBERSHIP],
-        "us_social_time":     [{"year": y, "minutes": v} for y, v in US_SOCIAL_TIME_MIN],
-        # §7
-        "fr_violence_elus":   [{"year": y, "incidents": v} for y, v in FR_VIOLENCE_ELUS],
-        "fr_mayor_resign":    [{"year": y, "count": v} for y, v in FR_MAYOR_RESIGNATIONS],
-        # §8
-        "gtrends_despair":    [{"year": y, "why_live": wl, "meaning": me,
-                                "doomer": dm, "burnout": bo}
-                                for y, wl, me, dm, bo in GTRENDS_DESPAIR],
-        "gtrends_top_terms":  [{"keyword": k, "index_2024": i, "growth_5y_pct": g}
-                                for k, i, g in GTRENDS_TOP_TERMS],
+        "sources_ok": ok,
+        "sources_failed": failed,
+        "sources": sources,
+        "doc_version": DOC_VERSION,
     }
     return payload, len(ok), len(failed)
 
 
 def write_outputs(payload):
-    OUT_JSON.write_text(json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
-    js = (
-        f"/* these_effondrement_cache.js — generated {payload['meta']['updated_at']} */\n"
-        f"window.__THESE_EFFONDREMENT__ = "
-        f"{json.dumps(payload, separators=(',', ':'), ensure_ascii=False)};\n"
-    )
-    OUT_JS.write_text(js)
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    tmp = OUT_JSON.with_suffix(".json.tmp")
+    tmp.write_text(body)
+    os.replace(tmp, OUT_JSON)
+    js = (f"/* these_effondrement_cache.js — generated {payload['meta']['updated_at']} */\n"
+          f"window.__THESE_EFFONDREMENT__ = {body};\n")
+    tmpj = OUT_JS.with_suffix(".js.tmp")
+    tmpj.write_text(js)
+    os.replace(tmpj, OUT_JS)
     site_dir = Path.home() / "Desktop" / "Site_Crypto_Finance"
     if site_dir.exists():
         for name in ("these_effondrement_cache.json", "these_effondrement_cache.js"):
             link = site_dir / name
             target = CACHE_DIR / name
             try:
-                if link.is_symlink() or link.exists(): link.unlink()
+                if link.is_symlink() or link.exists():
+                    link.unlink()
                 link.symlink_to(target)
             except OSError:
                 shutil.copy2(target, link)
@@ -504,11 +580,15 @@ def main():
     t0 = time.time()
     try:
         payload, n_ok, n_fail = build_payload()
-    except Exception as e:
-        sys.stderr.write(f"[FATAL] {e}\n"); sys.exit(2)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[FATAL] {e}\n")
+        sys.exit(2)
+    if n_ok == 0 and OUT_JSON.exists():
+        sys.stderr.write("[GARDE] aucune source en direct — cache précédent conservé tel quel\n")
+        sys.exit(1)
     write_outputs(payload)
-    dt = time.time() - t0
-    sys.stdout.write(f"[these_effondrement] OK · {n_ok} sources, {n_fail} failed · {dt:.1f}s\n")
+    sys.stdout.write(f"[these_effondrement] OK · {n_ok} sources en direct, {n_fail} en repli · "
+                     f"{time.time() - t0:.1f}s\n")
 
 
 if __name__ == "__main__":

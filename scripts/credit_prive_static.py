@@ -21,6 +21,8 @@ U = {
     "pio_medallia":"https://www.pionline.com/latest-news/pi-apollo-kkr-record-gap-valuing-stressed-private-loan/",
     "afn_auto":    "https://www.autofinancenews.net/allposts/risk-management/60-plus-day-subprime-auto-dqs-hit-32-year-high/",
     "forbes_fitch":"https://www.forbes.com/sites/mayrarodriguezvalladares/2026/05/24/rising-private-credit-defaults-are-testing-banks-and-insurers/",
+    # Fitch PCDR 12 mois à fin août 2026 = 6,3 % (record ; 6,1 % en juillet) — vérifié le 04/10/2026
+    "fitch_aug26": "https://www.investmentexecutive.com/news/research-and-markets/u-s-private-credit-defaults-rise-fitch-4/",
     "kbra":        "https://finance.yahoo.com/news/kbra-releases-research-private-credit-223200414.html",
     "pitchbook_def":"https://pitchbook.com/news/articles/us-leveraged-loan-default-rates-rise-in-march-as-distress-ratio-hits-3-year-high",
     "lincoln":     "https://www.lincolninternational.com/news/the-lincoln-private-market-index-ends-the-year-with-its-slowest-quarter-of-growth-in-2025/",
@@ -56,7 +58,7 @@ STATIC = {
     "kpi": {
         # — Crédit Privé —
         "us_market":     {"val": "1,34 T$", "lab": "Crédit privé · États-Unis", "sub": "≈ ×5 depuis 2009 (T2 2024)", "url": U["fed_lending"], "tone": ""},
-        "default_fitch": {"val": "~6,0 %",  "lab": "Défaut du crédit privé US", "sub": "record, avril 2026 (Fitch)", "url": U["forbes_fitch"], "tone": "alert"},
+        "default_fitch": {"val": "6,3 %",  "lab": "Défaut du crédit privé US", "sub": "record, 12 mois à fin août 2026 (Fitch)", "url": U["fitch_aug26"], "tone": "alert"},
         "software":      {"val": "20–30 %", "lab": "Crédit privé exposé au software", "sub": "secteur cannibalisé par l'IA", "url": U["bis_sw"], "tone": "alert"},
         "life_ins":      {"val": "807 Md$", "lab": "Assureurs-vie · crédit illiquide", "sub": "20 % de leurs obligations (fin 2025)", "url": U["bbg_807"], "tone": "warn"},
         "medallia_gap":  {"val": "14 pts",  "lab": "Écart de valorisation record", "sub": "même prêt : 77¢ / 82¢ / 91¢ (Medallia)", "url": U["pio_medallia"], "tone": "warn"},
@@ -134,10 +136,10 @@ STATIC = {
         "bars": [
             {"label": "KBRA (par nb d'emprunteurs)", "val": 3.4, "tone": "gold", "url": U["kbra"]},
             {"label": "PitchBook (« dual-track »)", "val": 3.48, "tone": "amber", "url": U["pitchbook_def"]},
-            {"label": "Fitch (record)", "val": 6.0, "tone": "red", "url": U["forbes_fitch"]},
+            {"label": "Fitch (record, août 2026)", "val": 6.3, "tone": "red", "url": U["fitch_aug26"]},
         ],
         "unit": "% de défaut", "note": "Le taux « élargi » (incl. restructurations en difficulté) est bien supérieur au défaut de paiement affiché",
-        "as_of": "T4 2025 – avr. 2026",
+        "as_of": "T4 2025 – août 2026",
     },
 
     # § Ménages : auto subprime vs prime
