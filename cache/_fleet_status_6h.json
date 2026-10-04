@@ -1,10 +1,10 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-04T18:51:58Z",
+  "ts": "2026-10-04T23:24:29Z",
   "total": 33,
   "ok": 31,
-  "secs": 4180.7,
+  "secs": 3680.3,
   "changed": 84,
   "versionnes": 75,
   "pieces_jointes": 9,
@@ -17,9 +17,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=9 (tentes=9) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-30 08:03' ; causes : macrotrends : 1 x HTTP 403 et AUCUNE reponse 200 sur ce passage"
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-30 08:03' ; causes : macrotrends : 2 x HTTP 403 et AUCUNE reponse 200 sur ce passa"
    }
   ]
  },
- "updated": "2026-10-04T18:51:58Z"
+ "updated": "2026-10-04T23:24:29Z"
 }
