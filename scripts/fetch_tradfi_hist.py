@@ -529,7 +529,7 @@ def _valeur_proche(serie, date, fenetre=RACCORD_FENETRE_J):
             best = (e, v)
     return best[1] if best else None
 
-def raccorder(ancien, neuf):
+def raccorder(ancien, neuf, etiquette="stockanalysis"):
     """Prolonge chaque serie de `ancien` (macrotrends) par les points de `neuf`
     (stockanalysis) posterieurs a son dernier point, si les deux sources concordent sur
     RACCORD_MIN_COMMUNS trimestres communs au moins (ecart median <= RACCORD_TOL).
@@ -568,11 +568,96 @@ def raccorder(ancien, neuf):
     rapport["source"] = (neuf.get("source_url") or {}).get("pe")
     out["raccord"] = rapport
     if any(rapport[c].get("points_ajoutes") for c in RACCORD_TOL):
-        out["src"] = "macrotrends+stockanalysis"
+        out["src"] = "macrotrends+" + etiquette
         out["source_url"] = dict(ancien.get("source_url") or {},
                                  raccord_pe=(neuf.get("source_url") or {}).get("pe"),
                                  raccord_revenue=(neuf.get("source_url") or {}).get("revenue"))
     return out, ajoutes
+
+# ── RACCORD US PAR LA SEC (05/10/2026) ─────────────────────────────────────────
+# macrotrends bloque (defi anti-robot) depuis mi-septembre et le P/E de stockanalysis ne
+# concorde pas pour la majorite des valeurs US (definition differente) : 254 series US
+# restaient figees a leur dernier point de septembre et auraient manque le T3.
+# Le P/E « cours / (benefice net des 4 derniers trimestres / actions diluees) » recalcule
+# depuis les depots SEC (sec_trim_NNN.json, collecte secfunda) et les cours
+# (tradfi_history_cache.json, collecte tradfi) reproduit l'historique macrotrends :
+# ecart median 2,1 % sur 142 valeurs comparables (mesure du 05/10/2026). Meme garde que
+# stockanalysis : prolonge SEULEMENT si >= 8 trimestres communs concordent (<= 3 % P/E,
+# <= 1 % CA) ; sinon la serie reste figee avec sa vraie date. Fichiers absents = rien.
+_SEC_TRIM = [None]
+_COURS = [None]
+
+def _sec_trimestres(ticker):
+    if _SEC_TRIM[0] is None:
+        idx = {}
+        for f in sorted(CACHES.glob("sec_trim_*.json")):
+            try:
+                d = json.loads(f.read_text())
+            except Exception:
+                continue
+            soc = d.get("societes", d) if isinstance(d, dict) else None
+            if isinstance(soc, dict):
+                for t, v in soc.items():
+                    if isinstance(v, dict) and v.get("trimestres"):
+                        idx[t] = v["trimestres"]
+        _SEC_TRIM[0] = idx
+    return _SEC_TRIM[0].get(ticker)
+
+def _cours(ticker):
+    if _COURS[0] is None:
+        try:
+            _COURS[0] = json.loads((CACHES / "tradfi_history_cache.json").read_text())
+        except Exception:
+            _COURS[0] = {}
+    s = _COURS[0].get(ticker)
+    return s if isinstance(s, list) else []
+
+def _cours_a(serie, iso, tol_j=12):
+    ts = datetime.strptime(iso, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()
+    best = None
+    for p in serie:
+        if abs(p[0] - ts) <= tol_j * 86400 and (best is None or abs(p[0] - ts) < abs(best[0] - ts)):
+            best = p
+    return best[1] if best else None
+
+def _bpa_12m(trim, iso):
+    """Benefice net des 4 derniers trimestres publies a la date iso, par action diluee."""
+    q = [t for t in trim if (t.get("fin") or "") <= iso and t.get("net_income") is not None
+         and 80 <= (t.get("jours") or 0) <= 100][-4:]
+    if len(q) < 4:
+        return None
+    d0 = datetime.strptime(q[0]["fin"], "%Y-%m-%d")
+    d1 = datetime.strptime(q[-1]["fin"], "%Y-%m-%d")
+    if (d1 - d0).days > 300 or (datetime.strptime(iso, "%Y-%m-%d") - d1).days > 100:
+        return None
+    sh = next((t.get("shares_diluted") for t in reversed(q) if t.get("shares_diluted")), None)
+    return sum(t["net_income"] for t in q) / sh if sh else None
+
+def neuf_sec(ticker):
+    trim, cours = _sec_trimestres(ticker), _cours(ticker)
+    if not trim or not cours:
+        return None
+    pe_d, pe_v = [], []
+    for q in quarter_grid(2021):   # 5 ans, comme stockanalysis (cours ajustes des dividendes : l'ecart croit en remontant)
+        e, p = _bpa_12m(trim, q), _cours_a(cours, q)
+        if e and e > 0 and p:
+            pe_d.append(q); pe_v.append(round(p / e, 2))
+    # point du jour : dernier cours connu (moins de 10 jours) sur le dernier benefice 12 mois
+    t_last, p_last = cours[-1][0], cours[-1][1]
+    jour = datetime.fromtimestamp(t_last, timezone.utc).strftime("%Y-%m-%d")
+    if time.time() - t_last < 10 * 86400 and (not pe_d or jour > pe_d[-1]):
+        e = _bpa_12m(trim, jour)
+        if e and e > 0:
+            pe_d.append(jour); pe_v.append(round(p_last / e, 2))
+    if not pe_d:
+        return None
+    rev = [(t["fin"], t["revenue"]) for t in trim
+           if t.get("revenue") and 80 <= (t.get("jours") or 0) <= 100]
+    url = "https://efts.sec.gov/LATEST/search-index?q=" + ticker
+    return {"pe": {"dates": pe_d, "vals": pe_v},
+            "revenue": {"dates": [d for d, _ in rev], "vals": [v for _, v in rev]},
+            "source_url": {"pe": "https://www.sec.gov/edgar/search/#/q=" + ticker,
+                           "revenue": "https://www.sec.gov/edgar/search/#/q=" + ticker}}
 
 def raccord_us(ticker, ancien):
     """macrotrends muet pour cette valeur : on tente le prolongement par stockanalysis.
@@ -734,6 +819,8 @@ def main():
     ap.add_argument("--sectors", type=str, default="")
     ap.add_argument("--resume", action="store_true",
                     help="reprend : conserve les stocks deja en cache, ne fetch que les manquants")
+    ap.add_argument("--raccord-sec", action="store_true",
+                    help="ne traite que les series US figees (macrotrends seul) : tente le raccord SEC")
     args = ap.parse_args()
     _load_slugs()
 
@@ -748,7 +835,8 @@ def main():
     prev_stocks = prev.get("stocks", {})
 
     grid = quarter_grid(2010)
-    hist_by_symbol = dict(prev_stocks) if args.resume else {}
+    # --raccord-sec ne traite que les series US figees : il DOIT repartir du cache entier
+    hist_by_symbol = dict(prev_stocks) if (args.resume or args.raccord_sec) else {}
     counters = {"ok": 0, "kept": 0, "fail": 0}
     collectes = set()        # valeurs REELLEMENT rafraichies pendant ce passage
     rafraich_tentes = [0]    # tentatives sur des valeurs DEJA en cache (echues)
@@ -820,14 +908,18 @@ def main():
     REFRESH_AFTER = 10 * 24 * 3600  # re-fetch une entree cache plus vieille que 10 jours
     now = int(time.time())
     for i, (sym, suffix) in enumerate(symbols):
-        if args.resume and sym in hist_by_symbol:
+        if args.raccord_sec:
+            o = prev_stocks.get(sym)
+            if suffix != "US" or not isinstance(o, dict) or o.get("src") != "macrotrends":
+                continue
+        elif args.resume and sym in hist_by_symbol:
             ts = hist_by_symbol[sym].get("_ts", 0) if isinstance(hist_by_symbol[sym], dict) else 0
             if now - ts < REFRESH_AFTER:
                 continue  # deja recupere recemment -> skip (fill progressif + refresh roulant)
         if sym in prev_stocks:
             rafraich_tentes[0] += 1
         try:
-            h = fetch_us(sym) if suffix == "US" else fetch_intl(sym, suffix)
+            h = None if args.raccord_sec else (fetch_us(sym) if suffix == "US" else fetch_intl(sym, suffix))
         except Exception as e:
             print(f"  [err] {sym}: {e}", file=_sys.stderr); h = None
         # macrotrends muet (defi anti-robot) : prolongement par stockanalysis, controle a
@@ -835,9 +927,21 @@ def main():
         # controle (`_ts`) pour ne pas re-sonder 364 valeurs a chaque passage.
         if suffix == "US" and not h:
             try:
-                hr, n_aj = raccord_us(sym, prev_stocks.get(sym))
+                hr, n_aj = (None, 0) if args.raccord_sec else raccord_us(sym, prev_stocks.get(sym))
             except Exception as e:
                 print(f"  [raccord] {sym}: {e}", file=_sys.stderr); hr, n_aj = None, 0
+            # stockanalysis ne prolonge pas : second essai par les depots SEC (cf. RACCORD SEC)
+            anc = prev_stocks.get(sym)
+            if not n_aj and isinstance(anc, dict) and anc.get("src", "").split("+")[0] == "macrotrends" \
+                    and anc.get("src") != "macrotrends+stockanalysis":
+                try:
+                    ns = neuf_sec(sym)
+                    if ns:
+                        hs, n_s = raccorder(anc, ns, etiquette="SEC")
+                        if n_s or hr is None:
+                            hr, n_aj = hs, n_s
+                except Exception as e:
+                    print(f"  [raccord SEC] {sym}: {e}", file=_sys.stderr)
             if hr is not None and n_aj:
                 h = hr
             elif hr is not None and isinstance(prev_stocks.get(sym), dict):
