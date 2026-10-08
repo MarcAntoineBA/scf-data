@@ -1,15 +1,17 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-08T08:36:32Z",
+  "ts": "2026-10-08T20:48:41Z",
   "total": 33,
   "ok": 31,
-  "secs": 3917.2,
-  "changed": 85,
-  "versionnes": 76,
-  "pieces_jointes": 9,
+  "secs": 5260.0,
+  "changed": 87,
+  "versionnes": 75,
+  "pieces_jointes": 12,
   "absents": 35,
-  "muets": [],
+  "muets": [
+   "tradfi-growth (12.2 h)"
+  ],
   "failed": [
    {
     "job": "reservesorust",
@@ -17,9 +19,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-09-30 08:03', donnees du 2026-09-10 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=557 kept=157 fail=15 (tentes=729)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandon"
    }
   ]
  },
- "updated": "2026-10-08T08:36:32Z"
+ "updated": "2026-10-08T20:48:41Z"
 }
