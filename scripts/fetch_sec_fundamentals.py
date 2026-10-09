@@ -1461,7 +1461,7 @@ def _est_financiere(secteur):
 
 def construire(facts, mcap_usd=None, beta=None, cours=None,
                variations=None, jour_marche=None, secteur=None,
-               avec_trimestres=True, cours_cotation=None):
+               avec_trimestres=True, cours_cotation=None, cik=None):
     _DEVISES_VUES.clear()
     # La devise se décide AVANT de lire quoi que ce soit, et s'impose ensuite à
     # tous les postes monétaires : c'est la seule façon de garantir qu'un tableau
@@ -1868,6 +1868,20 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
     for _e in exercices:
         _e["interest_expense"] = _charge(_e.get("interest_expense"))
 
+    # ── UN RÉSULTAT DÉPOSÉ FAUX, CORRIGÉ PAR UNE RÉFÉRENCE PROUVÉE ──
+    # ING balise son résultat consolidé sous une étiquette propre et dépose sous
+    # l'étiquette standard 12 126 M€ pour 2022, quand son communiqué dit 3 674.
+    # Le registre et ses preuves sont dans `corrections_sources.py` ; ici on ne
+    # fait que l'appliquer, avant tout calcul (ROE, distribution, croissances).
+    correction = None
+    try:
+        import corrections_sources
+        _cle = corrections_sources.cle_par_cik(cik)
+        if _cle:
+            correction = corrections_sources.corriger(_cle, exercices, devise)
+    except ImportError:
+        pass
+
     # ── UNE ANNÉE VIDE N'EST PAS UN EXERCICE ──
     # Contrepartie de l'ossature en union : elle admet une année dès qu'un
     # résultat net y est déposé. C'est ce qui a rendu à Investar et à Goldman
@@ -2253,6 +2267,8 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
                           "premier": trimestres[0]["fin"],
                           "dernier": trimestres[-1]["fin"]}
 
+    if correction:
+        resume["correction_source"] = correction
     return {"exercices": exercices, "resume": resume,
             "trimestres": trimestres}
 
@@ -4037,7 +4053,8 @@ def main():
                               jour_marche=meta.get("jour_marche"),
                               secteur=meta.get("secteur_suivi"),
                               avec_trimestres=opts["trimestres"],
-                              cours_cotation=meta.get("cours_cotation"))
+                              cours_cotation=meta.get("cours_cotation"),
+                              cik=cik)
         except DelaiGlobalAtteint:
             # ⚠ CETTE BRANCHE DOIT PRÉCÉDER `except Exception`, ET C'EST LA
             # SÉRIE TRIMESTRIELLE QUI L'A RENDUE NÉCESSAIRE.

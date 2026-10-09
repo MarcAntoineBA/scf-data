@@ -1575,7 +1575,7 @@ def mcap_par_cloture(ratios, resultat):
 
 def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
                devise=None, variations=None, jour_marche=None,
-               tv=None, fx=None, archive=None):
+               tv=None, fx=None, archive=None, symbole=None):
     res = brut["resultat"]
     dates = res.get("datekey") or []
     # La ligne « TTM » n'est pas un exercice : c'est un cumul glissant. La
@@ -1634,12 +1634,28 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
     provenance = {"stockanalysis": len(exercices)}
     diag_tv = None
 
+    # Avant tout : une source principale reconnue fausse est corrigée, sinon le
+    # raccord qui suit comparerait TradingView à un chiffre faux et le refuserait.
+    # Voir `corrections_sources.py` (ING : résultat XBRL faux).
+    correction = None
+    try:
+        import corrections_sources
+        if symbole in corrections_sources.REFERENCE_TV:
+            correction = corrections_sources.corriger(symbole, exercices, devise, tv or {})
+    except ImportError:
+        pass
+
     # ── LES EXERCICES QUE LE SECOND FOURNISSEUR AJOUTE ──
     # Ils COMPLÈTENT, ils ne remplacent pas : seules les années absentes de la
     # source principale entrent, et elles entrent entières, jamais mélangées à
     # une ligne existante.
     if tv:
         lignes_tv, diag_tv = exercices_tradingview(tv, devise, fx, exercices)
+        if correction and correction.get("applique") and correction.get("depuis"):
+            # Une société au registre n'a de référence prouvée qu'à partir de
+            # `depuis` : les exercices TradingView plus anciens ont un autre
+            # périmètre (ING 2016 : 4 210 M€ contre 4 651 publiés).
+            lignes_tv = [l for l in lignes_tv if l.get("annee", 0) >= correction["depuis"]]
         if lignes_tv:
             exercices = dedupliquer_exercices(exercices + lignes_tv)
             provenance["tradingview"] = len(lignes_tv)
@@ -1990,6 +2006,8 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
     resume = construire_resume(exercices, divisions, unites_actions)
     if diag_tv:
         resume["tradingview"] = diag_tv
+    if correction:
+        resume["correction_source"] = correction
     return {"exercices": exercices, "resume": resume,
             "provenance": provenance}
 
@@ -2984,7 +3002,7 @@ def main():
                               variations=meta.get("variations"),
                               jour_marche=meta.get("jour_marche"),
                               tv=tv_series.get(sym), fx=fx,
-                              archive=archives.get(sym))
+                              archive=archives.get(sym), symbole=sym)
         except Exception as e:
             print("[warn] %s : %s" % (sym, e), file=sys.stderr)
             echecs += 1

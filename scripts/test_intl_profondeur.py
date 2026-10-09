@@ -188,6 +188,44 @@ def controles(dossier):
     v("XYZ.F" not in r, "une place de reflet n'est jamais une cotation d'origine", str(r))
 
 
+def controles_ing(dossier):
+    sys.path.insert(0, dossier)
+    sys.modules.pop("corrections_sources", None)
+    import corrections_sources as cs
+
+    print("\n[4] ING : le résultat XBRL faux est remplacé, seulement sur la période prouvée")
+    ref = cs.REFERENCE_TV["INGA.AS"]
+    officiels = {a: v for a, v, _u in ref["preuves"]}
+    ans = list(range(2025, 2013, -1))
+    def tv(ecart=0.0, devise="EUR"):
+        return {"fiscal_period_fy_h": [str(a) for a in ans], "currency": devise,
+                "net_income_fy_h": [officiels.get(a, 4.2e9) * (1 + ecart) for a in ans],
+                "earnings_per_share_basic_fy_h": [1.0 for a in ans],
+                "earnings_per_share_diluted_fy_h": [1.0 for a in ans]}
+    def faux():
+        return [{"annee": a, "net_income": 12126e6, "net_income_total": 12426e6,
+                 "eps_basic": 3.35, "eps_diluted": 3.35} for a in (2015, 2016, 2022)]
+    ex = faux()
+    d = cs.corriger("INGA.AS", ex, "EUR", tv())
+    e22 = [e for e in ex if e["annee"] == 2022][0]
+    v(d.get("applique") and abs(e22["net_income"] - 3674e6) < 1, "2022 : 12 126 M€ remplacé par 3 674 M€ publié",
+      str((d, e22["net_income"])))
+    v(abs(e22["net_income_total"] - (3674e6 + 300e6)) < 1, "les minoritaires (300 M€) sont conservés",
+      str(e22["net_income_total"]))
+    v(e22["eps_diluted"] == 1.0, "le BPA suit la référence")
+    v(all(e["net_income"] is None for e in ex if e["annee"] < ref["depuis"]),
+      "avant %d : vide plutôt que faux" % ref["depuis"], str([(e["annee"], e["net_income"]) for e in ex]))
+    ex = faux()
+    d = cs.corriger("INGA.AS", ex, "EUR", tv(ecart=0.01))
+    v(not d.get("applique") and ex[2]["net_income"] == 12126e6,
+      "TradingView à 1 % d'une preuve → rien n'est corrigé", str(d.get("refus")))
+    ex = faux()
+    d = cs.corriger("INGA.AS", ex, "EUR", tv(devise="USD"))
+    v(not d.get("applique"), "devise différente → refus (on ne convertit pas)", str(d))
+    v(cs.cle_par_cik("0001039765") == "INGA.AS", "le collecteur SEC retrouve ING par son CIK")
+    v(cs.corriger("MC.PA", [], "EUR", tv()) is None, "une société hors registre n'est pas touchée")
+
+
 # ── Les mutants : chaque correction retirée doit faire échouer un contrôle ────
 
 MUTANTS = [
@@ -209,6 +247,14 @@ MUTANTS = [
      "if isin[:2] not in PAYS_DE_LA_PLACE", "if False and isin[:2] not in PAYS_DE_LA_PLACE"),
     ("deux lignes par société", "fetch_intl_fundamentals.py",
      "        groupe = candidats[sym]\n", "        groupe = sym\n"),
+    ("preuves non revérifiées", "corrections_sources.py",
+     "abs(v / officiel - 1) > TOLERANCE_PREUVE", "False"),
+    ("période prouvée ignorée", "corrections_sources.py",
+     'e["annee"] < depuis:', 'e["annee"] < 0:'),
+    ("minoritaires perdus", "corrections_sources.py",
+     'e["net_income_total"] += rep["net_income"] - rn_avant', 'e["net_income_total"] = rep["net_income"]'),
+    ("devise non contrôlée", "corrections_sources.py",
+     'if _devise(tv.get("currency")) != devise:', 'if False:'),
 ]
 
 
@@ -247,5 +293,6 @@ if __name__ == "__main__":
         print("\n%d/%d mutants tués" % (t, n))
         sys.exit(0 if t == n else 1)
     controles(ICI)
+    controles_ing(ICI)
     print("\n%s — %d échec(s)" % ("OK" if not echecs else "ÉCHEC", len(echecs)))
     sys.exit(1 if echecs else 0)
