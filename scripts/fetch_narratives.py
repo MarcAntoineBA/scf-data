@@ -391,7 +391,7 @@ NARRATIVES = {
             "internet-computer", "vechain", "injective-protocol",
             "sei-network", "flare-networks", "iota", "neo", "kaia",
             "conflux-token", "sonic-3", "canton-network",
-            "monad", "plasma", "bittorrent", "sun-token",
+            "monad", "plasma", "bittorrent",
             "xdce-crowd-sale", "pi-network", "flow",
         ],
     },
@@ -624,6 +624,9 @@ NARRATIVES = {
             "sushi", "balancer", "1inch", "dexe", "osmosis",
             # Ajouts 2026-05-21 (audit revenue) : DEX avec rev > $5M/an absentés
             "cow-protocol", "thorchain", "thena", "quickswap", "thorswap",
+            # 09/10/2026 : SUN (SUN.io, échange de stablecoins et AMM sur TRON) était rangé
+            # parmi les chaînes de contrats — ce n'est pas une chaîne.
+            "sun-token",
         ],
     },
 
@@ -928,7 +931,8 @@ ECARTES_TOP300 = {
     "mag7-ssi": "panier indiciel de cryptos déjà suivies (double compte)",
     "midas-fasanara-global-open": "pas de marché : 0 $ échangés en 24 h",
     "nest-blackopal-liquidstone-ii-vault": "pas de marché : 0 $ échangés en 24 h",
-    "nxm": "pas de marché : 0 $ échangés en 24 h",
+    "nxm": ("pas de marché : 0 $ échangés en 24 h (jeton non transférable, réservé aux membres de "
+            "Nexus Mutual) ; sa version échangeable wNXM ne pèse que 25 M$ le 09/10/2026, loin du seuil"),
     "pleasing-gold": "pas de marché : 9 $ échangés en 24 h",
     "safo": "pas de marché : 0 $ échangés en 24 h",
     "securitize-tokenized-aaa-clo-fund": "pas de marché : 0 $ échangés en 24 h",
