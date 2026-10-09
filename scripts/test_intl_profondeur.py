@@ -243,6 +243,32 @@ def controles_impossibles(dossier):
     v(ex[1]["goodwill"] == 5.0, "goodwill ordinaire conservé")
 
 
+def controles_secteurs(dossier):
+    sys.path.insert(0, dossier)
+    for m in ("fetch_secteurs_mondiaux", "fii"):
+        sys.modules.pop(m, None)
+    spec = importlib.util.spec_from_file_location("fii", os.path.join(dossier, "fetch_indices_fiches.py"))
+    fii = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fii)
+
+    print("\n[6] Indices : une industrie SIC sans secteur reçoit son secteur")
+    v = {"name": "Grupo México", "sector": None, "industry": "Metal Mining"}
+    w = fii.avec_secteur(v)
+    v_(w.get("sector") == "Materials", "Grupo México (Metal Mining) → Materials", str(w))
+    v_(v.get("sector") is None, "la ligne d'origine n'est pas modifiée")
+    w = fii.avec_secteur({"sector": None, "industry": "Bottled and Canned Soft Drinks and Carbonated Waters"})
+    v_(w.get("sector") == "Consumer Staples", "FEMSA (boissons) → Consumer Staples", str(w))
+    w = fii.avec_secteur({"sector": None, "industry": "Other"})
+    v_(not w.get("sector"), "« Other » reste non classé : on ne devine pas", str(w))
+    w = fii.avec_secteur({"sector": "Energy", "industry": "Metal Mining"})
+    v_(w.get("sector") == "Energy", "un secteur déjà donné par la source n'est jamais remplacé")
+    src = open(os.path.join(dossier, "fetch_indices_fiches.py"), encoding="utf-8").read()
+    v_("avec_secteur(lignes[k])" in src, "le collecteur applique la traduction à chaque membre")
+
+
+v_ = v
+
+
 # ── Les mutants : chaque correction retirée doit faire échouer un contrôle ────
 
 MUTANTS = [
@@ -274,6 +300,10 @@ MUTANTS = [
      "if not isinstance(ca, (int, float)) or ca <= 0:", "if not isinstance(ca, (int, float)):"),
     ("goodwill au-dessus de l'actif toléré", "fondamentaux_communs.py",
      '("goodwill", "assets", "goodwill au-dessus de l’actif"),', ''),
+    ("traduction SIC débranchée", "fetch_indices_fiches.py",
+     "        _v = avec_secteur(lignes[k])\n", "        _v = lignes[k]\n"),
+    ("table SIC amputée", "fetch_secteurs_mondiaux.py",
+     '    "Bottled and Canned Soft Drinks and Carbonated Waters": "Consumer Staples",\n', ""),
     ("devise non contrôlée", "corrections_sources.py",
      'if _devise(tv.get("currency")) != devise:', 'if False:'),
 ]
@@ -316,5 +346,6 @@ if __name__ == "__main__":
     controles(ICI)
     controles_ing(ICI)
     controles_impossibles(ICI)
+    controles_secteurs(ICI)
     print("\n%s — %d échec(s)" % ("OK" if not echecs else "ÉCHEC", len(echecs)))
     sys.exit(1 if echecs else 0)

@@ -1560,7 +1560,8 @@ def composer(ix, places, precedent):
             absents.append(m.get("nom") or m["cle"])
             continue
         deja.add(k)
-        rows.append({"cle": k, "v": lignes[k], "nom": lignes[k].get("name") or m.get("nom"),
+        _v = avec_secteur(lignes[k])
+        rows.append({"cle": k, "v": _v, "nom": _v.get("name") or m.get("nom"),
                      "sym": symbole_yahoo(k) or k, "officiel": m.get("poids_officiel"),
                      "wiki": m.get("poids_wiki"), "capi_wiki": m.get("capi_wiki")})
     meta = dict(meta or {})
@@ -1868,6 +1869,36 @@ def charger_marche():
     (La première idée — relire les fragments `marche_NN.json` — ne couvrait que
     55 % du TAIEX et 27 % de l'IPC : ces places n'y sont presque pas.)"""
     return {"source": "screener"}
+
+
+_SIC = [None]
+
+
+def _sic_vers_gics():
+    """La table SIC → GICS de `fetch_secteurs_mondiaux`, lue une fois ({} si absente)."""
+    if _SIC[0] is None:
+        try:
+            import fetch_secteurs_mondiaux as fsm
+            _SIC[0] = dict(fsm.SIC_VERS_GICS)
+        except Exception as e:
+            log("[warn] secteurs : table SIC introuvable (%s)" % e)
+            _SIC[0] = {}
+    return _SIC[0]
+
+
+def avec_secteur(v):
+    """La ligne de la source, avec son secteur traduit quand elle n'en porte pas.
+
+    Le filtre de la source livre certaines places (Mexique, Émirats, Malaisie…)
+    avec l'industrie en nomenclature SIC et SANS secteur : le 10/10/2026, 74,7 %
+    du poids de l'IPC mexicain tombaient en « Non classé ». Même traduction que
+    l'onglet Secteurs (`fetch_secteurs_mondiaux.SIC_VERS_GICS`) ; la ligne d'origine
+    n'est pas modifiée.
+    """
+    if v.get("sector") or not v.get("industry"):
+        return v
+    sec = _sic_vers_gics().get(str(v["industry"]).strip())
+    return dict(v, sector=sec, secteur_traduit_sic=True) if sec else v
 
 
 def note_indice(code, rows, marche):
