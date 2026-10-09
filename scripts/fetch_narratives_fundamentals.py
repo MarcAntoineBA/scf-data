@@ -54,6 +54,7 @@ try:
 except Exception:
     pass
 
+import re
 import json
 import os
 import random
@@ -442,6 +443,47 @@ def fetch_defillama_protocols():
         return []
 
 
+# ── LES PARENTS PUBLIÉS PAR DEFILLAMA (09/10/2026) ─────────────────────────────
+# DefiLlama range le gecko_id sur le PARENT (`/config` → parentProtocols) et laisse
+# ses versions sans : « Pendle V2 », « Kamino Lend », « SparkLend », « Maple »… Les
+# tables manuelles ci-dessous (mai 2026) n'en couvraient qu'une vingtaine : mesuré le
+# 09/10, Pendle, Kamino, Aster, Yearn, Orca, Spark, Maple n'avaient NI valeur
+# immobilisée NI revenu, et 26 fiches affichaient des frais sans « prix / frais ».
+# Ce recours passe EN DERNIER (après gecko_id direct, parent connu et slug manuel) :
+# il comble, il ne déplace aucune correspondance existante. Les PONTS en sont exclus —
+# les fonds en transit sur « LayerZero V2 » ou « Arbitrum Bridge » ne sont pas la
+# valeur immobilisée d'un protocole (11,7 Md$ apparaissaient sous LayerZero).
+PONTS = {"Bridge", "Canonical Bridge", "Cross Chain Bridge"}
+
+
+def fetch_defillama_parents():
+    """{parent_id: gecko_id} publiés par DefiLlama, ou {} si la source ne répond pas."""
+    try:
+        cfg = _http_get_json("https://api.llama.fi/config", timeout=60) or {}
+    except Exception as e:
+        print(f"[warn] DefiLlama /config: {e}", file=sys.stderr)
+        return {}
+    for pp in cfg.get("parentProtocols") or []:
+        if pp.get("id") and pp.get("name"):
+            NOMS_PARENTS[pp["id"]] = pp["name"]
+    return {pp["id"]: pp["gecko_id"] for pp in (cfg.get("parentProtocols") or [])
+            if pp.get("id") and pp.get("gecko_id")}
+
+
+NOMS_PARENTS = {}   # parent_id -> nom affiché ; « parent#kamino-finance » s'adresse « kamino »
+
+
+def adresses_parent(par):
+    """Adresses /tvl/{x} candidates d'un parent : son nom en minuscules et tirets
+    (« Kamino » → kamino, « Aster » → aster), puis le suffixe de son identifiant."""
+    c = []
+    nom = NOMS_PARENTS.get(par)
+    if nom:
+        c.append(re.sub(r"[^a-z0-9]+", "-", nom.lower()).strip("-"))
+    c.append(par.split("#", 1)[-1])
+    return [x for i, x in enumerate(c) if x and x not in c[:i]]
+
+
 def fetch_defillama_chains_tvl():
     """Returns (out, web_map) tuple :
        - out      : gecko_id -> chain_tvl_usd
@@ -479,7 +521,7 @@ def fetch_defillama_chains_tvl():
     return out, web_map
 
 
-def build_tvl_map(protocols_rows):
+def build_tvl_map(protocols_rows, parents_cfg=None, voulus=None, chaines=()):
     """gecko_id -> (total_tvl_usd, primary_slug).
 
     DefiLlama découpe chaque protocole en plusieurs slugs (uniswap-v3, uniswap-v2,
@@ -627,6 +669,8 @@ def build_tvl_map(protocols_rows):
     # parent. La priorité (4) couvre les cas où le parent a gecko_id mais une
     # version isolée n'en a pas et n'est pas dans le slug map.
     aggregated = {}  # gecko_id -> {'tvl': total, 'slug': primary, '_max_slug_tvl': float}
+    via_cfg = {}     # gecko_id -> parent, quand le recours /config a rattaché au moins une version
+    parents_de = {}  # gecko_id -> parents de TOUTES les versions sommées (None = sans parent)
     for p in protocols_rows:
         # Skip protocoles non-DeFi qui pollueraient les agrégats sectoriels.
         cat = p.get("category") or ""
@@ -641,12 +685,24 @@ def build_tvl_map(protocols_rows):
         if not gid:
             slug = (p.get("slug") or "").lower()
             gid = SLUG_TO_GECKO.get(slug)
+        par_cfg = None
+        if not gid and parents_cfg and cat not in PONTS:
+            gid = parents_cfg.get(p.get("parentProtocol"))
+            # Un jeton de CHAÎNE garde sa seule valeur de chaîne : « FlowSwap », place
+            # d'échange bâtie sur Flow, porte le gecko_id de FLOW — l'ajouter compterait
+            # deux fois ce que la chaîne mesure déjà (le main SOMME chaîne + protocoles).
+            if gid in chaines:
+                gid = None
+            par_cfg = p.get("parentProtocol") if gid else None
         if not gid:
             continue
 
         tvl = p.get("tvl") or 0
         if tvl <= 0:
             continue
+        if par_cfg:
+            via_cfg[gid] = par_cfg
+        parents_de.setdefault(gid, set()).add(p.get("parentProtocol"))
 
         if gid not in aggregated:
             aggregated[gid] = {"tvl": 0.0, "slug": p.get("slug"), "_max_slug_tvl": 0}
@@ -655,6 +711,35 @@ def build_tvl_map(protocols_rows):
             aggregated[gid]["_max_slug_tvl"] = tvl
             aggregated[gid]["slug"] = p.get("slug")
 
+    # ⚠ RATTACHÉ PAR LE SEUL RECOURS /config : LE TOTAL PUBLIÉ, PAS NOTRE SOMME.
+    # Sommer les versions compte deux fois ce qu'une version redéploie dans une
+    # autre : Spark faisait 9,37 Md$ (SparkLend + Liquidity Layer + Savings) quand
+    # DefiLlama publie 6,93 pour le parent, doubles comptes retirés. Pendle, Kamino,
+    # Kinetiq, Compound coïncidaient. Sans total publié : rien, plutôt qu'un chiffre
+    # plausible.
+    # Même règle quand une version était déjà rattachée à la main et que les autres
+    # arrivent par ce recours (Curve : 1,51 sommé, 1,34 publié) — pourvu que TOUTES
+    # les versions sommées aient ce même parent ; sinon (sources mêlées) on garde la
+    # somme, que rien ne permet de corriger.
+    for gid, par in via_cfg.items():
+        if parents_de.get(gid) != {par} or (voulus is not None and gid not in voulus):
+            continue
+        v = None
+        for slug_parent in adresses_parent(par):
+            try:
+                v = _http_get_json("https://api.llama.fi/tvl/" + slug_parent, timeout=30)
+            except Exception:
+                v = None
+            if isinstance(v, (int, float)) and v > 0:
+                break
+        if isinstance(v, (int, float)) and v > 0:
+            aggregated[gid]["tvl"] = float(v)
+            aggregated[gid]["slug"] = slug_parent
+        else:
+            print(f"[warn] {gid} : total du parent {par} indisponible, valeur immobilisée tue",
+                  file=sys.stderr)
+            aggregated.pop(gid, None)
+
     # Convert to legacy format (gecko_id -> (tvl, slug))
     out = {}
     for gid, info in aggregated.items():
@@ -662,7 +747,7 @@ def build_tvl_map(protocols_rows):
     return out
 
 
-def build_dlid_to_gecko(protocols_rows):
+def build_dlid_to_gecko(protocols_rows, parents_cfg=None):
     """defillama_id (str) -> gecko_id, en appliquant la MÊME logique de
     résolution que build_tvl_map : direct → parent → slug map manuel.
 
@@ -747,6 +832,8 @@ def build_dlid_to_gecko(protocols_rows):
         if not gid:
             slug = (p.get("slug") or "").lower()
             gid = SLUG_TO_GECKO.get(slug)
+        if not gid and parents_cfg and cat not in PONTS:
+            gid = parents_cfg.get(p.get("parentProtocol"))
         if gid:
             out[str(did)] = gid
     return out
@@ -1485,8 +1572,11 @@ def main():
     # 2. DeFiLlama TVL + id→gecko map (single /protocols call)
     print("[info] fetching DefiLlama /protocols ...")
     protos = fetch_defillama_protocols()
-    tvl_map = build_tvl_map(protos)
-    dlid_to_gecko = build_dlid_to_gecko(protos)
+    parents_cfg = fetch_defillama_parents()
+    print("[info] fetching DefiLlama /v2/chains for L1 chain TVL ...")
+    chain_tvl_map, tvl_chain_web_map = fetch_defillama_chains_tvl()
+    tvl_map = build_tvl_map(protos, parents_cfg, set(all_ids), set(chain_tvl_map))
+    dlid_to_gecko = build_dlid_to_gecko(protos, parents_cfg)
     print(f"[info] DL TVL: {len(tvl_map)} gecko-mapped, {len(dlid_to_gecko)} defillama id mappings ({time.time()-t0:.0f}s)")
 
     # 2b. DeFiLlama chains TVL — pour les L1 natifs (ETH, SOL, BNB, BTC, TRON,
@@ -1494,8 +1584,7 @@ def main():
     # On SOMME chain_tvl + protocol_tvl par gecko_id ; ainsi ETH affiche les
     # $43B chain-locked + ses protocoles éventuels (mais aucun protocole n'a
     # gecko_id=ethereum, donc en pratique = chain TVL pure).
-    print("[info] fetching DefiLlama /v2/chains for L1 chain TVL ...")
-    chain_tvl_map, tvl_chain_web_map = fetch_defillama_chains_tvl()
+    # (la TVL des chaînes est lue plus haut, avant la carte des protocoles)
     for gid, ct in chain_tvl_map.items():
         if gid in tvl_map:
             existing_tvl, existing_slug = tvl_map[gid]
