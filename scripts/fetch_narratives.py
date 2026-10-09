@@ -279,6 +279,11 @@ HIST_CACHE_TTL_HOURS = 24
 # Filtre market cap : seuls les tokens au-dessus de ce rang sont inclus
 # dans les narratifs. Ajuster si trop restrictif (200 = top 200 par mcap).
 MAX_MCAP_RANK = 300
+# 09/10/2026 : l'univers n'est plus « le rang CoinGecko 300 » (stablecoins compris, soit ~250
+# cryptos) mais « les 300 premières cryptos À PRIX LIBRE ». Le rang qui les borne (342 le 09/10)
+# est recalculé à chaque passage sur les PROFONDEUR premières capitalisations.
+UNIVERS_CRYPTOS = 300
+PROFONDEUR_UNIVERS = 500
 
 # Short descriptive blurbs per narrative (shown in UI tooltips).
 NARRATIVE_DESC = {
@@ -797,6 +802,163 @@ NARRATIVES = {
         "stocks": ["COIN", "HOOD", "XYZ", "GLXY"],
     },
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# ÉLARGISSEMENT AU TOP 300 (09/10/2026, demande de MA : « le top 300, pour une vision plus
+# précise des agrégats des narratifs — dans les règles de l'art »).
+#
+# Le « top 200 » des fiches n'était pas le top 200 du marché : c'étaient les 200 plus grosses
+# cryptos RANGÉES DANS UN NARRATIF. Mesuré le 09/10 sur les 500 premières capitalisations
+# CoinGecko : 134 des 300 premières cryptos hors stablecoins n'étaient dans aucun narratif — ni
+# fiche, ni poids dans les agrégats (Aster, MultiversX, Zama, Plume, Orca, Synthetix, Golem…).
+#
+# Classement fait jeton par jeton (étiquettes CoinMarketCap, catégories DefiLlama, classement
+# d'une version antérieure du PC retrouvé dans un cache du 03/09, puis jugement), versé ci-dessous
+# plutôt qu'éparpillé dans le dictionnaire : la liste se relit et se défait d'un bloc.
+#
+# RÈGLES D'EXCLUSION (ECARTES_TOP300, avec la raison de chacun) :
+#   · un dollar numérique (même rémunéré) va à la section stablecoins, pas dans un narratif ;
+#   · un actif SANS MARCHÉ — moins de 50 000 $ échangés en 24 h — n'entre pas : sa
+#     « capitalisation » est une déclaration de l'émetteur, pas un prix (Blockchain Capital,
+#     les « Tradable SSTN » : 0 $ échangé, un plus haut historique à 189 500 000 $ pour un titre
+#     à 1 $). Le compter fausserait le poids des narratifs ;
+#   · un panier indiciel de cryptos déjà suivies (MAG7.ssi) serait compté deux fois ;
+#   · un jeton sans rang CoinGecko n'est pas vérifiable (Baby Claw : +56 000 % en sept jours).
+# ─────────────────────────────────────────────────────────────────────────
+AJOUTS_TOP300 = {
+    "AI & Agents": [
+        "akedo", "arkham", "celium", "chip-2", "chutes", "dgrid-ai", "golem", "iexec-rlc",
+        "numeraire", "openledger-2", "origintrail", "pearl-2", "pieverse", "quack-ai",
+        "qubic-network", "sentient", "sosovalue", "stp-network", "targon", "unibase",
+        "unifai-network",
+        "kaito", "tagger", "talus",   # 09/10 : rangs 342-372
+    ],
+    "BTC L2s & Ordinals": [
+        "dog-go-to-the-moon-rune", "rif-token",
+    ],
+    "Bitcoin Institutional": [
+        "bitget-wrapped-btc",
+    ],
+    "Bitcoin Miners": [
+        "gmt-token",
+    ],
+    "DEX & AMM": [
+        "0x", "orca",
+        "o1-exchange",   # 09/10 : rangs 342-372
+    ],
+    "DePIN": [
+        "aioz-network", "doublezero", "golem", "iexec-rlc", "origintrail", "peaq-2", "seeker",
+        "holotoken", "theta-fuel",   # 09/10 : rangs 342-372
+    ],
+    "Ethereum L2s": [
+        "prometeus", "soon-2",
+    ],
+    "Exchange Tokens": [
+        "backpack", "grx-chain", "mx-token", "safe", "safepal", "vision-3",
+    ],
+    "Gaming / SocialFi": [
+        "akedo", "bc-token", "funfair", "rollbit-coin", "shuffle-2", "superfarm", "wemix-token",
+    ],
+    "L1 Smart Contracts": [
+        "adi-token", "chain-2", "elrond-erd-2", "gas", "kusama", "ozone-chain", "peaq-2", "pearl-2",
+        "pharos-network", "plume", "qtum", "quantum-resistant-ledger", "qubic-network", "stable-2",
+        "vaulta", "zignaly",
+        "berachain-bera", "kava", "zetachain",   # 09/10 : rangs 342-372
+    ],
+    "Lending & Yield": [
+        "anvil", "bitway", "cap-4", "chip-2",
+        "re", "spark-2",   # 09/10 : rangs 342-372
+    ],
+    "Liquid Staking": [
+        "kinetiq",
+    ],
+    "Memecoins": [
+        "artificial-inu-3", "bianrensheng", "build-on", "cash-cat", "cheems-token", "coco-2",
+        "dog-go-to-the-moon-rune", "four", "marscoin-4", "melania-meme", "non-playable-coin",
+        "pons", "stonk-3", "useless-3",
+        "mubarak", "purr-2", "niu-lai",   # 09/10 : rangs 342-372
+    ],
+    "NFT": [
+        "collector-crypt",
+        "ecomi",   # 09/10 : rangs 342-372
+    ],
+    "Payment Coins": [
+        "ecash", "stable-2", "stronghold-token", "ultima", "velo",
+    ],
+    "Perp DEX": [
+        "aster-2", "derive", "edgex", "genius-3", "havven",
+    ],
+    "Prediction Markets": [
+        "meta-2-2", "rain",
+    ],
+    "RWA": [
+        "circle-internet-group-bstock", "circle-xstock", "figure-heloc", "goldfish-gold",
+        "hastra-auto", "microstrategy-xstock", "onyc", "pharos-network", "plume",
+        "redstone-oracles", "spacex-bstocks-tokenized-stock", "strategy-pp-variable-xstock",
+        "strategy-stretch-preferred-ondo-tokenized", "tesla-xstock",   # 09/10 : rangs 342-372
+    ],
+    "Restaking": [
+        "bedrock-token",
+    ],
+    "Solana Ecosystem": [
+        "backpack", "collector-crypt", "debridge", "doublezero", "meta-2-2", "orca", "seeker",
+        "stonk-3", "useless-3",
+    ],
+    "Stablecoins": [
+        "falcon-finance-ff", "world-liberty-financial",
+    ],
+    "ZK / Privacy": [
+        "humanity", "railgun", "zama", "zano", "zencash",
+    ],
+    "Modular / DA": [
+        "espresso",
+    ],
+}
+ECARTES_TOP300 = {
+    "3jane-usd3": "dollar numérique : section stablecoins",
+    "alpha-bulgaria-warrants": "pas de marché : 0 $ échangés en 24 h",
+    "apollo-diversified-credit-securitize-fund": "pas de marché : 0 $ échangés en 24 h",
+    "apyusd": "dollar numérique : section stablecoins",
+    "baby-claw": "sans rang CoinGecko",
+    "bending-spoons-xstock": "pas de marché : 6475 $ échangés en 24 h",
+    "blockchain-capital": "pas de marché : 0 $ échangés en 24 h",
+    "bnb48-club-token": "pas de marché : 29270 $ échangés en 24 h",
+    "fx-usd-saving": "dollar numérique : section stablecoins",
+    "hashnote-usyc": "pas de marché : 0 $ échangés en 24 h",
+    "mag7-ssi": "panier indiciel de cryptos déjà suivies (double compte)",
+    "midas-fasanara-global-open": "pas de marché : 0 $ échangés en 24 h",
+    "nest-blackopal-liquidstone-ii-vault": "pas de marché : 0 $ échangés en 24 h",
+    "nxm": "pas de marché : 0 $ échangés en 24 h",
+    "pleasing-gold": "pas de marché : 9 $ échangés en 24 h",
+    "safo": "pas de marché : 0 $ échangés en 24 h",
+    "securitize-tokenized-aaa-clo-fund": "pas de marché : 0 $ échangés en 24 h",
+    "spiko-amundi-overnight-swap-fund-eur": "pas de marché : 0 $ échangés en 24 h",
+    "theo-short-duration-us-treasury-fund": "pas de marché : 21844 $ échangés en 24 h",
+    "tradable-apac-diversified-finance-provider-sstn": "pas de marché : 0 $ échangés en 24 h",
+    "tradable-latam-middle-market-lender-sstl": "pas de marché : 0 $ échangés en 24 h",
+    "tradable-na-rent-financing-platform-sstn": "pas de marché : 0 $ échangés en 24 h",
+    "tradable-na-third-party-online-merchant-sstn": "pas de marché : 0 $ échangés en 24 h",
+    "tradable-singapore-fintech-ssl-2": "sans rang CoinGecko",
+    "unitywallet-token": "pas de marché : 744 $ échangés en 24 h",
+    "usdai": "dollar numérique : section stablecoins",
+    "wrappedm-by-m0": "dollar numérique : section stablecoins",
+    "yzy": "pas de marché : 8350 $ échangés en 24 h",
+    "apxusd": "monnaie numérique : section stablecoins",
+    "crown-brlv": "monnaie numérique (réal) : section stablecoins",
+    "euro-coin": "monnaie numérique (euro) : section stablecoins",
+    "societe-generale-forge-eurcv": "monnaie numérique (euro) : section stablecoins",
+    "jpycoin": "monnaie numérique (yen) : section stablecoins",
+    "jpysc": "monnaie numérique (yen) : section stablecoins",
+    "open-usd": "monnaie numérique : section stablecoins",
+    "usda-3": "monnaie numérique : section stablecoins",
+    "usda-2": "sans rang CoinGecko",
+    "ishares-core-s-p-500-etf-ondo-tokenized-etf": "pas de marché : 0 $ échangés en 24 h",
+}
+
+for _n, _ids in AJOUTS_TOP300.items():
+    for _t in _ids:
+        if _t not in NARRATIVES[_n]["tokens"]:
+            NARRATIVES[_n]["tokens"].append(_t)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -1975,9 +2137,23 @@ def main():
     mkts = fetch_cg_markets(all_ids)
     print(f"[info] got prices for {len(mkts)}/{len(all_ids)} tokens")
 
-    print(f"[info] fetching CoinGecko top {MAX_MCAP_RANK} universe snapshot (couverture)…")
-    universe = fetch_top_universe(MAX_MCAP_RANK)
-    print(f"[info] universe snapshot: {len(universe)} tokens")
+    print(f"[info] fetching CoinGecko top {PROFONDEUR_UNIVERS} universe snapshot (couverture)…")
+    universe = fetch_top_universe(PROFONDEUR_UNIVERS)
+    # Le rang de la UNIVERS_CRYPTOS-ième crypto à prix libre (même critère « prix fixe » que la
+    # couverture, plus bas) : il borne le suivi ET la couverture. Repli sur l'ancien rang si la
+    # photographie est incomplète — jamais un univers plus étroit que la veille par accident.
+    _libres = sorted((r for r in universe.values() if r.get("market_cap_rank") and not (
+        r.get("price_change_percentage_7d_in_currency") is not None
+        and r.get("price_change_percentage_30d_in_currency") is not None
+        and abs(r["price_change_percentage_7d_in_currency"]) < 0.5
+        and abs(r["price_change_percentage_30d_in_currency"]) < 1.5)),
+        key=lambda r: r["market_cap_rank"])
+    SEUIL_RANG = (_libres[UNIVERS_CRYPTOS - 1]["market_cap_rank"]
+                  if len(_libres) >= UNIVERS_CRYPTOS else MAX_MCAP_RANK)
+    universe = {k: r for k, r in universe.items()
+                if r.get("market_cap_rank") and r["market_cap_rank"] <= SEUIL_RANG}
+    print(f"[info] universe snapshot: {len(universe)} tokens (rang ≤ {SEUIL_RANG} = "
+          f"{UNIVERS_CRYPTOS} cryptos à prix libre)")
 
     all_stocks = sorted({s for cfg in NARRATIVES.values() for s in cfg.get("stocks", [])})
     print(f"[info] fetching yfinance quotes for {len(all_stocks)} stocks…")
@@ -2028,7 +2204,7 @@ def main():
 
     stats_list = []
     for narr, cfg in NARRATIVES.items():
-        s = narrative_stats(narr, cfg, scan, assets)
+        s = narrative_stats(narr, cfg, scan, assets, max_rank=SEUIL_RANG)
         stats_list.append(s)
 
     # ─────────── HISTORICAL INDEX PER NARRATIVE ───────────
@@ -2124,7 +2300,10 @@ def main():
         p30 = row.get("price_change_percentage_30d_in_currency")
         if p7 is not None and p30 is not None and abs(p7) < PEGGED_7D_MAX and abs(p30) < PEGGED_30D_MAX:
             pegged_ids.add(tid)
-    unclassified_ids = set(universe) - pegged_ids - covered_ids
+    # Les écartés volontaires (sans marché, double compte…) ne sont pas « en attente de
+    # classement » : ils sont décidés, avec leur raison (ECARTES_TOP300).
+    ecartes_ids = (set(universe) - pegged_ids - covered_ids) & set(ECARTES_TOP300)
+    unclassified_ids = set(universe) - pegged_ids - covered_ids - ecartes_ids
     unclassified_symbols = sorted({(universe[t].get("symbol") or t).upper() for t in unclassified_ids})
     pegged_symbols = sorted({(universe[t].get("symbol") or t).upper() for t in pegged_ids})
     universe_size = len(universe)
@@ -2197,7 +2376,8 @@ def main():
         "coverage": {
             "crypto_tokens_in_narratives": len(covered_ids),
             "stocks_in_narratives": len(stocks_data),
-            "max_mcap_rank": MAX_MCAP_RANK,
+            "max_mcap_rank": SEUIL_RANG,
+            "univers_cryptos": UNIVERS_CRYPTOS,
             "live_pct": coverage_pct,
             "stale_filled": filled_stale,
             **({
@@ -2207,6 +2387,8 @@ def main():
                 "eligible_universe": eligible_universe,
                 "unclassified_symbols": unclassified_symbols,
                 "pegged_symbols": pegged_symbols,
+                "ecartes": {(universe[t].get("symbol") or t).upper(): ECARTES_TOP300[t]
+                            for t in sorted(ecartes_ids)},
             } if universe_size else {}),
         },
         "narratives": stats_list,
