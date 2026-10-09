@@ -134,6 +134,20 @@ def _pct(a, b):
     return round(r * 100, 2) if r is not None else None
 
 
+def _marge(a, ca):
+    """Une part du chiffre d'affaires — vide quand le chiffre d'affaires n'est pas positif.
+
+    Une société d'investissement dont le « chiffre d'affaires » de l'année est une
+    moins-value latente (Altamir −62,5 M€ en 2025, Pacific Current −9,1 M A$) donnait
+    une marge brute de 120 % : −75 ÷ −62,5. Le rapport de deux négatifs n'est pas une
+    marge. 10/10/2026 : 3 marges brutes au-dessus de 100 % dans l'univers, toutes de
+    ce cas.
+    """
+    if not isinstance(ca, (int, float)) or ca <= 0:
+        return None
+    return _pct(a, ca)
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Les ratios dont le dénominateur s'est effondré
 # ─────────────────────────────────────────────────────────────────────────
@@ -1143,6 +1157,8 @@ def effacer_l_impossible(exercices):
         ("assets_current", "assets", "actif courant au-dessus de l’actif"),
         ("liabilities_current", "liabilities", "passif courant au-dessus du passif"),
         ("cash", "assets", "trésorerie au-dessus de l’actif"),
+        # MTC 2025 : 108 M$ de goodwill pour 18,4 M$ d'actif total (10/10/2026).
+        ("goodwill", "assets", "goodwill au-dessus de l’actif"),
     )
 
     for e in exercices:

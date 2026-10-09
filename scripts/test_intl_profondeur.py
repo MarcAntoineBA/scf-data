@@ -226,6 +226,23 @@ def controles_ing(dossier):
     v(cs.corriger("MC.PA", [], "EUR", tv()) is None, "une société hors registre n'est pas touchée")
 
 
+def controles_impossibles(dossier):
+    sys.path.insert(0, dossier)
+    sys.modules.pop("fondamentaux_communs", None)
+    import fondamentaux_communs as fc
+
+    print("\n[5] Pas de ratio sur un dénominateur impossible")
+    v(fc._marge(-75.1, -62.5) is None, "Altamir : marge sur chiffre d'affaires négatif → vide",
+      str(fc._marge(-75.1, -62.5)))
+    v(fc._marge(5, 0) is None, "chiffre d'affaires nul → vide")
+    v(fc._marge(66.2, 100) == 66.2, "cas ordinaire inchangé", str(fc._marge(66.2, 100)))
+    ex = [{"goodwill": 108.2, "assets": 18.4}, {"goodwill": 5.0, "assets": 100.0}]
+    fc.effacer_l_impossible(ex)
+    v(ex[0]["goodwill"] is None and ex[0]["assets"] is None,
+      "MTC : goodwill au-dessus de l'actif → les deux effacés", str(ex[0]))
+    v(ex[1]["goodwill"] == 5.0, "goodwill ordinaire conservé")
+
+
 # ── Les mutants : chaque correction retirée doit faire échouer un contrôle ────
 
 MUTANTS = [
@@ -253,6 +270,10 @@ MUTANTS = [
      'e["annee"] < depuis:', 'e["annee"] < 0:'),
     ("minoritaires perdus", "corrections_sources.py",
      'e["net_income_total"] += rep["net_income"] - rn_avant', 'e["net_income_total"] = rep["net_income"]'),
+    ("marge sur chiffre d'affaires négatif", "fondamentaux_communs.py",
+     "if not isinstance(ca, (int, float)) or ca <= 0:", "if not isinstance(ca, (int, float)):"),
+    ("goodwill au-dessus de l'actif toléré", "fondamentaux_communs.py",
+     '("goodwill", "assets", "goodwill au-dessus de l’actif"),', ''),
     ("devise non contrôlée", "corrections_sources.py",
      'if _devise(tv.get("currency")) != devise:', 'if False:'),
 ]
@@ -294,5 +315,6 @@ if __name__ == "__main__":
         sys.exit(0 if t == n else 1)
     controles(ICI)
     controles_ing(ICI)
+    controles_impossibles(ICI)
     print("\n%s — %d échec(s)" % ("OK" if not echecs else "ÉCHEC", len(echecs)))
     sys.exit(1 if echecs else 0)

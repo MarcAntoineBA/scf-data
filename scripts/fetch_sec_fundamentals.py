@@ -1173,7 +1173,7 @@ from fondamentaux_communs import (
     ecarter_ratios_degeneres,          # noqa: E402
     annee_exercice,
     dedupliquer_exercices,
-    _div, _pct, _r,
+    _div, _pct, _marge, _r,
     _BAREME, _CRITERES_INDUSTRIELS, _noter_critere, note_quantitative,
     _croissance_annuelle, _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
@@ -1805,10 +1805,10 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
         e["dette_nette"] = (dette_totale - liquidites) if (dette_totale is not None and liquidites is not None) else None
 
         # ── Ratios de l'exercice ──
-        e["marge_brute"] = _pct(e["gross_profit"], e["revenue"])
-        e["marge_ope"] = _pct(e["operating_income"], e["revenue"])
-        e["marge_nette"] = _pct(e["net_income"], e["revenue"])
-        e["marge_fcf"] = _pct(e["fcf"], e["revenue"])
+        e["marge_brute"] = _marge(e["gross_profit"], e["revenue"])
+        e["marge_ope"] = _marge(e["operating_income"], e["revenue"])
+        e["marge_nette"] = _marge(e["net_income"], e["revenue"])
+        e["marge_fcf"] = _marge(e["fcf"], e["revenue"])
         # Le taux d'impôt retenu est celui RÉELLEMENT payé cette année-là, pas un
         # taux légal théorique : c'est ce qui distingue une société qui optimise
         # d'une société qui subit. Borné à [0 ; 50 %] pour qu'un crédit d'impôt
@@ -1833,7 +1833,7 @@ def construire(facts, mcap_usd=None, beta=None, cours=None,
         e["_capitaux_employes"] = (e["assets"] - e["liabilities_current"]) \
             if (e["assets"] is not None and e["liabilities_current"] is not None) else None
 
-        e["capex_ca"] = _pct(e["capex"], e["revenue"])
+        e["capex_ca"] = _marge(e["capex"], e["revenue"])
         e["capex_ocf"] = _pct(e["capex"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
         e["rd_ocf"] = _pct(e["rd"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
         e["sbc_fcf"] = _pct(e["sbc"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None

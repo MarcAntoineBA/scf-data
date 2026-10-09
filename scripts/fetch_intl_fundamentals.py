@@ -102,7 +102,7 @@ from fondamentaux_communs import (
     ecarter_ratios_degeneres,          # noqa: E402
     annee_exercice,
     dedupliquer_exercices,
-    _div, _pct, _r,
+    _div, _pct, _marge, _r,
     note_quantitative,
     _mediane, _mediane_fenetre, _croissances, _predictibilite,
     _serie_sans_baisse_dividende, _serie_hausses_dividende,
@@ -1796,16 +1796,16 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         e["dette_totale"] = dette
         e["dette_nette"] = (dette - liq) if (dette is not None and liq is not None) else None
 
-        e["marge_brute"] = _pct(e["gross_profit"], e["revenue"])
-        e["marge_ope"] = _pct(e["operating_income"], e["revenue"])
+        e["marge_brute"] = _marge(e["gross_profit"], e["revenue"])
+        e["marge_ope"] = _marge(e["operating_income"], e["revenue"])
         # Faute de part du commun, le total vaut mieux que rien — mais on le
         # DIT, au lieu de le laisser passer pour ce qu'il n'est pas.
         if e.get("net_income") is None and e.get("net_income_total") is not None:
             e["net_income"] = e["net_income_total"]
             e["net_income_est_total"] = True
 
-        e["marge_nette"] = _pct(e["net_income"], e["revenue"])
-        e["marge_fcf"] = _pct(e["fcf"], e["revenue"])
+        e["marge_nette"] = _marge(e["net_income"], e["revenue"])
+        e["marge_fcf"] = _marge(e["fcf"], e["revenue"])
 
         # DEUX taux, et c'est le fond du correctif. Celui qu'on AFFICHE est le
         # taux réellement payé, sans borne et vide quand il n'a pas de sens.
@@ -1824,7 +1824,7 @@ def construire(brut, mcap_usd=None, beta=None, cours=None, fx_dev=None,
         e["_capitaux_employes"] = (e["assets"] - e["liabilities_current"]) \
             if (e["assets"] is not None and e["liabilities_current"] is not None) else None
 
-        e["capex_ca"] = _pct(e["capex"], e["revenue"])
+        e["capex_ca"] = _marge(e["capex"], e["revenue"])
         e["capex_ocf"] = _pct(e["capex"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
         e["rd_ocf"] = _pct(e["rd"], e["ocf"]) if (e["ocf"] and e["ocf"] > 0) else None
         e["sbc_fcf"] = _pct(e["sbc"], e["fcf"]) if (e["fcf"] and e["fcf"] > 0) else None
