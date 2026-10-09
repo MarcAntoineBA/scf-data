@@ -38,6 +38,7 @@ import oblig_frais  # noqa: E402
 import oblig_tech  # noqa: E402
 import oblig_detail_us  # noqa: E402
 import oblig_notes  # noqa: E402
+import oblig_demande  # noqa: E402
 from oblig_net import log, compacter, mensuel, hebdo  # noqa: E402
 
 CACHE_DIR = os.path.expanduser("~/Library/Caches/site_crypto_finance")
@@ -269,6 +270,19 @@ def main():
             x["detenteurs"] = D
     log("[info] données fraîches : %.0f s" % (time.time() - t0))
 
+    # ── 3 quater. qui achète la dette, qui la vend : détenteurs par secteur et achats
+    #    nets (BCE SHSS, Banque de France, Fed Z.1), pays étrangers (TIC), adjudications ──
+    prec_dem = {c: ((d.get("pays") or {}).get("demande")) for c, d in precedent.items() if (d.get("pays") or {}).get("demande")}
+    try:
+        demande = oblig_demande.construire(journal, prec_dem)
+    except Exception as e:  # noqa: BLE001
+        journal.append("qui achète : " + str(e)[:160])
+        demande = prec_dem
+    for c, x in pays.items():
+        if not c.startswith("_") and isinstance(x, dict) and demande.get(c):
+            x["demande"] = demande[c]
+    log("[info] qui achète : %.0f s" % (time.time() - t0))
+
     # ── 4. le crédit ──
     credit, det_credit, longues, emis = [], {}, {}, {}
     try:
@@ -377,6 +391,11 @@ def main():
         {"nom": "Banco de España, Bank of England, ministère des Finances du Japon, Banque du Canada, RBA, BNS, OCDE",
          "quoi": "taux d'État de chaque pays", "url": None},
         {"nom": "FMI, Eurostat", "quoi": "dette, déficit, charge d'intérêts, croissance ; détenteurs de la dette", "url": "https://www.imf.org/external/datamapper/"},
+        {"nom": "BCE (SHSS, GFS), Banque de France (DET2)", "quoi": "qui détient la dette des États de la zone euro, secteur par secteur, et ce que chacun achète ou vend chaque trimestre",
+         "url": "https://data.ecb.europa.eu/data/datasets/SHSS"},
+        {"nom": "Réserve fédérale (Z.1), Trésor américain (TIC, Fiscal Data)", "quoi": "détenteurs et achats nets des Treasuries et des obligations d'entreprises, détention pays par pays, résultats des adjudications",
+         "url": "https://www.federalreserve.gov/releases/z1/"},
+        {"nom": "Ministère des Finances du Japon", "quoi": "résultats des adjudications d'obligations d'État", "url": oblig_demande.MOF_XLS},
         {"nom": "ICE BofA et Moody's via FRED", "quoi": "écarts de crédit et rendements des obligations d'entreprises (3 ans pour ICE)", "url": "https://fred.stlouisfed.org/"},
         {"nom": "Réserve fédérale", "quoi": "GZ spread (écart de crédit depuis 1973)", "url": "https://www.federalreserve.gov/econres/notes/feds-notes/"},
         {"nom": "Yahoo Finance", "quoi": "cours des ETF obligataires, dividendes réinvestis", "url": None},

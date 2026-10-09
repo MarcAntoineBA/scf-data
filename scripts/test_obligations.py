@@ -44,6 +44,17 @@ Relit les fichiers écrits et vérifie ce qu'un visiteur verrait de faux :
       écarts entre −100 et +800 pb, une cotation de moins de 4 jours ; au moins
       15 pays dans la vue mensuelle, mois de moins de 120 jours ; chaque pays
       montré a une note Moody's prise dans l'échelle ; aucune série figée.
+  [16] qui achète, qui vend (oblig_demande.py) : pour les 10 États de la zone
+      euro, détenteurs + reste du monde = encours total (à 0,5 % près), reste
+      du monde entre 0 et 90 %, la somme des achats nets = la variation de la
+      dette (à 0,5 Md€ près), le classement « sur un an » = la somme de ses 4
+      trimestres, dernier trimestre de moins de 280 jours, aucun grand
+      détenteur structurel (> 50 Md€ : Eurosystème, banques, assureurs, fonds,
+      reste du monde) qui saute de plus de 35 % en un trimestre (une rupture) ;
+      France (Banque de France) : parts à 100 ± 1,5, non-résidents 30-80 % ;
+      États-Unis : Z.1 détenteurs = total (0,5 %), TIC ≥ 15 pays de moins de
+      130 jours, adjudications de moins de 45 jours dont les parts font 100 ;
+      Japon : adjudications de moins de 130 jours, couverture entre 1 et 12.
   [15] le CODE relit une fiche reprise du passage précédent : une série compacte
       ({"d0","dj","v"}) se relit comme une fraîche (sinon, une seule source vide
       faisait tomber toute la tâche : KeyError 'd', 02/10/2026).
@@ -329,6 +340,108 @@ def controles(S, det, credit_det, aujourd_hui):
             v = SU.get(k) or []
             if any(v[i - 1] > 50 and abs(v[i] / v[i - 1] - 1) > 0.40 for i in range(1, len(v))):
                 E.append("[14] secteur %s : saut de plus de 40 %% d'un trimestre à l'autre" % k)
+    E += controle_demande(det, aujourd_hui)
+    return E
+
+
+def _fin_trim(t):
+    a, q = int(t[:4]), int(t[-1])
+    return date(a + (q == 4), 1 if q == 4 else 3 * q + 1, 1)
+
+
+def controle_demande(det, auj):
+    """[16] qui achète, qui vend."""
+    E = []
+    for c in ("de", "fr", "it", "es", "nl", "be", "at", "ie", "pt", "gr"):
+        Z = (((det.get(c) or {}).get("pays") or {}).get("demande") or {}).get("zone_euro")
+        if not Z:
+            E.append("[16] %s : pas de bloc zone_euro" % c)
+            continue
+        t, tot, enc, ach = Z["t"], Z["encours_total"], Z["encours"], Z["achats"]
+        if (auj - _fin_trim(t[-1])).days > 280:
+            E.append("[16] %s : dernier trimestre %s périmé" % (c, t[-1]))
+        for j, q in enumerate(t):
+            if tot[j] is None or (enc.get("hors_ze") or [None] * len(t))[j] is None:
+                continue
+            som = sum(v[j] for v in enc.values() if v[j] is not None)
+            if abs(som - tot[j]) > 0.005 * tot[j]:
+                E.append("[16] %s %s : détenteurs %.0f ≠ encours %.0f" % (c, q, som, tot[j]))
+                break
+            if not 0 <= enc["hors_ze"][j] <= 0.9 * tot[j]:
+                E.append("[16] %s %s : reste du monde invraisemblable (%.0f sur %.0f)" % (c, q, enc["hors_ze"][j], tot[j]))
+                break
+        for j in range(1, len(t)):
+            lv = Z["emissions_nettes"][j]
+            if lv is None or any(v[j] is None for v in ach.values()):
+                continue
+            som = sum(v[j] for v in ach.values())
+            if abs(som - lv) > 0.5:
+                E.append("[16] %s %s : achats nets %.1f ≠ variation de la dette %.1f" % (c, t[j], som, lv))
+                break
+        A = Z.get("annee") or {}
+        if not A.get("lignes") or len(A["lignes"]) < 5:
+            E.append("[16] %s : classement « sur un an » vide" % c)
+        else:
+            i1 = t.index(A["a"])
+            for k, v in A["lignes"]:
+                attendu = sum(ach[k][i1 - 3:i1 + 1])
+                if abs(attendu - v) > 0.2:
+                    E.append("[16] %s : %s sur un an %.1f ≠ somme des trimestres %.1f" % (c, k, v, attendu))
+                    break
+        # rupture : seulement les grands détenteurs STRUCTURELS. Les ménages, les fonds
+        # monétaires ou les administrations bougent vraiment par à-coups (ménages
+        # belges : le « bon d'État » de septembre 2023, +22 Md€ en un trimestre).
+        for k in ("S121", "S122", "S128", "S129", "S124", "hors_ze"):
+            v = enc.get(k) or []
+            if any(v[j - 1] is not None and v[j] is not None and v[j - 1] > 50 and abs(v[j] / v[j - 1] - 1) > 0.35 for j in range(1, len(v))):
+                E.append("[16] %s : le secteur %s saute de plus de 35 %% en un trimestre" % (c, k))
+                break
+    B = (((det.get("fr") or {}).get("pays") or {}).get("demande") or {}).get("bdf")
+    if not B:
+        E.append("[16] France : pas de détenteurs Banque de France")
+    else:
+        som = sum(v[-1] for v in B["parts"].values() if v[-1] is not None)
+        if abs(som - 100) > 1.5:
+            E.append("[16] France (BdF) : parts = %.1f %%" % som)
+        if not 30 <= (B["parts"].get("non_residents") or [0])[-1] <= 80:
+            E.append("[16] France (BdF) : non-résidents invraisemblables")
+        if (auj - _fin_trim(B["t"][-1])).days > 280:
+            E.append("[16] France (BdF) : %s périmé" % B["t"][-1])
+    U = ((det.get("us") or {}).get("pays") or {}).get("demande") or {}
+    for cle in ("z1", "entreprises"):
+        Zu = U.get(cle)
+        if not Zu:
+            E.append("[16] États-Unis : pas de bloc %s" % cle)
+            continue
+        som = sum(v[-1] for v in Zu["encours"].values() if v[-1] is not None)
+        if abs(som - Zu["total"][-1]) > 0.005 * Zu["total"][-1]:
+            E.append("[16] États-Unis %s : détenteurs %.0f ≠ total %.0f" % (cle, som, Zu["total"][-1]))
+        if (auj - _fin_trim(Zu["t"][-1])).days > 280:
+            E.append("[16] États-Unis %s : %s périmé" % (cle, Zu["t"][-1]))
+    T = U.get("tic")
+    if not T or len(T.get("pays") or {}) < 15:
+        E.append("[16] États-Unis : moins de 15 pays (TIC)")
+    else:
+        m = T["t"][-1]
+        if (auj - date(int(m[:4]), int(m[5:7]), 28)).days > 130:
+            E.append("[16] TIC : %s périmé" % m)
+        n = len(T["t"]) - 1
+        if sum(v[n] for v in T["pays"].values() if v[n] is not None) > T["total"][n]:
+            E.append("[16] TIC : pays > total")
+    for c, lim in (("us", 45), ("jp", 130)):
+        A = ((((det.get(c) or {}).get("pays") or {}).get("demande") or {}).get("adjudications") or {}).get("liste") or []
+        if not A:
+            E.append("[16] %s : pas d'adjudications" % c)
+            continue
+        if (auj - date.fromisoformat(A[-1]["date"])).days > lim:
+            E.append("[16] %s : dernière adjudication %s périmée" % (c, A[-1]["date"]))
+        for a in A:
+            if a.get("couverture") is not None and not 1 <= a["couverture"] <= 12:
+                E.append("[16] %s %s : couverture %.2f invraisemblable" % (c, a["date"], a["couverture"]))
+                break
+            if c == "us" and abs(a["courtiers_pct"] + a["directs_pct"] + a["indirects_pct"] - 100) > 1:
+                E.append("[16] us %s : parts des soumissionnaires ≠ 100" % a["date"])
+                break
     return E
 
 
@@ -399,6 +512,16 @@ def mutants(S, det, cr, auj):
     if (m14["marche"].get("secteurs_us") or {}).get("serie"):
         m14["marche"]["secteurs_us"]["serie"]["utilities"][-1] += 9000
         cas.append(("[14] dette ventilée > total", m14, det))
+    d16 = copy.deepcopy(det); d16["fr"]["pays"]["demande"]["zone_euro"]["encours"]["hors_ze"][-1] += 60
+    cas.append(("[16] reste du monde faux", S, d16))
+    d16b = copy.deepcopy(det); d16b["it"]["pays"]["demande"]["zone_euro"]["achats"]["S122"][-2] += 9
+    cas.append(("[16] achats ≠ variation de la dette", S, d16b))
+    d16c = copy.deepcopy(det); d16c["us"]["pays"]["demande"]["z1"]["encours"]["fed"][-1] *= 2
+    cas.append(("[16] Z.1 gonflé", S, d16c))
+    d16d = copy.deepcopy(det); d16d["us"]["pays"]["demande"]["adjudications"]["liste"][-1]["date"] = "2025-01-02"
+    cas.append(("[16] adjudication périmée", S, d16d))
+    d16e = copy.deepcopy(det); d16e["fr"]["pays"]["demande"]["bdf"]["parts"]["S121"][-1] += 9
+    cas.append(("[16] parts BdF ≠ 100", S, d16e))
     for nom, s, d in cas:
         e = controles(s, d, cr, auj)
         vu = any(x.startswith(nom[:3]) for x in e)
