@@ -432,14 +432,15 @@ def symboles_tv(symbole):
 _bridages_tv = [0]
 
 
-def _tv_lot(tickers):
+def _tv_lot(tickers, colonnes=None):
     """Un lot de symboles → {symbole TradingView: {colonne: valeur}}.
 
     Rend None si le lot n'a pas pu être obtenu — à distinguer d'un lot vide, qui
     signifie « aucun de ces symboles n'existe chez le fournisseur ».
     """
+    colonnes = list(colonnes or TV_COLONNES)
     corps = json.dumps({"symbols": {"tickers": list(tickers)},
-                        "columns": list(TV_COLONNES)}).encode("utf-8")
+                        "columns": colonnes}).encode("utf-8")
     for essai in range(TV_RETRIES):
         req = urllib.request.Request(TV_SCAN, data=corps, headers={
             "Content-Type": "application/json", "User-Agent": UA,
@@ -453,7 +454,7 @@ def _tv_lot(tickers):
                 if r.headers.get("Content-Encoding") == "gzip":
                     raw = gzip.decompress(raw)
             d = json.loads(raw)
-            return {x["s"]: dict(zip(TV_COLONNES, x["d"]))
+            return {x["s"]: dict(zip(colonnes, x["d"]))
                     for x in (d.get("data") or [])
                     if isinstance(x, dict) and x.get("s") and x.get("d")}
         except Exception:
@@ -462,6 +463,84 @@ def _tv_lot(tickers):
                 return None
             time.sleep(2.0 * (essai + 1))
     return None
+
+
+# Le pays d'une place, tel que l'écrit un code ISIN. Seules les places où une
+# société peut avoir sa cotation d'ORIGINE : Francfort (`.F`) n'y est pas, c'est
+# une place de reflet. Londres accepte aussi Jersey, Guernesey et l'île de Man,
+# où sont domiciliées des sociétés dont Londres est la seule cotation d'origine
+# (WPP, Experian, Glencore).
+PAYS_DE_LA_PLACE = {
+    "PA": ("FR",), "AS": ("NL",), "BR": ("BE",), "LS": ("PT",), "IR": ("IE",),
+    "DE": ("DE",), "MC": ("ES",), "MI": ("IT",), "CO": ("DK",), "ST": ("SE",),
+    "OL": ("NO",), "HE": ("FI",), "VI": ("AT",), "WA": ("PL",), "SW": ("CH",),
+    "L": ("GB", "JE", "GG", "IM"), "T": ("JP",), "HK": ("HK",), "TW": ("TW",),
+    "TWO": ("TW",), "KS": ("KR",), "KQ": ("KR",), "SS": ("CN",), "SZ": ("CN",),
+    "NS": ("IN",), "BO": ("IN",), "SI": ("SG",), "AX": ("AU",), "TO": ("CA",),
+    "V": ("CA",), "JK": ("ID",), "JO": ("ZA",), "BK": ("TH",), "KL": ("MY",),
+    "SR": ("SA",), "MX": ("MX",), "SA": ("BR",), "TA": ("IL",), "IS": ("TR",),
+    "AT": ("GR",), "NZ": ("NZ",), "PR": ("CZ",), "IC": ("IS",),
+}
+
+
+def cotations_d_origine(candidats):
+    """Parmi des cotations battues par un certificat américain, celles d'ORIGINE.
+
+    ⚠ POURQUOI. L'élection de la cotation principale (`fetch_univers_actions`)
+    départage deux cotations de même capitalisation par l'ordre des places, où
+    le NASDAQ et le NYSE passent devant Paris, Amsterdam, Francfort et Londres.
+    Pour une société européenne cotée aussi à New York, c'est le certificat
+    (ADR) qui gagne, et la cotation européenne sort de cette collecte. Mesuré le
+    09/10/2026 : Sanofi, ASML, SAP, AstraZeneca, HSBC, BP, UBS, Santander,
+    Diageo, Barclays, Deutsche Bank… — leurs fiches n'étaient plus reconstruites
+    depuis août, figées à cinq exercices sans le prolongement de TradingView.
+
+    ⚠ DEUX PREUVES, TOUTES DEUX DE TRADINGVIEW.
+      1. C'est une ACTION ORDINAIRE (`type` = « stock »), pas un certificat
+         (« dr »). Sans elle, les certificats canadiens d'Apple, de Nvidia ou de
+         JPMorgan à Toronto entraient : leur ISIN est canadien (CA…). Mesuré.
+      2. Son ISIN est du pays de sa place : Sanofi (FR) à Paris, ASML (NL) à
+         Amsterdam, Shell (GB) à Londres — oui ; Apple (US) à Francfort — non.
+    Une cotation dont l'ISIN est illisible n'entre pas : on ne devine pas.
+
+    ⚠ UNE SEULE PAR SOCIÉTÉ. Novartis a deux lignes ordinaires à Zurich (NOVN et
+    NOVNEE) : on garde la plus échangée (`Value.Traded`), sinon la même société
+    entrerait deux fois dans les agrégats.
+
+    `candidats` : {symbole: symbole du certificat qui l'a battue}.
+    Rend {symbole: isin}.
+    """
+    par_tv = {}
+    for sym in candidats:
+        suf = sym.rsplit(".", 1)[-1].upper()
+        if suf not in PAYS_DE_LA_PLACE:
+            continue
+        for c in symboles_tv(sym):
+            par_tv.setdefault(c, sym)
+    if not par_tv:
+        return {}
+    brut = {}
+    tickers = sorted(par_tv)
+    for i in range(0, len(tickers), TV_LOT):
+        r = _tv_lot(tickers[i:i + TV_LOT], colonnes=["isin", "type", "Value.Traded"])
+        if r:
+            brut.update(r)
+    meilleure = {}
+    for c, v in brut.items():
+        sym = par_tv[c]
+        if v.get("type") != "stock":
+            continue
+        isin = str(v.get("isin") or "").upper()
+        if len(isin) != 12:
+            continue
+        if isin[:2] not in PAYS_DE_LA_PLACE[sym.rsplit(".", 1)[-1].upper()]:
+            continue
+        echange = v.get("Value.Traded")
+        echange = echange if isinstance(echange, (int, float)) else 0.0
+        groupe = candidats[sym]
+        if groupe not in meilleure or echange > meilleure[groupe][0]:
+            meilleure[groupe] = (echange, sym, isin)
+    return {sym: isin for _e, sym, isin in meilleure.values()}
 
 
 def series_tv(symboles):
@@ -767,13 +846,40 @@ def exercices_tradingview(tv, devise_etats, fx, exercices_sa):
         return [], diag
     diag["raccord"]["revenue"] = {"ecart_median_pct": round(med_ca, 2),
                                   "exercices_communs": n_ca, "retenu": True}
+    retenus = {"revenue"}
     if abs(med_ca) > TV_ECART_RACCORD:
         diag["raccord"]["revenue"]["retenu"] = False
-        diag["refus"] = ("chiffre d'affaires en désaccord de %.1f %% sur %d exercice(s) "
-                         "commun(s) : symbole ou devise douteux" % (med_ca, n_ca))
-        return [], diag
+        # ── LE CHIFFRE D'AFFAIRES N'EST PAS LA SEULE PREUVE D'IDENTITÉ ──
+        #
+        # Une banque n'a pas de chiffre d'affaires au sens d'un industriel :
+        # stockanalysis sert le produit net bancaire, TradingView les intérêts
+        # BRUTS reçus. Mesuré le 09/10/2026 : BNP Paribas +205 %, ING +152 %,
+        # Intesa +106 %, UniCredit +66 %, Allianz +25 %, AXA +15 %, Sanofi
+        # −6,6 % (les « autres revenus » comptés ou non). Toutes refusées en
+        # bloc, alors que c'est bien la même société : elles restaient à cinq
+        # exercices, sans note sur dix ans.
+        #
+        # La preuve passe alors par DEUX grandeurs indépendantes du chiffre
+        # d'affaires, qui doivent concorder ENSEMBLE sur au moins trois
+        # exercices communs : le résultat net et le total du bilan. Un symbole
+        # mal deviné ne tombe pas à 5 % près sur les deux à la fois pendant
+        # trois ans. Le chiffre d'affaires, lui, reste écarté : la courbe ne
+        # coud jamais deux définitions différentes.
+        med_rn, n_rn = ecart_median("net_income", LECTURES["net_income"])
+        med_ac, n_ac = ecart_median("assets", LECTURES["assets"])
+        preuve = (med_rn is not None and med_ac is not None
+                  and n_rn >= 3 and n_ac >= 3
+                  and abs(med_rn) <= TV_ECART_RACCORD
+                  and abs(med_ac) <= TV_ECART_RACCORD)
+        if not preuve:
+            diag["refus"] = ("chiffre d'affaires en désaccord de %.1f %% sur %d exercice(s) "
+                             "commun(s) : symbole ou devise douteux" % (med_ca, n_ca))
+            return [], diag
+        retenus = set()
+        diag["identite"] = ("résultat net (%+.1f %%) et total du bilan (%+.1f %%) "
+                            "concordants ; chiffre d'affaires de définition "
+                            "différente, écarté" % (med_rn, med_ac))
 
-    retenus = {"revenue"}
     for champ, lecture in LECTURES.items():
         if champ == "revenue":
             continue
@@ -2130,6 +2236,13 @@ def charger_fx():
         for dev, par_jour in d.items():
             if isinstance(par_jour, dict) and par_jour:
                 fusion.setdefault(dev, {}).update(par_jour)
+    # Dans le cloud, aucun des deux caches n'existe : voir `change_bce.py`.
+    try:
+        import change_bce
+        change_bce.completer(fusion, UA)
+    except ImportError:
+        print("[warn] change_bce.py absent : les devises manquantes restent "
+              "sans taux", file=sys.stderr)
     return fusion
 
 
@@ -2264,6 +2377,29 @@ def univers_marche(tranche=None, plafond=None):
             px = t.get("cours")
             if isinstance(px, (int, float)) and px > 0:
                 cotations[sym] = (px, (t.get("devise") or "").upper() or None)
+
+    # ── LA COTATION D'ORIGINE QU'UN CERTIFICAT AMÉRICAIN A BATTUE ──
+    # Voir `cotations_d_origine` : sans elle, Sanofi, ASML, SAP, AstraZeneca,
+    # HSBC… restaient figées à cinq exercices. Un symbole américain (sans point)
+    # n'a pas de suffixe : ce sont bien des certificats ou des lignes de gré à
+    # gré, que la collecte SEC couvre déjà de son côté.
+    battues = {}
+    for t in u.get("titres", []):
+        sym = t.get("yahoo") or t.get("sa")
+        pr = t.get("principal_de")
+        if (sym and "." in sym and not t.get("principal") and not t.get("reflet")
+                and pr and "." not in pr and t.get("sa") and sym not in chemins):
+            battues[sym] = t
+    if battues:
+        origine = cotations_d_origine({s: t["principal_de"] for s, t in battues.items()})
+        for sym in origine:
+            t = battues[sym]
+            chemins[sym] = t.get("sa")
+            px = t.get("cours")
+            if isinstance(px, (int, float)) and px > 0:
+                cotations[sym] = (px, (t.get("devise") or "").upper() or None)
+        print("[info] %d cotation(s) d'origine reprises à un certificat "
+              "américain (sur %d candidates)" % (len(origine), len(battues)))
 
     import glob as _glob
     lignes = []

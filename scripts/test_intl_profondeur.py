@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Le garde-fou de la profondeur des fiches internationales.
+
+Trois trous trouvés le 09/10/2026 sur la fiche de TotalEnergies, puis sur les
+plus grosses sociétés européennes — cinq exercices au lieu de vingt, des notes
+« non notée » ou « données partielles » :
+
+  [1] dans le cloud, aucun cache de change : les vingt exercices servis par
+      TradingView étaient jetés dès qu'il fallait convertir une devise
+      (TotalEnergies, Novartis, Unilever, ABB, Equinor… 1 536 sociétés) ;
+  [2] les banques, les assureurs et Sanofi ont un chiffre d'affaires de
+      définition différente chez les deux fournisseurs : refusés en bloc
+      (BNP +205 %, Intesa +106 %, Allianz +25 %, Sanofi −6,6 %) ;
+  [3] l'élection de la cotation d'origine donne la victoire au certificat
+      américain : Sanofi, ASML, SAP, AstraZeneca, HSBC, BP, UBS… sortaient de
+      la collecte ; Shell, Novo Nordisk, Rio Tinto, BBVA, Nokia n'y entraient
+      jamais.
+
+Tout est hors ligne : ni la BCE ni TradingView ne sont interrogés.
+
+    python3 test_intl_profondeur.py            les contrôles
+    python3 test_intl_profondeur.py --mutants  vérifie que les contrôles MORDENT
+"""
+
+import importlib.util
+import io
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
+
+ICI = os.path.dirname(os.path.abspath(__file__))
+echecs = []
+
+
+def v(ok, titre, detail=""):
+    print("  %s %s%s" % ("✓" if ok else "✗", titre, ("" if ok else " — " + detail)))
+    if not ok:
+        echecs.append(titre)
+    return ok
+
+
+def charger(dossier):
+    sys.path.insert(0, dossier)
+    for nom in ("change_bce", "fi"):
+        sys.modules.pop(nom, None)
+    sys.argv = [sys.argv[0]]
+    spec = importlib.util.spec_from_file_location(
+        "fi", os.path.join(dossier, "fetch_intl_fundamentals.py"))
+    fi = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fi)
+    import change_bce
+    return fi, change_bce
+
+
+# ── Les fixtures ──────────────────────────────────────────────────────────────
+
+def zip_bce():
+    """Un `eurofxref-hist.zip` miniature : cinq ans de jours ouvrés, taux fixes."""
+    import datetime as dt
+    lignes = ["Date,USD,JPY,GBP,CHF,"]
+    j = dt.date(2009, 1, 1)
+    while j <= dt.date(2013, 12, 31):
+        if j.weekday() < 5:
+            lignes.append("%s,1.25,125,0.5,N/A," % j.isoformat())
+        j += dt.timedelta(days=1)
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w") as z:
+        z.writestr("eurofxref-hist.csv", "\n".join(lignes))
+    return tampon.getvalue()
+
+
+def tv_fixture(devise="EUR", ca=(None, None), rn=(100.0, 90.0), actifs=(1000.0, 900.0)):
+    """Réponse TradingView : exercices 2011 (commun) et 2010 (à ajouter)."""
+    import calendar
+    import datetime as dt
+    fin = calendar.timegm(dt.date(2011, 12, 31).timetuple())
+    return {
+        "_symbole_tv": "EURONEXT:XXX", "description": "Xxx",
+        "fiscal_period_fy_h": ["2011", "2010"], "fiscal_period_end_fy": fin,
+        "currency": devise,
+        "total_revenue_fy_h": list(ca), "net_income_fy_h": list(rn),
+        "total_assets_fy_h": list(actifs),
+    }
+
+
+def sa_commun(ca, rn, actifs, n=1):
+    """Exercices de la source principale, 2011 et au-delà."""
+    return [{"annee": 2011 + i, "fin": "%d-12-31" % (2011 + i), "revenue": ca,
+             "net_income": rn, "assets": actifs} for i in range(n)]
+
+
+def controles(dossier):
+    fi, bce = charger(dossier)
+
+    print("\n[1] Le change ne dépend plus d'un cache que le cloud n'a pas")
+    s = bce.series_depuis_zip(zip_bce())
+    v(abs(s.get("EUR", {}).get("2010-06-01", 0) - 1.25) < 1e-9,
+      "EUR lu comme dollars par euro", str(s.get("EUR", {}).get("2010-06-01")))
+    v(abs(s.get("GBP", {}).get("2010-06-01", 0) - 2.5) < 1e-9,
+      "GBP = (dollars par euro) ÷ (livres par euro)", str(s.get("GBP", {}).get("2010-06-01")))
+    v("CHF" not in s, "une colonne N/A ne fabrique pas de devise", str(sorted(s)))
+    v(abs(s.get("SAR", {}).get("2010-06-01", 0) - 1 / 3.75) < 1e-9,
+      "le riyal arrimé au dollar est posé", str(s.get("SAR", {}).get("2010-06-01")))
+    bce._memo[0] = s
+    fusion = {"GBP": {"2010-06-01": 9.99}}
+    bce.completer(fusion)
+    v(fusion["GBP"] == {"2010-06-01": 9.99}, "une devise déjà en cache n'est pas écrasée")
+    v("EUR" in fusion, "une devise absente du cache est ajoutée")
+    # Le chemin réel : charger_fx dans un dossier de cache VIDE (le cloud).
+    vide = tempfile.mkdtemp()
+    ancien = fi.CACHE_DIR
+    try:
+        fi.CACHE_DIR = __import__("pathlib").Path(vide)
+        fx = fi.charger_fx()
+    finally:
+        fi.CACHE_DIR = ancien
+        shutil.rmtree(vide, ignore_errors=True)
+    v(bool(fx.get("EUR")), "charger_fx rend des taux sans aucun cache (cas du cloud)",
+      "devises : %s" % sorted(fx))
+    lignes, diag = fi.exercices_tradingview(
+        tv_fixture("EUR", ca=(500.0, 400.0)), "USD", fx, sa_commun(625.0, 125.0, 1250.0))
+    v(len(lignes) == 1 and abs((lignes[0].get("revenue") or 0) - 500.0) < 1e-6,
+      "TotalEnergies : un exercice en euros converti en dollars et ajouté",
+      "lignes=%s refus=%s" % (lignes, diag.get("refus")))
+
+    print("\n[2] Une banque prouve son identité par le résultat et le bilan")
+    # Chiffre d'affaires +200 % (intérêts bruts contre produit net bancaire),
+    # résultat net et total du bilan identiques sur trois exercices communs.
+    def banque(rn_sa, n=3, actifs_sa=1000.0):
+        tv = tv_fixture("EUR", ca=(300.0, 280.0, 260.0, 250.0),
+                        rn=(10.0, 10.0, 10.0, 9.0), actifs=(1000.0, 1000.0, 1000.0, 950.0))
+        tv["fiscal_period_fy_h"] = ["2013", "2012", "2011", "2010"]
+        import calendar
+        import datetime as dt
+        tv["fiscal_period_end_fy"] = calendar.timegm(dt.date(2013, 12, 31).timetuple())
+        sa = [{"annee": a, "fin": "%d-12-31" % a, "revenue": 100.0,
+               "net_income": rn_sa, "assets": actifs_sa} for a in (2013, 2012, 2011)][:n]
+        return fi.exercices_tradingview(tv, "EUR", {}, sa)
+    lignes, diag = banque(10.0)
+    v(len(lignes) >= 1 and not diag.get("refus"),
+      "BNP : chiffre d'affaires +200 % mais résultat et bilan concordants → accepté",
+      str(diag.get("refus")))
+    v(all(l.get("revenue") is None for l in lignes),
+      "le chiffre d'affaires de définition différente est ÉCARTÉ des lignes ajoutées",
+      str([l.get("revenue") for l in lignes]))
+    v(all(l.get("net_income") is not None for l in lignes),
+      "le résultat net des exercices anciens est gardé")
+    lignes, diag = banque(10.7)
+    v(not lignes and bool(diag.get("refus")),
+      "Santander : résultat net à 7 % → refusé (un seul accord ne suffit pas)")
+    lignes, diag = banque(10.0, actifs_sa=1200.0)
+    v(not lignes and bool(diag.get("refus")),
+      "résultat net concordant mais bilan à 17 % → refusé (les DEUX sont exigés)")
+    lignes, diag = banque(10.0, n=2)
+    v(not lignes and bool(diag.get("refus")),
+      "deux exercices communs seulement → refusé (trois exigés)")
+
+    print("\n[3] La cotation d'origine reprise à un certificat américain")
+    reponse = {
+        "EURONEXT:SAN": {"isin": "FR0000120578", "type": "stock", "Value.Traded": 1.5e8},
+        "XETR:APC": {"isin": "US0378331005", "type": "stock", "Value.Traded": 5e7},
+        "TSX:AAPL": {"isin": "CA03785Y1007", "type": "dr", "Value.Traded": 2e7},
+        "SIX:NOVN": {"isin": "CH0012005267", "type": "stock", "Value.Traded": 2.5e8},
+        "SIX:NOVNEE": {"isin": "CH0038459415", "type": "stock", "Value.Traded": 5.7e7},
+        "LSE:WPP": {"isin": "JE00B8KF9B49", "type": "stock", "Value.Traded": 3e7},
+    }
+    ancien_lot = fi._tv_lot
+    fi._tv_lot = lambda tickers, colonnes=None: {t: reponse[t] for t in tickers if t in reponse}
+    fi._TV_PLACES[0] = {"PA": "EURONEXT", "DE": "XETR", "TO": "TSX", "SW": "SIX",
+                        "L": "LSE", "F": "FWB"}
+    try:
+        r = fi.cotations_d_origine({"SAN.PA": "SNY", "APC.DE": "AAPL", "AAPL.TO": "AAPL",
+                                    "NOVN.SW": "NVS", "NOVNEE.SW": "NVS",
+                                    "WPP.L": "WPP", "XYZ.F": "XYZ"})
+    finally:
+        fi._tv_lot = ancien_lot
+        fi._TV_PLACES[0] = None
+    v("SAN.PA" in r, "Sanofi (ISIN FR, Paris) reprise", str(r))
+    v("APC.DE" not in r, "Apple à Francfort (ISIN US) écartée", str(r))
+    v("AAPL.TO" not in r, "certificat canadien d'Apple (type dr) écarté", str(r))
+    v("NOVN.SW" in r and "NOVNEE.SW" not in r,
+      "Novartis : une seule ligne, la plus échangée", str(r))
+    v("WPP.L" in r, "WPP (ISIN Jersey, Londres) reprise", str(r))
+    v("XYZ.F" not in r, "une place de reflet n'est jamais une cotation d'origine", str(r))
+
+
+# ── Les mutants : chaque correction retirée doit faire échouer un contrôle ────
+
+MUTANTS = [
+    ("change BCE débranché", "fetch_intl_fundamentals.py",
+     "        change_bce.completer(fusion, UA)\n", "        pass\n"),
+    ("le change écrase le cache", "change_bce.py",
+     "if not fusion.get(dev)", "if True"),
+    ("parités fixes oubliées", "change_bce.py",
+     "        if serie:\n            out[dev] = serie", "        pass"),
+    ("identité par le seul résultat net", "fetch_intl_fundamentals.py",
+     "                  and abs(med_ac) <= TV_ECART_RACCORD)", "                  )"),
+    ("identité sur un exercice commun", "fetch_intl_fundamentals.py",
+     "n_rn >= 3 and n_ac >= 3", "n_rn >= 1 and n_ac >= 1"),
+    ("chiffre d'affaires gardé chez les banques", "fetch_intl_fundamentals.py",
+     "        retenus = set()\n", "        pass\n"),
+    ("certificats acceptés", "fetch_intl_fundamentals.py",
+     'if v.get("type") != "stock":', 'if False:'),
+    ("ISIN non vérifié", "fetch_intl_fundamentals.py",
+     "if isin[:2] not in PAYS_DE_LA_PLACE", "if False and isin[:2] not in PAYS_DE_LA_PLACE"),
+    ("deux lignes par société", "fetch_intl_fundamentals.py",
+     "        groupe = candidats[sym]\n", "        groupe = sym\n"),
+]
+
+
+def mutants():
+    tues = 0
+    for nom, fichier, avant, apres in MUTANTS:
+        tmp = tempfile.mkdtemp()
+        try:
+            for f in ("fetch_intl_fundamentals.py", "change_bce.py", "fetch_stock_logos_tv.py",
+                      os.path.basename(__file__)):
+                if os.path.exists(os.path.join(ICI, f)):
+                    shutil.copy(os.path.join(ICI, f), tmp)
+            for f in os.listdir(ICI):
+                if f.endswith(".py") and not os.path.exists(os.path.join(tmp, f)):
+                    shutil.copy(os.path.join(ICI, f), tmp)
+            p = os.path.join(tmp, fichier)
+            src = open(p, encoding="utf-8").read()
+            if src.count(avant) != 1:
+                print("  ? %s — motif introuvable (%d occurrence(s))" % (nom, src.count(avant)))
+                continue
+            open(p, "w", encoding="utf-8").write(src.replace(avant, apres))
+            r = subprocess.run([sys.executable, os.path.join(tmp, os.path.basename(__file__))],
+                               capture_output=True, text=True, cwd=tmp)
+            tue = r.returncode != 0
+            tues += tue
+            print("  %s mutant « %s » %s" % ("✓" if tue else "✗", nom,
+                                              "tué" if tue else "SURVIT"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return tues, len(MUTANTS)
+
+
+if __name__ == "__main__":
+    if "--mutants" in sys.argv:
+        t, n = mutants()
+        print("\n%d/%d mutants tués" % (t, n))
+        sys.exit(0 if t == n else 1)
+    controles(ICI)
+    print("\n%s — %d échec(s)" % ("OK" if not echecs else "ÉCHEC", len(echecs)))
+    sys.exit(1 if echecs else 0)
