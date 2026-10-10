@@ -9,26 +9,26 @@
    "polymarket": {
     "id": "153719",
     "question": "Will Satoshi move any Bitcoin in 2026?",
-    "prob": 0.0315,
-    "volume": 5231207.825965999,
-    "liquidite": 63133.67225,
+    "prob": 0.0305,
+    "volume": 5231484.435137001,
+    "liquidite": 63518.78941,
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
    "kalshi": {
     "ticker": "KXSATOSHIBTCYEAR-27",
     "titre": "Will Satoshi move any Bitcoin by 2027?",
-    "mid": 0.035,
-    "bid": 0.03,
-    "ask": 0.04,
-    "volume": 477496.07
+    "mid": 0.045,
+    "bid": 0.04,
+    "ask": 0.05,
+    "volume": 481105.28
    },
    "mesures": {
-    "consensus_pondere_volume": 0.0318,
-    "ecart_points": 0.35,
+    "consensus_pondere_volume": 0.0317,
+    "ecart_points": 1.45,
     "sens": "Kalshi plus haut",
     "cout_execution_kalshi_points": 1.0,
-    "ecart_net_de_cout_points": -0.65,
-    "actionnable": false,
+    "ecart_net_de_cout_points": 0.45,
+    "actionnable": true,
     "avertissement_cout": "le coût d'exécution Polymarket n'est PAS mesuré (pas de carnet publié) : l'écart net est un PLAFOND, le gain réel est plus faible"
    }
   },
@@ -43,7 +43,7 @@
     "question": "How many Senators will vote for the Clarity Act?",
     "prob": 0.075,
     "volume": 135983.320462,
-    "liquidite": 71561.71665,
+    "liquidite": 75319.8402,
     "url": "https://polymarket.com/event/how-many-senators-will-vote-for-the-clarity-act-20260729193533306"
    },
    "kalshi": {
@@ -75,7 +75,7 @@
     "question": "US defaults on debt by 2027?",
     "prob": 0.0195,
     "volume": 18474.089978,
-    "liquidite": 1378.12953,
+    "liquidite": 1378.62957,
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
    "kalshi": {
@@ -95,6 +95,6 @@
   "paire « Fed 2026 : une hausse (Polymarket) contre un niveau (Kalshi) » : le marché Polymarket a disparu du cache (expiré, réglé ou renommé) — non agrégée",
   "paire « Taux hypothécaire 30 ans en 2026 (sens opposés) » : l'issue cotée sur Polymarket est passée de « ↑ 6.75% » (déclarée) à « ↑ 7.50% » — les deux contrats ne portent plus sur le même seuil, agrégation SUSPENDUE jusqu'à re-déclaration"
  ],
- "generated_at": "2026-10-10T13:49:14+00:00",
+ "generated_at": "2026-10-10T18:43:47+00:00",
  "paires_declarees": 6
 }
