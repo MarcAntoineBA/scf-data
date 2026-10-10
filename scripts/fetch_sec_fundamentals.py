@@ -3643,6 +3643,66 @@ def charger_cik():
     return out
 
 
+# ── LES CLASSES D'ACTIONS D'UN MÊME ÉMETTEUR ──────────────────────────────
+#
+# Le collecteur ne garde qu'UNE ligne par émetteur. Pour Berkshire Hathaway, il
+# garde l'action A (≈ 767 000 $) — mais la fiche qu'ouvrent le S&P 500 et la
+# recherche est l'action B (`BRK-B`), restée une entrée d'un ancien passage, sans
+# cours ni valorisation (relevé le 10/10/2026).
+#
+# Les statuts fixent le rapport : une action B porte 1/1 500 des droits
+# économiques d'une action A (10-K de Berkshire, « Class B common stock has the
+# economic rights of 1/1,500th of a Class A share »). La fiche de la classe soeur
+# est donc celle de la société, et toute grandeur PAR ACTION y est convertie par
+# ce rapport — cours compris : cours et bénéfice changeant d'échelle ensemble, le
+# P/E et tous les multiples restent ceux de la société.
+#
+# Clé : le CIK. Valeur : {symbole: droits économiques en actions de RÉFÉRENCE}.
+# Les deux écritures (point de la collecte de marché, tiret de Yahoo et du suivi)
+# sont toutes les deux posées : la page ouvre `BRK-B`.
+CLASSES_ACTIONS = {
+    "0001067983": {"BRK.A": 1.0, "BRK-A": 1.0, "BRK.B": 1 / 1500, "BRK-B": 1 / 1500},
+}
+_PAR_ACTION = ("eps_basic", "eps_diluted", "dps", "ca_par_action",
+               "fcf_par_action", "ocf_par_action")
+_NB_ACTIONS = ("shares_basic", "shares_diluted")
+
+
+def classes_soeurs(cik, sym):
+    """[(autre symbole, facteur)] : multiplier un montant par action de `sym` par
+    `facteur` le donne pour une action de `autre`."""
+    reg = CLASSES_ACTIONS.get(str(cik).zfill(10)) or {}
+    if sym not in reg:
+        return []
+    return [(a, droits / reg[sym]) for a, droits in sorted(reg.items()) if a != sym]
+
+
+def convertir_classe(lignes, facteur):
+    """Copie de lignes (exercices ou trimestres) aux grandeurs par action converties."""
+    out = []
+    for e in lignes or []:
+        e = dict(e)
+        for k in _PAR_ACTION:
+            if isinstance(e.get(k), (int, float)):
+                e[k] = e[k] * facteur
+        for k in _NB_ACTIONS:
+            if isinstance(e.get(k), (int, float)) and facteur:
+                e[k] = e[k] / facteur
+        out.append(e)
+    return out
+
+
+def resume_classe(r, sym, facteur):
+    """Le résumé d'une classe soeur : le cours suit le rapport de conversion."""
+    r = dict(r)
+    r["classe_de"] = sym
+    r["rapport_classe"] = facteur
+    if isinstance(r.get("cours_natif"), (int, float)):
+        r["cours_natif"] = r["cours_natif"] * facteur
+        r["cours_source"] = "converti de %s (rapport %s)" % (sym, round(facteur, 6))
+    return r
+
+
 # Cinq cent douze paquets, comme le jeu international. Le nombre n'est pas
 # arbitraire : c'est celui qui donnait des paquets réguliers là-bas, et les deux
 # collectes servent la même fiche.
@@ -4319,6 +4379,27 @@ def main():
                 r_idx[cle] = None
             r_idx["montants_marche"] = "ecartes"
             index[principal] = r_idx
+        # ── LES CLASSES SŒURS (Berkshire A → B) : voir `CLASSES_ACTIONS` ──
+        for autre, facteur in classes_soeurs(cik, sym):
+            if autre in tous_les_symboles:
+                continue          # collectée pour elle-même : on ne l'écrase pas
+            soeur = dict(detail)
+            soeur["symbole"] = autre
+            soeur["classe_de"] = sym
+            soeur["exercices"] = convertir_classe(detail.get("exercices"), facteur)
+            soeur["resume"] = resume_classe(detail["resume"], sym, facteur)
+            paquets.setdefault(_initiale(autre), {})[autre] = soeur
+            r_cl = resume_classe(r, sym, facteur)
+            if trims:
+                paquets_trim.setdefault(_initiale(autre), {})[autre] = {
+                    "symbole": autre, "classe_de": sym, "cik": cik,
+                    "devise": bati["resume"].get("devise"),
+                    "trimestres": convertir_classe(trims, facteur),
+                }
+            else:
+                r_cl["trim"] = None
+            index[autre] = r_cl
+            miroirs += 1
         ok += 1
         if i % 50 == 0:
             print(f"[info] {i}/{len(univers)} — {ok} société(s) construites")

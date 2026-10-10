@@ -269,6 +269,27 @@ def controles_secteurs(dossier):
 v_ = v
 
 
+def controles_classes(dossier):
+    sys.path.insert(0, dossier)
+    sys.modules.pop("fsec", None)
+    spec = importlib.util.spec_from_file_location("fsec", os.path.join(dossier, "fetch_sec_fundamentals.py"))
+    fs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fs)
+
+    print("\n[7] Berkshire : la fiche de l'action B est celle de la société, à l'échelle B")
+    soeurs = dict(fs.classes_soeurs("1067983", "BRK.A"))
+    v(abs(soeurs.get("BRK-B", 0) - 1 / 1500) < 1e-12, "BRK.A → BRK-B au rapport 1/1 500", str(soeurs))
+    v("BRK.A" not in soeurs, "une classe n'est pas sa propre sœur")
+    v(fs.classes_soeurs("320193", "AAPL") == [], "une société à classe unique n'a pas de sœur")
+    ex = fs.convertir_classe([{"eps_diluted": 1500.0, "shares_diluted": 1000.0, "net_income": 9.0}], 1 / 1500)
+    v(abs(ex[0]["eps_diluted"] - 1.0) < 1e-9 and abs(ex[0]["shares_diluted"] - 1.5e6) < 1e-3,
+      "BPA ÷ 1 500, nombre d'actions × 1 500", str(ex))
+    v(ex[0]["net_income"] == 9.0, "les montants de la société ne changent pas")
+    r = fs.resume_classe({"cours_natif": 750000.0}, "BRK.A", 1 / 1500)
+    v(abs(r["cours_natif"] - 500.0) < 1e-6 and r["classe_de"] == "BRK.A",
+      "le cours suit le rapport (P/E inchangé)", str(r))
+
+
 # ── Les mutants : chaque correction retirée doit faire échouer un contrôle ────
 
 MUTANTS = [
@@ -304,6 +325,10 @@ MUTANTS = [
      "        _v = avec_secteur(lignes[k])\n", "        _v = lignes[k]\n"),
     ("table SIC amputée", "fetch_secteurs_mondiaux.py",
      '    "Bottled and Canned Soft Drinks and Carbonated Waters": "Consumer Staples",\n', ""),
+    ("nombre d'actions non converti", "fetch_sec_fundamentals.py",
+     "                e[k] = e[k] / facteur", "                pass"),
+    ("cours de la sœur non converti", "fetch_sec_fundamentals.py",
+     '        r["cours_natif"] = r["cours_natif"] * facteur', '        pass'),
     ("devise non contrôlée", "corrections_sources.py",
      'if _devise(tv.get("currency")) != devise:', 'if False:'),
 ]
@@ -347,5 +372,6 @@ if __name__ == "__main__":
     controles_ing(ICI)
     controles_impossibles(ICI)
     controles_secteurs(ICI)
+    controles_classes(ICI)
     print("\n%s — %d échec(s)" % ("OK" if not echecs else "ÉCHEC", len(echecs)))
     sys.exit(1 if echecs else 0)
