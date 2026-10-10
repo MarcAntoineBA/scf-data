@@ -46,7 +46,15 @@ import statistics
 from datetime import datetime, timezone
 
 RACINE = os.path.dirname(os.path.abspath(__file__))
-CACHE = os.environ.get("SCF_CACHE", RACINE)
+# ⚠ DANS LE CLOUD, LE DOSSIER DES CACHES — PAS CELUI DU SCRIPT. Sur le Mac, ce script
+# écrit à la racine du site, d'où le déploiement publie. Sur le serveur de collecte,
+# la publication ne lit QUE `~/Library/Caches/site_crypto_finance`, et le dossier du
+# script porte des copies de fragments versionnées le 05/09/2026 : chaque nuit, le
+# passage refusait (« fragments vieux de 1 027 h ») et, eût-il réussi, son résultat
+# n'aurait jamais été publié. GitHub signale ses machines par `GITHUB_ACTIONS`.
+_CACHE_CLOUD = os.path.expanduser("~/Library/Caches/site_crypto_finance")
+CACHE = os.environ.get("SCF_CACHE") or (
+    _CACHE_CLOUD if os.environ.get("GITHUB_ACTIONS") == "true" else RACINE)
 
 # Combien de societes retenues. Le chiffre est un choix editorial, pas une
 # limite technique : la couverture reste bonne jusqu'a cinq mille.
@@ -237,6 +245,28 @@ SIC_VERS_GICS = {
     "Orthopedic, Prosthetic, and Surgical Appliances and Supplies": "Healthcare",
     "Drugs, Drug Proprietaries, and Druggists' Sundries": "Healthcare",
 }
+
+# ── LE MÉTIER, LUI AUSSI TRADUIT (02/10/2026, accord de MA) ──────────────────
+# La table ci-dessus ne traduisait le SIC qu'en SECTEUR. Le métier gardait le
+# libellé SIC de la cotation retenue : depuis que la source a retiré la place OTC
+# (30/09), huit sociétés cotées seulement sous ce libellé formaient deux faux
+# métiers, « Electric Services » et « Radiotelephone Communications », sans indice
+# ni historique, doublons de « Utilities - Regulated Electric » et de « Telecom
+# Services ». On ne traduit que les libellés observés et SANS AMBIGUÏTÉ (SIC 4911,
+# 4812) : on transcrit, on ne devine pas. Les mêmes noms servent au comparateur
+# (fetch_comparateur.construire_univers) et à l'historique des métiers
+# (fetch_metiers_historique.charger_marche) : une seule table, ici.
+SIC_VERS_METIER = {
+    "Electric Services": "Utilities - Regulated Electric",
+    "Radiotelephone Communications": "Telecom Services",
+}
+
+
+def metier_de(ind):
+    """Le métier d'une cotation : son libellé, ou sa traduction s'il est en SIC."""
+    if not ind:
+        return ind
+    return SIC_VERS_METIER.get(ind.strip(), ind)
 
 
 SECTEURS_FR = {
@@ -781,6 +811,7 @@ def main():
             n_sans_secteur += 1
             sec = "Non classe"
         par_secteur[sec].append(t)
+        ind = metier_de(ind)     # APRÈS le secteur, qui se lit sur le libellé SIC brut
         if ind:
             par_industrie[ind].append(t)
             secteur_des_industries[ind][sec] += 1

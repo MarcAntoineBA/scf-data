@@ -461,7 +461,16 @@ def prepare_env(attendus=()):
             # collecteurs repartiraient de zéro à chaque exécution — en perdant
             # l'historique qu'ils accumulent, sans que rien ne le signale.
             jumeau = os.path.join(SCRIPTS, name)
-            if not os.path.exists(jumeau):
+            # ⚠ LA COPIE PUBLIÉE GAGNE SUR UNE COPIE VERSIONNÉE PÉRIMÉE.
+            # Le 05/09/2026, 1 309 fichiers de données ont été versionnés par erreur
+            # dans `scripts/` (marche_NN, univers_NN, intl_detail_NNN, medianes_ind_NN…)
+            # et n'en ont plus bougé. « Seulement s'il manque » les gardait donc à
+            # jamais : `fetch_secteurs_mondiaux` lisait des fragments de marché du
+            # 05/09 et refusait chaque nuit de publier (« vieux de 1 027 h »). La copie
+            # de `cache/` est la dernière publication : elle passe devant. Les
+            # registres de l'orchestrateur (`_ecrits_*`, `_fleet_status_*`…) ne sont
+            # pas des données de collecteur : on n'y touche pas.
+            if not os.path.exists(jumeau) or not name.startswith("_"):
                 shutil.copy2(src, jumeau)
     return restored, repris, redates
 
