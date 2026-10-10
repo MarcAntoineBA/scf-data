@@ -1,25 +1,23 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-10T00:19:30Z",
+  "ts": "2026-10-10T08:20:41Z",
   "total": 33,
-  "ok": 31,
-  "secs": 3525.7,
-  "changed": 87,
+  "ok": 32,
+  "secs": 3783.6,
+  "changed": 85,
   "versionnes": 75,
-  "pieces_jointes": 12,
+  "pieces_jointes": 10,
   "absents": 37,
-  "muets": [],
+  "muets": [
+   "tradfi-growth (12.5 h)"
+  ],
   "failed": [
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=36 kept=24 fail=15 (tentes=75)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne "
    }
   ]
  },
- "updated": "2026-10-10T00:19:30Z"
+ "updated": "2026-10-10T08:20:41Z"
 }
