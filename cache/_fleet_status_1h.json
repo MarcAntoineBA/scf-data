@@ -1,19 +1,23 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-10-09T21:03:29Z",
+  "ts": "2026-10-10T01:01:58Z",
   "total": 26,
-  "ok": 26,
-  "secs": 520.5,
-  "changed": 41,
-  "versionnes": 28,
-  "pieces_jointes": 13,
+  "ok": 25,
+  "secs": 655.4,
+  "changed": 43,
+  "versionnes": 31,
+  "pieces_jointes": 12,
   "absents": 37,
   "muets": [
-   "crypto-pe-hist (4.7 h)",
-   "cryptoytd (4.7 h)"
+   "l1valuation (4.0 h)"
   ],
-  "failed": []
+  "failed": [
+   {
+    "job": "tradficycle",
+    "why": "[tradfi-cycle] FATAL sanity: comm_real perimee : dernier point il y a 70 jours (1363 pts) - serie mensuelle qui n avance plus — cache NON écrit"
+   }
+  ]
  },
- "updated": "2026-10-09T21:03:29Z"
+ "updated": "2026-10-10T01:01:58Z"
 }
