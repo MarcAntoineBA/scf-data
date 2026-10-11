@@ -1,25 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-11T15:20:31Z",
+  "ts": "2026-10-11T23:21:53Z",
   "total": 33,
-  "ok": 31,
-  "secs": 3974.2,
-  "changed": 83,
-  "versionnes": 75,
-  "pieces_jointes": 8,
+  "ok": 32,
+  "secs": 4162.6,
+  "changed": 86,
+  "versionnes": 76,
+  "pieces_jointes": 10,
   "absents": 37,
   "muets": [],
   "failed": [
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=12 (tentes=12) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-10 00:18', donnees du 2026-09-11 ; causes : macrotrends : 1 x HTTP 403 et AUCUNE r"
    }
   ]
  },
- "updated": "2026-10-11T15:20:31Z"
+ "updated": "2026-10-11T23:21:53Z"
 }
