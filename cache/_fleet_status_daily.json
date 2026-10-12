@@ -1,22 +1,18 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-10-11T12:31:42Z",
+  "ts": "2026-10-12T13:57:56Z",
   "total": 42,
-  "ok": 37,
-  "secs": 5343.1,
-  "changed": 3463,
-  "versionnes": 3454,
-  "pieces_jointes": 9,
+  "ok": 38,
+  "secs": 4966.4,
+  "changed": 2949,
+  "versionnes": 2941,
+  "pieces_jointes": 8,
   "absents": 41,
   "muets": [
-   "gtrends.serpapi (361.7 h)"
+   "gtrends.serpapi (387.1 h)"
   ],
   "failed": [
-   {
-    "job": "atlasbudget",
-    "why": "dépassement du plafond (70 min)"
-   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -35,5 +31,5 @@
    }
   ]
  },
- "updated": "2026-10-11T12:31:42Z"
+ "updated": "2026-10-12T13:57:56Z"
 }
