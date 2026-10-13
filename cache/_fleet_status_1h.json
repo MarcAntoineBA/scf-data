@@ -1,25 +1,21 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-10-13T17:51:43Z",
+  "ts": "2026-10-13T19:26:45Z",
   "total": 26,
-  "ok": 24,
-  "secs": 583.5,
-  "changed": 43,
-  "versionnes": 31,
-  "pieces_jointes": 12,
+  "ok": 25,
+  "secs": 627.7,
+  "changed": 39,
+  "versionnes": 26,
+  "pieces_jointes": 13,
   "absents": 37,
   "muets": [],
   "failed": [
-   {
-    "job": "l1valuation",
-    "why": "[L1] REFUS d'écrire : 0/15 tokens avec MCap (cache précédent : 15) — source muette ou plafond d'appels atteint. Le cache précédent est conservé."
-   },
    {
     "job": "tradficycle",
     "why": "[tradfi-cycle] FATAL sanity: comm_real perimee : dernier point il y a 74 jours (1363 pts) - serie mensuelle qui n avance plus — cache NON écrit"
    }
   ]
  },
- "updated": "2026-10-13T17:51:43Z"
+ "updated": "2026-10-13T19:26:45Z"
 }
