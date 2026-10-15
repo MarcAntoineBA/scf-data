@@ -1,25 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-15T18:56:13Z",
+  "ts": "2026-10-15T23:31:37Z",
   "total": 33,
-  "ok": 31,
-  "secs": 3956.0,
-  "changed": 83,
-  "versionnes": 75,
-  "pieces_jointes": 8,
+  "ok": 32,
+  "secs": 3740.4,
+  "changed": 86,
+  "versionnes": 76,
+  "pieces_jointes": 10,
   "absents": 38,
   "muets": [],
   "failed": [
-   {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
-   },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    }
   ]
  },
- "updated": "2026-10-15T18:56:13Z"
+ "updated": "2026-10-15T23:31:37Z"
 }
