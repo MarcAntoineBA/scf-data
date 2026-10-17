@@ -1,12 +1,12 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-17T06:57:19Z",
+  "ts": "2026-10-17T12:58:15Z",
   "total": 33,
-  "ok": 31,
-  "secs": 4540.5,
-  "changed": 84,
-  "versionnes": 76,
+  "ok": 30,
+  "secs": 4574.7,
+  "changed": 83,
+  "versionnes": 75,
   "pieces_jointes": 8,
   "absents": 39,
   "muets": [],
@@ -18,8 +18,12 @@
    {
     "job": "hydrocarbures",
     "why": "dépassement du plafond (75 min)"
+   },
+   {
+    "job": "tradfihist",
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-16 13:43', donnees du 2026-09-11 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
    }
   ]
  },
- "updated": "2026-10-17T06:57:19Z"
+ "updated": "2026-10-17T12:58:15Z"
 }
