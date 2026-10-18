@@ -1,21 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-18T13:20:06Z",
+  "ts": "2026-10-18T17:53:13Z",
   "total": 33,
-  "ok": 32,
-  "secs": 4325.2,
-  "changed": 86,
-  "versionnes": 76,
-  "pieces_jointes": 10,
-  "absents": 38,
+  "ok": 31,
+  "secs": 4539.9,
+  "changed": 84,
+  "versionnes": 75,
+  "pieces_jointes": 9,
+  "absents": 39,
   "muets": [],
   "failed": [
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
+   },
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
    }
   ]
  },
- "updated": "2026-10-18T13:20:06Z"
+ "updated": "2026-10-18T17:53:13Z"
 }
