@@ -1,18 +1,22 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-10-17T10:00:28Z",
+  "ts": "2026-10-18T10:02:28Z",
   "total": 42,
-  "ok": 38,
-  "secs": 4038.3,
-  "changed": 3461,
-  "versionnes": 3452,
-  "pieces_jointes": 9,
+  "ok": 37,
+  "secs": 3329.5,
+  "changed": 2947,
+  "versionnes": 2939,
+  "pieces_jointes": 8,
   "absents": 41,
   "muets": [
-   "gtrends.serpapi (92.8 h)"
+   "gtrends.serpapi (116.8 h)"
   ],
   "failed": [
+   {
+    "job": "atlaseco",
+    "why": "[GUARD] audit interne en échec — cache précédent conservé"
+   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -31,5 +35,5 @@
    }
   ]
  },
- "updated": "2026-10-17T10:00:28Z"
+ "updated": "2026-10-18T10:02:28Z"
 }
