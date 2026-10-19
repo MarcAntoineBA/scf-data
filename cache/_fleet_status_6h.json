@@ -1,13 +1,13 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-19T06:15:38Z",
+  "ts": "2026-10-19T07:51:16Z",
   "total": 33,
-  "ok": 31,
-  "secs": 4535.3,
+  "ok": 30,
+  "secs": 5464.1,
   "changed": 84,
-  "versionnes": 76,
-  "pieces_jointes": 8,
+  "versionnes": 75,
+  "pieces_jointes": 9,
   "absents": 39,
   "muets": [],
   "failed": [
@@ -18,8 +18,12 @@
    {
     "job": "hydrocarbures",
     "why": "dépassement du plafond (75 min)"
+   },
+   {
+    "job": "tradfihist",
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=317 kept=172 fail=15 (tentes=504)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandon"
    }
   ]
  },
- "updated": "2026-10-19T06:15:38Z"
+ "updated": "2026-10-19T07:51:16Z"
 }
