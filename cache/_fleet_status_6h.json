@@ -1,19 +1,19 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-20T19:07:56Z",
+  "ts": "2026-10-20T23:28:11Z",
   "total": 33,
   "ok": 30,
-  "secs": 3927.6,
-  "changed": 81,
+  "secs": 3805.3,
+  "changed": 82,
   "versionnes": 75,
-  "pieces_jointes": 6,
+  "pieces_jointes": 7,
   "absents": 38,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+    "why": "AssertionError: escales mondiales/j trop basses"
    },
    {
     "job": "reservesorust",
@@ -21,9 +21,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=11 (tentes=11) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06', donnees du 2026-09-11 ; causes : macrotrends : 1 x HTTP 403 et AUCUNE r"
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06', donnees du 2026-09-11 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
    }
   ]
  },
- "updated": "2026-10-20T19:07:56Z"
+ "updated": "2026-10-20T23:28:11Z"
 }
