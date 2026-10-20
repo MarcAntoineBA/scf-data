@@ -1,21 +1,33 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-20T07:19:30Z",
+  "ts": "2026-10-20T14:06:58Z",
   "total": 33,
-  "ok": 32,
-  "secs": 4203.5,
-  "changed": 85,
-  "versionnes": 75,
-  "pieces_jointes": 10,
-  "absents": 38,
+  "ok": 29,
+  "secs": 4699.0,
+  "changed": 83,
+  "versionnes": 76,
+  "pieces_jointes": 7,
+  "absents": 39,
   "muets": [],
   "failed": [
    {
+    "job": "atlasmaritime",
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+   },
+   {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
+   },
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   },
+   {
+    "job": "tradfihist",
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=18 kept=42 fail=15 (tentes=75)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne "
    }
   ]
  },
- "updated": "2026-10-20T07:19:30Z"
+ "updated": "2026-10-20T14:06:58Z"
 }
