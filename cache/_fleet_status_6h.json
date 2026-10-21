@@ -1,14 +1,14 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-21T14:12:00Z",
+  "ts": "2026-10-21T18:35:05Z",
   "total": 33,
-  "ok": 30,
-  "secs": 4272.9,
-  "changed": 82,
-  "versionnes": 75,
-  "pieces_jointes": 7,
-  "absents": 38,
+  "ok": 24,
+  "secs": 1604.6,
+  "changed": 65,
+  "versionnes": 59,
+  "pieces_jointes": 6,
+  "absents": 39,
   "muets": [],
   "failed": [
    {
@@ -20,10 +20,34 @@
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
-    "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06', donnees du 2026-09-11 ; causes : macrotrends : 2 x HTTP 403 et AUCUNE r"
+    "job": "hydrocarbures",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "sentiment.fng",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "techdebt",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "these_bitcoin.refresh",
+    "why": "[FATAL] Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "these_dette.refresh",
+    "why": "[FATAL] build_payload crashed: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "these_energie.refresh",
+    "why": "[FATAL] Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "these_stagnation.refresh",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
    }
   ]
  },
- "updated": "2026-10-21T14:12:00Z"
+ "updated": "2026-10-21T18:35:05Z"
 }
