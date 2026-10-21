@@ -1,23 +1,40 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-10-21T14:01:38Z",
+  "ts": "2026-10-21T18:49:20Z",
   "total": 26,
-  "ok": 25,
-  "secs": 851.1,
-  "changed": 44,
-  "versionnes": 31,
-  "pieces_jointes": 13,
+  "ok": 21,
+  "secs": 658.9,
+  "changed": 36,
+  "versionnes": 24,
+  "pieces_jointes": 12,
   "absents": 37,
   "muets": [
-   "crypto-pe-hist (6.2 h)"
+   "cryptoytd (4.8 h)",
+   "macro-corr (4.8 h)"
   ],
   "failed": [
    {
-    "job": "cryptoetf",
-    "why": "[main][ERR] aucun fetch OK, on conserve l'ancien cache si dispo"
+    "job": "atlasdebt",
+    "why": "[ABORT] 0 pays (< 10) — sources probablement en panne (FRED/OCDE/TE). Cache existant CONSERVÉ, aucune écriture."
+   },
+   {
+    "job": "energymacro",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "fredstress.refresh",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "macrofred.refresh",
+    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "tradficycle",
+    "why": "[tradfi-cycle] FATAL build: min() iterable argument is empty"
    }
   ]
  },
- "updated": "2026-10-21T14:01:38Z"
+ "updated": "2026-10-21T18:49:20Z"
 }
