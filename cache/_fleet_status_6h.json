@@ -1,20 +1,16 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-21T18:35:05Z",
+  "ts": "2026-10-21T22:56:24Z",
   "total": 33,
   "ok": 24,
-  "secs": 1604.6,
-  "changed": 65,
-  "versionnes": 59,
-  "pieces_jointes": 6,
+  "secs": 1668.3,
+  "changed": 67,
+  "versionnes": 60,
+  "pieces_jointes": 7,
   "absents": 39,
   "muets": [],
   "failed": [
-   {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
-   },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
@@ -46,8 +42,12 @@
    {
     "job": "these_stagnation.refresh",
     "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+   },
+   {
+    "job": "tradfihist",
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06' ; causes : macrotrends : 2 x HTTP 403 et AUCUNE reponse 200 sur ce passa"
    }
   ]
  },
- "updated": "2026-10-21T18:35:05Z"
+ "updated": "2026-10-21T22:56:24Z"
 }
