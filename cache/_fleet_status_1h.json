@@ -1,40 +1,27 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-10-22T01:41:42Z",
+  "ts": "2026-10-22T07:45:37Z",
   "total": 26,
-  "ok": 21,
-  "secs": 635.3,
-  "changed": 36,
-  "versionnes": 24,
-  "pieces_jointes": 12,
+  "ok": 24,
+  "secs": 697.1,
+  "changed": 39,
+  "versionnes": 32,
+  "pieces_jointes": 7,
   "absents": 37,
   "muets": [
-   "cryptoytd (3.2 h)",
-   "macro-corr (3.2 h)"
+   "crypto-pe-hist (6.1 h)"
   ],
   "failed": [
    {
-    "job": "atlasdebt",
-    "why": "[ABORT] 0 pays (< 10) — sources probablement en panne (FRED/OCDE/TE). Cache existant CONSERVÉ, aucune écriture."
+    "job": "kalshi",
+    "why": "urllib.error.HTTPError: HTTP Error 503: Service Unavailable"
    },
    {
-    "job": "energymacro",
-    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
-   },
-   {
-    "job": "fredstress.refresh",
-    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
-   },
-   {
-    "job": "macrofred.refresh",
-    "why": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
-   },
-   {
-    "job": "tradficycle",
-    "why": "[tradfi-cycle] FATAL build: min() iterable argument is empty"
+    "job": "l1valuation",
+    "why": "[L1] REFUS d'écrire : 0/15 tokens avec MCap (cache précédent : 15) — source muette ou plafond d'appels atteint. Le cache précédent est conservé."
    }
   ]
  },
- "updated": "2026-10-22T01:41:42Z"
+ "updated": "2026-10-22T07:45:37Z"
 }
