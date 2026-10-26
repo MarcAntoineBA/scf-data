@@ -1,21 +1,16 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-10-26T13:13:12Z",
+  "ts": "2026-10-26T19:29:41Z",
   "total": 26,
-  "ok": 25,
-  "secs": 804.0,
-  "changed": 45,
-  "versionnes": 33,
-  "pieces_jointes": 12,
+  "ok": 26,
+  "secs": 644.8,
+  "changed": 47,
+  "versionnes": 34,
+  "pieces_jointes": 13,
   "absents": 37,
   "muets": [],
-  "failed": [
-   {
-    "job": "l1valuation",
-    "why": "[L1] REFUS d'écrire : 0/15 tokens avec MCap (cache précédent : 15) — source muette ou plafond d'appels atteint. Le cache précédent est conservé."
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-10-26T13:13:12Z"
+ "updated": "2026-10-26T19:29:41Z"
 }
