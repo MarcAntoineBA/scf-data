@@ -1,16 +1,20 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-27T07:36:00Z",
+  "ts": "2026-10-27T14:35:39Z",
   "total": 33,
-  "ok": 31,
-  "secs": 4224.8,
-  "changed": 85,
-  "versionnes": 76,
-  "pieces_jointes": 9,
+  "ok": 30,
+  "secs": 4348.5,
+  "changed": 83,
+  "versionnes": 75,
+  "pieces_jointes": 8,
   "absents": 38,
   "muets": [],
   "failed": [
+   {
+    "job": "atlasmaritime",
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
+   },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
@@ -21,5 +25,5 @@
    }
   ]
  },
- "updated": "2026-10-27T07:36:00Z"
+ "updated": "2026-10-27T14:35:39Z"
 }
