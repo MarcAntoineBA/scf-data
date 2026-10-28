@@ -1,29 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-27T14:35:39Z",
+  "ts": "2026-10-28T00:10:34Z",
   "total": 33,
-  "ok": 30,
-  "secs": 4348.5,
-  "changed": 83,
-  "versionnes": 75,
+  "ok": 31,
+  "secs": 4109.5,
+  "changed": 84,
+  "versionnes": 76,
   "pieces_jointes": 8,
   "absents": 38,
   "muets": [],
   "failed": [
-   {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
-   },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=15 (tentes=15) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06' ; causes : macrotrends : 2 x HTTP 403 et AUCUNE reponse 200 sur ce passa"
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=0 fail=11 (tentes=11) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-20 14:06' ; causes : macrotrends : 1 x HTTP 403 et AUCUNE reponse 200 sur ce passa"
    }
   ]
  },
- "updated": "2026-10-27T14:35:39Z"
+ "updated": "2026-10-28T00:10:34Z"
 }
