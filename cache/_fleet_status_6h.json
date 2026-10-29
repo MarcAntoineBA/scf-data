@@ -1,29 +1,33 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-29T15:33:53Z",
+  "ts": "2026-10-29T23:19:30Z",
   "total": 33,
-  "ok": 30,
-  "secs": 3862.6,
-  "changed": 83,
-  "versionnes": 75,
-  "pieces_jointes": 8,
-  "absents": 39,
+  "ok": 29,
+  "secs": 5084.9,
+  "changed": 82,
+  "versionnes": 76,
+  "pieces_jointes": 6,
+  "absents": 40,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
    },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   },
+   {
     "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=12 kept=3 fail=6 (tentes=21)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne po"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=193 kept=97 fail=9 (tentes=299)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne"
    }
   ]
  },
- "updated": "2026-10-29T15:33:53Z"
+ "updated": "2026-10-29T23:19:30Z"
 }
