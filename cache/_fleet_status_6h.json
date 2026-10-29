@@ -1,29 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-29T00:38:10Z",
+  "ts": "2026-10-29T08:29:32Z",
   "total": 33,
-  "ok": 30,
-  "secs": 4627.2,
+  "ok": 31,
+  "secs": 4431.1,
   "changed": 84,
-  "versionnes": 75,
-  "pieces_jointes": 9,
+  "versionnes": 76,
+  "pieces_jointes": 8,
   "absents": 39,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : HTTP Error 504: Gateway Timeout"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Cannot perform query. Invalid query parameters.', 'details': ['Unable to perform query. Please check your parameter"
    },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=188 kept=33 fail=7 (tentes=228)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne"
    }
   ]
  },
- "updated": "2026-10-29T00:38:10Z"
+ "updated": "2026-10-29T08:29:32Z"
 }
