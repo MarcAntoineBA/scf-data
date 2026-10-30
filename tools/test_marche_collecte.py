@@ -175,7 +175,7 @@ SOURCE = {
 }
 
 
-def passage_complet():
+def passage_complet(bulk=None):
     """Rend (fragments publiés {symbole: ligne}, index) d'un main() hors ligne."""
     reel = {n: getattr(fma, n) for n in ("CACHE_DIR", "OUT_DIR", "PAYS", "bulk", "taux_bce")}
     reel_yahoo = getattr(fma, "taux_yahoo", None)
@@ -185,7 +185,7 @@ def passage_complet():
                                   {"sa": "bcba/CVHD", "yahoo": "CVHD.BA"}]}, h)
         fma.CACHE_DIR = fma.OUT_DIR = Path(d)
         fma.PAYS = ["AR"]
-        fma.bulk = lambda champs, pays=None: SOURCE.get(pays, {})
+        fma.bulk = bulk or (lambda champs, pays=None: SOURCE.get(pays, {}))
         fma.taux_bce = lambda: {"EUR": 1.17}
         fma.taux_yahoo = lambda devises: {}
         try:
@@ -206,7 +206,79 @@ def passage_complet():
     return publies, index
 
 
+def rates_passagers():
+    """Le 29/10/2026 : une collecte refusée pour un raté passager restait refusée un
+    jour entier. Un pays muet se redemande ; une collecte refusée se rejoue une fois."""
+    if not hasattr(fma, "lancer") or not hasattr(fma, "CollecteRefusee"):
+        verifie("le collecteur rejoue une collecte refusée (lancer)", False, True)
+        return
+    # 1. Un pays muet au premier appel, qui répond au deuxième.
+    appels = {"n": 0}
+    vrai_bulk = lambda champs, pays=None: SOURCE.get(pays, {})
+
+    def hoquet(champs, pays=None):
+        if pays == "AR":
+            appels["n"] += 1
+            if appels["n"] == 1:
+                return {}
+        return vrai_bulk(champs, pays)
+    reel = fma.RELANCES_MUETS
+    fma.RELANCES_MUETS = (0, 0)
+    try:
+        _, index = passage_complet(bulk=hoquet)
+    finally:
+        fma.RELANCES_MUETS = reel
+    ex = index.get("exhaustivite") or {}
+    verifie("pays muet au 1er appel, redemandé : plus muet", ex.get("pays_muets"), [])
+    verifie("  → ses lignes sont collectées", ex.get("lignes_brutes"), 3)
+    verifie("  → redemandé une seule fois", appels["n"], 2)
+
+    # 2. Le refus est reconnaissable, et reste un SystemExit (code de sortie inchangé).
+    try:
+        fma._refuser_effondrement(35867, 32270, [], 86, 75606, 75000)
+        quoi = "publié"
+    except fma.CollecteRefusee:
+        quoi = "CollecteRefusee"
+    except SystemExit:
+        quoi = "SystemExit ordinaire"
+    verifie("le 29/10 (−10 % de publiées) : refus reconnaissable", quoi, "CollecteRefusee")
+    verifie("  → toujours un SystemExit", issubclass(fma.CollecteRefusee, SystemExit), True)
+
+    # 3. lancer() rejoue une collecte refusée, une seule fois, et rien d'autre.
+    reel_main = fma.main
+
+    def scenario(issues):
+        n = {"n": 0}
+
+        def faux():
+            i = issues[min(n["n"], len(issues) - 1)]
+            n["n"] += 1
+            if i == "refus":
+                raise fma.CollecteRefusee("[fatal] amputée")
+            if i == "univers":
+                raise SystemExit(2)
+            return 0
+        fma.main = faux
+        try:
+            import contextlib, io
+            with contextlib.redirect_stderr(io.StringIO()):
+                r = fma.lancer(pause=0)
+        except fma.CollecteRefusee:
+            r = "refusée"
+        except SystemExit as e:
+            r = "sortie %s" % e.code
+        finally:
+            fma.main = reel_main
+        return r, n["n"]
+    verifie("refusée puis saine : publiée à la 2e tentative", scenario(["refus", "ok"]), (0, 2))
+    verifie("refusée deux fois : refusée (pas de 3e)", scenario(["refus", "refus", "ok"]), ("refusée", 2))
+    verifie("univers absent : PAS rejoué", scenario(["univers", "ok"]), ("sortie 2", 1))
+
+
 def main():
+    print("LES RATÉS PASSAGERS — 29/10/2026, une collecte refusée restait figée un jour")
+    rates_passagers()
+    print()
     print("LES CAPITALISATIONS — une devise qu'on ne peut plus mesurer")
     publies, index = passage_complet()
     verifie("Cablevisión (pesos lus en dollars) : non publiée", "CVHD.BA" in publies, False)

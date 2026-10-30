@@ -1006,6 +1006,13 @@ def perfs_membres(rows, cours, niveau, cal_fin=None):
         kf = dernier_au_plus_tard(dates, fin_d)
         if kf is None or (date.fromisoformat(fin_d) - date.fromisoformat(dates[kf])).days > REPORT_MAX:
             continue
+        # La séance (30/10/2026, carte du marché « 1 jour ») : la dernière séance de
+        # l'INDICE face à la précédente du titre. Un titre qui n'a pas coté ce jour-là
+        # (suspendu, place fermée) n'a pas de variation du jour : pas de report ici,
+        # sa variation d'avant-hier passerait pour celle du jour.
+        if dates[kf] == fin_d and kf >= 1 and s[kf - 1][1] and \
+                (date.fromisoformat(dates[kf]) - date.fromisoformat(dates[kf - 1])).days <= REPORT_MAX:
+            r["p"]["1j"] = 100 * (s[kf][1] / s[kf - 1][1] - 1)
         for f in FEN_MEMBRES:
             ref = refs.get(f)
             if not ref:
@@ -1930,7 +1937,10 @@ LIGNE = ["sym", "chemin", "nom", "secteur", "industrie", "pays", "poids", "capi_
          "p1s", "p1m", "p3m", "p6m", "pytd", "p1a", "p2a", "p3a", "p5a",
          "ath_ecart", "ath_date", "haut1a_ecart", "mm50", "mm200", "rsi",
          "c1m", "c3m", "c6m", "cytd", "c1a", "c2a", "potentiel",
-         "ch1m", "chYTD", "ch1y", "ch3y", "ch5y", "c_ytd", "c_1a"]
+         "ch1m", "chYTD", "ch1y", "ch3y", "ch5y", "c_ytd", "c_1a",
+         # en DERNIER : la page lit les colonnes par leur nom (`champs`), et une
+         # page encore en cache ne doit rien voir bouger.
+         "p1j"]
 
 
 def ligne_fiche(r, fx):
@@ -1953,7 +1963,7 @@ def ligne_fiche(r, fx):
             rd(v.get("priceTargetChange"), 1),
             rd(p.get("1m", v.get("ch1m")), 1), rd(p.get("ytd", v.get("chYTD")), 1),
             rd(p.get("1a", v.get("ch1y")), 1), rd(v.get("ch3y"), 1), rd(v.get("ch5y"), 1),
-            c.get("ytd"), c.get("1a")]
+            c.get("ytd"), c.get("1a"), rd(p.get("1j"), 2)]
 
 
 def cours_des_membres(ix, rows, memo):

@@ -24,6 +24,10 @@ qu'il échoue. Un test qui passe aussi sur le code cassé ne protège rien.
       l'indice préférée (Airbus : Francfort pour le DAX, pas Paris).
  [10] Concentration sur le total du FICHIER : les membres introuvables (fonds
       cotés du FTSE 100) ne sont pas redistribués sur les autres.
+ [11] La séance (carte du marché « 1 jour », 30/10/2026) : dernière séance de
+      l'indice face à la précédente du titre ; un titre qui n'a pas coté ce
+      jour-là n'a PAS de variation du jour (pas de report de la veille) ; la
+      colonne `p1j` est la DERNIÈRE de la ligne.
 """
 import copy
 import os
@@ -196,6 +200,23 @@ def t10_total():
     verifier("le premier pèse 30 %, pas 30,6 %", abs(c["top1"] - 30.0) < 1e-9, str(c["top1"]))
 
 
+def t11_seance():
+    print("[11] la variation de la séance (p1j)")
+    s = serie_jours("2026-09-01", 40, lambda i: 100.0 + i)
+    fin = s[-1][0]
+    rows = [{"sym": "A", "w": 0.5}, {"sym": "B", "w": 0.5}]
+    cours = {"A": s, "B": s[:-1]}            # B n'a pas coté à la dernière séance
+    F.perfs_membres(rows, cours, {"date": fin, "refs": {}})
+    attendu = 100 * (s[-1][1] / s[-2][1] - 1)
+    pa = rows[0]["p"].get("1j")
+    verifier("dernière séance face à la précédente", pa is not None and abs(pa - attendu) < 1e-9, str(pa))
+    verifier("titre absent de la dernière séance : pas de « 1 jour »", "1j" not in rows[1]["p"], str(rows[1]["p"].get("1j")))
+    verifier("p1j en dernière colonne", F.LIGNE[-1] == "p1j", str(F.LIGNE[-3:]))
+    lg = F.ligne_fiche({"sym": "A", "cle": "a", "nom": "A", "v": {}, "w": 0.5, "p": rows[0]["p"]}, 1.0)
+    verifier("ligne : même longueur que les champs, p1j à sa place",
+             len(lg) == len(F.LIGNE) and lg[-1] == round(pa, 2), "%d/%d %s" % (len(lg), len(F.LIGNE), lg[-1]))
+
+
 def tout():
     del ECHECS[:]
     t1_fenetres()
@@ -208,13 +229,14 @@ def tout():
     t8_nettoyer()
     t9_exact()
     t10_total()
+    t11_seance()
     return list(ECHECS)
 
 
 def mutants():
     """Chaque mutation casse une règle ; le test doit échouer."""
     orig = {k: getattr(F, k) for k in ("dernier_au_plus_tard", "performance", "SCREENER_FEN", "PIC_FACTEUR", "FEN_MEMBRES",
-                                        "PLACE_MAISON", "concentration")}
+                                        "PLACE_MAISON", "concentration", "perfs_membres")}
     cas = []
 
     def m1():   # référence APRÈS la date cible
@@ -258,6 +280,18 @@ def mutants():
         src = orig["concentration"]
         F.concentration = lambda rows, total=None: src(rows, None)
     cas.append(("renormalisation sur les trouvés", m7))
+
+    def m8():   # la séance reportée : variation d'avant-hier prise pour celle du jour
+        src = orig["perfs_membres"]
+
+        def pm(rows, cours, niveau, cal_fin=None):
+            src(rows, cours, niveau, cal_fin)
+            for r in rows:
+                s = cours.get(r["sym"]) or []
+                if len(s) >= 2 and "1j" not in r["p"]:
+                    r["p"]["1j"] = 100 * (s[-1][1] / s[-2][1] - 1)
+        F.perfs_membres = pm
+    cas.append(("séance reportée d'un titre absent", m8))
 
     rates = 0
     for nom, casser in cas:

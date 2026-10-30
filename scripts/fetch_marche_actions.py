@@ -113,6 +113,24 @@ TIMEOUT = 180
 RETRIES = 3
 _last = [0.0]
 
+# ── UN RATÉ PASSAGER NE DOIT PLUS FIGER LA COLLECTE UN JOUR ENTIER ──
+#
+# Le 29/10/2026, le passage quotidien a publié 32 270 sociétés contre 35 867 la
+# veille : le garde-fou a refusé, à raison, une collecte amputée de 10 %. Mais
+# rien ne la redemandait — fragments de la veille gardés vingt-quatre heures,
+# onglet Secteurs « daté de 37 h » sous le bandeau de retard. Rejouée treize
+# heures plus tard, la même collecte rendait 75 702 lignes (75 606 la veille) et
+# aucun pays muet : un raté passager de la source, pas un changement.
+#
+# Les trois essais de `_get` se suivent à une ou deux secondes : un hoquet de la
+# source d'une demi-minute les fait échouer ensemble. D'où deux rattrapages, du
+# plus léger au plus lourd :
+#   · les pays muets sont redemandés après RELANCES_MUETS secondes ;
+#   · une collecte REFUSÉE est rejouée une fois, entière, après SECONDE_CHANCE_S.
+# Le refus reste la règle : une seconde collecte amputée est refusée elle aussi.
+RELANCES_MUETS = (30, 90)
+SECONDE_CHANCE_S = 240
+
 # ── Les champs, classés par ce qu'ils valent RÉELLEMENT ────────────────────
 # Mesuré le 27/08/2026 sur quatre univers. Le seuil de 40 % est le taux minimal
 # constaté sur le pays le MOINS bien servi des quatre : un champ à 90 % aux
@@ -662,6 +680,13 @@ def _places_disparues(publies_avant, brutes_places, muets):
             if n >= PLACE_DISPARUE_MIN and not brutes_places.get(p)}
 
 
+class CollecteRefusee(SystemExit):
+    """Le refus d'une collecte amputée. Un SystemExit comme avant (même message,
+    même code de sortie), mais reconnaissable : c'est le seul échec que `lancer`
+    rejoue — un univers absent ou une erreur de code ne se règlent pas en
+    attendant quatre minutes."""
+
+
 def _refuser_effondrement(avant, maintenant, muets, appels,
                           brutes_avant=0, brutes=0,
                           disparues=None, brutes_disparues_avant=None):
@@ -681,7 +706,7 @@ def _refuser_effondrement(avant, maintenant, muets, appels,
     # Zéro pays muet sur un run sain. Le seuil d'un dixième — huit pays sur
     # quatre-vingt-six — laissait passer une collecte déjà amputée.
     if appels and len(muets) > 2:
-        raise SystemExit(
+        raise CollecteRefusee(
             "[fatal] %d pays sur %d n'ont pas répondu (%s...). La source bride "
             "ou est en panne : on ne réécrit pas les fragments avec un "
             "échantillon. Relancer plus tard."
@@ -690,7 +715,7 @@ def _refuser_effondrement(avant, maintenant, muets, appels,
     if disparues and avant:
         perdu = sum(disparues.values())
         if perdu > avant * PLACES_DISPARUES_MAX:
-            raise SystemExit(
+            raise CollecteRefusee(
                 "[fatal] %d place(s) sortie(s) en bloc de la source (%s), soit "
                 "%.0f %% des sociétés publiées au passage précédent. Au-delà de "
                 "%.0f %%, ce n'est plus une place qui s'en va : c'est la source "
@@ -708,14 +733,14 @@ def _refuser_effondrement(avant, maintenant, muets, appels,
     # et le seuil d'un quart ne s'est pas déclenché. Sur le brut, l'écart aurait
     # crevé les yeux.
     if brutes_avant and brutes and brutes < brutes_avant * 0.92:
-        raise SystemExit(
+        raise CollecteRefusee(
             "[fatal] %d lignes reçues de la source contre %d au passage "
             "précédent, soit %.0f %% de moins. L'univers de la source ne varie "
             "pas ainsi : c'est un bridage ou une panne. On garde les fragments "
             "existants."
             % (brutes, brutes_avant, 100.0 * (1 - brutes / float(brutes_avant))))
     if avant and maintenant < avant * seuil_publie:
-        raise SystemExit(
+        raise CollecteRefusee(
             "[fatal] %d sociétés collectées contre %d au passage précédent, soit "
             "%.0f %% de moins. Aucune cause normale — jour férié, place fermée — "
             "ne fait perdre un quart de l'univers. On garde les fragments "
@@ -790,6 +815,31 @@ def main():
             brut[k] = v
         if i % 20 == 0:
             print("[info] %d/%d appels — %d lignes" % (i, len(appels), len(brut)))
+
+    # Les muets sont redemandés DANS L'ORDRE des appels : « US grandes places »,
+    # s'il en est, passe avant les autres et garde la forme de ses symboles.
+    for pause in RELANCES_MUETS:
+        if not muets:
+            break
+        print("[info] %d pays muet(s) (%s) : nouvel essai dans %d s"
+              % (len(muets), ", ".join(muets[:8]), pause))
+        time.sleep(pause)
+        encore = []
+        for code, lib in appels:
+            if lib not in muets:
+                continue
+            x = bulk(champs, code)
+            if not x:
+                encore.append(lib)
+                continue
+            for k, v in x.items():
+                if k in brut:
+                    doublons += 1
+                    continue
+                brut[k] = v
+        print("[info] relance : %d pays rattrapé(s), %d toujours muet(s)"
+              % (len(muets) - len(encore), len(encore)))
+        muets = encore
 
     print("[ok] %d lignes brutes en %.1f s (%d doublons ignorés)"
           % (len(brut), time.time() - t0, doublons))
@@ -1240,5 +1290,19 @@ def main():
     return 0
 
 
+def lancer(pause=None):
+    """main(), rejoué UNE fois, entier, si la collecte est refusée comme amputée
+    (voir RELANCES_MUETS). Rien n'est écrit avant le jugement : la première
+    tentative refusée ne laisse aucune trace sur le disque."""
+    try:
+        return main()
+    except CollecteRefusee as e:
+        attente = SECONDE_CHANCE_S if pause is None else pause
+        print("%s\n[info] seconde tentative complète dans %d s" % (e.code, attente),
+              file=sys.stderr)
+        time.sleep(attente)
+        return main()
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(lancer())
