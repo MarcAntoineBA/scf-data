@@ -24,6 +24,9 @@ qu'il échoue. Un test qui passe aussi sur le code cassé ne protège rien.
       l'indice préférée (Airbus : Francfort pour le DAX, pas Paris).
  [10] Concentration sur le total du FICHIER : les membres introuvables (fonds
       cotés du FTSE 100) ne sont pas redistribués sur les autres.
+ [12] L'indice et ses membres à la même séance (30/10/2026) : si moins de la
+      moitié du poids a la dernière séance de l'indice, l'indice s'arrête à la
+      séance d'avant ; sinon rien ne bouge.
  [11] La séance (carte du marché « 1 jour », 30/10/2026) : dernière séance de
       l'indice face à la précédente du titre ; un titre qui n'a pas coté ce
       jour-là n'a PAS de variation du jour (pas de report de la veille) ; la
@@ -217,6 +220,26 @@ def t11_seance():
              len(lg) == len(F.LIGNE) and lg[-1] == round(pa, 2), "%d/%d %s" % (len(lg), len(F.LIGNE), lg[-1]))
 
 
+def t12_meme_seance():
+    print("[12] l'indice et ses membres à la même séance")
+    s = serie_jours("2026-09-01", 40, lambda i: 100.0 + i)
+    niv = {"date": s[-1][0], "_jours": s}
+    rows = [{"sym": "A", "w": 0.6}, {"sym": "B", "w": 0.4}]
+    retard = {"A": s[:-1], "B": s[:-1]}
+    d = F.seance_des_membres(niv, rows, retard)
+    verifier("aucun membre à la dernière séance : indice arrêté à la séance d'avant", d == s[-2][0], str(d))
+    verifier("la majorité du poids à jour : rien ne bouge", F.seance_des_membres(niv, rows, {"A": s, "B": s[:-1]}) is None)
+    verifier("une minorité à jour (40 %) : arrêté quand même",
+             F.seance_des_membres(niv, rows, {"A": s[:-1], "B": s}) == s[-2][0])
+    reel = F.yahoo_jours
+    F.yahoo_jours = lambda t, periode="max", ajuste=False: serie_jours("2025-01-01", 400, lambda i: 100.0 + i)
+    try:
+        n = F.niveau_indice("^X", None, jusqu_a="2026-03-02")
+    finally:
+        F.yahoo_jours = reel
+    verifier("niveau_indice(jusqu_a) : série coupée à cette séance", n and n["date"] <= "2026-03-02", str(n and n["date"]))
+
+
 def tout():
     del ECHECS[:]
     t1_fenetres()
@@ -230,13 +253,14 @@ def tout():
     t9_exact()
     t10_total()
     t11_seance()
+    t12_meme_seance()
     return list(ECHECS)
 
 
 def mutants():
     """Chaque mutation casse une règle ; le test doit échouer."""
     orig = {k: getattr(F, k) for k in ("dernier_au_plus_tard", "performance", "SCREENER_FEN", "PIC_FACTEUR", "FEN_MEMBRES",
-                                        "PLACE_MAISON", "concentration", "perfs_membres")}
+                                        "PLACE_MAISON", "concentration", "perfs_membres", "SEANCE_PART_MIN")}
     cas = []
 
     def m1():   # référence APRÈS la date cible
@@ -292,6 +316,10 @@ def mutants():
                     r["p"]["1j"] = 100 * (s[-1][1] / s[-2][1] - 1)
         F.perfs_membres = pm
     cas.append(("séance reportée d'un titre absent", m8))
+
+    def m9():   # l'indice garde sa séance même si aucun membre ne l'a
+        F.SEANCE_PART_MIN = 0.0
+    cas.append(("indice et membres décalés d'un jour", m9))
 
     rates = 0
     for nom, casser in cas:

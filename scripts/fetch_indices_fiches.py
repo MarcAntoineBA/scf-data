@@ -809,12 +809,15 @@ def csindex_jours(code_indice="000300"):
 SOURCE_NIVEAU = {"csi300": csindex_jours}
 
 
-def niveau_indice(ticker, code=None):
+def niveau_indice(ticker, code=None, jusqu_a=None):
     """Toute la vie cotée en clôtures quotidiennes : le record se lit sur des
     CLÔTURES de séance (un plus haut en séance n'est pas un niveau où l'indice a
     terminé une journée), et plus sur des fins de mois avant dix ans — une fin de
-    mois n'est pas le plus haut du mois."""
+    mois n'est pas le plus haut du mois. `jusqu_a` : arrêté à cette séance (voir
+    `seance_des_membres`)."""
     jours = SOURCE_NIVEAU[code]() if code in SOURCE_NIVEAU else yahoo_jours(ticker, "max")
+    if jusqu_a:
+        jours = [(d, c) for d, c in jours if d <= jusqu_a]
     if len(jours) < 200:
         return None
     dernier_d, dernier = jours[-1]
@@ -986,6 +989,37 @@ def series_indice(rows, cours, niveau, egal=None):
         "top10": top10, "couverture": couv,
         "n_titres": len(avec),
     }
+
+
+# ── L'INDICE ET SES MEMBRES À LA MÊME SÉANCE (30/10/2026) ───────────────────
+# Mesuré au passage de 07:28 UTC le 30/10 : l'indice publié (route `chart`)
+# finissait au 29/10, mais AUCUN membre du DAX, du CAC 40, du FTSE 100, du FTSE MIB,
+# de l'IBEX, de l'Ibovespa ni de l'IPC n'avait cette séance dans les cours `spark`.
+# Leurs variations s'arrêtaient donc au 28 : décomposition décalée d'un jour, et un
+# « écart » parasite jusqu'à 1,3 point sur une semaine (DAX : 2,63 % publié, 1,31 %
+# reconstitué). Quand moins de la moitié du poids a la dernière séance de l'indice,
+# on arrête l'indice à la séance d'avant : les deux parlent du même jour, et le
+# passage suivant (six heures plus tard) reprend la dernière.
+SEANCE_PART_MIN = 0.5
+
+
+def seance_des_membres(niveau, rows, cours):
+    """La séance où arrêter l'indice pour que ses membres y soient, ou None."""
+    if not niveau or not niveau.get("date") or not cours:
+        return None
+    fin = niveau["date"]
+    w_tot = w_fin = 0.0
+    for r in rows:
+        s = cours.get(r.get("sym"))
+        if not s:
+            continue
+        w_tot += r["w"]
+        if any(d == fin for d, _ in s[-6:]):
+            w_fin += r["w"]
+    if not w_tot or w_fin >= SEANCE_PART_MIN * w_tot:
+        return None
+    avant = [d for d, _ in (niveau.get("_jours") or []) if d < fin]
+    return avant[-1] if avant else None
 
 
 def perfs_membres(rows, cours, niveau, cal_fin=None):
@@ -2038,6 +2072,16 @@ def traiter(ix, places, fx, precedent, memo_cours, marche):
     niveau = niveau_indice(ix["ticker"], ix["code"])
     egal = niveau_indice(EGAL_OFFICIEL[ix["code"]][0]) if ix["code"] in EGAL_OFFICIEL else None
     cours, lots_ko, ajuste = cours_des_membres(ix, rows, memo_cours)
+    d_al = seance_des_membres(niveau, rows, cours)
+    if d_al:
+        n2 = niveau_indice(ix["ticker"], ix["code"], jusqu_a=d_al)
+        if n2:
+            log("[info] %s : les cours des membres n'ont pas encore la séance du %s — "
+                "indice arrêté au %s, la même que ses membres" % (ix["nom"], niveau["date"], d_al))
+            n2["aligne"] = {"seance_indice": niveau["date"], "seance": d_al}
+            niveau = n2
+            if egal:
+                egal = niveau_indice(EGAL_OFFICIEL[ix["code"]][0], jusqu_a=d_al) or egal
     series = series_indice(rows, cours, niveau, egal)
     perfs_membres(rows, cours, niveau, cal_fin=series["d"][-1] if series else None)
     # Les drapeaux de moyennes : ceux des cours quotidiens (les mêmes que la
