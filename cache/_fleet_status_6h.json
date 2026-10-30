@@ -1,19 +1,19 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-10-30T08:37:04Z",
+  "ts": "2026-10-30T15:25:51Z",
   "total": 33,
   "ok": 30,
-  "secs": 4780.9,
-  "changed": 85,
-  "versionnes": 75,
-  "pieces_jointes": 10,
-  "absents": 39,
+  "secs": 3857.4,
+  "changed": 86,
+  "versionnes": 77,
+  "pieces_jointes": 9,
+  "absents": 41,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Cannot perform query. Invalid query parameters.', 'details': ['Unable to perform query. Please check your parameter"
    },
    {
     "job": "reservesorust",
@@ -21,9 +21,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=156 kept=38 fail=16 (tentes=210)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonn"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=30 kept=30 fail=16 (tentes=76)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne "
    }
   ]
  },
- "updated": "2026-10-30T08:37:04Z"
+ "updated": "2026-10-30T15:25:51Z"
 }
