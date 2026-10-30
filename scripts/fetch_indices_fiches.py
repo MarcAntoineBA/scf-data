@@ -1044,6 +1044,9 @@ def perfs_membres(rows, cours, niveau, cal_fin=None):
         # l'INDICE face à la précédente du titre. Un titre qui n'a pas coté ce jour-là
         # (suspendu, place fermée) n'a pas de variation du jour : pas de report ici,
         # sa variation d'avant-hier passerait pour celle du jour.
+        # Le cours de calcul (30/10/2026) : la carte du marché lit les cours en direct et
+        # reporte chaque horizon à ce cours (référence = px / (1 + variation)).
+        r["px"] = s[kf][1]
         if dates[kf] == fin_d and kf >= 1 and s[kf - 1][1] and \
                 (date.fromisoformat(dates[kf]) - date.fromisoformat(dates[kf - 1])).days <= REPORT_MAX:
             r["p"]["1j"] = 100 * (s[kf][1] / s[kf - 1][1] - 1)
@@ -1974,7 +1977,7 @@ LIGNE = ["sym", "chemin", "nom", "secteur", "industrie", "pays", "poids", "capi_
          "ch1m", "chYTD", "ch1y", "ch3y", "ch5y", "c_ytd", "c_1a",
          # en DERNIER : la page lit les colonnes par leur nom (`champs`), et une
          # page encore en cache ne doit rien voir bouger.
-         "p1j"]
+         "p1j", "px"]
 
 
 def ligne_fiche(r, fx):
@@ -1997,7 +2000,14 @@ def ligne_fiche(r, fx):
             rd(v.get("priceTargetChange"), 1),
             rd(p.get("1m", v.get("ch1m")), 1), rd(p.get("ytd", v.get("chYTD")), 1),
             rd(p.get("1a", v.get("ch1y")), 1), rd(v.get("ch3y"), 1), rd(v.get("ch5y"), 1),
-            c.get("ytd"), c.get("1a"), rd(p.get("1j"), 2)]
+            c.get("ytd"), c.get("1a"), rd(p.get("1j"), 2), sig6(r.get("px"))]
+
+
+def sig6(x):
+    """Six chiffres significatifs : un titre à 0,0123 garde sa précision."""
+    if not estnb(x) or x == 0:
+        return None
+    return round(x, max(0, 5 - int(math.floor(math.log10(abs(x))))))
 
 
 def cours_des_membres(ix, rows, memo):

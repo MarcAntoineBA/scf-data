@@ -214,10 +214,18 @@ def t11_seance():
     pa = rows[0]["p"].get("1j")
     verifier("dernière séance face à la précédente", pa is not None and abs(pa - attendu) < 1e-9, str(pa))
     verifier("titre absent de la dernière séance : pas de « 1 jour »", "1j" not in rows[1]["p"], str(rows[1]["p"].get("1j")))
-    verifier("p1j en dernière colonne", F.LIGNE[-1] == "p1j", str(F.LIGNE[-3:]))
-    lg = F.ligne_fiche({"sym": "A", "cle": "a", "nom": "A", "v": {}, "w": 0.5, "p": rows[0]["p"]}, 1.0)
+    verifier("p1j puis px en dernières colonnes", F.LIGNE[-2:] == ["p1j", "px"], str(F.LIGNE[-3:]))
+    lg = F.ligne_fiche({"sym": "A", "cle": "a", "nom": "A", "v": {}, "w": 0.5, "p": rows[0]["p"], "px": rows[0].get("px")}, 1.0)
     verifier("ligne : même longueur que les champs, p1j à sa place",
-             len(lg) == len(F.LIGNE) and lg[-1] == round(pa, 2), "%d/%d %s" % (len(lg), len(F.LIGNE), lg[-1]))
+             len(lg) == len(F.LIGNE) and lg[-2] == round(pa, 2), "%d/%d %s" % (len(lg), len(F.LIGNE), lg[-2]))
+    # Le cours de calcul : celui dont partent les variations — la référence se retrouve.
+    refs = {f: r for f, (_, r) in F.perfs_indice(s).items()}
+    r2 = [{"sym": "A", "w": 1.0}]
+    F.perfs_membres(r2, {"A": s}, {"date": fin, "refs": refs})
+    px, p1m = r2[0].get("px"), r2[0]["p"].get("1m")
+    ref = dict(s).get(refs.get("1m"))
+    verifier("px = le cours de calcul (variation 1 mois retrouvée)", px == s[-1][1] and p1m is not None
+             and abs(px / (1 + p1m / 100) - ref) < 1e-6, "%s %s %s" % (px, p1m, ref))
 
 
 def t12_meme_seance():
@@ -320,6 +328,18 @@ def mutants():
     def m9():   # l'indice garde sa séance même si aucun membre ne l'a
         F.SEANCE_PART_MIN = 0.0
     cas.append(("indice et membres décalés d'un jour", m9))
+
+    def m10():  # px pris au dernier cours coté, pas à celui du calcul
+        src = orig["perfs_membres"]
+
+        def pm(rows, cours, niveau, cal_fin=None):
+            src(rows, cours, niveau, cal_fin)
+            for r in rows:
+                s_ = cours.get(r["sym"]) or []
+                if s_:
+                    r["px"] = s_[-1][1] * 1.01
+        F.perfs_membres = pm
+    cas.append(("cours de calcul faux", m10))
 
     rates = 0
     for nom, casser in cas:
