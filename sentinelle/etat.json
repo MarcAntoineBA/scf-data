@@ -1,9 +1,11 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1793454337.0920622,
- "motifs": [],
- "verifie_le": "2026-10-31 18:40 UTC",
+ "en_panne": true,
+ "depuis": 1793486294.3357275,
+ "derniere_alerte": 1793486294.3357275,
+ "motifs": [
+  "macro_calendar_cache.json : 33.8 h (seuil 6 h) — calendrier macro"
+ ],
+ "verifie_le": "2026-10-31 22:38 UTC",
  "rattrapages": {
   "collect-1h.yml": 1793430401.8513901,
   "collect-6h.yml": 1793310780.4613593
