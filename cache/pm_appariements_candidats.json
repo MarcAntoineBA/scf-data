@@ -1,11 +1,11 @@
 {
- "generated_at": "2026-11-03T09:56:11+00:00",
+ "generated_at": "2026-11-03T10:57:58+00:00",
  "avertissement": "AUCUN de ces rapprochements n'est actif. Ce sont des questions posées à un humain, à valider dans prediction_markets_appariements.json.",
  "exhaustivite": {
-  "polymarket_examines": 416,
-  "kalshi_examines": 9326,
-  "polymarket_sans_candidat": 124,
-  "avec_proposition": 292,
+  "polymarket_examines": 420,
+  "kalshi_examines": 9332,
+  "polymarket_sans_candidat": 127,
+  "avec_proposition": 293,
   "candidats_a_seuils_divergents": 0,
   "ecart_echeance_max_j": 3
  },
@@ -14,10 +14,10 @@
    "polymarket": {
     "id": "30829",
     "question": "Democratic Presidential Nominee 2028",
-    "prob": 0.1585,
+    "prob": 0.158,
     "issue": "Alexandria Ocasio-Cortez",
     "echeance": "2028-11-08T04:59:00Z",
-    "volume": 1304724276.609886,
+    "volume": 1304773479.894999,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/democratic-presidential-nominee-2028"
    },
@@ -82,7 +82,7 @@
       "titre": "Will Gavin Newsom be the Democratic Presidential nominee in 2028?",
       "mid": 0.165,
       "ecart_carnet": 0.01,
-      "volume": 11718294.11,
+      "volume": 11718422.03,
       "echeance": "2028-11-07T15:00:00Z",
       "sources_reglement": [
        "Democratic Party"
@@ -110,8 +110,8 @@
    "polymarket": {
     "id": "769594",
     "question": "How many Senators will vote for the Clarity Act?",
-    "prob": 0.191,
-    "issue": "Above 68",
+    "prob": 0.146,
+    "issue": "Above 64",
     "echeance": "2027-01-02T04:59:00Z",
     "volume": 140410.237666,
     "theme": "Régulation crypto US",
@@ -122,8 +122,8 @@
      "kalshi": {
       "ticker": "KXVOTECLARITY-26MAY16-T58",
       "titre": "How many Senate members will vote Yea on a crypto market structure bill (as defined in KXCRYPTOSTRUCTURE)?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.06,
+      "ecart_carnet": 0.02,
       "volume": 19767.52,
       "echeance": "2027-01-01T15:00:00Z",
       "sources_reglement": [
@@ -210,7 +210,7 @@
    "polymarket": {
     "id": "73951",
     "question": "Which countries will Trump make new trade deals with before 2027?",
-    "prob": 0.175,
+    "prob": 0.185,
     "issue": "Indonesia",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 409494.943047,
@@ -306,10 +306,10 @@
    "polymarket": {
     "id": "31875",
     "question": "Republican Presidential Nominee 2028",
-    "prob": 0.3625,
+    "prob": 0.362,
     "issue": "J.D. Vance",
     "echeance": "2028-11-08T04:59:00Z",
-    "volume": 720974981.393338,
+    "volume": 720995127.3023651,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/republican-presidential-nominee-2028"
    },
@@ -320,7 +320,7 @@
       "titre": "Will J.D. Vance be the nominee for the Presidency for the Republican party?",
       "mid": 0.345,
       "ecart_carnet": 0.01,
-      "volume": 4833638.96,
+      "volume": 4833674.15,
       "echeance": "2028-11-07T15:00:00Z",
       "sources_reglement": [
        "Republican Party"
@@ -474,8 +474,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -507,7 +507,7 @@
    "polymarket": {
     "id": "1071611",
     "question": "What will the Fed rate be at the end of 2027?",
-    "prob": 0.41,
+    "prob": 0.405,
     "issue": "4.5%",
     "echeance": "2028-01-01T04:59:00Z",
     "volume": 27397.271257,
@@ -546,8 +546,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -645,8 +645,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -712,7 +712,7 @@
     "prob": 0.017,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 262115.75446000005,
+    "volume": 262115.75446000003,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/fed-emergency-rate-cut-before-2027"
    },
@@ -721,8 +721,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -779,7 +779,7 @@
      "kalshi": {
       "ticker": "KXFEDMEET-27-JAN01",
       "titre": "Will the Fed have an emergency meeting before Jan 1, 2027?",
-      "mid": 0.046,
+      "mid": 0.048,
       "ecart_carnet": 0.038,
       "volume": 189656.29,
       "echeance": "2027-01-01T04:59:00Z",
@@ -809,7 +809,7 @@
    "polymarket": {
     "id": "1226915",
     "question": "France defaults on debt by December 31, 2027?",
-    "prob": 0.0775,
+    "prob": 0.08,
     "issue": "Oui",
     "echeance": "2028-01-01T04:59:00Z",
     "volume": 19515.255720999998,
@@ -879,8 +879,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -915,7 +915,7 @@
     "prob": 0.9265,
     "issue": "Jean-Luc Mélenchon",
     "echeance": "2027-07-01T03:59:00Z",
-    "volume": 632048.827177,
+    "volume": 632596.177177,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/2027-french-presidential-election-who-will-be-on-the-ballot"
    },
@@ -924,8 +924,8 @@
      "kalshi": {
       "ticker": "KXFRPRESBALLOT-27JUN30-GATT",
       "titre": "Will Gabriel Attal appear on the official candidate list for the first round of the 2027 French presidential election?",
-      "mid": 0.23,
-      "ecart_carnet": 0.06,
+      "mid": 0.24,
+      "ecart_carnet": 0.04,
       "volume": 5544.18,
       "echeance": "2027-06-30T14:00:00Z",
       "sources_reglement": [
@@ -1242,8 +1242,8 @@
      "kalshi": {
       "ticker": "KXFED-27APR-T4.00",
       "titre": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Apr 28, 2027 meeting?",
-      "mid": 0.68,
-      "ecart_carnet": 0.58,
+      "mid": 0.715,
+      "ecart_carnet": 0.47,
       "volume": 20911.21,
       "echeance": "2027-04-28T17:55:00Z",
       "sources_reglement": [
@@ -1398,7 +1398,7 @@
     "prob": 0.695,
     "issue": "No change",
     "echeance": "2027-01-28T04:59:00Z",
-    "volume": 1128164.360623,
+    "volume": 1128609.490623,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/fed-decision-in-january-20260729233815502"
    },
@@ -1587,10 +1587,10 @@
    "polymarket": {
     "id": "159954",
     "question": "What will the Fed rate be at the end of 2026?",
-    "prob": 0.7185,
+    "prob": 0.718,
     "issue": "4.25%",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 7135908.381371,
+    "volume": 7135954.801371001,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/what-will-the-fed-rate-be-at-the-end-of-2026"
    },
@@ -1626,8 +1626,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -1683,10 +1683,10 @@
    "polymarket": {
     "id": "956932",
     "question": "How low will 5-year Treasury yield get before 2027?",
-    "prob": 0.917,
+    "prob": 0.9175,
     "issue": "Below 4.70%",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 437056.22116,
+    "volume": 437821.42760299996,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/how-low-will-5-year-treasury-yield-get-before-2027"
    },
@@ -1695,8 +1695,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -1725,8 +1725,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -1785,10 +1785,10 @@
    "polymarket": {
     "id": "956929",
     "question": "How high will 30-year Treasury yield go before 2027?",
-    "prob": 0.705,
+    "prob": 0.7,
     "issue": "5.40%",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 286636.84708599997,
+    "volume": 286696.84708599997,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/how-high-will-30-year-treasury-yield-go-before-2027"
    },
@@ -1797,8 +1797,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -1902,8 +1902,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2007,8 +2007,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2037,8 +2037,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2097,10 +2097,10 @@
    "polymarket": {
     "id": "80773",
     "question": "How high will inflation get in 2026?",
-    "prob": 0.175,
+    "prob": 0.19,
     "issue": "Above 4.5%",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1522988.7276079962,
+    "volume": 1526413.297607996,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/how-high-will-inflation-get-in-2026"
    },
@@ -2109,8 +2109,8 @@
      "kalshi": {
       "ticker": "KXHIGHINFLATION-26DEC-T4.5",
       "titre": "How high will CPI get this year?",
-      "mid": 0.195,
-      "ecart_carnet": 0.09,
+      "mid": 0.205,
+      "ecart_carnet": 0.11,
       "volume": 34175.65,
       "echeance": "2027-01-01T13:29:00Z",
       "sources_reglement": [
@@ -2163,8 +2163,8 @@
      "kalshi": {
       "ticker": "KXHIGHINFLATION-26DEC-T4.2",
       "titre": "How high will CPI get this year?",
-      "mid": 0.28,
-      "ecart_carnet": 0.06,
+      "mid": 0.22,
+      "ecart_carnet": 0.18,
       "volume": 17056.24,
       "echeance": "2027-01-01T13:29:00Z",
       "sources_reglement": [
@@ -2196,7 +2196,7 @@
     "prob": 0.71,
     "issue": "↑ 4.25%",
     "echeance": "2026-12-31T00:00:00Z",
-    "volume": 1923967.527612,
+    "volume": 1923967.5276120002,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/what-will-fed-rate-hit-before-2027"
    },
@@ -2234,8 +2234,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2336,8 +2336,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2399,10 +2399,10 @@
    "polymarket": {
     "id": "95116",
     "question": "New pandemic in 2026?",
-    "prob": 0.019,
+    "prob": 0.0195,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1297723.4516590002,
+    "volume": 1297723.4516590005,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/new-pandemic-in-2026"
    },
@@ -2441,8 +2441,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2614,35 +2614,6 @@
    "candidats": [
     {
      "kalshi": {
-      "ticker": "KXFED-27JAN-T2.00",
-      "titre": "Will the upper bound of the federal funds rate be above 2.00% following the Fed's Jan 27, 2027 meeting?",
-      "mid": 0.975,
-      "ecart_carnet": 0.05,
-      "volume": 1983.51,
-      "echeance": "2027-01-27T18:55:00Z",
-      "sources_reglement": [
-       "Federal Reserve Board of Governors"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.42,
-      "recouvrement_vocabulaire": 0.18,
-      "nombres_communs": [
-       "2",
-       "2027",
-       "27"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2, 2027, 27",
-      "Kalshi règle sur : Federal Reserve Board of Governors"
-     ],
-     "force": 0.509
-    },
-    {
-     "kalshi": {
       "ticker": "KXFED-27JAN-T0.00",
       "titre": "Will the upper bound of the federal funds rate be above 0.00% following the Fed's Jan 27, 2027 meeting?",
       "mid": 0.99,
@@ -2666,6 +2637,35 @@
      "motifs": [
       "même date de dénouement",
       "seuil(s) partagé(s) dans le texte de résolution : 0, 2027, 27",
+      "Kalshi règle sur : Federal Reserve Board of Governors"
+     ],
+     "force": 0.509
+    },
+    {
+     "kalshi": {
+      "ticker": "KXFED-27JAN-T2.00",
+      "titre": "Will the upper bound of the federal funds rate be above 2.00% following the Fed's Jan 27, 2027 meeting?",
+      "mid": 0.975,
+      "ecart_carnet": 0.05,
+      "volume": 1983.51,
+      "echeance": "2027-01-27T18:55:00Z",
+      "sources_reglement": [
+       "Federal Reserve Board of Governors"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.42,
+      "recouvrement_vocabulaire": 0.18,
+      "nombres_communs": [
+       "2",
+       "2027",
+       "27"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2, 2027, 27",
       "Kalshi règle sur : Federal Reserve Board of Governors"
      ],
      "force": 0.509
@@ -2709,7 +2709,7 @@
     "prob": 0.034,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1496480.0623279999,
+    "volume": 1497010.4623280002,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-nuke-before-2027"
    },
@@ -2748,8 +2748,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -2810,10 +2810,10 @@
    "polymarket": {
     "id": "74056",
     "question": "Where will Zelenskyy and Putin meet next before 2027?",
-    "prob": 0.939,
+    "prob": 0.94,
     "issue": "No meeting before 2027",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 4123635.5934309997,
+    "volume": 4123911.175431,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/where-will-zelenskyy-and-putin-meet-next"
    },
@@ -2881,9 +2881,9 @@
      "kalshi": {
       "ticker": "KXZELENSKYPUTIN-29-27",
       "titre": "Volodymyr Zelenskyy and Vladimir Putin meet before Jan 1, 2027?",
-      "mid": 0.0965,
-      "ecart_carnet": 0.007,
-      "volume": 145819.34,
+      "mid": 0.097,
+      "ecart_carnet": 0.004,
+      "volume": 145822.01,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "President of Ukraine",
@@ -2914,10 +2914,10 @@
    "polymarket": {
     "id": "181671",
     "question": "Brazil Annual Inflation 2026",
-    "prob": 0.5165,
+    "prob": 0.5155,
     "issue": "5.00-5.49%",
     "echeance": "2027-01-13T04:59:00Z",
-    "volume": 198979.94543199998,
+    "volume": 198989.775432,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/brazil-annual-inflation-2026"
    },
@@ -3013,7 +3013,7 @@
     "prob": 0.19,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 45406.917736,
+    "volume": 45406.91773600001,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/us-government-removes-public-access-to-another-major-ai-model-in-2026-20260703202936862"
    },
@@ -3022,8 +3022,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3081,8 +3081,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3217,7 +3217,7 @@
     "prob": 0.0285,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 676863.0995020001,
+    "volume": 676863.0995020003,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-recognizes-reza-pahlavi-as-leader-of-iran-in2026"
    },
@@ -3320,7 +3320,7 @@
     "prob": 0.935,
     "issue": "Below 4.9%",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 518380.260063,
+    "volume": 518380.26006299997,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/how-low-will-10-year-treasury-yield-get-before-2027"
    },
@@ -3422,7 +3422,7 @@
     "prob": 0.635,
     "issue": "NVIDIA",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 9481121.326554,
+    "volume": 9481128.470085,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/largest-company-end-of-december-2026"
    },
@@ -3431,9 +3431,9 @@
      "kalshi": {
       "ticker": "KXTOP3WEALTH-26DEC31-LARRP",
       "titre": "Will Larry Page be one of the three wealthiest people in the world?",
-      "mid": 0.775,
-      "ecart_carnet": 0.09,
-      "volume": 14018.63,
+      "mid": 0.72,
+      "ecart_carnet": 0.02,
+      "volume": 14019.63,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Forbes"
@@ -3521,7 +3521,7 @@
     "prob": 0.0245,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 11021943.939635998,
+    "volume": 11021943.939636001,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-the-us-acquire-any-part-of-greenland-in-2026"
    },
@@ -3629,8 +3629,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3720,7 +3720,7 @@
    "polymarket": {
     "id": "73897",
     "question": "Who will leave Trump Administration before 2027?",
-    "prob": 0.48,
+    "prob": 0.385,
     "issue": "Pete Hegseth",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 1477954.0167129997,
@@ -3790,8 +3790,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3826,7 +3826,7 @@
     "prob": 0.0355,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 13602566.954256002,
+    "volume": 13603844.732034001,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/trump-out-as-president-before-2027"
    },
@@ -3865,8 +3865,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3931,7 +3931,7 @@
     "prob": 0.165,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 121557.55377999996,
+    "volume": 121557.55377999997,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/us-government-removes-public-access-to-a-major-chinese-ai-model-in-2026-20260703203328223"
    },
@@ -3940,8 +3940,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -3999,8 +3999,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -4203,31 +4203,31 @@
     },
     {
      "kalshi": {
-      "ticker": "KXUSAIRANAGREEMENT-27",
-      "titre": "Will the US agree to a new Iranian nuclear deal this year?",
-      "mid": 0.0955,
-      "ecart_carnet": 0.009,
-      "volume": 1892382.5,
-      "echeance": "2027-01-01T15:00:00Z",
+      "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
+      "titre": "Will the Canadian federal counter-tariff rate applicable to U.S.-origin electric trucks on December 31, 2026, at 11:59 P",
+      "mid": 0.025,
+      "ecart_carnet": 0.03,
+      "volume": 1013.22,
+      "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
-       "The New York Times",
-       "the Associated Press",
-       "Reuters",
-       "Axios"
+       "Government of Canada"
       ]
      },
      "indices": {
-      "ecart_echeance_j": 0.42,
-      "recouvrement_vocabulaire": 0.122,
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.102,
       "nombres_communs": [
-       "2027"
+       "11",
+       "2026",
+       "31",
+       "59"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2027",
-      "Kalshi règle sur : The New York Times, the Associated Press, Reuters"
+      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
+      "Kalshi règle sur : Government of Canada"
      ],
      "force": 0.452
     }
@@ -4238,10 +4238,10 @@
    "polymarket": {
     "id": "118172",
     "question": "Will Trump acquire Greenland before 2027?",
-    "prob": 0.0185,
+    "prob": 0.019,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 35939819.380409,
+    "volume": 35941959.00040901,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-trump-acquire-greenland-before-2027"
    },
@@ -4337,10 +4337,10 @@
    "polymarket": {
     "id": "131586",
     "question": "Jeffrey Epstein confirmed to be alive before 2027?",
-    "prob": 0.0085,
+    "prob": 0.009,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2614753.1525180005,
+    "volume": 2614753.152518,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/is-jeffrey-epstein-alive-498"
    },
@@ -4379,8 +4379,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -4408,8 +4408,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -4441,7 +4441,7 @@
    "polymarket": {
     "id": "206787",
     "question": "Which company's AI will first hit 1550 on Chatbot Arena in 2026?",
-    "prob": 0.395,
+    "prob": 0.4,
     "issue": "None in 2026",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 140408.879004,
@@ -4537,10 +4537,10 @@
    "polymarket": {
     "id": "162592",
     "question": "US x China Military clash before 2027?",
-    "prob": 0.028,
+    "prob": 0.0275,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 219779.935411,
+    "volume": 219779.93541099995,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/us-x-china-military-clash-before-2027"
    },
@@ -4579,9 +4579,9 @@
      "kalshi": {
       "ticker": "KXTARIFFRATEPRC-27JAN01-25",
       "titre": "Will the tariff rate on People's Republic of China imports be at least 50% on Jan 1, 2027?",
-      "mid": 0.375,
-      "ecart_carnet": 0.23,
-      "volume": 2108.61,
+      "mid": 0.465,
+      "ecart_carnet": 0.41,
+      "volume": 2112.58,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Fox News",
@@ -4684,8 +4684,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -4787,8 +4787,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -4852,10 +4852,10 @@
    "polymarket": {
     "id": "59234",
     "question": "Alaska Governor Election Winner",
-    "prob": 0.892,
+    "prob": 0.899,
     "issue": "Jonathan Kreiss-Tomkins",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 1833061.8711750002,
+    "volume": 1834515.4051720002,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/alaska-governor-election-winner"
    },
@@ -4961,8 +4961,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5052,10 +5052,10 @@
    "polymarket": {
     "id": "143443",
     "question": "Venezuela leader end of 2026?",
-    "prob": 0.845,
+    "prob": 0.8455,
     "issue": "Nicolás Maduro",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 99300271.532372,
+    "volume": 99300377.18018599,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/venezuela-leader-end-of-2026"
    },
@@ -5157,10 +5157,10 @@
    "polymarket": {
     "id": "73070",
     "question": "NATO article 5 before 2027?",
-    "prob": 0.0565,
+    "prob": 0.056,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 304859.9374359999,
+    "volume": 304859.937436,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/nato-article-5-before-2027"
    },
@@ -5199,8 +5199,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5228,8 +5228,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5264,7 +5264,7 @@
     "prob": 0.715,
     "issue": "Mary Peltola",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 2763054.7622539997,
+    "volume": 2764953.8254680005,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/alaska-senate-election-winner"
    },
@@ -5361,7 +5361,7 @@
     "prob": 0.038,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3347543.178455,
+    "volume": 3347543.1784550003,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-gamestop-acquire-ebay"
    },
@@ -5400,8 +5400,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5464,7 +5464,7 @@
     "prob": 0.665,
     "issue": "Democratic",
     "echeance": "2028-11-08T04:59:00Z",
-    "volume": 2596358.113795,
+    "volume": 2596358.1137949997,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/which-party-wins-2028-us-presidential-election"
    },
@@ -5610,8 +5610,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5676,7 +5676,7 @@
     "prob": 0.26,
     "issue": "John Brennan",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 647657.5909899999,
+    "volume": 647946.0909899999,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/who-will-be-arrested-before-2027"
    },
@@ -5744,8 +5744,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5776,10 +5776,10 @@
    "polymarket": {
     "id": "73331",
     "question": "US defaults on debt by 2027?",
-    "prob": 0.02,
+    "prob": 0.0195,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 20253.946544000002,
+    "volume": 20253.946544,
     "theme": "Risques extrêmes",
     "url": "https://polymarket.com/event/us-defaults-on-debt-by-2027"
    },
@@ -5848,8 +5848,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5883,7 +5883,7 @@
     "prob": 0.035,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3695995.1328220004,
+    "volume": 3695995.132822,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-the-us-invade-cuba-in-2026"
    },
@@ -5922,8 +5922,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -5983,10 +5983,10 @@
    "polymarket": {
     "id": "548858",
     "question": "Anthropic IPO Closing Market Cap",
-    "prob": 0.2765,
-    "issue": "$1.5–$1.75T",
+    "prob": 0.245,
+    "issue": "$1.75–$2.0T",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 3199642.747666,
+    "volume": 3199890.5340710003,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/anthropic-ipo-closing-market-cap-higher-strikes"
    },
@@ -6025,8 +6025,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6130,8 +6130,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6193,10 +6193,10 @@
    "polymarket": {
     "id": "145536",
     "question": "Will the U.S. invade Greenland in 2026?",
-    "prob": 0.0225,
+    "prob": 0.022,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1463243.93999,
+    "volume": 1463243.9399900003,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-the-us-invade-greenland-in-2026"
    },
@@ -6235,8 +6235,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6296,10 +6296,10 @@
    "polymarket": {
     "id": "106981",
     "question": "Bitcoin vs. Gold vs. S&P 500 in 2026",
-    "prob": 0.825,
+    "prob": 0.83,
     "issue": "S&P 500",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 979507.8605999998,
+    "volume": 980543.3405999999,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/bitcoin-vs-gold-vs-sp-500-in-2026"
    },
@@ -6340,8 +6340,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6406,7 +6406,7 @@
     "prob": 0.575,
     "issue": "Google",
     "echeance": "2026-12-31T17:00:00Z",
-    "volume": 3814532.441185,
+    "volume": 3816067.512297,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/which-company-has-best-ai-model-end-of-2026"
    },
@@ -6550,8 +6550,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6655,8 +6655,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6760,8 +6760,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6826,7 +6826,7 @@
     "prob": 0.095,
     "issue": "Oui",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 3580902.6656,
+    "volume": 3580902.6656000004,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-china-invade-taiwan-by-december-31-2027"
    },
@@ -6865,8 +6865,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -6931,7 +6931,7 @@
     "prob": 0.036,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 319769.44966100005,
+    "volume": 319769.449661,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/france-declares-state-of-siege-byptptpt"
    },
@@ -7000,9 +7000,9 @@
      "kalshi": {
       "ticker": "KXUSSAUDINUCLEAR-27-27JAN01",
       "titre": "Will it be reported by any of the Source Agencies that the bilateral U.S.–Saudi agreement for peaceful nuclear cooperati",
-      "mid": 0.08,
+      "mid": 0.09,
       "ecart_carnet": 0.06,
-      "volume": 14631.74,
+      "volume": 14669.74,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Washington Post",
@@ -7036,7 +7036,7 @@
     "prob": 0.0385,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 371104.61198799993,
+    "volume": 371104.611988,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/lee-jae-myung-out-as-president-of-south-korea-in-2026"
    },
@@ -7045,8 +7045,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7105,8 +7105,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7178,8 +7178,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7208,8 +7208,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7281,8 +7281,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7345,7 +7345,7 @@
     "prob": 0.835,
     "issue": "Mohammed bin Salman",
     "echeance": "2027-01-02T04:59:00Z",
-    "volume": 1447630.5388469996,
+    "volume": 1447749.2288469998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/who-will-trump-meet-with-in-2026"
    },
@@ -7356,7 +7356,7 @@
       "titre": "Will Donald Trump meet in person Vladimir Putin before Jan 1, 2027?",
       "mid": 0.835,
       "ecart_carnet": 0.01,
-      "volume": 55388.9,
+      "volume": 55394.45,
       "echeance": "2027-01-01T14:59:00Z",
       "sources_reglement": [
        "ABC News",
@@ -7450,7 +7450,7 @@
     "prob": 0.0115,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1258366.1940210003,
+    "volume": 1258366.194021,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/ukraine-joins-nato-before-2027"
    },
@@ -7487,6 +7487,36 @@
     },
     {
      "kalshi": {
+      "ticker": "KXXMONEYAPY-27JAN01-T4.50",
+      "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
+      "volume": 1221.0,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "X Money"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.1,
+      "nombres_communs": [
+       "11",
+       "2026",
+       "31",
+       "59"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
+      "Kalshi règle sur : X Money"
+     ],
+     "force": 0.45
+    },
+    {
+     "kalshi": {
       "ticker": "KXTRUMPWEP-27-JAN01",
       "titre": "Will it be reported by any of the Source Agencies that anyone has received a monetary payment from the Anti-Weaponizatio",
       "mid": 0.02,
@@ -7513,36 +7543,6 @@
       "même date de dénouement",
       "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027",
       "Kalshi règle sur : The Washington Post, Fox News, The Wall Street Journal"
-     ],
-     "force": 0.45
-    },
-    {
-     "kalshi": {
-      "ticker": "KXXMONEYAPY-27JAN01-T4.50",
-      "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
-      "volume": 1221.0,
-      "echeance": "2027-01-01T04:59:00Z",
-      "sources_reglement": [
-       "X Money"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.0,
-      "recouvrement_vocabulaire": 0.1,
-      "nombres_communs": [
-       "11",
-       "2026",
-       "31",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
-      "Kalshi règle sur : X Money"
      ],
      "force": 0.45
     }
@@ -7595,8 +7595,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7625,8 +7625,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7698,8 +7698,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7803,8 +7803,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7870,7 +7870,7 @@
     "prob": 0.0845,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 50589.595655000005,
+    "volume": 50589.595655,
     "theme": "Régulation crypto US",
     "url": "https://polymarket.com/event/crypto-market-structure-legislation-becomes-law-in-2026-20260727223933088"
    },
@@ -7939,8 +7939,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -7970,10 +7970,10 @@
    "polymarket": {
     "id": "197806",
     "question": "Will MicroStrategy be margin called in 2026?",
-    "prob": 0.017,
+    "prob": 0.0165,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 118792.023518,
+    "volume": 118792.02351799997,
     "theme": "Écosystème crypto",
     "url": "https://polymarket.com/event/will-microstrategy-be-margin-called-in-2026"
    },
@@ -7982,8 +7982,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8073,10 +8073,10 @@
    "polymarket": {
     "id": "638396",
     "question": "Discord IPO Closing Market Cap",
-    "prob": 0.712,
+    "prob": 0.713,
     "issue": "No IPO by December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 195281.827546,
+    "volume": 195293.06754599998,
     "theme": "Introductions en bourse (IPO)",
     "url": "https://polymarket.com/event/discord-ipo-closing-market-cap-20260626185933220"
    },
@@ -8115,8 +8115,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8249,8 +8249,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8281,7 +8281,7 @@
    "polymarket": {
     "id": "1028408",
     "question": "Frontier AI lab pulls a model over safety concerns in 2026?",
-    "prob": 0.19,
+    "prob": 0.175,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 8965.727910000001,
@@ -8293,8 +8293,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8352,8 +8352,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8388,7 +8388,7 @@
     "prob": 0.9605,
     "issue": "No IPO by December 31, 2026",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2563380.4254530002,
+    "volume": 2563400.4454530003,
     "theme": "Introductions en bourse (IPO)",
     "url": "https://polymarket.com/event/openai-ipo-closing-market-cap"
    },
@@ -8397,8 +8397,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8457,8 +8457,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8488,7 +8488,7 @@
    "polymarket": {
     "id": "510690",
     "question": "Oura IPO Closing Market Cap",
-    "prob": 0.965,
+    "prob": 0.968,
     "issue": "No IPO before January 2027",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 621797.1486219999,
@@ -8500,8 +8500,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8529,8 +8529,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8592,10 +8592,10 @@
    "polymarket": {
     "id": "192873",
     "question": "What kind of product will OpenAI announce in 2026?",
-    "prob": 0.15,
+    "prob": 0.16,
     "issue": "Earbuds/Headphones",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 471356.075346,
+    "volume": 471356.07534599997,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/what-kind-of-product-will-openai-announce-in-2026"
    },
@@ -8634,8 +8634,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8695,7 +8695,7 @@
    "polymarket": {
     "id": "141617",
     "question": "Will Venezuela become 51st state?",
-    "prob": 0.0225,
+    "prob": 0.023,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 400059.226751,
@@ -8707,8 +8707,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8767,8 +8767,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8869,8 +8869,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -8940,39 +8940,10 @@
     },
     {
      "kalshi": {
-      "ticker": "KXWTIMIN-26DEC31-T62",
-      "titre": "Will the minimum WTI front month settle price reach $62 by Dec 31, 2026?",
-      "mid": 0.09,
-      "ecart_carnet": 0.04,
-      "volume": 9278.92,
-      "echeance": "2026-12-31T19:30:00Z",
-      "sources_reglement": [
-       "ICE"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.4,
-      "recouvrement_vocabulaire": 0.119,
-      "nombres_communs": [
-       "2026",
-       "31",
-       "62"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2026, 31, 62",
-      "Kalshi règle sur : ICE"
-     ],
-     "force": 0.449
-    },
-    {
-     "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -8995,6 +8966,35 @@
       "Kalshi règle sur : ICE"
      ],
      "force": 0.449
+    },
+    {
+     "kalshi": {
+      "ticker": "KXWTIMIN-26DEC31-T62",
+      "titre": "Will the minimum WTI front month settle price reach $62 by Dec 31, 2026?",
+      "mid": 0.095,
+      "ecart_carnet": 0.03,
+      "volume": 9278.92,
+      "echeance": "2026-12-31T19:30:00Z",
+      "sources_reglement": [
+       "ICE"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.4,
+      "recouvrement_vocabulaire": 0.119,
+      "nombres_communs": [
+       "2026",
+       "31",
+       "62"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 31, 62",
+      "Kalshi règle sur : ICE"
+     ],
+     "force": 0.449
     }
    ],
    "equivalence": "A_VALIDER"
@@ -9006,7 +9006,7 @@
     "prob": 0.175,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 76721137.34810202,
+    "volume": 76723755.19035302,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/will-the-us-invade-iran-before-2027"
    },
@@ -9045,8 +9045,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9147,8 +9147,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9175,16 +9175,14 @@
     },
     {
      "kalshi": {
-      "ticker": "KXFIFAPEACESCRAP-27",
-      "titre": "Will it be reported by FIFA, the Associated Press, or Reuters that the FIFA Council decides at its December 2026 meeting",
-      "mid": 0.405,
-      "ecart_carnet": 0.07,
-      "volume": 3674.01,
+      "ticker": "KXFEDHIKE-2-26DEC31",
+      "titre": "Will the Federal Reserve hike rates by December 31, 2026?",
+      "mid": 0.725,
+      "ecart_carnet": 0.01,
+      "volume": 159138.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
-       "FIFA",
-       "the Associated Press",
-       "Reuters"
+       "Federal Reserve"
       ]
      },
      "indices": {
@@ -9192,14 +9190,15 @@
       "recouvrement_vocabulaire": 0.082,
       "nombres_communs": [
        "2026",
-       "2027"
+       "2027",
+       "31"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027",
-      "Kalshi règle sur : FIFA, the Associated Press, Reuters"
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027, 31",
+      "Kalshi règle sur : Federal Reserve"
      ],
      "force": 0.432
     }
@@ -9213,7 +9212,7 @@
     "prob": 0.945,
     "issue": "Anthropic",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 7645351.269221996,
+    "volume": 7645369.269221995,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/ipos-before-2027"
    },
@@ -9252,8 +9251,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9282,8 +9281,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9315,7 +9314,7 @@
    "polymarket": {
     "id": "147081",
     "question": "OKX IPO in 2026?",
-    "prob": 0.049,
+    "prob": 0.0485,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
     "volume": 619108.4465900001,
@@ -9357,8 +9356,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9387,8 +9386,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9422,7 +9421,7 @@
     "prob": 0.0275,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 5420454.899811,
+    "volume": 5420454.8998110015,
     "theme": "Prix crypto",
     "url": "https://polymarket.com/event/will-satoshi-move-any-bitcoin-in-2026"
    },
@@ -9431,8 +9430,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9527,7 +9526,7 @@
     "prob": 0.375,
     "issue": "No solution by Dec 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 321207.435308,
+    "volume": 321207.43530799996,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/which-millennium-prize-problem-will-ai-solve-next"
    },
@@ -9594,8 +9593,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9669,8 +9668,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9697,8 +9696,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9772,8 +9771,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -9836,10 +9835,10 @@
    "polymarket": {
     "id": "428400",
     "question": "Which companies will have a #1 AI model by December 31?",
-    "prob": 0.69,
+    "prob": 0.61,
     "issue": "Anthropic",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 236115.41894000003,
+    "volume": 236258.68894000002,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/which-companies-will-have-a-1-ai-model-by-december-31"
    },
@@ -9936,9 +9935,9 @@
     "id": "548796",
     "question": "Which countries will recognize Israel by December 31?",
     "prob": 0.07,
-    "issue": "Lebanon",
+    "issue": "Venezuela",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 977706.6108129999,
+    "volume": 977906.6008129999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/which-countries-will-recognize-israel-by-december-31"
    },
@@ -9977,8 +9976,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10007,8 +10006,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10038,10 +10037,10 @@
    "polymarket": {
     "id": "79932",
     "question": "How many different countries will the US conduct military action against in 2026?",
-    "prob": 0.7625,
+    "prob": 0.7395,
     "issue": "8",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1731060.6106679998,
+    "volume": 1731160.6106679998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/how-many-different-countries-will-the-us-strike-in-2026"
    },
@@ -10050,8 +10049,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10138,10 +10137,10 @@
    "polymarket": {
     "id": "549019",
     "question": "Anthropic IPO by __?",
-    "prob": 0.924,
+    "prob": 0.923,
     "issue": "December 31, 2026",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 6260564.190661999,
+    "volume": 6260737.463589,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/anthropic-ipo-by"
    },
@@ -10177,8 +10176,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10208,7 +10207,7 @@
       "titre": "Who will IPO before 2027?",
       "mid": 0.92,
       "ecart_carnet": 0.02,
-      "volume": 395154.17,
+      "volume": 395155.17,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "the New York Times",
@@ -10242,7 +10241,7 @@
     "prob": 0.9525,
     "issue": "Goldman Sachs",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 120522.97285,
+    "volume": 120522.97284999999,
     "theme": "Introductions en bourse (IPO)",
     "url": "https://polymarket.com/event/lead-bank-in-anthropics-ipo"
    },
@@ -10281,8 +10280,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10415,8 +10414,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10450,7 +10449,7 @@
     "prob": 0.23,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 411934.2486789999,
+    "volume": 412045.062013,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/trump-declares-election-interference-national-emergency"
    },
@@ -10489,8 +10488,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10637,8 +10636,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10712,8 +10711,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10771,8 +10770,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10802,6 +10801,111 @@
   },
   {
    "polymarket": {
+    "id": "73160",
+    "question": "Will a new country join the Abraham Accords before 2027?",
+    "prob": 0.139,
+    "issue": "Oui",
+    "echeance": "2027-01-01T04:59:00Z",
+    "volume": 354162.352274,
+    "theme": "Géopolitique",
+    "url": "https://polymarket.com/event/will-a-new-country-join-the-abraham-accords-before-2027"
+   },
+   "candidats": [
+    {
+     "kalshi": {
+      "ticker": "KXRATECUT-26DEC31",
+      "titre": "Will the Federal Reserve cut rates before 2027?",
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
+      "volume": 1670394.12,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Federal Reserve"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.103,
+      "nombres_communs": [
+       "2026",
+       "2027",
+       "26",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027, 26, 31",
+      "Kalshi règle sur : Federal Reserve"
+     ],
+     "force": 0.453
+    },
+    {
+     "kalshi": {
+      "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
+      "titre": "Will the Canadian federal counter-tariff rate applicable to U.S.-origin electric trucks on December 31, 2026, at 11:59 P",
+      "mid": 0.025,
+      "ecart_carnet": 0.03,
+      "volume": 1013.22,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Government of Canada"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.089,
+      "nombres_communs": [
+       "11",
+       "2026",
+       "31",
+       "59"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
+      "Kalshi règle sur : Government of Canada"
+     ],
+     "force": 0.439
+    },
+    {
+     "kalshi": {
+      "ticker": "KXTRADEDEALCUBA-27-B270101",
+      "titre": "Will Trump announce a trade deal with Cuba before Jan 1, 2027?",
+      "mid": 0.195,
+      "ecart_carnet": 0.03,
+      "volume": 70748.53,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Government of Cuba",
+       "The New York Times",
+       "the Associated Press",
+       "Bloomberg News"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.083,
+      "nombres_communs": [
+       "2027"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2027",
+      "Kalshi règle sur : Government of Cuba, The New York Times, the Associated Press"
+     ],
+     "force": 0.433
+    }
+   ],
+   "equivalence": "A_VALIDER"
+  },
+  {
+   "polymarket": {
     "id": "1121348",
     "question": "IEA asks Germany to release oil stocks by...?",
     "prob": 0.16,
@@ -10818,7 +10922,7 @@
       "titre": "Will it be reported by any of the Source Agencies that the United States has imposed a ban on exports of crude oil that ",
       "mid": 0.025,
       "ecart_carnet": 0.03,
-      "volume": 32613.21,
+      "volume": 32623.51,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Washington Post",
@@ -10846,8 +10950,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -10903,7 +11007,7 @@
    "polymarket": {
     "id": "16183",
     "question": "Kraken IPO by ___ ?",
-    "prob": 0.695,
+    "prob": 0.7,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
     "volume": 1626513.489718,
@@ -10944,8 +11048,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11046,8 +11150,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11149,8 +11253,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11212,7 +11316,7 @@
    "polymarket": {
     "id": "86832",
     "question": "Which companies will be acquired before 2027?",
-    "prob": 0.375,
+    "prob": 0.355,
     "issue": "Conductor",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 18420336.75753,
@@ -11254,8 +11358,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11283,8 +11387,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11319,7 +11423,7 @@
     "prob": 0.0205,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 16839505.573916,
+    "volume": 16839626.806164,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/xi-jinping-out-before-2027"
    },
@@ -11387,8 +11491,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11417,119 +11521,12 @@
   },
   {
    "polymarket": {
-    "id": "521954",
-    "question": "Will Turkey schedule early presidential elections in 2026?",
-    "prob": 0.016,
-    "issue": "Oui",
-    "echeance": "2027-01-01T04:59:00Z",
-    "volume": 211056.84105499997,
-    "theme": "Élections & politique",
-    "url": "https://polymarket.com/event/will-turkey-schedule-early-presidential-elections-in-2026"
-   },
-   "candidats": [
-    {
-     "kalshi": {
-      "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
-      "titre": "Will the Canadian federal counter-tariff rate applicable to U.S.-origin electric trucks on December 31, 2026, at 11:59 P",
-      "mid": 0.025,
-      "ecart_carnet": 0.03,
-      "volume": 1013.22,
-      "echeance": "2027-01-01T04:59:00Z",
-      "sources_reglement": [
-       "Government of Canada"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.0,
-      "recouvrement_vocabulaire": 0.102,
-      "nombres_communs": [
-       "11",
-       "2026",
-       "31",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
-      "Kalshi règle sur : Government of Canada"
-     ],
-     "force": 0.452
-    },
-    {
-     "kalshi": {
-      "ticker": "KXSNAPELECTIONFR-27JAN01",
-      "titre": "Will France announce a snap election before Jan 2, 2027?",
-      "mid": 0.021,
-      "ecart_carnet": 0.018,
-      "volume": 6311.28,
-      "echeance": "2027-01-02T04:59:00Z",
-      "sources_reglement": [
-       "The New York Times",
-       "the Associated Press",
-       "Reuters",
-       "Axios"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 1.0,
-      "recouvrement_vocabulaire": 0.146,
-      "nombres_communs": [
-       "11",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "dénouement à 1.0 j d'écart",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
-      "Kalshi règle sur : The New York Times, the Associated Press, Reuters"
-     ],
-     "force": 0.446
-    },
-    {
-     "kalshi": {
-      "ticker": "KXSNAPUK-27JAN01",
-      "titre": "Will the UK announce a snap election before Jan 2, 2027?",
-      "mid": 0.0695,
-      "ecart_carnet": 0.039,
-      "volume": 66230.39,
-      "echeance": "2027-01-02T04:59:00Z",
-      "sources_reglement": [
-       "The New York Times",
-       "the Associated Press",
-       "Reuters",
-       "Axios"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 1.0,
-      "recouvrement_vocabulaire": 0.143,
-      "nombres_communs": [
-       "11",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "dénouement à 1.0 j d'écart",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
-      "Kalshi règle sur : The New York Times, the Associated Press, Reuters"
-     ],
-     "force": 0.443
-    }
-   ],
-   "equivalence": "A_VALIDER"
-  },
-  {
-   "polymarket": {
     "id": "158505",
     "question": "Clarity Act (H.R.3633) signed into law in 2026?",
-    "prob": 0.025,
+    "prob": 0.0235,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 24787806.501617994,
+    "volume": 24792217.314662993,
     "theme": "Régulation crypto US",
     "url": "https://polymarket.com/event/clarity-act-signed-into-law-in-2026"
    },
@@ -11568,8 +11565,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11598,8 +11595,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11732,7 +11729,7 @@
     "prob": 0.0205,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 45557477.081804015,
+    "volume": 45561651.59880401,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-china-invade-taiwan-before-2027"
    },
@@ -11771,8 +11768,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11832,7 +11829,7 @@
    "polymarket": {
     "id": "427651",
     "question": "UAE x Qatar sever diplomatic relations in 2026?",
-    "prob": 0.049,
+    "prob": 0.0495,
     "issue": "Oui",
     "echeance": "2026-12-31T19:59:00Z",
     "volume": 365108.04384699994,
@@ -11844,8 +11841,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11947,8 +11944,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -11976,8 +11973,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12004,8 +12001,8 @@
      "kalshi": {
       "ticker": "KXPHILSNOWM-26DEC-8",
       "titre": "Snow in Philadelphia in Dec 2026?",
-      "mid": 0.085,
-      "ecart_carnet": 0.05,
+      "mid": 0.08,
+      "ecart_carnet": 0.06,
       "volume": 27434.34,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12037,7 +12034,7 @@
     "prob": 0.035,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 661314.861867,
+    "volume": 661314.8618669999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/russia-x-ukraine-peace-parlay"
    },
@@ -12046,8 +12043,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12316,8 +12313,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12352,7 +12349,7 @@
     "prob": 0.135,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 1436477.124059002,
+    "volume": 1436477.1240590021,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-any-country-leave-nato-in-2025"
    },
@@ -12390,8 +12387,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12493,8 +12490,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12557,7 +12554,7 @@
     "prob": 0.055,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 18538854.177454982,
+    "volume": 18539354.177454982,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-agrees-to-surrender-enriched-uranium-stockpile-by"
    },
@@ -12596,8 +12593,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12626,8 +12623,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -12765,7 +12762,7 @@
     "prob": 0.7055,
     "issue": "30.0-34.9%",
     "echeance": "2027-01-11T04:59:00Z",
-    "volume": 90615.98431500001,
+    "volume": 90747.204315,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/argentina-annual-inflation-2026"
    },
@@ -12870,8 +12867,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12898,8 +12895,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -12960,7 +12957,7 @@
     "prob": 0.935,
     "issue": "UAE",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 122141.426799,
+    "volume": 124901.544191,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/where-will-the-next-russia-x-ukraine-peace-talks-take-place"
    },
@@ -12999,8 +12996,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13062,7 +13059,7 @@
    "polymarket": {
     "id": "1153971",
     "question": "Who will launch a Muse-like personal agent before 2027?",
-    "prob": 0.9325,
+    "prob": 0.933,
     "issue": "Anthropic",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 67870.864388,
@@ -13104,8 +13101,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13134,8 +13131,8 @@
      "kalshi": {
       "ticker": "KXOAIPERSONALAGENT-27JAN01-27JAN01",
       "titre": "Will OpenAI release a personal AI agent before Jan 1, 2027?",
-      "mid": 0.205,
-      "ecart_carnet": 0.03,
+      "mid": 0.21,
+      "ecart_carnet": 0.04,
       "volume": 33636.69,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13209,8 +13206,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13311,8 +13308,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13479,7 +13476,7 @@
     "prob": 0.033,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3504429.381366999,
+    "volume": 3504429.3813669994,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/china-x-taiwan-military-clash-before-2027"
    },
@@ -13548,9 +13545,9 @@
      "kalshi": {
       "ticker": "KXTARIFFRATEPRC-27JAN01-25",
       "titre": "Will the tariff rate on People's Republic of China imports be at least 50% on Jan 1, 2027?",
-      "mid": 0.375,
-      "ecart_carnet": 0.23,
-      "volume": 2108.61,
+      "mid": 0.465,
+      "ecart_carnet": 0.41,
+      "volume": 2112.58,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Fox News",
@@ -13622,8 +13619,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13685,7 +13682,7 @@
     "prob": 0.825,
     "issue": "China",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2190044.649106,
+    "volume": 2194573.524167,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/where-will-trump-and-putin-meet-next-678"
    },
@@ -13724,8 +13721,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13752,30 +13749,29 @@
     },
     {
      "kalshi": {
-      "ticker": "KXICENICE-26JUL-JAN01",
-      "titre": "Will Donald Trump issue any executive action on renaming U.S. Immigration and Customs Enforcement to a name abbreviated ",
-      "mid": 0.08,
-      "ecart_carnet": 0.04,
-      "volume": 1796.69,
+      "ticker": "KXRATECUT-26DEC31",
+      "titre": "Will the Federal Reserve cut rates before 2027?",
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
+      "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
-       "the White House",
-       "Federal Register",
-       "the President of the United States"
+       "Federal Reserve"
       ]
      },
      "indices": {
       "ecart_echeance_j": 0.0,
       "recouvrement_vocabulaire": 0.069,
       "nombres_communs": [
-       "2026"
+       "2026",
+       "31"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2026",
-      "Kalshi règle sur : the White House, Federal Register, the President of the United States"
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 31",
+      "Kalshi règle sur : Federal Reserve"
      ],
      "force": 0.419
     }
@@ -13789,7 +13785,7 @@
     "prob": 0.125,
     "issue": "Somaliland",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1847247.9732549998,
+    "volume": 1847287.9732549998,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/which-country-will-join-abraham-accords-before-2027"
    },
@@ -13828,9 +13824,9 @@
      "kalshi": {
       "ticker": "KXUSSAUDINUCLEAR-27-27JAN01",
       "titre": "Will it be reported by any of the Source Agencies that the bilateral U.S.–Saudi agreement for peaceful nuclear cooperati",
-      "mid": 0.08,
+      "mid": 0.09,
       "ecart_carnet": 0.06,
-      "volume": 14631.74,
+      "volume": 14669.74,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Washington Post",
@@ -13858,8 +13854,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -13932,8 +13928,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14007,7 +14003,7 @@
       "titre": "Will it be reported by any of the Source Agencies that the United States has imposed a ban on exports of crude oil that ",
       "mid": 0.025,
       "ecart_carnet": 0.03,
-      "volume": 32613.21,
+      "volume": 32623.51,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Washington Post",
@@ -14035,8 +14031,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14092,10 +14088,10 @@
    "polymarket": {
     "id": "34863",
     "question": "Will USDT market cap hit $200B by ___?",
-    "prob": 0.2255,
+    "prob": 0.2295,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 190004.778907,
+    "volume": 190004.77890699997,
     "theme": "Écosystème crypto",
     "url": "https://polymarket.com/event/will-usdt-market-cap-hit-by-december-31"
    },
@@ -14104,8 +14100,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14260,8 +14256,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14335,8 +14331,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14365,8 +14361,8 @@
      "kalshi": {
       "ticker": "KXOPENSOURCEAIBAN-27JAN01",
       "titre": "Will the U.S. ban any open-source AI model in 2026?",
-      "mid": 0.07,
-      "ecart_carnet": 0.04,
+      "mid": 0.065,
+      "ecart_carnet": 0.05,
       "volume": 4822.24,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14397,10 +14393,10 @@
    "polymarket": {
     "id": "103418",
     "question": "Will Apple release a new product line before 2027?",
-    "prob": 0.981,
+    "prob": 0.9835,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 360432.69875999994,
+    "volume": 360432.69876,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/will-apple-release-a-new-product-line-before-2027"
    },
@@ -14468,8 +14464,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14504,7 +14500,7 @@
     "prob": 0.8565,
     "issue": "Mojtaba Khamenei",
     "echeance": "2026-12-31T17:00:00Z",
-    "volume": 40684774.748371,
+    "volume": 40684784.888371,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-leader-end-of-2026"
    },
@@ -14606,7 +14602,7 @@
    "polymarket": {
     "id": "841086",
     "question": "Who will attend a round of US-Iran peace talks by December 31?",
-    "prob": 0.425,
+    "prob": 0.43,
     "issue": "Kazem Gharibabadi",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 1996295.094124,
@@ -14648,8 +14644,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14676,30 +14672,29 @@
     },
     {
      "kalshi": {
-      "ticker": "KXFIFAPEACESCRAP-27",
-      "titre": "Will it be reported by FIFA, the Associated Press, or Reuters that the FIFA Council decides at its December 2026 meeting",
-      "mid": 0.405,
-      "ecart_carnet": 0.07,
-      "volume": 3674.01,
+      "ticker": "KXFEDHIKE-2-26DEC31",
+      "titre": "Will the Federal Reserve hike rates by December 31, 2026?",
+      "mid": 0.725,
+      "ecart_carnet": 0.01,
+      "volume": 159138.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
-       "FIFA",
-       "the Associated Press",
-       "Reuters"
+       "Federal Reserve"
       ]
      },
      "indices": {
       "ecart_echeance_j": 0.0,
       "recouvrement_vocabulaire": 0.069,
       "nombres_communs": [
-       "2026"
+       "2026",
+       "31"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2026",
-      "Kalshi règle sur : FIFA, the Associated Press, Reuters"
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 31",
+      "Kalshi règle sur : Federal Reserve"
      ],
      "force": 0.419
     }
@@ -14713,7 +14708,7 @@
     "prob": 0.045,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 310597.679919,
+    "volume": 310597.6799190001,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-nuclear-test-before-2027"
    },
@@ -14722,8 +14717,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14782,8 +14777,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -14817,7 +14812,7 @@
     "prob": 0.085,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1844272.8408010004,
+    "volume": 1844272.840801,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/cuban-regime-falls-in-2026"
    },
@@ -14856,8 +14851,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15066,8 +15061,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15129,7 +15124,7 @@
    "polymarket": {
     "id": "183657",
     "question": "South Africa Annual Inflation 2026",
-    "prob": 0.6765,
+    "prob": 0.6755,
     "issue": ">5.0%",
     "echeance": "2027-01-21T04:59:00Z",
     "volume": 107615.46712,
@@ -15307,8 +15302,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15342,7 +15337,7 @@
     "prob": 0.175,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 578455.5579969998,
+    "volume": 578455.5579969997,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/china-x-philippines-military-clash-before-2027-20260723214807932"
    },
@@ -15411,9 +15406,9 @@
      "kalshi": {
       "ticker": "KXTARIFFRATEPRC-27JAN01-25",
       "titre": "Will the tariff rate on People's Republic of China imports be at least 50% on Jan 1, 2027?",
-      "mid": 0.375,
-      "ecart_carnet": 0.23,
-      "volume": 2108.61,
+      "mid": 0.465,
+      "ecart_carnet": 0.41,
+      "volume": 2112.58,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Fox News",
@@ -15444,7 +15439,7 @@
    "polymarket": {
     "id": "133745",
     "question": "Will Bitcoin Dominance hit 70% before 2027?",
-    "prob": 0.065,
+    "prob": 0.07,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
     "volume": 32860.624843000005,
@@ -15456,8 +15451,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15515,8 +15510,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15559,8 +15554,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15649,7 +15644,7 @@
     "prob": 0.033,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1457388.8730440002,
+    "volume": 1458201.903044,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/china-x-japan-military-clash-before-2027"
    },
@@ -15718,9 +15713,9 @@
      "kalshi": {
       "ticker": "KXTARIFFRATEPRC-27JAN01-25",
       "titre": "Will the tariff rate on People's Republic of China imports be at least 50% on Jan 1, 2027?",
-      "mid": 0.375,
-      "ecart_carnet": 0.23,
-      "volume": 2108.61,
+      "mid": 0.465,
+      "ecart_carnet": 0.41,
+      "volume": 2112.58,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Fox News",
@@ -15751,10 +15746,10 @@
    "polymarket": {
     "id": "1200884",
     "question": "Next Press Secretary?",
-    "prob": 0.2035,
+    "prob": 0.2255,
     "issue": "Rachel Campos-Duffy",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 362516.797205,
+    "volume": 362566.797205,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/next-press-secretary-2027"
    },
@@ -15793,8 +15788,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15897,8 +15892,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -15970,8 +15965,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16027,10 +16022,10 @@
    "polymarket": {
     "id": "192820",
     "question": "Who will Xi Jinping purge in 2026?",
-    "prob": 0.038,
-    "issue": "Li Xi",
+    "prob": 0.0375,
+    "issue": "Wang Huning",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 266113.773437,
+    "volume": 266115.814888,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/who-will-xi-jinping-purge-in-2026"
    },
@@ -16069,8 +16064,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16131,10 +16126,10 @@
    "polymarket": {
     "id": "79926",
     "question": "How many different countries will Israel strike in 2026?",
-    "prob": 0.7225,
+    "prob": 0.7265,
     "issue": "4",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 7759097.726310997,
+    "volume": 7759097.726310998,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/how-many-different-countries-will-israel-strike-in-2026"
    },
@@ -16173,8 +16168,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16201,31 +16196,30 @@
     },
     {
      "kalshi": {
-      "ticker": "KXTRUMPCOUNTRIES-27JAN01-PAL",
-      "titre": "Will Donald Trump visit Palestine (West Bank and Gaza Strip) before Jan 1, 2027?",
-      "mid": 0.032,
-      "ecart_carnet": 0.008,
-      "volume": 9968.24,
-      "echeance": "2027-01-01T15:00:00Z",
+      "ticker": "KXSJCLOWT-26DEC31-40",
+      "titre": "Will the temperature in San Jose drop below 40°F in December 2026?",
+      "mid": 0.83,
+      "ecart_carnet": 0.02,
+      "volume": 6530.46,
+      "echeance": "2027-01-01T07:59:00Z",
       "sources_reglement": [
-       "The Guardian",
-       "local news outlets with verifiable mastheads in the country",
-       "official social media accounts of Donald Trump or their official representatives",
-       "official government sources of the country"
+       "The Weather Company"
       ]
      },
      "indices": {
-      "ecart_echeance_j": 0.42,
-      "recouvrement_vocabulaire": 0.095,
+      "ecart_echeance_j": 0.12,
+      "recouvrement_vocabulaire": 0.081,
       "nombres_communs": [
-       "1"
+       "1",
+       "2026",
+       "31"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 1",
-      "Kalshi règle sur : The Guardian, local news outlets with verifiable mastheads in the country, official social media accounts of Donald Trump or their official representatives"
+      "seuil(s) partagé(s) dans le texte de résolution : 1, 2026, 31",
+      "Kalshi règle sur : The Weather Company"
      ],
      "force": 0.424
     }
@@ -16239,7 +16233,7 @@
     "prob": 0.045,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 527061.7270150001,
+    "volume": 527061.727015,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/israel-x-turkey-military-clash-before-2027"
    },
@@ -16278,8 +16272,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16307,8 +16301,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16340,10 +16334,10 @@
    "polymarket": {
     "id": "79953",
     "question": "Will a US ally get a nuke before 2027?",
-    "prob": 0.046,
+    "prob": 0.0385,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 215422.77763000003,
+    "volume": 215581.31763000003,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-a-us-ally-get-a-nuke-before-2027"
    },
@@ -16382,8 +16376,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16444,7 +16438,7 @@
    "polymarket": {
     "id": "994486",
     "question": "How many more Millennium Prize Problems will AI solve in 2026?",
-    "prob": 0.7,
+    "prob": 0.705,
     "issue": "0",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 450909.481852,
@@ -16486,8 +16480,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16516,8 +16510,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16653,7 +16647,7 @@
     "prob": 0.045,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 29049098.083599,
+    "volume": 29051098.083599,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/will-the-iranian-regime-fall-by-the-end-of-2026"
    },
@@ -16692,8 +16686,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16759,7 +16753,7 @@
     "prob": 0.105,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2928185.8587429994,
+    "volume": 2929103.8020729995,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/ukraine-signs-peace-deal-with-russia-before-2027"
    },
@@ -16798,8 +16792,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16826,16 +16820,14 @@
     },
     {
      "kalshi": {
-      "ticker": "KXFIFAPEACESCRAP-27",
-      "titre": "Will it be reported by FIFA, the Associated Press, or Reuters that the FIFA Council decides at its December 2026 meeting",
-      "mid": 0.405,
-      "ecart_carnet": 0.07,
-      "volume": 3674.01,
+      "ticker": "KXFEDHIKE-2-26DEC31",
+      "titre": "Will the Federal Reserve hike rates by December 31, 2026?",
+      "mid": 0.725,
+      "ecart_carnet": 0.01,
+      "volume": 159138.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
-       "FIFA",
-       "the Associated Press",
-       "Reuters"
+       "Federal Reserve"
       ]
      },
      "indices": {
@@ -16843,14 +16835,15 @@
       "recouvrement_vocabulaire": 0.063,
       "nombres_communs": [
        "2026",
-       "2027"
+       "2027",
+       "31"
       ],
       "seuils_divergents": false
      },
      "motifs": [
       "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027",
-      "Kalshi règle sur : FIFA, the Associated Press, Reuters"
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 2027, 31",
+      "Kalshi règle sur : Federal Reserve"
      ],
      "force": 0.413
     }
@@ -16902,8 +16895,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -16966,7 +16959,7 @@
     "prob": 0.0145,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 495070.51840100007,
+    "volume": 495070.51840099995,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/modi-out-before-2027"
    },
@@ -16975,8 +16968,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17003,8 +16996,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17060,12 +17053,115 @@
   },
   {
    "polymarket": {
+    "id": "333737",
+    "question": "Will a Chinese company have a top ___ AI model by December 31?",
+    "prob": 0.16,
+    "issue": "#3",
+    "echeance": "2027-01-01T04:59:00Z",
+    "volume": 293344.829025,
+    "theme": "Intelligence artificielle",
+    "url": "https://polymarket.com/event/will-a-chinese-company-have-the-best-ai-model-by-december-31"
+   },
+   "candidats": [
+    {
+     "kalshi": {
+      "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
+      "titre": "Will the Canadian federal counter-tariff rate applicable to U.S.-origin electric trucks on December 31, 2026, at 11:59 P",
+      "mid": 0.025,
+      "ecart_carnet": 0.03,
+      "volume": 1013.22,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Government of Canada"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.083,
+      "nombres_communs": [
+       "11",
+       "2026",
+       "31",
+       "59"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
+      "Kalshi règle sur : Government of Canada"
+     ],
+     "force": 0.433
+    },
+    {
+     "kalshi": {
+      "ticker": "KXXMONEYAPY-27JAN01-T4.50",
+      "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
+      "volume": 1221.0,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "X Money"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.076,
+      "nombres_communs": [
+       "11",
+       "2026",
+       "31",
+       "59"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 11, 2026, 31, 59",
+      "Kalshi règle sur : X Money"
+     ],
+     "force": 0.426
+    },
+    {
+     "kalshi": {
+      "ticker": "KXRATECUT-26DEC31",
+      "titre": "Will the Federal Reserve cut rates before 2027?",
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
+      "volume": 1670394.12,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Federal Reserve"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.062,
+      "nombres_communs": [
+       "2026",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2026, 31",
+      "Kalshi règle sur : Federal Reserve"
+     ],
+     "force": 0.412
+    }
+   ],
+   "equivalence": "A_VALIDER"
+  },
+  {
+   "polymarket": {
     "id": "765647",
     "question": "How many Israeli elections before government formed?",
-    "prob": 0.495,
+    "prob": 0.475,
     "issue": "1",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 246701.180021,
+    "volume": 246789.841531,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/how-many-israeli-elections-before-government-formed-20260728195012183"
    },
@@ -17104,8 +17200,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17170,7 +17266,7 @@
     "prob": 0.0245,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 787890.7969330002,
+    "volume": 788275.4123179999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/kim-jong-un-out-as-supreme-leader-of-north-korea-before-2027"
    },
@@ -17179,8 +17275,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17207,8 +17303,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17269,7 +17365,7 @@
     "prob": 0.685,
     "issue": "Google",
     "echeance": "2026-12-01T04:59:00Z",
-    "volume": 707191.250385,
+    "volume": 707435.36826,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/which-company-has-the-best-ai-model-end-of-november"
    },
@@ -17340,7 +17436,7 @@
    "polymarket": {
     "id": "73105",
     "question": "How many Gold Cards will Trump sell in 2026?",
-    "prob": 0.6355,
+    "prob": 0.635,
     "issue": "1-100",
     "echeance": "2026-12-31T23:59:00Z",
     "volume": 305743.38900699996,
@@ -17352,8 +17448,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17486,8 +17582,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17552,7 +17648,7 @@
     "prob": 0.115,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 20943887.727964997,
+    "volume": 20944175.797964998,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-iran-final-nuclear-deal-by-20260621201254412"
    },
@@ -17652,10 +17748,10 @@
    "polymarket": {
     "id": "141230",
     "question": "Maduro Prison Time?",
-    "prob": 0.38,
+    "prob": 0.39,
     "issue": "No prison time",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 1087139.6295490002,
+    "volume": 1087159.6295490002,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/maduro-prison-time-527"
    },
@@ -17664,8 +17760,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T3.00",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.9,
-      "ecart_carnet": 0.1,
+      "mid": 0.895,
+      "ecart_carnet": 0.11,
       "volume": 2548.22,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -17756,7 +17852,7 @@
    "polymarket": {
     "id": "107662",
     "question": "XRP all time high by ___?",
-    "prob": 0.0435,
+    "prob": 0.043,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 447765.33038900007,
@@ -17859,7 +17955,7 @@
     "prob": 0.06,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3853034.6311229984,
+    "volume": 3853034.631122999,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-hamaz-disarm-by-december-31"
    },
@@ -17897,8 +17993,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -18029,7 +18125,7 @@
     "prob": 0.5585,
     "issue": "12-15",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 227651.07881399998,
+    "volume": 227651.078814,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/how-many-cities-will-waymo-operate-in-by-december-31-20260626203648850"
    },
@@ -18068,8 +18164,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -18098,8 +18194,8 @@
      "kalshi": {
       "ticker": "KXOILRIGS-26-430",
       "titre": "How many oil rigs will the US have at the end of the year?",
-      "mid": 0.955,
-      "ecart_carnet": 0.07,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 7297.79,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -18431,7 +18527,7 @@
     "prob": 0.94,
     "issue": "Shutdown & Democratic Party",
     "echeance": "2027-02-01T04:59:00Z",
-    "volume": 374015.16182000004,
+    "volume": 374015.16182,
     "theme": "Risques extrêmes",
     "url": "https://polymarket.com/event/another-us-government-shutdown-house-winner-2026"
    },
@@ -18537,7 +18633,7 @@
     "prob": 0.835,
     "issue": "Amy Acton (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 2029586.207999,
+    "volume": 2032025.5114299997,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/ohio-governor-winner-2026"
    },
@@ -18633,7 +18729,7 @@
     "prob": 0.855,
     "issue": "David Crowley (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 1047183.4155789999,
+    "volume": 1047423.465579,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/wisconsin-governor-winner-2026"
    },
@@ -18729,7 +18825,7 @@
     "prob": 0.935,
     "issue": "Katie Hobbs (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 769794.961146,
+    "volume": 770044.961146,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/arizona-governor-winner-2026"
    },
@@ -18822,7 +18918,7 @@
    "polymarket": {
     "id": "1066485",
     "question": "Where will the next US-Iran senior diplomatic meeting take place...?",
-    "prob": 0.545,
+    "prob": 0.55,
     "issue": "No Meeting by December 31",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 231028.40225100002,
@@ -18864,8 +18960,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -18892,11 +18988,11 @@
     },
     {
      "kalshi": {
-      "ticker": "KXFEDHIKE-2-26DEC31",
-      "titre": "Will the Federal Reserve hike rates by December 31, 2026?",
-      "mid": 0.725,
-      "ecart_carnet": 0.01,
-      "volume": 159138.79,
+      "ticker": "KXRATECUT-26DEC31",
+      "titre": "Will the Federal Reserve cut rates before 2027?",
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
+      "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "Federal Reserve"
@@ -18928,7 +19024,7 @@
     "prob": 0.0325,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 5579539.380261989,
+    "volume": 5579586.652989989,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/will-russia-invade-a-nato-country-in-2025"
    },
@@ -18966,8 +19062,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -18995,8 +19091,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -19028,7 +19124,7 @@
     "prob": 0.635,
     "issue": "Byron Donalds (R)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 1823858.0441300003,
+    "volume": 1831206.642933,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/florida-governor-winner-2026"
    },
@@ -19124,7 +19220,7 @@
     "prob": 0.765,
     "issue": "Aaron Ford (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 1486627.242114,
+    "volume": 1487079.836249,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/nevada-governor-winner-2026"
    },
@@ -19217,10 +19313,10 @@
    "polymarket": {
     "id": "57176",
     "question": "Michigan Governor Election Winner",
-    "prob": 0.952,
+    "prob": 0.9545,
     "issue": "Jocelyn Benson (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 700103.674978,
+    "volume": 702051.7449780001,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/michigan-governor-winner-2026"
    },
@@ -19313,10 +19409,10 @@
    "polymarket": {
     "id": "57161",
     "question": "Georgia Governor Election Winner",
-    "prob": 0.73,
+    "prob": 0.725,
     "issue": "Keisha Lance Bottoms (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 493749.583187,
+    "volume": 498549.975074,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/georgia-governor-winner-2026"
    },
@@ -19412,7 +19508,7 @@
     "prob": 0.685,
     "issue": "Phil Scott (R)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 392654.88161800004,
+    "volume": 392727.345387,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/vermont-governor-winner-2026"
    },
@@ -19604,7 +19700,7 @@
     "prob": 0.769,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 1577289.2462410002,
+    "volume": 1577289.246241,
     "theme": "Écosystème crypto",
     "url": "https://polymarket.com/event/strc-hits-100-by-20260618001620693"
    },
@@ -19643,8 +19739,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -19744,8 +19840,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -19805,10 +19901,10 @@
    "polymarket": {
     "id": "57184",
     "question": "New York Governor Election Winner",
-    "prob": 0.9635,
+    "prob": 0.9645,
     "issue": "Kathy Hochul (D)",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 627379.655034,
+    "volume": 629370.245034,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/new-york-governor-winner-2026"
    },
@@ -19901,10 +19997,10 @@
    "polymarket": {
     "id": "103161",
     "question": "Blue wave in 2026?",
-    "prob": 0.92,
+    "prob": 0.91,
     "issue": "Oui",
     "echeance": "2027-01-05T04:59:00Z",
-    "volume": 286957.09125800006,
+    "volume": 286995.230815,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/blue-wave-in-2026"
    },
@@ -20004,7 +20100,7 @@
    "polymarket": {
     "id": "267102",
     "question": "Kharg Island no longer under Iranian control by...?",
-    "prob": 0.065,
+    "prob": 0.07,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 77195130.01125544,
@@ -20046,8 +20142,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20109,10 +20205,10 @@
    "polymarket": {
     "id": "329654",
     "question": "US obtains Iranian enriched uranium by...?",
-    "prob": 0.0915,
+    "prob": 0.0765,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 29751172.499440044,
+    "volume": 29752734.473060045,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-obtains-iranian-enriched-uranium-by"
    },
@@ -20151,8 +20247,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20256,8 +20352,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20285,8 +20381,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20315,7 +20411,7 @@
    "polymarket": {
     "id": "25487",
     "question": "Trump eliminates capital gains tax on crypto by ___?",
-    "prob": 0.0245,
+    "prob": 0.03,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
     "volume": 118698.282238,
@@ -20356,8 +20452,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20483,8 +20579,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20517,7 +20613,7 @@
     "prob": 0.525,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 3307197.639487,
+    "volume": 3307790.3061540006,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/russia-x-ukraine-ceasefire-by"
    },
@@ -20584,8 +20680,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20615,10 +20711,10 @@
    "polymarket": {
     "id": "48930",
     "question": "NATO x Russia military clash by...?",
-    "prob": 0.145,
+    "prob": 0.13,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 13081148.489009,
+    "volume": 13085956.3042,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/nato-x-russia-military-clash-in-2025"
    },
@@ -20656,8 +20752,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20685,8 +20781,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -20718,7 +20814,7 @@
     "prob": 0.205,
     "issue": "November 20",
     "echeance": "2026-12-01T04:59:00Z",
-    "volume": 160548.906517,
+    "volume": 160964.555268,
     "theme": "Introductions en bourse (IPO)",
     "url": "https://polymarket.com/event/anthropic-ipo-date"
    },
@@ -20763,7 +20859,7 @@
     "prob": 0.615,
     "issue": "None before 2027",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2244052.84888,
+    "volume": 2244532.07888,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/next-leader-out-of-power-before-2027-no-starmer-or-petro-20260630194619406"
    },
@@ -20800,6 +20896,36 @@
     },
     {
      "kalshi": {
+      "ticker": "KXCABLEAVE-26MAY22-27JAN",
+      "titre": "Will any member of Trump's Cabinet leave before Jan 2027?",
+      "mid": 0.765,
+      "ecart_carnet": 0.03,
+      "volume": 8885.76,
+      "echeance": "2027-01-01T04:59:00Z",
+      "sources_reglement": [
+       "Bloomberg",
+       "White House",
+       "New York Times",
+       "Axios"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.051,
+      "nombres_communs": [
+       "2027"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2027",
+      "Kalshi règle sur : Bloomberg, White House, New York Times"
+     ],
+     "force": 0.401
+    },
+    {
+     "kalshi": {
       "ticker": "KXALITOANNOUNCERETIRE-26JUN-JAN01",
       "titre": "Will Samuel Alito announce their departure as Supreme Court justice before Jan 1, 2027?",
       "mid": 0.22,
@@ -20823,34 +20949,6 @@
       "même date de dénouement",
       "seuil(s) partagé(s) dans le texte de résolution : 2027",
       "Kalshi règle sur : Samuel Alito, Supreme Court"
-     ],
-     "force": 0.401
-    },
-    {
-     "kalshi": {
-      "ticker": "KXTHOMASANNOUNCERETIRE-26JUL-27JAN01",
-      "titre": "Will Clarence Thomas announce their departure as Supreme Court justice before Jan 1, 2027?",
-      "mid": 0.18,
-      "ecart_carnet": 0.04,
-      "volume": 17737.13,
-      "echeance": "2027-01-01T04:59:00Z",
-      "sources_reglement": [
-       "Clarence Thomas",
-       "Supreme Court of the United States"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.0,
-      "recouvrement_vocabulaire": 0.051,
-      "nombres_communs": [
-       "2027"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 2027",
-      "Kalshi règle sur : Clarence Thomas, Supreme Court of the United States"
      ],
      "force": 0.401
     }
@@ -20901,8 +20999,8 @@
      "kalshi": {
       "ticker": "KXDIESELYE-26DEC31-T6.00",
       "titre": "Will AAA national average price for diesel on December 31, 2026 be above $6.00?",
-      "mid": 0.61,
-      "ecart_carnet": 0.12,
+      "mid": 0.6,
+      "ecart_carnet": 0.14,
       "volume": 5555.83,
       "echeance": "2026-12-31T04:59:00Z",
       "sources_reglement": [
@@ -20960,10 +21058,10 @@
    "polymarket": {
     "id": "137182",
     "question": "Canada Annual Inflation 2026",
-    "prob": 0.448,
+    "prob": 0.384,
     "issue": "3.0-3.4%",
     "echeance": "2027-01-19T04:59:00Z",
-    "volume": 80529.33292199999,
+    "volume": 81024.10509099999,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/canada-annual-inflation-2026"
    },
@@ -21058,10 +21156,10 @@
    "polymarket": {
     "id": "196914",
     "question": "Largest IPO by market cap in 2026?",
-    "prob": 0.64,
+    "prob": 0.645,
     "issue": "SpaceX",
     "echeance": "2027-01-02T04:59:00Z",
-    "volume": 7397977.341442,
+    "volume": 7398960.102328001,
     "theme": "Introductions en bourse (IPO)",
     "url": "https://polymarket.com/event/largest-ipo-by-market-cap-in-2026-287"
    },
@@ -21199,8 +21297,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -21301,8 +21399,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -21360,7 +21458,7 @@
    "polymarket": {
     "id": "49286",
     "question": "Will Tesla release Optimus by...?",
-    "prob": 0.0345,
+    "prob": 0.035,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 155246.33428800013,
@@ -21433,8 +21531,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -21468,7 +21566,7 @@
     "prob": 0.0305,
     "issue": "5.0%",
     "echeance": "2027-02-01T04:59:00Z",
-    "volume": 594099.7601389999,
+    "volume": 594099.760139,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/how-high-will-us-unemployment-go-in-2026"
    },
@@ -21563,10 +21661,10 @@
    "polymarket": {
     "id": "1298065",
     "question": "Dem sweep & US recession by end of 2027?",
-    "prob": 0.484,
+    "prob": 0.483,
     "issue": "Dem sweep; No recession",
     "echeance": "2028-02-01T04:59:00Z",
-    "volume": 6854.057110000001,
+    "volume": 6885.610330000001,
     "theme": "Risques extrêmes",
     "url": "https://polymarket.com/event/dem-sweep-and-us-recession-by-end-of-2027"
    },
@@ -21577,7 +21675,7 @@
       "titre": "Will there be a recession in 2027?",
       "mid": 0.205,
       "ecart_carnet": 0.01,
-      "volume": 823853.1,
+      "volume": 823911.75,
       "echeance": "2028-01-31T13:25:00Z",
       "sources_reglement": [
        "Bureau of Economic Analysis"
@@ -21607,9 +21705,9 @@
     "id": "797327",
     "question": "Texas Senate Election Margin of Victory",
     "prob": 0.265,
-    "issue": "Talarico 0-3%",
+    "issue": "Talarico 3-6%",
     "echeance": "2026-11-04T04:59:00Z",
-    "volume": 370633.094266,
+    "volume": 371019.674266,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/texas-senate-margin-of-victory-2026"
    },
@@ -21677,7 +21775,7 @@
    "polymarket": {
     "id": "89468",
     "question": "Will Zelenskyy talk to Putin by...?",
-    "prob": 0.13,
+    "prob": 0.125,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 1057085.2361660004,
@@ -21748,8 +21846,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -21781,7 +21879,7 @@
     "prob": 0.41,
     "issue": "Oui",
     "echeance": "2027-01-01T05:00:00Z",
-    "volume": 481886.270582,
+    "volume": 481886.27058199997,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/will-bitcoin-outperform-gold-in-2026"
    },
@@ -22018,7 +22116,7 @@
    "polymarket": {
     "id": "72966",
     "question": "Another S&P 500 Company buys Bitcoin by ___?",
-    "prob": 0.1435,
+    "prob": 0.143,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 151488.652732,
@@ -22123,7 +22221,7 @@
     "prob": 0.996,
     "issue": "November 1",
     "echeance": "2026-12-31T20:29:00Z",
-    "volume": 43630752.527269006,
+    "volume": 43634349.891336,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/israel-x-iran-ceasefire-continues-throughptptpt-20260716224448963"
    },
@@ -22132,8 +22230,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -22160,8 +22258,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -22218,10 +22316,10 @@
    "polymarket": {
     "id": "276527",
     "question": "Bab el-Mandeb Strait effectively closed by...?",
-    "prob": 0.115,
+    "prob": 0.12,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 17894110.228332,
+    "volume": 17907926.618332002,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/bab-el-mandeb-strait-effectively-closed-by"
    },
@@ -22320,7 +22418,7 @@
     "prob": 0.055,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3774392.200126,
+    "volume": 3774404.760126,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/zelenskyy-out-as-ukraine-president-before-2027"
    },
@@ -22329,9 +22427,9 @@
      "kalshi": {
       "ticker": "KXISRFIRSTMANDATE-27-BNET",
       "titre": "Will it be reported by The Times of Israel that the President of Israel gives Benjamin Netanyahu the first mandate to fo",
-      "mid": 0.12,
-      "ecart_carnet": 0.02,
-      "volume": 128767.16,
+      "mid": 0.145,
+      "ecart_carnet": 0.03,
+      "volume": 129068.36,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Times of Israel"
@@ -22356,9 +22454,9 @@
      "kalshi": {
       "ticker": "KXISRFIRSTMANDATE-27-GEIS",
       "titre": "Will it be reported by The Times of Israel that the President of Israel gives Gadi Eisenkot the first mandate to form a ",
-      "mid": 0.895,
-      "ecart_carnet": 0.01,
-      "volume": 89850.76,
+      "mid": 0.86,
+      "ecart_carnet": 0.04,
+      "volume": 89952.09,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
        "The Times of Israel"
@@ -22614,7 +22712,7 @@
     "prob": 0.9355,
     "issue": "↑$1.5T",
     "echeance": "2027-01-05T04:59:00Z",
-    "volume": 6552713.007010999,
+    "volume": 6553023.967011,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/will-anthropics-valuation-hit-by-december-31"
    },
@@ -22818,7 +22916,7 @@
     "prob": 0.355,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 993204.3668470003,
+    "volume": 993275.9891550001,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/pete-hegseth-out-as-secretary-of-defense-by-december-31"
    },
@@ -22827,8 +22925,8 @@
      "kalshi": {
       "ticker": "KXRATECUT-26DEC31",
       "titre": "Will the Federal Reserve cut rates before 2027?",
-      "mid": 0.024,
-      "ecart_carnet": 0.02,
+      "mid": 0.022,
+      "ecart_carnet": 0.012,
       "volume": 1670394.12,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -22854,8 +22952,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -22914,7 +23012,7 @@
     "prob": 0.1845,
     "issue": "JD Vance",
     "echeance": "2028-11-08T04:59:00Z",
-    "volume": 726960190.951656,
+    "volume": 726975035.233819,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/presidential-election-winner-2028"
    },
@@ -22957,10 +23055,10 @@
    "polymarket": {
     "id": "147587",
     "question": "U.K. Annual Inflation 2026",
-    "prob": 0.565,
+    "prob": 0.5485,
     "issue": "3.5–3.9%",
     "echeance": "2027-01-21T04:59:00Z",
-    "volume": 152182.999159,
+    "volume": 152750.273895,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/uk-annual-inflation-in-2026"
    },
@@ -23026,10 +23124,10 @@
    "polymarket": {
     "id": "800884",
     "question": "Nvidia’s Market Cap end of 2026?",
-    "prob": 0.3,
+    "prob": 0.31,
     "issue": "$5.00-$5.50T",
     "echeance": "2026-12-31T23:59:00Z",
-    "volume": 55819.293388,
+    "volume": 55839.404158000005,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/nvidias-market-cap-end-of-2026"
    },
@@ -23092,8 +23190,8 @@
      "kalshi": {
       "ticker": "KXAAAGASMINTX-26DEC31-2.30",
       "titre": "Will average **gas prices** be above or below $2.30 by Dec 31, 2026?",
-      "mid": 0.015,
-      "ecart_carnet": 0.01,
+      "mid": null,
+      "ecart_carnet": null,
       "volume": 58679.5,
       "echeance": "2026-12-31T14:55:00Z",
       "sources_reglement": [
@@ -23227,7 +23325,7 @@
     "prob": 0.345,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 10871852.05532901,
+    "volume": 10874655.14121301,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-full-airspace-closure-byptptpt-20260625195253028"
    },
@@ -23264,8 +23362,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -23292,8 +23390,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -23314,108 +23412,6 @@
       "Kalshi règle sur : ICE"
      ],
      "force": 0.364
-    }
-   ],
-   "equivalence": "A_VALIDER"
-  },
-  {
-   "polymarket": {
-    "id": "1053896",
-    "question": "US-Yemen ceasefire continues through...?",
-    "prob": 0.815,
-    "issue": "November 30",
-    "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2594878.0124329994,
-    "theme": "Géopolitique",
-    "url": "https://polymarket.com/event/us-yemen-ceasefire-continues-throughptptpt"
-   },
-   "candidats": [
-    {
-     "kalshi": {
-      "ticker": "KXXMONEYAPY-27JAN01-T4.50",
-      "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
-      "volume": 1221.0,
-      "echeance": "2027-01-01T04:59:00Z",
-      "sources_reglement": [
-       "X Money"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.0,
-      "recouvrement_vocabulaire": 0.058,
-      "nombres_communs": [
-       "11",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
-      "Kalshi règle sur : X Money"
-     ],
-     "force": 0.408
-    },
-    {
-     "kalshi": {
-      "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
-      "titre": "Will the Canadian federal counter-tariff rate applicable to U.S.-origin electric trucks on December 31, 2026, at 11:59 P",
-      "mid": 0.025,
-      "ecart_carnet": 0.03,
-      "volume": 1013.22,
-      "echeance": "2027-01-01T04:59:00Z",
-      "sources_reglement": [
-       "Government of Canada"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.0,
-      "recouvrement_vocabulaire": 0.043,
-      "nombres_communs": [
-       "11",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
-      "Kalshi règle sur : Government of Canada"
-     ],
-     "force": 0.393
-    },
-    {
-     "kalshi": {
-      "ticker": "KXSNAPUK-27JAN01",
-      "titre": "Will the UK announce a snap election before Jan 2, 2027?",
-      "mid": 0.0695,
-      "ecart_carnet": 0.039,
-      "volume": 66230.39,
-      "echeance": "2027-01-02T04:59:00Z",
-      "sources_reglement": [
-       "The New York Times",
-       "the Associated Press",
-       "Reuters",
-       "Axios"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 1.0,
-      "recouvrement_vocabulaire": 0.062,
-      "nombres_communs": [
-       "11",
-       "59"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "dénouement à 1.0 j d'écart",
-      "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
-      "Kalshi règle sur : The New York Times, the Associated Press, Reuters"
-     ],
-     "force": 0.362
     }
    ],
    "equivalence": "A_VALIDER"
@@ -23494,8 +23490,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -23525,7 +23521,7 @@
    "polymarket": {
     "id": "101856",
     "question": "How many Republican Governors after the 2026 midterm elections?",
-    "prob": 0.555,
+    "prob": 0.55,
     "issue": "<22",
     "echeance": "2026-11-04T04:59:00Z",
     "volume": 714856.1762160001,
@@ -23663,8 +23659,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -23795,7 +23791,7 @@
     "prob": 0.9605,
     "issue": "4.0–5.0%",
     "echeance": "2027-01-31T00:00:00Z",
-    "volume": 944897.262884,
+    "volume": 944897.2628840001,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/china-annual-gdp-growth-2026"
    },
@@ -23960,8 +23956,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24031,8 +24027,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24090,10 +24086,10 @@
    "polymarket": {
     "id": "794064",
     "question": "US-Iran Hormuz Agreement by...?",
-    "prob": 0.36,
+    "prob": 0.345,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3271591.2990889996,
+    "volume": 3278218.285415,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/us-iran-hormuz-agreement-byptptpt-20260803235957575"
    },
@@ -24158,8 +24154,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24192,40 +24188,11 @@
     "prob": 0.82,
     "issue": "Oui",
     "echeance": "2026-12-31T16:59:00Z",
-    "volume": 883997.7681429998,
+    "volume": 883997.768143,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/nothing-ever-happens-2026"
    },
    "candidats": [
-    {
-     "kalshi": {
-      "ticker": "KXMUSKNW-26DEC31-T1000",
-      "titre": "Will Elon Musk's net worth on December 31, 2026 be above $1.0 trillion?",
-      "mid": 0.305,
-      "ecart_carnet": 0.13,
-      "volume": 5205.43,
-      "echeance": "2026-12-31T21:59:00Z",
-      "sources_reglement": [
-       "Forbes"
-      ]
-     },
-     "indices": {
-      "ecart_echeance_j": 0.21,
-      "recouvrement_vocabulaire": 0.062,
-      "nombres_communs": [
-       "1",
-       "2026",
-       "31"
-      ],
-      "seuils_divergents": false
-     },
-     "motifs": [
-      "même date de dénouement",
-      "seuil(s) partagé(s) dans le texte de résolution : 1, 2026, 31",
-      "Kalshi règle sur : Forbes"
-     ],
-     "force": 0.402
-    },
     {
      "kalshi": {
       "ticker": "KXCANEVTRTARIFF-27JAN01-T30",
@@ -24258,10 +24225,39 @@
     },
     {
      "kalshi": {
+      "ticker": "KXMUSKNW-26DEC31-T1000",
+      "titre": "Will Elon Musk's net worth on December 31, 2026 be above $1.0 trillion?",
+      "mid": 0.305,
+      "ecart_carnet": 0.13,
+      "volume": 5205.43,
+      "echeance": "2026-12-31T21:59:00Z",
+      "sources_reglement": [
+       "Forbes"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.21,
+      "recouvrement_vocabulaire": 0.062,
+      "nombres_communs": [
+       "1",
+       "2026",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 1, 2026, 31",
+      "Kalshi règle sur : Forbes"
+     ],
+     "force": 0.402
+    },
+    {
+     "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -24295,7 +24291,7 @@
     "prob": 0.07,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2705059.38781,
+    "volume": 2705121.88781,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/france-declares-state-of-emergency-byptptpt"
    },
@@ -24304,8 +24300,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24629,8 +24625,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24650,6 +24646,105 @@
       "même date de dénouement",
       "seuil(s) partagé(s) dans le texte de résolution : 11, 59",
       "Kalshi règle sur : X Money"
+     ],
+     "force": 0.383
+    }
+   ],
+   "equivalence": "A_VALIDER"
+  },
+  {
+   "polymarket": {
+    "id": "1262622",
+    "question": "Next Venezuelan Presidential Election Winner",
+    "prob": 0.535,
+    "issue": "María Corina Machado",
+    "echeance": "2030-01-01T04:59:00Z",
+    "volume": 44555.179954,
+    "theme": "Élections & politique",
+    "url": "https://polymarket.com/event/next-venezuelan-presidential-election-winner"
+   },
+   "candidats": [
+    {
+     "kalshi": {
+      "ticker": "STARSHIPMARS-29DEC31",
+      "titre": "Manned Starship mission to Mars before 2030?",
+      "mid": 0.12,
+      "ecart_carnet": 0.02,
+      "volume": 55064.53,
+      "echeance": "2030-01-01T04:59:00Z",
+      "sources_reglement": [
+       "SpaceX"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.0,
+      "recouvrement_vocabulaire": 0.047,
+      "nombres_communs": [
+       "2029",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2029, 31",
+      "Kalshi règle sur : SpaceX"
+     ],
+     "force": 0.397
+    },
+    {
+     "kalshi": {
+      "ticker": "KXNEWOUTBREAK-P-30-30",
+      "titre": "Pandemic by Dec 31, 2029?",
+      "mid": 0.195,
+      "ecart_carnet": 0.03,
+      "volume": 2544.5,
+      "echeance": "2029-12-31T15:00:00Z",
+      "sources_reglement": [
+       "WHO"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.58,
+      "recouvrement_vocabulaire": 0.073,
+      "nombres_communs": [
+       "2029",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2029, 31",
+      "Kalshi règle sur : WHO"
+     ],
+     "force": 0.394
+    },
+    {
+     "kalshi": {
+      "ticker": "AMAZONFTC-29DEC31",
+      "titre": "Will a court find that Amazon has illegally maintained a monopoly?",
+      "mid": 0.44,
+      "ecart_carnet": 0.04,
+      "volume": 32299.16,
+      "echeance": "2030-01-01T18:58:00Z",
+      "sources_reglement": [
+       "PACER"
+      ]
+     },
+     "indices": {
+      "ecart_echeance_j": 0.58,
+      "recouvrement_vocabulaire": 0.062,
+      "nombres_communs": [
+       "2029",
+       "31"
+      ],
+      "seuils_divergents": false
+     },
+     "motifs": [
+      "même date de dénouement",
+      "seuil(s) partagé(s) dans le texte de résolution : 2029, 31",
+      "Kalshi règle sur : PACER"
      ],
      "force": 0.383
     }
@@ -24702,8 +24797,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24801,8 +24896,8 @@
      "kalshi": {
       "ticker": "KXFRPRESBALLOT-27JUN30-GATT",
       "titre": "Will Gabriel Attal appear on the official candidate list for the first round of the 2027 French presidential election?",
-      "mid": 0.23,
-      "ecart_carnet": 0.06,
+      "mid": 0.24,
+      "ecart_carnet": 0.04,
       "volume": 5544.18,
       "echeance": "2027-06-30T14:00:00Z",
       "sources_reglement": [
@@ -24900,8 +24995,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -24962,7 +25057,7 @@
    "polymarket": {
     "id": "160366",
     "question": "Will the US officially declare war on Iran by...?",
-    "prob": 0.038,
+    "prob": 0.0385,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 7861441.565017987,
@@ -25030,8 +25125,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25064,7 +25159,7 @@
     "prob": 0.22,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 654786.181473,
+    "volume": 654901.321473,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/saudi-houthi-ceasefire-agreement-announced-by"
    },
@@ -25101,8 +25196,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25245,8 +25340,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25347,8 +25442,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25502,10 +25597,10 @@
    "polymarket": {
     "id": "606856",
     "question": "Russia x Ukraine peace talks by...?",
-    "prob": 0.935,
+    "prob": 0.95,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 2280516.741117,
+    "volume": 2288169.996832,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/russia-x-ukraine-peace-talks-byptptpt-20260609012540716"
    },
@@ -25542,8 +25637,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25570,8 +25665,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -25640,8 +25735,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25702,7 +25797,7 @@
     "prob": 0.27,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 3611236.9378719996,
+    "volume": 3611248.0878719995,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/iran-oman-hormuz-management-agreement-byptptpt-20260804222725871"
    },
@@ -25739,8 +25834,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -25767,8 +25862,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -25809,8 +25904,8 @@
      "kalshi": {
       "ticker": "KXU3MAX-27-12",
       "titre": "How high will unemployment get before 2027?",
-      "mid": 0.026,
-      "ecart_carnet": 0.03,
+      "mid": 0.0205,
+      "ecart_carnet": 0.019,
       "volume": 3640.63,
       "echeance": "2027-01-08T13:25:00Z",
       "sources_reglement": [
@@ -25837,8 +25932,8 @@
      "kalshi": {
       "ticker": "KXSAHM-27JAN08-T0.50",
       "titre": "Will the Real-time Sahm Rule Recession Indicator trigger in 2026?",
-      "mid": 0.015,
-      "ecart_carnet": 0.01,
+      "mid": 0.025,
+      "ecart_carnet": 0.03,
       "volume": 3380.3,
       "echeance": "2027-01-08T13:29:00Z",
       "sources_reglement": [
@@ -25864,8 +25959,8 @@
      "kalshi": {
       "ticker": "KXLFPRATE-27JAN08-B60.7",
       "titre": "Will US labor force participation rate for December 2026 be between 60.5% and 60.9%?",
-      "mid": 0.12,
-      "ecart_carnet": 0.06,
+      "mid": 0.115,
+      "ecart_carnet": 0.07,
       "volume": 2612.0,
       "echeance": "2027-01-08T13:29:00Z",
       "sources_reglement": [
@@ -26032,8 +26127,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26134,8 +26229,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26162,8 +26257,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -26232,8 +26327,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26331,8 +26426,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26430,8 +26525,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26529,8 +26624,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26591,7 +26686,7 @@
     "prob": 0.7,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 10292465.862422002,
+    "volume": 10294476.617374003,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/russia-x-ukraine-ceasefire-agreement-by"
    },
@@ -26628,8 +26723,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26690,7 +26785,7 @@
     "prob": 0.445,
     "issue": "December 31, 2026",
     "echeance": "2026-12-31T23:59:00Z",
-    "volume": 1247120.9510869998,
+    "volume": 1247350.9710869999,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/next-us-iran-senior-diplomatic-meeting-byptptpt"
    },
@@ -26728,8 +26823,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -26756,8 +26851,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26791,7 +26886,7 @@
     "prob": 0.84,
     "issue": "December 31",
     "echeance": "2027-01-01T04:59:00Z",
-    "volume": 469697.49179700005,
+    "volume": 469703.047353,
     "theme": "Géopolitique",
     "url": "https://polymarket.com/event/trump-meets-with-putin-by"
    },
@@ -26828,8 +26923,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -26856,8 +26951,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -26889,7 +26984,7 @@
     "prob": 0.665,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 1671222.2950229999,
+    "volume": 1671244.450111,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/tesla-and-spacex-merger-officially-announced-by-june-30"
    },
@@ -26926,8 +27021,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27025,8 +27120,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27127,8 +27222,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27155,8 +27250,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -27185,7 +27280,7 @@
    "polymarket": {
     "id": "555963",
     "question": "Trump meets with Ayatollah Mojtaba Khamenei by...?",
-    "prob": 0.026,
+    "prob": 0.0255,
     "issue": "Oui",
     "echeance": "2027-01-01T04:59:00Z",
     "volume": 201535.11169799994,
@@ -27225,8 +27320,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27253,8 +27348,8 @@
      "kalshi": {
       "ticker": "KXWTIMIN-26DEC31-T59",
       "titre": "Will the minimum WTI front month settle price reach $59 by Dec 31, 2026?",
-      "mid": 0.02,
-      "ecart_carnet": 0.02,
+      "mid": 0.015,
+      "ecart_carnet": 0.01,
       "volume": 4776.74,
       "echeance": "2026-12-31T19:30:00Z",
       "sources_reglement": [
@@ -27286,7 +27381,7 @@
     "prob": 0.695,
     "issue": "December 31, 2027",
     "echeance": "2028-01-01T04:59:00Z",
-    "volume": 80161.049886,
+    "volume": 80161.04988600001,
     "theme": "Tech & innovation",
     "url": "https://polymarket.com/event/two-spacex-starships-dock-together-by"
    },
@@ -27323,8 +27418,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27385,7 +27480,7 @@
     "prob": 0.59,
     "issue": "0.6 – 1.0%",
     "echeance": "2027-01-10T00:00:00Z",
-    "volume": 124249.90224600001,
+    "volume": 124249.902246,
     "theme": "Économie & inflation",
     "url": "https://polymarket.com/event/china-annual-inflation-2026"
    },
@@ -27448,8 +27543,8 @@
      "kalshi": {
       "ticker": "KXU3MAX-27-12",
       "titre": "How high will unemployment get before 2027?",
-      "mid": 0.026,
-      "ecart_carnet": 0.03,
+      "mid": 0.0205,
+      "ecart_carnet": 0.019,
       "volume": 3640.63,
       "echeance": "2027-01-08T13:25:00Z",
       "sources_reglement": [
@@ -27480,7 +27575,7 @@
    "polymarket": {
     "id": "881583",
     "question": "When will Bitcoin hit $100k?",
-    "prob": 0.59,
+    "prob": 0.64,
     "issue": "by December 31, 2027",
     "echeance": "2028-01-01T05:00:00Z",
     "volume": 152435.940131,
@@ -27520,8 +27615,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27619,8 +27714,8 @@
      "kalshi": {
       "ticker": "KXFEDFUNDSYEAR-28JAN01-T4.25",
       "titre": "Will the upper bound of the target range for the federal funds rate in effect at 11:59 PM ET on December 31, 2027 be abo",
-      "mid": 0.53,
-      "ecart_carnet": 0.02,
+      "mid": 0.525,
+      "ecart_carnet": 0.01,
       "volume": 24411.95,
       "echeance": "2028-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27678,10 +27773,10 @@
    "polymarket": {
     "id": "723762",
     "question": "European military action against Iran by...?",
-    "prob": 0.111,
+    "prob": 0.1115,
     "issue": "December 31",
     "echeance": "2026-12-31T22:59:00Z",
-    "volume": 337486.88279199996,
+    "volume": 337490.21612199995,
     "theme": "Iran & Ormuz",
     "url": "https://polymarket.com/event/european-military-action-on-iran-byptptpt-20260720022428140"
    },
@@ -27718,8 +27813,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27852,8 +27947,8 @@
      "kalshi": {
       "ticker": "KXXMONEYAPY-27JAN01-T4.50",
       "titre": "Will the Standard Annual Percentage Yield for the X Premium+ Tier on an X Money Stored Value Account in effect at 11:59 ",
-      "mid": 0.88,
-      "ecart_carnet": 0.06,
+      "mid": 0.875,
+      "ecart_carnet": 0.07,
       "volume": 1221.0,
       "echeance": "2027-01-01T04:59:00Z",
       "sources_reglement": [
@@ -27882,10 +27977,10 @@
    "polymarket": {
     "id": "956789",
     "question": "Next Fable Model (5.2+) released by...?",
-    "prob": 0.9615,
+    "prob": 0.9605,
     "issue": "December 31",
     "echeance": "2026-12-31T23:59:00Z",
-    "volume": 1303446.861757,
+    "volume": 1304765.293509,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/next-fable-model-5pt2-released-byptptpt"
    },
@@ -27979,10 +28074,10 @@
    "polymarket": {
     "id": "1161680",
     "question": "US imports Russian diesel by...?",
-    "prob": 0.51,
+    "prob": 0.52,
     "issue": "March 31",
     "echeance": "2027-04-01T03:59:00Z",
-    "volume": 881662.876821,
+    "volume": 889935.215099,
     "theme": "Marchés & actifs",
     "url": "https://polymarket.com/event/us-imports-russian-diesel-by-october-31"
    },
@@ -28075,10 +28170,10 @@
    "polymarket": {
     "id": "965173",
     "question": "GPT Astra 6.1+ released by...?",
-    "prob": 0.9735,
+    "prob": 0.9785,
     "issue": "December 31",
     "echeance": "2026-12-31T23:59:00Z",
-    "volume": 675325.0346080001,
+    "volume": 676650.228956,
     "theme": "Intelligence artificielle",
     "url": "https://polymarket.com/event/gpt-astra-6pt1-released-byptptpt"
    },
@@ -28146,7 +28241,7 @@
    "polymarket": {
     "id": "147795",
     "question": "Eurozone Annual Inflation 2026",
-    "prob": 0.756,
+    "prob": 0.757,
     "issue": "3.1%+",
     "echeance": "2027-01-20T04:59:00Z",
     "volume": 121658.25273100002,
@@ -28213,8 +28308,8 @@
      "kalshi": {
       "ticker": "KXSEMIPRODH-26-14",
       "titre": "How much will semiconductor production grow in the US this year?",
-      "mid": 0.92,
-      "ecart_carnet": 0.08,
+      "mid": 0.915,
+      "ecart_carnet": 0.09,
       "volume": 1489.41,
       "echeance": "2027-01-17T14:10:00Z",
       "sources_reglement": [
@@ -28246,7 +28341,7 @@
     "prob": 0.78,
     "issue": "Radomir Saičić",
     "echeance": "2027-05-02T03:59:00Z",
-    "volume": 411437.314865,
+    "volume": 411612.714865,
     "theme": "Élections & politique",
     "url": "https://polymarket.com/event/next-serbia-presidential-election-winner-20260629192336823"
    },
@@ -28544,8 +28639,8 @@
      "kalshi": {
       "ticker": "KXBACHELOROPEN-27-06DEC26",
       "titre": "Will Mt. Bachelor open before Dec 6, 2026?",
-      "mid": 0.9,
-      "ecart_carnet": 0.04,
+      "mid": 0.87,
+      "ecart_carnet": 0.1,
       "volume": 3905.13,
       "echeance": "2026-12-12T15:00:00Z",
       "sources_reglement": [
@@ -28604,8 +28699,8 @@
      "kalshi": {
       "ticker": "KXALTAOPEN-27-06DEC26",
       "titre": "Will Alta open before Dec 6, 2026?",
-      "mid": 0.955,
-      "ecart_carnet": 0.05,
+      "mid": 0.95,
+      "ecart_carnet": 0.06,
       "volume": 6170.63,
       "echeance": "2026-12-12T15:00:00Z",
       "sources_reglement": [
@@ -28640,7 +28735,7 @@
     "prob": 0.66,
     "issue": "0",
     "echeance": "2026-12-10T04:59:00Z",
-    "volume": 46629.433006,
+    "volume": 46629.43300600001,
     "theme": "Politique de la Fed",
     "url": "https://polymarket.com/event/how-many-dissent-at-the-december-fed-meeting-20260730000304473"
    },
@@ -28649,8 +28744,8 @@
      "kalshi": {
       "ticker": "KXBACHELOROPEN-27-06DEC26",
       "titre": "Will Mt. Bachelor open before Dec 6, 2026?",
-      "mid": 0.9,
-      "ecart_carnet": 0.04,
+      "mid": 0.87,
+      "ecart_carnet": 0.1,
       "volume": 3905.13,
       "echeance": "2026-12-12T15:00:00Z",
       "sources_reglement": [
