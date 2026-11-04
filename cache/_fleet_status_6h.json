@@ -1,19 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-03T21:15:31Z",
+  "ts": "2026-11-04T07:56:13Z",
   "total": 33,
   "ok": 30,
-  "secs": 3751.1,
-  "changed": 83,
+  "secs": 4109.3,
+  "changed": 84,
   "versionnes": 76,
-  "pieces_jointes": 7,
+  "pieces_jointes": 8,
   "absents": 40,
-  "muets": [],
+  "muets": [
+   "tradfi-growth (12.7 h)"
+  ],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 499, 'message': 'Token Required', 'messageCode': 'GWM_0003', 'details': ['Token Required']}"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
    },
    {
     "job": "reservesorust",
@@ -25,5 +27,5 @@
    }
   ]
  },
- "updated": "2026-11-03T21:15:31Z"
+ "updated": "2026-11-04T07:56:13Z"
 }
