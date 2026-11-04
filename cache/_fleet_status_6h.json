@@ -1,15 +1,17 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-04T09:15:22Z",
+  "ts": "2026-11-04T21:35:19Z",
   "total": 33,
-  "ok": 29,
-  "secs": 4571.2,
+  "ok": 30,
+  "secs": 3923.8,
   "changed": 83,
-  "versionnes": 77,
-  "pieces_jointes": 6,
-  "absents": 41,
-  "muets": [],
+  "versionnes": 76,
+  "pieces_jointes": 7,
+  "absents": 40,
+  "muets": [
+   "tradfi-growth (12.3 h)"
+  ],
   "failed": [
    {
     "job": "atlasmaritime",
@@ -20,14 +22,10 @@
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
-    "job": "hydrocarbures",
-    "why": "dépassement du plafond (75 min)"
-   },
-   {
     "job": "tradfihist",
     "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-10-31 00:11', donnees du 2026-09-11 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-04T09:15:22Z"
+ "updated": "2026-11-04T21:35:19Z"
 }
