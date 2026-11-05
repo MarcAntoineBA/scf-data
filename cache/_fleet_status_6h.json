@@ -1,21 +1,19 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-04T21:35:19Z",
+  "ts": "2026-11-05T09:12:55Z",
   "total": 33,
   "ok": 30,
-  "secs": 3923.8,
-  "changed": 83,
-  "versionnes": 76,
+  "secs": 4386.5,
+  "changed": 84,
+  "versionnes": 77,
   "pieces_jointes": 7,
   "absents": 40,
-  "muets": [
-   "tradfi-growth (12.3 h)"
-  ],
+  "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+    "why": "RuntimeError: échec requête après 4 essais : HTTP Error 504: Gateway Timeout"
    },
    {
     "job": "reservesorust",
@@ -27,5 +25,5 @@
    }
   ]
  },
- "updated": "2026-11-04T21:35:19Z"
+ "updated": "2026-11-05T09:12:55Z"
 }
