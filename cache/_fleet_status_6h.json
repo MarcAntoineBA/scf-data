@@ -1,19 +1,21 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-05T09:12:55Z",
+  "ts": "2026-11-05T21:56:06Z",
   "total": 33,
   "ok": 30,
-  "secs": 4386.5,
+  "secs": 4324.0,
   "changed": 84,
-  "versionnes": 77,
-  "pieces_jointes": 7,
+  "versionnes": 76,
+  "pieces_jointes": 8,
   "absents": 40,
-  "muets": [],
+  "muets": [
+   "tradfi-growth (12.7 h)"
+  ],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : HTTP Error 504: Gateway Timeout"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
    },
    {
     "job": "reservesorust",
@@ -25,5 +27,5 @@
    }
   ]
  },
- "updated": "2026-11-05T09:12:55Z"
+ "updated": "2026-11-05T21:56:06Z"
 }
