@@ -1,27 +1,23 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-06T09:17:15Z",
+  "ts": "2026-11-06T21:08:53Z",
   "total": 33,
-  "ok": 29,
-  "secs": 4580.4,
-  "changed": 82,
-  "versionnes": 77,
-  "pieces_jointes": 5,
-  "absents": 41,
+  "ok": 30,
+  "secs": 4076.4,
+  "changed": 83,
+  "versionnes": 76,
+  "pieces_jointes": 7,
+  "absents": 40,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 429, 'message': 'Unable to perform query. Too many requests.', 'details': ['API calls quota exceeded (6775 request units)! maximum a"
    },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "hydrocarbures",
-    "why": "dépassement du plafond (75 min)"
    },
    {
     "job": "tradfihist",
@@ -29,5 +25,5 @@
    }
   ]
  },
- "updated": "2026-11-06T09:17:15Z"
+ "updated": "2026-11-06T21:08:53Z"
 }
