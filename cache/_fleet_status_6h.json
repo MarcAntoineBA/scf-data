@@ -1,20 +1,16 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-07T08:21:36Z",
+  "ts": "2026-11-07T15:17:43Z",
   "total": 33,
-  "ok": 30,
-  "secs": 3746.7,
+  "ok": 31,
+  "secs": 3886.4,
   "changed": 85,
-  "versionnes": 77,
-  "pieces_jointes": 8,
+  "versionnes": 76,
+  "pieces_jointes": 9,
   "absents": 40,
   "muets": [],
   "failed": [
-   {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 429, 'message': 'Unable to perform query. Too many requests.', 'details': ['API calls quota exceeded (6193 request units)! maximum a"
-   },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
@@ -25,5 +21,5 @@
    }
   ]
  },
- "updated": "2026-11-07T08:21:36Z"
+ "updated": "2026-11-07T15:17:43Z"
 }
