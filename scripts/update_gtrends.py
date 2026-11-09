@@ -17,6 +17,14 @@ calendaire rate n'est JAMAIS rejoue -> l'ancien creneau unique du lundi 09:00 a
 laisse le cache fige 12 jours en juillet 2026).
 Les donnees sont MENSUELLES : un fetch hebdo suffit ; les prix live viennent du re-knit.
 
+UN SEUL PAYEUR (2026-11-09) : ce script tourne dans le cloud (GitHub Actions) ET sur
+le Mac/PC, chacun avec son propre cache, donc son propre TTL. Chacun payait de son
+cote : 229 des 250 recherches identifiees entre le 13/10 et le 01/11, quota a sec le
+01/11, page figee. Desormais le cloud paie ; le Mac/PC recupere ses fichiers et ne
+paie qu'en secours, si le cloud n'a rien produit depuis TTL + 3 jours.
+Avant toute recherche, le solde est lu sur account.json (gratuit). Un passage
+incomplet (< 90 % des lots) n'ecrit rien : il sera rejoue au creneau suivant.
+
 Sortie (single source) :
   gtrends_cache.json       (52 termes World, mensuel, 2004+ ; 51 termes FR)
   gtrends_cache_meta.json  (metadata du fetch)
@@ -39,6 +47,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
+from datetime import timedelta
 
 KEY_FILE = Path.home() / ".serpapi_key"
 # Cache dir TCC-safe (launchd ne peut pas ecrire ~/Desktop sans Full Disk Access).
@@ -62,6 +71,24 @@ CACHE_MAX_H = 6
 # TTL et ne coûtent RIEN. Une seule dépense hebdomadaire, sept chances de la faire.
 # Les données Google Trends sont MENSUELLES : re-fetcher plus souvent n'apporte rien.
 WORLD_TTL_H = 144
+REGION_TTL_H = 24 * 14
+
+# Producteur unique : voir la docstring. Le Mac/PC attend TTL + ce delai avant de payer.
+EST_CLOUD = os.environ.get("GITHUB_ACTIONS") == "true"
+SECOURS_MAC_H = 72
+BASE_CLOUD = "https://raw.githubusercontent.com/MarcAntoineBA/scf-data/main/cache/"
+# Au-dela de 1 Mo, la collecte publie le fichier en piece jointe, plus dans la branche.
+BASE_PIECES = "https://github.com/MarcAntoineBA/scf-data/releases/download/data/"
+SEUIL_LOTS_OK = 0.9  # FR a jusqu'a 2 lots sur 22 durablement sans donnees (20/22 = 0,91)
+RETARD_TOLERE_J = 45  # un terme plus en retard ne tire pas tous les autres vers le bas
+
+
+class QuotaEpuise(Exception):
+    """SerpAPI repond 429 : inutile de reessayer, ni de tenter les lots suivants."""
+
+
+def ttl_h(base):
+    return base if EST_CLOUD else base + SECOURS_MAC_H
 
 # Categories Google Trends : 0 = All, 7 = Finance
 BATCHES_SHORT = [
@@ -220,6 +247,60 @@ def cache_is_fresh(meta_path, max_hours):
         return False
 
 
+def quota_restant(api_key):
+    """(recherches restantes, date de recharge) ; (None, None) si illisible. Appel gratuit."""
+    try:
+        with urlopen("https://serpapi.com/account.json?" + urlencode({"api_key": api_key}), timeout=30) as resp:
+            d = json.loads(resp.read())
+        return int(d["total_searches_left"]), d.get("plan_renewal_date")
+    except Exception as e:
+        log(f"Solde SerpAPI illisible ({type(e).__name__}), on continue")
+        return None, None
+
+
+def telecharger_cloud(nom):
+    """Contenu d'un fichier du cloud : branche d'abord, piece jointe si 404."""
+    for base in (BASE_CLOUD, BASE_PIECES):
+        try:
+            with urlopen(base + nom, timeout=90) as resp:
+                return resp.read()
+        except HTTPError as e:
+            if e.code != 404 or base == BASE_PIECES:
+                raise
+
+
+def recuperer_cloud(cache_path, meta_path):
+    """Hors cloud : remplace le cache local par celui du cloud s'il est plus recent et
+    au moins aussi complet. Toute anomalie laisse le cache local intact."""
+    try:
+        with urlopen(BASE_CLOUD + meta_path.name, timeout=30) as resp:
+            distant = json.loads(resp.read())
+        local = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        if distant["updated_at"] <= local.get("updated_at", ""):
+            return False
+        if distant.get("date_max", "") < local.get("date_max", ""):
+            log(f"{cache_path.name} : cloud plus recent mais en retard sur le mois, ignore")
+            return False
+        brut = telecharger_cloud(cache_path.name)
+        lignes = json.loads(brut)
+        if max(r["date"] for r in lignes) < distant.get("date_max", ""):
+            log(f"{cache_path.name} : contenu cloud plus ancien que sa fiche, ignore")
+            return False
+        n_kws = len({r["keyword"] for r in lignes})
+        if n_kws < 0.9 * local.get("n_keywords", 0) or _is_annual(lignes):
+            log(f"{cache_path.name} : cloud incomplet ({n_kws} termes), ignore")
+            return False
+        for chemin, contenu in ((cache_path, brut), (meta_path, json.dumps(distant, ensure_ascii=False, indent=2).encode())):
+            tmp = chemin.with_suffix(chemin.suffix + ".tmp")
+            tmp.write_bytes(contenu)
+            tmp.replace(chemin)
+        log(f"{cache_path.name} : repris du cloud ({distant['updated_at']}, 0 recherche)")
+        return True
+    except Exception as e:
+        log(f"{cache_path.name} : reprise cloud impossible ({type(e).__name__}), cache local garde")
+        return False
+
+
 def load_prev_cache(cache_path):
     if not cache_path.exists():
         return []
@@ -256,6 +337,12 @@ def fetch_serpapi(keywords, timeframe, cat, api_key, geo=""):
             with urlopen(url, timeout=45) as resp:
                 data = json.loads(resp.read())
             break
+        except HTTPError as e:
+            if e.code == 429:
+                raise QuotaEpuise() from e
+            log(f"    HTTP/parse error ({type(e).__name__}, tentative {attempt+1}/3): {e}")
+            if attempt < 2:
+                time.sleep(4)
         except Exception as e:
             # TimeoutError, HTTPError, URLError, json.JSONDecodeError, socket.timeout, etc.
             log(f"    HTTP/parse error ({type(e).__name__}, tentative {attempt+1}/3): {e}")
@@ -329,6 +416,12 @@ def _is_annual(rows):
 def run_batches(batches, time_range_template, api_key, today_str, label, cache_path, meta_path, geo=""):
     timeframe = time_range_template.format(today=today_str)
     geo_label = f" geo={geo}" if geo else ""
+    # Tout ou rien : mieux vaut ne pas commencer qu'ecrire un cache a moitie neuf.
+    restant, recharge = quota_restant(api_key)
+    if restant is not None and restant < len(batches):
+        log(f"{label}: {restant} recherche(s) restante(s) pour {len(batches)} lots, "
+            f"rien de lance (recharge {recharge}). Cache conserve.")
+        return False
     log(f"=== {label}{geo_label} — timeframe={timeframe} — {len(batches)} batches ===")
 
     prev_rows = load_prev_cache(cache_path)
@@ -339,7 +432,12 @@ def run_batches(batches, time_range_template, api_key, today_str, label, cache_p
 
     for i, b in enumerate(batches, 1):
         log(f"  Batch {i}/{len(batches)}: {b['name']:18s} [{b['group']} | cat={b['cat']}] {', '.join(b['kws'])}")
-        timeline = fetch_serpapi(b["kws"], timeframe, b["cat"], api_key, geo=geo)
+        try:
+            timeline = fetch_serpapi(b["kws"], timeframe, b["cat"], api_key, geo=geo)
+        except QuotaEpuise:
+            n_err += len(batches) - i + 1
+            log("    HTTP 429 : quota SerpAPI epuise, lots suivants abandonnes")
+            break
         if timeline is None:
             log("    => echec, on conserve les anciennes valeurs pour ces kws (prev_cache)")
             n_err += 1
@@ -350,8 +448,10 @@ def run_batches(batches, time_range_template, api_key, today_str, label, cache_p
             n_ok += 1
         time.sleep(1.0)  # politesse + cache SerpAPI
 
-    if n_ok == 0:
-        log(f"!!! {label}: aucun batch OK, cache non modifie")
+    # Un passage incomplet qui ecrit quand meme re-date le cache : il passe pour frais
+    # et n'est plus rejoue pendant tout le TTL (9 lots OK sur 22 le 01/11).
+    if n_ok < SEUIL_LOTS_OK * len(batches):
+        log(f"!!! {label}: {n_ok}/{len(batches)} lots OK, cache non modifie (rejoue au prochain creneau)")
         return False
 
     # Garde anti-regression de granularite : si le fetch revient en ANNUEL (fenetre au-dela
@@ -383,9 +483,23 @@ def run_batches(batches, time_range_template, api_key, today_str, label, cache_p
         k = r["keyword"]
         if k not in last_by_kw or r["date"] > last_by_kw[k]:
             last_by_kw[k] = r["date"]
-    if last_by_kw:
-        common_max = min(last_by_kw.values())
+    # Seuls les termes reellement recus ce passage fixent le bord, et un terme tres en
+    # retard ne tire plus les autres : un seul lot rate avait fige toute la France a juillet.
+    recus = {k: v for k, v in last_by_kw.items() if k in fetched_kws}
+    if recus:
+        limite = (datetime.fromisoformat(max(recus.values())) - timedelta(days=RETARD_TOLERE_J)).strftime("%Y-%m-%d")
+        en_retard = sorted(k for k, v in last_by_kw.items() if v < limite)
+        if en_retard:
+            log(f"    {len(en_retard)} terme(s) en retard, gardes tels quels : {', '.join(en_retard[:6])}")
+        common_max = min(v for v in recus.values() if v >= limite)
         merged = [r for r in merged if r["date"] <= common_max]
+    # Jamais de recul : la France ne doit plus repasser d'octobre a juillet.
+    if prev_rows and merged:
+        ancien_max = max(r["date"] for r in prev_rows)
+        nouveau_max = max(r["date"] for r in merged)
+        if nouveau_max < ancien_max:
+            log(f"!!! {label}: le passage reculerait de {ancien_max} a {nouveau_max}, cache conserve")
+            return False
     # Ecriture atomique
     tmp = cache_path.with_suffix(cache_path.suffix + ".tmp")
     tmp.write_text(json.dumps(merged, ensure_ascii=False))
@@ -435,8 +549,10 @@ def main():
     try:
         for region in regions_to_run:
             if region == "world":
-                if not args.force and cache_is_fresh(META_SHORT, WORLD_TTL_H):
-                    log(f"Cache WORLD frais (<{WORLD_TTL_H}h = {WORLD_TTL_H // 24}j), "
+                if not EST_CLOUD:
+                    recuperer_cloud(CACHE_SHORT, META_SHORT)
+                if not args.force and cache_is_fresh(META_SHORT, ttl_h(WORLD_TTL_H)):
+                    log(f"Cache WORLD frais (<{ttl_h(WORLD_TTL_H)}h), "
                         f"skip (0 recherche SerpAPI). --force pour forcer.")
                 else:
                     run_batches(BATCHES_SHORT, TIME_RANGE_SHORT, api_key, today_str,
@@ -446,8 +562,10 @@ def main():
                 meta_p = CACHE_DIR / f"gtrends_cache_{region}_meta.json"
                 # Region caches : 52 termes (US) / 51 (FR) ; TTL 14j => refresh ~bi-mensuel via Mon+Thu launchd.
                 # Quota : 22 batches x 2 regions x ~2 fois/mois ~= 96/mo + World ~190/mo ~= 286/mo (cf docstring : >250).
-                if not args.force and cache_is_fresh(meta_p, 24 * 14):
-                    log(f"Cache {region} frais (<14j), skip. --force pour forcer.")
+                if not EST_CLOUD:
+                    recuperer_cloud(cache_p, meta_p)
+                if not args.force and cache_is_fresh(meta_p, ttl_h(REGION_TTL_H)):
+                    log(f"Cache {region} frais (<{ttl_h(REGION_TTL_H)}h), skip. --force pour forcer.")
                 else:
                     # FR utilise les 22 batches World avec keywords traduits, US utilise EN tels quels
                     batches_for_region = translate_batches(BATCHES_SHORT, EN_TO_FR) if region == "FR" else BATCHES_SHORT
