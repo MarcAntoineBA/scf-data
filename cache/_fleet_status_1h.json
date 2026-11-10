@@ -1,21 +1,16 @@
 {
  "bucket": "1h",
  "run": {
-  "ts": "2026-11-10T09:59:23Z",
+  "ts": "2026-11-10T17:58:58Z",
   "total": 26,
-  "ok": 25,
-  "secs": 715.4,
-  "changed": 45,
-  "versionnes": 33,
+  "ok": 26,
+  "secs": 569.8,
+  "changed": 47,
+  "versionnes": 35,
   "pieces_jointes": 12,
   "absents": 40,
   "muets": [],
-  "failed": [
-   {
-    "job": "tradficycle",
-    "why": "[tradfi-cycle] FATAL sanity: comm_real perimee : dernier point il y a 70 jours (1364 pts) - serie mensuelle qui n avance plus — cache NON écrit"
-   }
-  ]
+  "failed": []
  },
- "updated": "2026-11-10T09:59:23Z"
+ "updated": "2026-11-10T17:58:58Z"
 }
