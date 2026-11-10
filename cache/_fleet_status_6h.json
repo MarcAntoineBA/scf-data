@@ -1,14 +1,14 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-09T23:53:25Z",
+  "ts": "2026-11-10T01:08:52Z",
   "total": 33,
-  "ok": 30,
-  "secs": 4679.8,
+  "ok": 31,
+  "secs": 4425.1,
   "changed": 87,
   "versionnes": 77,
   "pieces_jointes": 10,
-  "absents": 40,
+  "absents": 39,
   "muets": [],
   "failed": [
    {
@@ -16,14 +16,10 @@
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
-    "job": "hydrocarbures",
-    "why": "dépassement du plafond (75 min)"
-   },
-   {
     "job": "tradfihist",
-    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=29 kept=32 fail=16 (tentes=77)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonne "
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-09 23:52', donnees du 2026-09-11 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-09T23:53:25Z"
+ "updated": "2026-11-10T01:08:52Z"
 }
