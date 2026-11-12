@@ -1,15 +1,17 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-11T21:24:22Z",
+  "ts": "2026-11-12T09:34:01Z",
   "total": 33,
   "ok": 31,
-  "secs": 4137.8,
-  "changed": 86,
-  "versionnes": 77,
+  "secs": 4072.0,
+  "changed": 85,
+  "versionnes": 76,
   "pieces_jointes": 9,
   "absents": 39,
-  "muets": [],
+  "muets": [
+   "tradfi-growth (12.2 h)"
+  ],
   "failed": [
    {
     "job": "reservesorust",
@@ -21,5 +23,5 @@
    }
   ]
  },
- "updated": "2026-11-11T21:24:22Z"
+ "updated": "2026-11-12T09:34:01Z"
 }
