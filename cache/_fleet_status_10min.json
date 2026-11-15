@@ -1,27 +1,23 @@
 {
  "bucket": "10min",
  "run": {
-  "ts": "2026-11-15T07:05:32Z",
+  "ts": "2026-11-15T07:14:07Z",
   "total": 5,
-  "ok": 3,
-  "secs": 124.5,
+  "ok": 4,
+  "secs": 39.0,
   "changed": 13,
-  "versionnes": 13,
-  "pieces_jointes": 0,
+  "versionnes": 12,
+  "pieces_jointes": 1,
   "absents": 47,
   "muets": [
-   "trackerstf (6.8 h)"
+   "trackerstf (6.9 h)"
   ],
   "failed": [
    {
     "job": "hlaccount",
     "why": "script absent"
-   },
-   {
-    "job": "orderflow.funding",
-    "why": "RuntimeError: source injoignable après 3 tentatives : HTTPSConnectionPool(host='api.loris.tools', port=443): Read timed out. (read timeout=25)"
    }
   ]
  },
- "updated": "2026-11-15T07:05:32Z"
+ "updated": "2026-11-15T07:14:07Z"
 }
