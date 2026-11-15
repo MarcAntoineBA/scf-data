@@ -1,13 +1,13 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-15T09:12:59Z",
+  "ts": "2026-11-15T19:10:31Z",
   "total": 33,
   "ok": 29,
-  "secs": 4573.5,
+  "secs": 4578.1,
   "changed": 84,
-  "versionnes": 77,
-  "pieces_jointes": 7,
+  "versionnes": 76,
+  "pieces_jointes": 8,
   "absents": 41,
   "muets": [],
   "failed": [
@@ -21,7 +21,7 @@
    },
    {
     "job": "marketconcentration",
-    "why": "[concentration 07:56:46] ABANDON : aucune donnée historique disponible, cache existant conservé"
+    "why": "[concentration 17:54:17] ABANDON : aucune donnée historique disponible, cache existant conservé"
    },
    {
     "job": "tradfihist",
@@ -29,5 +29,5 @@
    }
   ]
  },
- "updated": "2026-11-15T09:12:59Z"
+ "updated": "2026-11-15T19:10:31Z"
 }
