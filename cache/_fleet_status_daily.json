@@ -1,15 +1,17 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-15T13:49:05Z",
+  "ts": "2026-11-16T14:50:26Z",
   "total": 42,
   "ok": 37,
-  "secs": 5451.0,
-  "changed": 2950,
-  "versionnes": 2941,
-  "pieces_jointes": 9,
+  "secs": 6049.1,
+  "changed": 3459,
+  "versionnes": 3451,
+  "pieces_jointes": 8,
   "absents": 41,
-  "muets": [],
+  "muets": [
+   "gtrends.serpapi (72.8 h)"
+  ],
   "failed": [
    {
     "job": "atlasdetail",
@@ -33,5 +35,5 @@
    }
   ]
  },
- "updated": "2026-11-15T13:49:05Z"
+ "updated": "2026-11-16T14:50:26Z"
 }
