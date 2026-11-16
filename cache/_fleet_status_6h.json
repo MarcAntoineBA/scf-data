@@ -1,12 +1,12 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-15T20:42:21Z",
+  "ts": "2026-11-16T09:21:22Z",
   "total": 33,
-  "ok": 29,
-  "secs": 4579.3,
-  "changed": 83,
-  "versionnes": 76,
+  "ok": 30,
+  "secs": 4585.1,
+  "changed": 84,
+  "versionnes": 77,
   "pieces_jointes": 7,
   "absents": 41,
   "muets": [],
@@ -20,14 +20,10 @@
     "why": "dépassement du plafond (75 min)"
    },
    {
-    "job": "marketconcentration",
-    "why": "[concentration 19:26:11] ABANDON : aucune donnée historique disponible, cache existant conservé"
-   },
-   {
     "job": "tradfihist",
     "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-10 09:46', donnees du 2026-09-10 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-15T20:42:21Z"
+ "updated": "2026-11-16T09:21:22Z"
 }
