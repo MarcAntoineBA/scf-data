@@ -1,33 +1,29 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-16T23:40:30Z",
+  "ts": "2026-11-17T00:54:56Z",
   "total": 33,
-  "ok": 29,
-  "secs": 4575.3,
-  "changed": 83,
+  "ok": 30,
+  "secs": 4365.1,
+  "changed": 85,
   "versionnes": 77,
-  "pieces_jointes": 6,
-  "absents": 42,
+  "pieces_jointes": 8,
+  "absents": 40,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': 'Invalid URL', 'details': ['Invalid URL']}"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 429, 'message': 'Unable to perform query. Too many requests.', 'details': ['API calls quota exceeded (6821 request units)! maximum a"
    },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
-    "job": "hydrocarbures",
-    "why": "dépassement du plafond (75 min)"
-   },
-   {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=15 (tentes=16) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-10 09:46', donnees du 2026-09-10 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
+    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-10 09:46', donnees du 2026-09-10 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-16T23:40:30Z"
+ "updated": "2026-11-17T00:54:56Z"
 }
