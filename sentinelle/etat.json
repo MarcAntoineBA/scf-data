@@ -1,9 +1,11 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1794741383.2848666,
- "motifs": [],
- "verifie_le": "2026-11-16 22:22 UTC",
+ "en_panne": true,
+ "depuis": 1794890479.9355826,
+ "derniere_alerte": 1794890479.9355826,
+ "motifs": [
+  "prediction_markets_cache.json : 6.1 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »"
+ ],
+ "verifie_le": "2026-11-17 04:41 UTC",
  "rattrapages": {
   "collect-1h.yml": 1794666045.9854007,
   "collect-6h.yml": 1794867736.2428586
