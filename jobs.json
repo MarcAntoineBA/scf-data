@@ -143,6 +143,36 @@
       "witness": "atlas_quarterly_cache.json"
     },
     {
+      "id": "atlascyber",
+      "script": "fetch_atlas_cyber.py",
+      "args": [],
+      "schedule": "toutes les 6 h",
+      "per_day": 4.0,
+      "cadence": "6h",
+      "category": "public",
+      "outputs": [
+        "atlas_cyber_cache.js",
+        "atlas_cyber_cache.json"
+      ],
+      "witness": "atlas_cyber_cache.json"
+    },
+    {
+      "id": "atlascyber.live",
+      "script": "fetch_atlas_cyber.py",
+      "args": [
+        "--live"
+      ],
+      "schedule": "toutes les 10 min",
+      "per_day": 144.0,
+      "cadence": "10min",
+      "category": "public",
+      "outputs": [
+        "atlas_cyber_live.js",
+        "atlas_cyber_live.json"
+      ],
+      "witness": "atlas_cyber_live.json"
+    },
+    {
       "id": "backtest.refresh",
       "script": "refresh_backtest.sh",
       "args": [],

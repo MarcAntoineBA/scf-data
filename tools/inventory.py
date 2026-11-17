@@ -248,6 +248,17 @@ def outputs_of(script_name, witness):
 # silencieusement — le fichier ne connaît que ce que les plists racontent, et ces
 # collecteurs-là ne racontent rien à personne. Toute nouveauté vient donc ici.
 SANS_PLIST = [
+    # Atlas, vue « Cyberattaques & pannes » (17/11/2026). Deux cadences pour un même script :
+    # l'historique toutes les 6 h (pages de statut, rançongiciels, crypto, fuites, failles, GPS),
+    # l'instant toutes les 10 min (états des services, FAA, revendications des dernières 24 h).
+    dict(id="atlascyber", script="fetch_atlas_cyber.py", args=[],
+         schedule="toutes les 6 h", per_day=4.0, cadence="6h", category="public",
+         outputs=["atlas_cyber_cache.js", "atlas_cyber_cache.json"],
+         witness="atlas_cyber_cache.json"),
+    dict(id="atlascyber.live", script="fetch_atlas_cyber.py", args=["--live"],
+         schedule="toutes les 10 min", per_day=144.0, cadence="10min", category="public",
+         outputs=["atlas_cyber_live.js", "atlas_cyber_live.json"],
+         witness="atlas_cyber_live.json"),
     # Un fichier par actif — cinq cent vingt-cinq sorties. Elles ne sont PAS listees
     # ici : `outputs` sert a dater la fraicheur et a temoigner qu un passage a abouti,
     # et cinq cents lignes rendraient ce registre illisible pour zero information
