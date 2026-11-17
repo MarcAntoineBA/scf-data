@@ -1,29 +1,25 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-17T00:54:56Z",
+  "ts": "2026-11-17T10:28:47Z",
   "total": 33,
-  "ok": 30,
-  "secs": 4365.1,
-  "changed": 85,
-  "versionnes": 77,
+  "ok": 31,
+  "secs": 4153.6,
+  "changed": 84,
+  "versionnes": 76,
   "pieces_jointes": 8,
   "absents": 40,
   "muets": [],
   "failed": [
    {
     "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 429, 'message': 'Unable to perform query. Too many requests.', 'details': ['API calls quota exceeded (6821 request units)! maximum a"
+    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 499, 'message': 'Token Required', 'messageCode': 'GWM_0003', 'details': ['Token Required']}"
    },
    {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
-   },
-   {
-    "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-10 09:46', donnees du 2026-09-10 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-17T00:54:56Z"
+ "updated": "2026-11-17T10:28:47Z"
 }
