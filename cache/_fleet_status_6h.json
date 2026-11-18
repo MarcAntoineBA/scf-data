@@ -1,13 +1,13 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-17T23:07:00Z",
+  "ts": "2026-11-18T10:02:23Z",
   "total": 34,
   "ok": 30,
-  "secs": 4591.7,
-  "changed": 84,
-  "versionnes": 79,
-  "pieces_jointes": 5,
+  "secs": 5005.4,
+  "changed": 86,
+  "versionnes": 78,
+  "pieces_jointes": 8,
   "absents": 42,
   "muets": [],
   "failed": [
@@ -25,9 +25,9 @@
    },
    {
     "job": "tradfihist",
-    "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-10 09:46' ; causes : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudfl"
+    "why": "[ALERTE] source(s) en panne, cache ecrit PARTIELLEMENT a jour (ok=192 kept=32 fail=16 (tentes=240)) : macrotrends : 3 x HTTP 403 d'affilee (defi anti-robot Cloudflare « Just a moment ») -> US abandonn"
    }
   ]
  },
- "updated": "2026-11-17T23:07:00Z"
+ "updated": "2026-11-18T10:02:23Z"
 }
