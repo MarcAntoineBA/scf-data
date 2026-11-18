@@ -85,6 +85,19 @@ SURVEILLES = [
     ("prediction_markets_cache.json", 6.0, "Prediction Markets : bandeau « Collecte figée »"),
     ("crypto_etf_cache.json",         8.0, "flux ETF crypto"),
     ("global_markets_cache.json",     8.0, "marchés mondiaux"),
+    # MODÈLES IA (ajout du 18/11/2026). Figés QUATRE fois sans que personne ne le
+    # sache : 15/06 → 10/07 (25 j), 09/09 → 22/09 (13 j), 28/10 → 03/11 (7 j),
+    # 04/11 → 18/11 (15 j, widget de l'Accueil bloqué sur Mistral Large 4). Chaque
+    # fois Artificial Analysis avait changé sa page ; le collecteur du Mac refusait
+    # à raison d'écrire, mais ne le disait qu'au Mac (notification), et c'est
+    # l'utilisateur qui l'a vu. Le fichier est celui que lisent les pages (.js).
+    # Date lue : `donnees_du` = dernière collecte COMPLÈTE, avec fuseau
+    # (fetch_ai_models.py) ; une collecte qui publie les nouveaux modèles avec une
+    # mesure manquante ne la rajeunit pas. Ces pages n'affichent pas de bandeau :
+    # seuil calé en rejouant l'historique (02/06 → 18/11, 419 collectes) — marche
+    # normale ≤ 44,5 h (Mac éteint une journée), pannes ≥ 6,7 j → 48 h les attrape
+    # toutes, sans une seule fausse alerte.
+    ("ai_models_cache.js",           48.0, "modèles IA : widget « dernier modèle IA » de l'Accueil et onglet AI Models figés"),
 ]
 
 # ── LE BANDEAU « DONNÉES DATÉES DE Xh » DE LA PAGE DES COMPARAISONS ─────────
@@ -179,7 +192,9 @@ def horodatage(d, origine=""):
     if not isinstance(d, dict):
         return None, None
     fuseau_naif = timezone.utc if origine in ("branche", "piece-jointe") else FUSEAU_MAC
-    for cle in ("donnees_du", "genere_le", "generated_at", "ts_fetched", "updated", "last_update"):
+    # `fetchDate` (« AAAA-MM-JJ HH:MM », heure du Mac) en DERNIER : seul le cache
+    # des modèles IA le porte sans aucune des autres clés (18/11/2026).
+    for cle in ("donnees_du", "genere_le", "generated_at", "ts_fetched", "updated", "last_update", "fetchDate"):
         if cle not in d:
             continue
         v = d[cle]
