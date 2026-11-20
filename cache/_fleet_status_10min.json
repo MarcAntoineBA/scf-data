@@ -1,15 +1,17 @@
 {
  "bucket": "10min",
  "run": {
-  "ts": "2026-11-20T11:54:38Z",
+  "ts": "2026-11-20T12:06:09Z",
   "total": 6,
   "ok": 5,
-  "secs": 33.9,
-  "changed": 14,
-  "versionnes": 13,
+  "secs": 126.1,
+  "changed": 20,
+  "versionnes": 19,
   "pieces_jointes": 1,
   "absents": 48,
-  "muets": [],
+  "muets": [
+   "trackerstf (2.1 h)"
+  ],
   "failed": [
    {
     "job": "hlaccount",
@@ -17,5 +19,5 @@
    }
   ]
  },
- "updated": "2026-11-20T11:54:38Z"
+ "updated": "2026-11-20T12:06:09Z"
 }
