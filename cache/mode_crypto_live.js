@@ -1,1 +1,1 @@
-window.__MODE_CRYPTO_LIVE__={"mode":"zen","dist_pct":-20.77,"price":61575.0,"ma":77716.0,"perf_30d":-25.76,"ref_asset":"BTC","ma_label":"MA100","updated":"2026-11-19T21:51:14.135321+00:00"};
+window.__MODE_CRYPTO_LIVE__={"mode":"zen","dist_pct":-20.38,"price":61870.0,"ma":77704.0,"perf_30d":-26.42,"ref_asset":"BTC","ma_label":"MA100","updated":"2026-11-20T08:51:33.285346+00:00"};
