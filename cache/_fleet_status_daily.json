@@ -1,16 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-19T15:09:53Z",
+  "ts": "2026-11-20T14:22:56Z",
   "total": 42,
-  "ok": 38,
-  "secs": 4597.2,
-  "changed": 2953,
-  "versionnes": 2941,
-  "pieces_jointes": 12,
+  "ok": 36,
+  "secs": 2965.1,
+  "changed": 3458,
+  "versionnes": 3447,
+  "pieces_jointes": 11,
   "absents": 42,
   "muets": [],
   "failed": [
+   {
+    "job": "atlasquarterly",
+    "why": "[ABORT] garde-fou de référence en échec — rien écrit."
+   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -26,8 +30,12 @@
    {
     "job": "savoirbake",
     "why": "script absent"
+   },
+   {
+    "job": "tradfi.gamma",
+    "why": "aucune chaîne fraîche — fichiers laissés intacts"
    }
   ]
  },
- "updated": "2026-11-19T15:09:53Z"
+ "updated": "2026-11-20T14:22:56Z"
 }
