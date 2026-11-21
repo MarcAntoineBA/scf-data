@@ -1,16 +1,20 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-20T14:22:56Z",
+  "ts": "2026-11-21T14:01:21Z",
   "total": 42,
-  "ok": 36,
-  "secs": 2965.1,
-  "changed": 3458,
-  "versionnes": 3447,
+  "ok": 35,
+  "secs": 3574.9,
+  "changed": 2947,
+  "versionnes": 2936,
   "pieces_jointes": 11,
   "absents": 42,
   "muets": [],
   "failed": [
+   {
+    "job": "atlaseco",
+    "why": "[GUARD] audit interne en échec — cache précédent conservé"
+   },
    {
     "job": "atlasquarterly",
     "why": "[ABORT] garde-fou de référence en échec — rien écrit."
@@ -37,5 +41,5 @@
    }
   ]
  },
- "updated": "2026-11-20T14:22:56Z"
+ "updated": "2026-11-21T14:01:21Z"
 }
