@@ -1,15 +1,17 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-21T14:01:21Z",
+  "ts": "2026-11-22T13:53:26Z",
   "total": 42,
   "ok": 35,
-  "secs": 3574.9,
-  "changed": 2947,
-  "versionnes": 2936,
+  "secs": 3521.5,
+  "changed": 3457,
+  "versionnes": 3446,
   "pieces_jointes": 11,
   "absents": 42,
-  "muets": [],
+  "muets": [
+   "gtrends.serpapi (70.7 h)"
+  ],
   "failed": [
    {
     "job": "atlaseco",
@@ -41,5 +43,5 @@
    }
   ]
  },
- "updated": "2026-11-21T14:01:21Z"
+ "updated": "2026-11-22T13:53:26Z"
 }
