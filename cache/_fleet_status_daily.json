@@ -1,26 +1,18 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-22T13:53:26Z",
+  "ts": "2026-11-23T16:30:06Z",
   "total": 42,
-  "ok": 35,
-  "secs": 3521.5,
-  "changed": 3457,
-  "versionnes": 3446,
+  "ok": 37,
+  "secs": 4188.7,
+  "changed": 2950,
+  "versionnes": 2939,
   "pieces_jointes": 11,
   "absents": 42,
   "muets": [
-   "gtrends.serpapi (70.7 h)"
+   "gtrends.serpapi (97.3 h)"
   ],
   "failed": [
-   {
-    "job": "atlaseco",
-    "why": "[GUARD] audit interne en échec — cache précédent conservé"
-   },
-   {
-    "job": "atlasquarterly",
-    "why": "[ABORT] garde-fou de référence en échec — rien écrit."
-   },
    {
     "job": "desk.complet",
     "why": "script absent"
@@ -43,5 +35,5 @@
    }
   ]
  },
- "updated": "2026-11-22T13:53:26Z"
+ "updated": "2026-11-23T16:30:06Z"
 }
