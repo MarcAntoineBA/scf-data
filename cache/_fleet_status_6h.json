@@ -1,23 +1,23 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-25T11:29:37Z",
+  "ts": "2026-11-25T23:54:43Z",
   "total": 34,
   "ok": 31,
-  "secs": 4355.9,
+  "secs": 4586.3,
   "changed": 86,
-  "versionnes": 78,
-  "pieces_jointes": 8,
-  "absents": 42,
+  "versionnes": 79,
+  "pieces_jointes": 7,
+  "absents": 43,
   "muets": [],
   "failed": [
    {
-    "job": "atlasmaritime",
-    "why": "RuntimeError: échec requête après 4 essais : ArcGIS error: {'code': 400, 'message': '', 'details': ['Unable to perform query. Please check your parameters.']}"
-   },
-   {
     "job": "reservesorust",
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
+   },
+   {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
    },
    {
     "job": "tradfihist",
@@ -25,5 +25,5 @@
    }
   ]
  },
- "updated": "2026-11-25T11:29:37Z"
+ "updated": "2026-11-25T23:54:43Z"
 }
