@@ -1,12 +1,12 @@
 {
  "bucket": "5min",
  "run": {
-  "ts": "2026-11-25T04:27:54Z",
+  "ts": "2026-11-25T04:30:16Z",
   "total": 6,
-  "ok": 4,
-  "secs": 240.1,
-  "changed": 6,
-  "versionnes": 6,
+  "ok": 5,
+  "secs": 82.4,
+  "changed": 8,
+  "versionnes": 8,
   "pieces_jointes": 0,
   "absents": 54,
   "muets": [
@@ -16,12 +16,8 @@
    {
     "job": "hlflow",
     "why": "script absent"
-   },
-   {
-    "job": "news",
-    "why": "dépassement du plafond (4 min)"
    }
   ]
  },
- "updated": "2026-11-25T04:27:54Z"
+ "updated": "2026-11-25T04:30:16Z"
 }
