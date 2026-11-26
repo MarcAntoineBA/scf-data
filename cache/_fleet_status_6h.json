@@ -1,14 +1,14 @@
 {
  "bucket": "6h",
  "run": {
-  "ts": "2026-11-26T10:55:32Z",
+  "ts": "2026-11-26T23:44:03Z",
   "total": 34,
-  "ok": 32,
-  "secs": 4503.0,
+  "ok": 31,
+  "secs": 4583.1,
   "changed": 87,
-  "versionnes": 78,
-  "pieces_jointes": 9,
-  "absents": 42,
+  "versionnes": 79,
+  "pieces_jointes": 8,
+  "absents": 43,
   "muets": [],
   "failed": [
    {
@@ -16,10 +16,14 @@
     "why": "[reserves] sources critiques manquantes - rien n'est ecrit"
    },
    {
+    "job": "hydrocarbures",
+    "why": "dépassement du plafond (75 min)"
+   },
+   {
     "job": "tradfihist",
     "why": "[ALERTE] RIEN COLLECTE : ok=0 kept=1 fail=16 (tentes=17) ; tradfi_hist_cache.json NON reecrit, updated reste '2026-11-21 09:38', donnees du 2026-09-11 ; causes : macrotrends : 3 x HTTP 403 d'affilee ("
    }
   ]
  },
- "updated": "2026-11-26T10:55:32Z"
+ "updated": "2026-11-26T23:44:03Z"
 }
