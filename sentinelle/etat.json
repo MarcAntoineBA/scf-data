@@ -1,11 +1,14 @@
 {
- "en_panne": false,
- "depuis": null,
- "derniere_alerte": 1795596892.908443,
- "motifs": [],
- "verifie_le": "2026-11-27 15:23 UTC",
+ "en_panne": true,
+ "depuis": 1795822696.655394,
+ "derniere_alerte": 1795822696.655394,
+ "motifs": [
+  "prediction_markets_cache.json : 8.5 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »",
+  "bloc « secteurs » (secteurs_mondiaux.js) : 32.6 h (tolérance 32 h) — bandeau « Données datées de 32.6h » sur la page"
+ ],
+ "verifie_le": "2026-11-27 23:38 UTC",
  "rattrapages": {
-  "collect-1h.yml": 1795792997.1243436,
+  "collect-1h.yml": 1795822696.655394,
   "collect-6h.yml": 1795596892.908443
  }
 }
