@@ -1,15 +1,18 @@
 {
  "bucket": "daily",
  "run": {
-  "ts": "2026-11-27T15:21:43Z",
+  "ts": "2026-11-28T14:42:04Z",
   "total": 42,
-  "ok": 36,
-  "secs": 3733.3,
-  "changed": 2856,
-  "versionnes": 2844,
-  "pieces_jointes": 12,
-  "absents": 42,
-  "muets": [],
+  "ok": 37,
+  "secs": 3873.5,
+  "changed": 3455,
+  "versionnes": 3444,
+  "pieces_jointes": 11,
+  "absents": 43,
+  "muets": [
+   "gtrends.serpapi (70.9 h)",
+   "gtrendshype (70.9 h)"
+  ],
   "failed": [
    {
     "job": "desk.complet",
@@ -30,12 +33,8 @@
    {
     "job": "tradfi.gamma",
     "why": "aucune chaîne fraîche — fichiers laissés intacts"
-   },
-   {
-    "job": "marche",
-    "why": "[fatal] 32671 sociétés collectées contre 36569 au passage précédent, soit 11 % de moins. Aucune cause normale — jour férié, place fermée — ne fait perdre un quart de l'univers. On garde les fragments "
    }
   ]
  },
- "updated": "2026-11-27T15:21:43Z"
+ "updated": "2026-11-28T14:42:04Z"
 }
