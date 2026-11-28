@@ -1,12 +1,9 @@
 {
- "en_panne": true,
- "depuis": 1795822696.655394,
+ "en_panne": false,
+ "depuis": null,
  "derniere_alerte": 1795822696.655394,
- "motifs": [
-  "prediction_markets_cache.json : 8.5 h (seuil 6 h) — Prediction Markets : bandeau « Collecte figée »",
-  "bloc « secteurs » (secteurs_mondiaux.js) : 41.1 h (tolérance 32 h) — bandeau « Données datées de 41.1h » sur la page"
- ],
- "verifie_le": "2026-11-28 08:08 UTC",
+ "motifs": [],
+ "verifie_le": "2026-11-28 17:00 UTC",
  "rattrapages": {
   "collect-1h.yml": 1795853325.8890247,
   "collect-6h.yml": 1795853325.8890247
